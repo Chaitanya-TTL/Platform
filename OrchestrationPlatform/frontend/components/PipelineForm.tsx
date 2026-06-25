@@ -33,20 +33,20 @@ export function PipelineForm({ onSubmit, isLoading }: PipelineFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <label className="block text-sm font-medium text-gray-200 mb-2">
+      <div className="rounded-xl border border-slate-600/70 bg-slate-800/40 p-4">
+        <label className="mb-2 block text-sm font-medium text-gray-200">
           TeamCenter Item ID
         </label>
         <input
           type="text"
           value={itemId}
           onChange={(e) => setItemId(e.target.value)}
-          placeholder="e.g., 000575"
+          placeholder="Enter TeamCenter BOM ID, e.g. 000575"
           disabled={isLoading}
-          className="w-full px-4 py-2 bg-slate-600 border border-slate-500 rounded-lg text-white placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-slate-500 disabled:opacity-50"
+          className="w-full rounded-lg border border-slate-500 bg-slate-700 px-4 py-3 text-white placeholder-slate-400 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 disabled:bg-slate-600 disabled:opacity-50"
         />
-        <p className="text-xs text-gray-400 mt-1">
-          Enter the TeamCenter item ID to extract
+        <p className="mt-2 text-xs text-slate-400">
+          Enter the TeamCenter item ID, then click the button to start the extraction flow.
         </p>
       </div>
 
@@ -59,9 +59,9 @@ export function PipelineForm({ onSubmit, isLoading }: PipelineFormProps) {
       <button
         type="submit"
         disabled={isLoading}
-        className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:bg-gray-500 disabled:opacity-50 transition font-medium"
+        className="w-full rounded-lg bg-emerald-600 px-4 py-3 font-semibold text-white transition hover:bg-emerald-700 disabled:bg-gray-500 disabled:opacity-50"
       >
-        {isLoading ? "Running Pipeline..." : "Start Pipeline"}
+        {isLoading ? "Running Pipeline..." : "Run Extraction"}
       </button>
     </form>
   );

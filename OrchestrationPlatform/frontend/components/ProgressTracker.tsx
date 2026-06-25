@@ -94,7 +94,7 @@ export function ProgressTracker({
         onPhaseChange?.(progress.phase);
 
         if (progress.status === "error") {
-          setError(progress.message || progress.error);
+          setError(progress.message || progress.error || "Pipeline error");
           setIsComplete(true);
           onComplete?.();
         }
