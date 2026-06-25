@@ -576,11 +576,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\mcr932046\\Downloads\\PLM\\PLM\\OrchestrationPlatform\\Orchestration.API\\Orchestration.API.csproj",
+      "projectUniqueName": "C:\\Users\\mcr932046\\Downloads\\Platform\\OrchestrationPlatform\\Orchestration.API\\Orchestration.API.csproj",
       "projectName": "Orchestration.API",
-      "projectPath": "C:\\Users\\mcr932046\\Downloads\\PLM\\PLM\\OrchestrationPlatform\\Orchestration.API\\Orchestration.API.csproj",
+      "projectPath": "C:\\Users\\mcr932046\\Downloads\\Platform\\OrchestrationPlatform\\Orchestration.API\\Orchestration.API.csproj",
       "packagesPath": "C:\\Users\\mcr932046\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\mcr932046\\Downloads\\PLM\\PLM\\OrchestrationPlatform\\Orchestration.API\\obj\\",
+      "outputPath": "C:\\Users\\mcr932046\\Downloads\\Platform\\OrchestrationPlatform\\Orchestration.API\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\mcr932046\\AppData\\Roaming\\NuGet\\NuGet.Config"

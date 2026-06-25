@@ -1,0 +1,96 @@
+{
+  "workItem": "247",
+  "productModel": "_002403",
+  "content": [
+    {
+      "code": "BODY",
+      "description": "Body",
+      "familyType": "Feature",
+      "labels": [
+        "PLM"
+      ],
+      "isCalculated": false,
+      "isPrivate": false,
+      "features": [
+        {
+          "code": "NORMAL_BODY",
+          "description": "Normal Body"
+        },
+        {
+          "code": "SLIM_BODY",
+          "description": "Slim Body"
+        }
+      ]
+    },
+    {
+      "code": "SCREWJACK",
+      "description": "Screwjack",
+      "familyType": "Feature",
+      "labels": [
+        "PLM"
+      ],
+      "isCalculated": false,
+      "isPrivate": false,
+      "features": [
+        {
+          "code": "BODY",
+          "description": "Body"
+        },
+        {
+          "code": "COUNTER_SINK",
+          "description": "Counter Sink"
+        },
+        {
+          "code": "NUT",
+          "description": "Nut"
+        },
+        {
+          "code": "SCREW_SPINDLE",
+          "description": "Screw Spindle"
+        },
+        {
+          "code": "TOMMY_BAR",
+          "description": "Tommy Bar"
+        },
+        {
+          "code": "TOP_HEAD",
+          "description": "Top Head"
+        },
+        {
+          "code": "WASHER",
+          "description": "Washer"
+        }
+      ]
+    },
+    {
+      "code": "TOP_HEAD",
+      "description": "Top Head",
+      "familyType": "Feature",
+      "labels": [
+        "PLM"
+      ],
+      "isCalculated": false,
+      "isPrivate": false,
+      "features": [
+        {
+          "code": "CUP",
+          "description": "Cup"
+        },
+        {
+          "code": "CUP_150",
+          "description": "Cup 150"
+        }
+      ]
+    }
+  ],
+  "view": [
+    {
+      "description": "Extracted View",
+      "families": [
+        "BODY",
+        "SCREWJACK",
+        "TOP_HEAD"
+      ]
+    }
+  ]
+}
