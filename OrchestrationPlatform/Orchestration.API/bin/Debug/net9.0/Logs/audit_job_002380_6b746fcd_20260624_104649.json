@@ -1,0 +1,41 @@
+{
+  "jobId": "job_002380_6b746fcd",
+  "teamcenterItemId": "002380",
+  "startTime": "2026-06-24T10:46:22.9879821Z",
+  "endTime": "2026-06-24T10:46:49.6227338Z",
+  "status": "success",
+  "phases": [
+    {
+      "phase": "extract",
+      "status": "complete",
+      "startTime": "2026-06-24T10:46:22.9880058Z",
+      "endTime": "2026-06-24T10:46:49.3158183Z",
+      "progressPercent": 20,
+      "message": "✓ Data extracted from TeamCenter"
+    },
+    {
+      "phase": "transform",
+      "status": "complete",
+      "startTime": "2026-06-24T10:46:22.9880103Z",
+      "endTime": "2026-06-24T10:46:49.3158187Z",
+      "progressPercent": 80,
+      "message": "✓ BOM transformed successfully"
+    },
+    {
+      "phase": "load",
+      "status": "complete",
+      "startTime": "2026-06-24T10:46:49.3158218Z",
+      "endTime": "2026-06-24T10:46:49.6227323Z",
+      "progressPercent": 100,
+      "message": "✓ Pipeline completed successfully"
+    }
+  ],
+  "finalBom": {
+    "bomRoot": null,
+    "sourceItemId": "002380",
+    "sourceRevId": null,
+    "variantOptions": {},
+    "extractedAt": null
+  },
+  "error": null
+}

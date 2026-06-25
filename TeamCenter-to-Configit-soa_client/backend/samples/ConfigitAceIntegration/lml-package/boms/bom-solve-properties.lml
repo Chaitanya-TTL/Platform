@@ -1,0 +1,9 @@
+﻿bom solve properties {
+  default {
+    method: "findMinimalBom";
+    options: {
+      includeMandatory: true;
+      includeConfigurable: true;
+    };
+  }
+}

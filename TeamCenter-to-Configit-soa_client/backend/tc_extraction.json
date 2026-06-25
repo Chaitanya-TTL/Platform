@@ -1,0 +1,115 @@
+{
+  "bomRoot": {
+    "itemId": "000575",
+    "sequence": "",
+    "variantState": "Y",
+    "children": [
+      {
+        "itemId": "000577",
+        "sequence": "10",
+        "variantState": "Y",
+        "children": [
+          {
+            "itemId": "000578",
+            "sequence": "10",
+            "variantState": "Y",
+            "qty": "",
+            "revId": "A",
+            "name": "000578/A;1-Top",
+            "variantCondition": null
+          },
+          {
+            "itemId": "000579",
+            "sequence": "20",
+            "variantState": "Y",
+            "qty": "",
+            "revId": "A",
+            "name": "000579/A;1-Barrel",
+            "variantCondition": null
+          },
+          {
+            "itemId": "000582",
+            "sequence": "30",
+            "variantState": "Y",
+            "qty": "",
+            "revId": "A",
+            "name": "000582/A;1-Grip",
+            "variantCondition": null
+          }
+        ],
+        "qty": "",
+        "revId": "A",
+        "name": "000577/A;1-Body (View)",
+        "variantCondition": null
+      },
+      {
+        "itemId": "001908",
+        "sequence": "20",
+        "variantState": "Y",
+        "children": [
+          {
+            "itemId": "001909",
+            "sequence": "10",
+            "variantState": "Y",
+            "qty": "",
+            "revId": "A",
+            "name": "001909/A;1-BLUE",
+            "variantCondition": null
+          },
+          {
+            "itemId": "001910",
+            "sequence": "20",
+            "variantState": "Y",
+            "qty": "",
+            "revId": "A",
+            "name": "001910/A;1-RED",
+            "variantCondition": null
+          }
+        ],
+        "qty": "",
+        "revId": "A",
+        "name": "001908/A;1-Color",
+        "variantCondition": null
+      },
+      {
+        "itemId": "001911",
+        "sequence": "30",
+        "variantState": "Y",
+        "children": [
+          {
+            "itemId": "001912",
+            "sequence": "10",
+            "variantState": "Y",
+            "qty": "",
+            "revId": "A",
+            "name": "001912/A;1-THICK",
+            "variantCondition": null
+          },
+          {
+            "itemId": "001913",
+            "sequence": "20",
+            "variantState": "Y",
+            "qty": "",
+            "revId": "A",
+            "name": "001913/A;1-THIN",
+            "variantCondition": null
+          }
+        ],
+        "qty": "",
+        "revId": "A",
+        "name": "001911/A;1-Nib Type",
+        "variantCondition": null
+      }
+    ],
+    "qty": "",
+    "revId": "A",
+    "name": "000575/A;2-PEN (View)",
+    "variantCondition": null
+  },
+  "sourceRevId": "A",
+  "variantOptions": {
+  },
+  "sourceItemId": "000575",
+  "extractedAt": "2026-04-10T07:23:59.478040300Z"
+}
+ 

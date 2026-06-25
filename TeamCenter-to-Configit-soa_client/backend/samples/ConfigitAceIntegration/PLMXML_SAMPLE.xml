@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PLMXML xmlns="http://www.plmxml.org/Schemas/PLMXMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <!-- Sample PLMXML with variant rules for testing -->
+  
+  <!-- Define variant options -->
+  <Option id="id169" name="COLOR">
+    <Value v="BLUE"></Value>
+    <Value v="RED"></Value>
+    <Value v="GREEN"></Value>
+  </Option>
+  
+  <Option id="id170" name="NIB_TYPE">
+    <Value v="THICK"></Value>
+    <Value v="THIN"></Value>
+  </Option>
+  
+  <Option id="id171" name="SIZE">
+    <Value v="SMALL"></Value>
+    <Value v="LARGE"></Value>
+  </Option>
+  
+  <!-- AND Rule: If COLOR=RED then NIB_TYPE=THICK -->
+  <VariantRuleCheck id="id172">
+    <And>
+      <OptionIs optionRef="#id169" value="RED"></OptionIs>
+      <OptionIs optionRef="#id170" value="THICK"></OptionIs>
+    </And>
+    <CheckMessage message="If COLOR=RED then NIB_TYPE=THICK"></CheckMessage>
+  </VariantRuleCheck>
+  
+  <!-- OR Rule: SIZE must be SMALL or LARGE -->
+  <VariantRuleCheck id="id173">
+    <Or>
+      <OptionIs optionRef="#id171" value="SMALL"></OptionIs>
+      <OptionIs optionRef="#id171" value="LARGE"></OptionIs>
+    </Or>
+    <CheckMessage message="SIZE must be either SMALL or LARGE"></CheckMessage>
+  </VariantRuleCheck>
+  
+  <!-- AND Rule: Blue color cannot be THIN nib -->
+  <VariantRuleCheck id="id174">
+    <And>
+      <OptionIs optionRef="#id169" value="BLUE"></OptionIs>
+      <OptionIs optionRef="#id170" value="THIN"></OptionIs>
+    </And>
+    <CheckMessage message="Blue color requires THICK nib"></CheckMessage>
+  </VariantRuleCheck>
+  
+</PLMXML>

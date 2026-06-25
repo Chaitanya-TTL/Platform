@@ -1,0 +1,103 @@
+{
+  "PartId": "002380",
+  "PartName": "USB_DRIVE",
+  "PartNumber": "002380",
+  "Components": [
+    {
+      "PartId": "002381",
+      "PartName": "Body Casing",
+      "PartNumber": "002381",
+      "Components": null,
+      "Expressions": null,
+      "PartUse": {
+        "Quantity": 1
+      }
+    },
+    {
+      "PartId": "002382",
+      "PartName": "PCB",
+      "PartNumber": "002382",
+      "Components": null,
+      "Expressions": null,
+      "PartUse": {
+        "Quantity": 1
+      }
+    },
+    {
+      "PartId": "002383",
+      "PartName": "Storage",
+      "PartNumber": "002383",
+      "Components": [
+        {
+          "PartId": "002384",
+          "PartName": "16GB",
+          "PartNumber": "002384",
+          "Components": null,
+          "Expressions": null,
+          "PartUse": {
+            "Quantity": 1
+          }
+        },
+        {
+          "PartId": "002385",
+          "PartName": "64GB",
+          "PartNumber": "002385",
+          "Components": null,
+          "Expressions": null,
+          "PartUse": {
+            "Quantity": 1
+          }
+        }
+      ],
+      "Expressions": null,
+      "PartUse": {
+        "Quantity": 1
+      }
+    },
+    {
+      "PartId": "002386",
+      "PartName": "Type",
+      "PartNumber": "002386",
+      "Components": [
+        {
+          "PartId": "002387",
+          "PartName": "USB 2.0",
+          "PartNumber": "002387",
+          "Components": null,
+          "Expressions": null,
+          "PartUse": {
+            "Quantity": 1
+          }
+        },
+        {
+          "PartId": "002390",
+          "PartName": "USB 3.0",
+          "PartNumber": "002390",
+          "Components": null,
+          "Expressions": null,
+          "PartUse": {
+            "Quantity": 1
+          }
+        }
+      ],
+      "Expressions": null,
+      "PartUse": {
+        "Quantity": 1
+      }
+    },
+    {
+      "PartId": "002389",
+      "PartName": "Connector",
+      "PartNumber": "002389",
+      "Components": null,
+      "Expressions": null,
+      "PartUse": {
+        "Quantity": 1
+      }
+    }
+  ],
+  "Expressions": null,
+  "PartUse": {
+    "Quantity": 1
+  }
+}

@@ -1,0 +1,128 @@
+﻿C:\Users\mcr932046\OneDrive - Tata Technologies\Desktop\AceWindchill-Tc-to-CA-SOA-\ConfigitAceIntegration\ConfigitAceIntegration.csproj : warning NU1603: ConfigitAceIntegration depends on McMaster.Extensions.CommandLineUtils (>= 2.8.0) but McMaster.Extensions.CommandLineUtils 2.8.0 was not found. McMaster.Extensions.CommandLineUtils 3.0.0 was resolved instead.
+C:\Users\mcr932046\OneDrive - Tata Technologies\Desktop\AceWindchill-Tc-to-CA-SOA-\ConfigitAceIntegration\ConfigitAceIntegration.csproj : warning NU1603: ConfigitAceIntegration depends on Polly (>= 8.1.1) but Polly 8.1.1 was not found. Polly 8.2.0 was resolved instead.
+C:\Users\mcr932046\OneDrive - Tata Technologies\Desktop\AceWindchill-Tc-to-CA-SOA-\ConfigitAceIntegration\ConfigitAceIntegration.csproj : warning NU1603: ConfigitAceIntegration depends on McMaster.Extensions.CommandLineUtils (>= 2.8.0) but McMaster.Extensions.CommandLineUtils 2.8.0 was not found. McMaster.Extensions.CommandLineUtils 3.0.0 was resolved instead.
+C:\Users\mcr932046\OneDrive - Tata Technologies\Desktop\AceWindchill-Tc-to-CA-SOA-\ConfigitAceIntegration\ConfigitAceIntegration.csproj : warning NU1603: ConfigitAceIntegration depends on Polly (>= 8.1.1) but Polly 8.1.1 was not found. Polly 8.2.0 was resolved instead.
+info: Program[0]
+      === ConfigitAceIntegration ETL Pipeline ===
+info: Program[0]
+      JSON Path: tc_extraction.json
+info: Program[0]
+      Ace URI: https://ttl-01.demo.configit.cloud/
+info: Program[0]
+      Package Path: samples/pen
+info: Program[0]
+      Dry Run: False
+info: Program[0]
+      Phase 1: Loading extraction JSON...
+info: Program[0]
+      Phase 2: Parsing extraction DTO...
+info: ConfigitAceIntegration.Application.TransformationService[0]
+      Parsed extraction: ItemId=000575, RevId=A, VariantOptions count=2
+info: Program[0]
+      Phase 3: Validating extraction schema...
+info: ConfigitAceIntegration.Application.ValidationService[0]
+      Extraction validation passed
+info: Program[0]
+      Phase 4: Transforming BOM structure...
+info: ConfigitAceIntegration.Application.TransformationService[0]
+      Starting BOM transformation for item 000575
+info: ConfigitAceIntegration.Application.TransformationService[0]
+      BOM transformation complete. Root: 000575
+info: Program[0]
+      Phase 5: Validating BOM structure...
+info: ConfigitAceIntegration.Application.ValidationService[0]
+      BOM structure validation passed
+info: Program[0]
+      Phase 6: Writing BOM output...
+info: Program[0]
+      Γ£ô Transformed BOM saved to bom-output.json
+info: Program[0]
+      Phase 7: Uploading to Configit...
+info: Program[0]
+      Initializing Configit client...
+info: Program[0]
+      Step 1: Creating package at samples/pen...
+info: Program[0]
+      Γ£ô Package created: samples/pen~67e73251-4e26-4db9-a41e-cc43437929e6
+info: Program[0]
+      Phase 7a: Generating LML files...
+info: ConfigitAceIntegration.Infrastructure.LmlGeneration.LmlGenerator[0]
+      Generating LML files from extraction...
+info: ConfigitAceIntegration.Infrastructure.LmlGeneration.LmlGenerator[0]
+        Source Item: 000575, Revision: A
+info: ConfigitAceIntegration.Infrastructure.LmlGeneration.LmlGenerator[0]
+        Variant Options: 2
+info: ConfigitAceIntegration.Infrastructure.LmlGeneration.LmlGenerator[0]
+          - COLOR: 2 values
+info: ConfigitAceIntegration.Infrastructure.LmlGeneration.LmlGenerator[0]
+          - NIB TYPE: 2 values
+info: ConfigitAceIntegration.Infrastructure.LmlGeneration.LmlGenerator[0]
+      Γ£ô Generated global/variables.lml (104 bytes)
+info: ConfigitAceIntegration.Infrastructure.LmlGeneration.LmlGenerator[0]
+      Γ£ô Generated global/languages.lml (99 bytes)
+info: ConfigitAceIntegration.Infrastructure.LmlGeneration.LmlGenerator[0]
+      Γ£ô Generated boms/BOMs.lml (884 bytes)
+info: ConfigitAceIntegration.Infrastructure.LmlGeneration.LmlGenerator[0]
+      Γ£ô Generated boms/bom-solve-properties.lml (165 bytes)
+info: ConfigitAceIntegration.Infrastructure.LmlGeneration.LmlGenerator[0]
+      Γ£ô Generated product-models/000575/model.lml (323 bytes)
+info: ConfigitAceIntegration.Infrastructure.LmlGeneration.LmlGenerator[0]
+      Γ£ô Generated product-models/000575/augment.sections.lml (27 bytes)
+info: ConfigitAceIntegration.Infrastructure.LmlGeneration.LmlGenerator[0]
+      Γ£ô Generated product-models/000575/augment.values.lml (14 bytes)
+info: ConfigitAceIntegration.Infrastructure.LmlGeneration.LmlGenerator[0]
+      Γ£ô Generated product-models/000575/augment.variables.lml (14 bytes)
+info: ConfigitAceIntegration.Infrastructure.LmlGeneration.LmlGenerator[0]
+      Γ£ô Generated products/Products.lml (72 bytes)
+info: ConfigitAceIntegration.Infrastructure.LmlGeneration.LmlGenerator[0]
+      Generated 9 LML files total
+info: Program[0]
+        Γ£ô Generated 9 LML files
+info: Program[0]
+      Phase 7b: Exporting LML files to disk for reference...
+info: ConfigitAceIntegration.Infrastructure.LmlGeneration.LmlExporter[0]
+      Exporting LML files to lml-package...
+info: ConfigitAceIntegration.Infrastructure.LmlGeneration.LmlExporter[0]
+        Total files to export: 9
+warn: ConfigitAceIntegration.Infrastructure.LmlGeneration.LmlExporter[0]
+        Could not delete existing directory (will overwrite): Access to the path '\\?\C:\Users\mcr932046\OneDrive - Tata Technologies\Desktop\AceWindchill-Tc-to-CA-SOA-\ConfigitAceIntegration\lml-package\global' is denied.
+info: ConfigitAceIntegration.Infrastructure.LmlGeneration.LmlExporter[0]
+        Γ£ô boms/bom-solve-properties.lml (165 bytes)
+info: ConfigitAceIntegration.Infrastructure.LmlGeneration.LmlExporter[0]
+        Γ£ô boms/BOMs.lml (884 bytes)
+info: ConfigitAceIntegration.Infrastructure.LmlGeneration.LmlExporter[0]
+        Γ£ô global/languages.lml (99 bytes)
+info: ConfigitAceIntegration.Infrastructure.LmlGeneration.LmlExporter[0]
+        Γ£ô global/variables.lml (104 bytes)
+info: ConfigitAceIntegration.Infrastructure.LmlGeneration.LmlExporter[0]
+        Γ£ô product-models/000575/augment.sections.lml (27 bytes)
+info: ConfigitAceIntegration.Infrastructure.LmlGeneration.LmlExporter[0]
+        Γ£ô product-models/000575/augment.values.lml (14 bytes)
+info: ConfigitAceIntegration.Infrastructure.LmlGeneration.LmlExporter[0]
+        Γ£ô product-models/000575/augment.variables.lml (14 bytes)
+info: ConfigitAceIntegration.Infrastructure.LmlGeneration.LmlExporter[0]
+        Γ£ô product-models/000575/model.lml (323 bytes)
+info: ConfigitAceIntegration.Infrastructure.LmlGeneration.LmlExporter[0]
+        Γ£ô products/Products.lml (72 bytes)
+info: ConfigitAceIntegration.Infrastructure.LmlGeneration.LmlExporter[0]
+      Γ£ô Exported 9 LML files to C:\Users\mcr932046\OneDrive - Tata Technologies\Desktop\AceWindchill-Tc-to-CA-SOA-\ConfigitAceIntegration\lml-package (1702 bytes total)
+info: Program[0]
+        Γ£ô LML files exported to: C:\Users\mcr932046\OneDrive - Tata Technologies\Desktop\AceWindchill-Tc-to-CA-SOA-\ConfigitAceIntegration\lml-package
+info: Program[0]
+      Phase 7c: Creating PackageBuilder and adding model content...
+info: Program[0]
+        - Adding 2 variables to package...
+info: Program[0]
+      Phase 7d: Uploading model to Configit...
+info: Program[0]
+        Γ£ô Model uploaded to Configit
+info: Program[0]
+      Phase 8a: Starting compilation...
+info: Program[0]
+      Compilation ID: aee19b27ee2a4d81955971c9c848270c
+info: Program[0]
+      Phase 8b: Waiting for compilation to complete...
+info: Program[0]
+      Γ£ô Package compiled successfully
+info: Program[0]
+      === Γ£ô ETL Pipeline Complete ===

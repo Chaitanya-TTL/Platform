@@ -1,0 +1,164 @@
+<project name="SOA Sample Client" default="All" basedir=".">
+  <description>
+     Build file to build SOA Tests.
+  </description>
+    
+    <echo message=" ===========================================================" />
+    <echo message=" ================== SOA Hello Teamcenter ===================" />
+    <echo message=" ===========================================================" />
+   
+
+    <!--Javac target version-->
+    <property name="src"                     location="${basedir}/src"/>  
+    <property name="soa.home"                location="../../.."/>  
+
+
+        
+    <fileset dir="${soa.home}/java/libs" id="soa.libs">
+        <include name="TcLogging.jar" />
+        <include name="TcSoaCommon_*.jar" />
+        <include name="TcSoaClient_*.jar" />
+        <include name="TcSoaStrongModel_*.jar" />
+        <include name="TcSoaCoreStrong_*.jar" />
+        <include name="TcSoaQueryStrong_*.jar" />
+     </fileset>
+
+        
+    <fileset dir="${soa.home}/java/libs" id="third.party.libs">
+        <include name="XmlSchema-1.3.2.jar" />
+        <include name="commons-codec-1.11.jar" />
+        <include name="commons-logging-1.2.jar" />
+        <include name="content-type-2.0.jar" />
+        <include name="fccclient.jar" />
+        <include name="fmsticket.jar" />
+        <include name="fscclient.jar" />
+        <include name="httpclient-4.5.13.jar" />
+        <include name="httpcore-4.4.13.jar" />
+        <include name="httpmime-4.5.13.jar" />
+        <include name="j2ee.jar" />
+        <include name="jackson-annotations-2.17.0.jar" />
+        <include name="jackson-core-2.17.0.jar" />
+        <include name="jackson-databind-2.17.0.jar" />
+        <include name="jakarta.activation.jar" />
+        <include name="jakarta.xml.bind-api.jar" />
+        <include name="jaxb-impl.jar" />
+        <include name="jaxb-jxc.jar" />
+        <include name="jaxb-xjc.jar" />
+        <include name="jetty-client-11.0.24.jar" />
+        <include name="jetty-http-11.0.24.jar" />
+        <include name="jetty-io-11.0.24.jar" />
+        <include name="jetty-jakarta-servlet-api-5.0.2.jar" />
+        <include name="jetty-jmx-11.0.24.jar" />
+        <include name="jetty-proxy-11.0.24.jar" />
+        <include name="jetty-security-11.0.24.jar" />
+        <include name="jetty-server-11.0.24.jar" />
+        <include name="jetty-servlet-11.0.24.jar" />
+        <include name="jetty-servlets-11.0.24.jar" />
+        <include name="jetty-slf4j-impl-11.0.24.jar" />
+        <include name="jetty-util-11.0.24.jar" />
+        <include name="jetty-xml-11.0.24.jar" />
+        <include name="json-smart-2.5.2.jar" />
+        <include name="lang-tag-1.4.3.jar" />
+        <include name="log4j-1.2-api-2.17.1.jar" />
+        <include name="log4j-api-2.17.1.jar" />
+        <include name="log4j-core-2.17.1.jar" />
+        <include name="nimbus-jose-jwt-9.37.3.jar" />
+        <include name="oauth2-oidc-sdk-11.10.1.jar" />
+        <include name="serializer.jar" />
+        <include name="slf4j-api-2.0.9.jar" />
+        <include name="tcmemjavabinding.jar" />
+        <include name="tcserverjavabinding.jar" />
+        <include name="teamcenter_sso_applib.jar" />
+        <include name="teamcenter_sso_common.jar" />
+        <include name="teamcenter_sso_ldapcustom.jar" />
+        <include name="teamcenter_sso_webtoolkit.jar" />
+        <include name="xercesImpl.jar" />
+    </fileset>
+
+    <condition property="is.windows">
+        <os family="windows"/>
+    </condition>
+    
+    <condition property="is.unix"> 
+        <os family="unix"/>
+    </condition>
+
+    <path id="build.classpath">
+        <fileset refid="soa.libs"  />
+    </path>
+
+    <path id="run.classpath">
+        <pathelement location="${basedir}/bin"/>
+        <fileset refid="soa.libs"  />
+        <fileset refid="third.party.libs"  />
+    </path>
+
+    <target name="init">
+        <tstamp/>
+        <mkdir dir="${basedir}/bin"/> 
+    </target>
+
+    <target name="clean"  >
+        <delete  dir="${basedir}/bin" />   
+    </target>
+ 
+    <target name="Compile" depends="init" description="compile the source">
+        
+         <javac destdir="${basedir}/bin" debug="true" srcdir="${src}" includeantruntime="false" source="11" target="11">
+            <classpath refid="build.classpath"/>     
+         </javac>
+
+    </target>
+    
+    <target name="CreateWindowsScript" depends="Compile" if="is.windows">             
+
+        <property name="app.cp" refid="run.classpath" />
+        
+        <echo file="RunMe.bat" append="false" >
+            @echo off
+        
+            if ""%1""==""-h""    goto Help
+            if ""%1""==""-help"" goto Help
+            if ""%1""==""?""     goto Help
+                                    
+            SET APP_CP=${app.cp}
+                                    
+        
+            "${java.home}\bin\java" -cp %APP_CP% -Dhost=%1% com.teamcenter.hello.Hello 
+        
+            goto Exit
+        
+            :Help
+            echo Usage: RunMe [http://server:port/tc]
+            echo        Will default to http://hnjpitstop3srv:8080/tc if no argument is given.
+        
+            :Exit
+
+        </echo>
+    </target>
+        
+    <target name="CreateUnixScript" depends="Compile" if="is.unix">
+                        
+        <property name="app.cp" refid="run.classpath" />
+
+                        
+        <echo file="RunMe.sh" append="false" >
+         
+            if [ "$1" = "-h" ] || [ "$1" = "-help" ] || [ "$1" = "?" ]|| [ $# -ne 1 ] 
+            then
+                echo "Usage: ./RunMe.sh [http://server:port/tc]"
+                echo "Will default to http://hnjpitstop3srv:8080/tc if no argument is given."
+            else
+                                
+                export APP_CP=${app.cp}
+                "${java.home}/bin/java" -cp $APP_CP -Dhost=$1 com.teamcenter.hello.Hello 
+            fi
+        
+        </echo>
+        <chmod file="RunMe.sh" perm="ugo+rx"/>
+    </target>
+
+            
+    <target name="All" depends="init,Compile,CreateWindowsScript,CreateUnixScript"/>
+    
+</project>

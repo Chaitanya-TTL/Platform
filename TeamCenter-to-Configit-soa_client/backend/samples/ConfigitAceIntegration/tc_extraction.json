@@ -1,0 +1,107 @@
+{
+  "bomRoot": {
+    "itemId": "002380",
+    "sequence": "",
+    "variantState": "Y",
+    "children": [
+      {
+        "itemId": "002381",
+        "sequence": "10",
+        "variantState": "Y",
+        "qty": "",
+        "revId": "A",
+        "name": "002381/A;1-Body Casing",
+        "variantCondition": null
+      },
+      {
+        "itemId": "002382",
+        "sequence": "20",
+        "variantState": "Y",
+        "qty": "",
+        "revId": "A",
+        "name": "002382/A;1-PCB",
+        "variantCondition": null
+      },
+      {
+        "itemId": "002383",
+        "sequence": "30",
+        "variantState": "Y",
+        "children": [
+          {
+            "itemId": "002384",
+            "sequence": "10",
+            "variantState": "Y",
+            "qty": "",
+            "revId": "A",
+            "name": "002384/A;1-16GB",
+            "variantCondition": null
+          },
+          {
+            "itemId": "002385",
+            "sequence": "20",
+            "variantState": "Y",
+            "qty": "",
+            "revId": "A",
+            "name": "002385/A;1-64GB",
+            "variantCondition": null
+          }
+        ],
+        "qty": "",
+        "revId": "A",
+        "name": "002383/A;1-Storage",
+        "variantCondition": null
+      },
+      {
+        "itemId": "002386",
+        "sequence": "40",
+        "variantState": "Y",
+        "children": [
+          {
+            "itemId": "002387",
+            "sequence": "10",
+            "variantState": "Y",
+            "qty": "",
+            "revId": "A",
+            "name": "002387/A;1-USB 2.0",
+            "variantCondition": null
+          },
+          {
+            "itemId": "002390",
+            "sequence": "20",
+            "variantState": "Y",
+            "qty": "",
+            "revId": "A",
+            "name": "002390/A;1-USB 3.0",
+            "variantCondition": null
+          }
+        ],
+        "qty": "",
+        "revId": "A",
+        "name": "002386/A;1-Type",
+        "variantCondition": null
+      },
+      {
+        "itemId": "002389",
+        "sequence": "60",
+        "variantState": "Y",
+        "qty": "",
+        "revId": "A",
+        "name": "002389/A;1-Connector",
+        "variantCondition": null
+      }
+    ],
+    "qty": "",
+    "revId": "A",
+    "name": "002380/A;1-USB_DRIVE",
+    "variantCondition": null
+  },
+  "sourceRevId": "A",
+  "variantOptions": {
+
+  },
+  "sourceItemId": "002380",
+  "variantRules": [
+
+  ],
+  "extractedAt": "2026-06-24T10:46:34.981675100Z"
+}

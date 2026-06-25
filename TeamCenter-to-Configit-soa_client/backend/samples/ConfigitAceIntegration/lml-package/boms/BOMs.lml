@@ -1,0 +1,31 @@
+﻿bom catalog {
+  units {
+    default EA scale 0 with fallback 1;
+  }
+  [000575,000575] for 000575 {
+    product [000575_000577/A;1-Body_(View)]: 000577/A;1-Body (View) {
+      quantity: ;
+    };
+    product [000575_000580/A;1-Nib_(THICK)]: 000580/A;1-Nib (THICK) {
+      quantity: ;
+    };
+    product [000575_000581/A;1-Nib_(thin)]: 000581/A;1-Nib (thin) {
+      quantity: ;
+    };
+    product [000575_000582/A;1-Grip]: 000582/A;1-Grip {
+      quantity: ;
+    };
+    product [000575_000583/A;1-Pen_Cap_(RED)]: 000583/A;1-Pen Cap (RED) {
+      quantity: ;
+    };
+    product [000575_000584/A;1-Pen_Cap_(BLUE)]: 000584/A;1-Pen Cap (BLUE) {
+      quantity: ;
+    };
+    product [000575_000585/A;1-Ink_(BLUE)]: 000585/A;1-Ink (BLUE) {
+      quantity: ;
+    };
+    product [000575_000586/A;1-Ink_(RED)]: 000586/A;1-Ink (RED) {
+      quantity: ;
+    };
+  }
+}

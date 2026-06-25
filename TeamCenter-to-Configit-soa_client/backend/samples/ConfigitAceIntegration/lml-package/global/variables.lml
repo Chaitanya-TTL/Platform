@@ -1,0 +1,4 @@
+﻿variable catalog {
+  var COLOR: string {"RED", "BLUE"};
+  var NIB TYPE: string {"THICK", "THIN"};
+}

@@ -1,0 +1,6 @@
+﻿language catalog {
+  language System {
+    englishName: "System";
+    isDefault: true;
+  }
+}

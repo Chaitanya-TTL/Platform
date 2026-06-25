@@ -1,0 +1,9 @@
+﻿product catalog {
+  000575 as configurable;
+  COLOR as standard;
+  [RED] as standard;
+  [BLUE] as standard;
+  NIB TYPE as standard;
+  [THICK] as standard;
+  [THIN] as standard;
+}

@@ -1,0 +1,11 @@
+﻿model 000575 {
+option multiValuedSeparator: ".";
+
+macro AtLeastOneOf(args*): truecount args >= 1;
+macro ExactlyOneOf(args*): truecount args = 1;
+macro AnyOf(args*): truecount args > 0;
+macro AllOf(args*): truecount args = count args;
+
+var COLOR: string {"RED", "BLUE"};
+var NIB TYPE: string {"THICK", "THIN"};
+}
