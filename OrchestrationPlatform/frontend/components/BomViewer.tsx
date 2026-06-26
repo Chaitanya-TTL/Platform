@@ -1,35 +1,41 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { motion } from "framer-motion";
-import Tree from "react-d3-tree";
-import type { RawNodeDatum } from "react-d3-tree";
+import { Tree, getTreeLinePrefix, type NodeRendererProps } from "react-arborist";
 
 interface BomViewerProps {
-  jobId: string;
+  jobId?: string;
+  title?: string;
+  description?: string;
+  endpoint?: string;
+  transformPayload?: (payload: any) => TreeNodeData | null;
+  emptyMessage?: string;
+  polling?: boolean;
 }
 
-type TreeNodeDatum = RawNodeDatum & {
-  animationDelay?: number;
+type TreeNodeData = {
+  id: string;
+  name: string;
   attributes?: Record<string, string | number | boolean>;
-  children?: TreeNodeDatum[];
+  children?: TreeNodeData[];
 };
 
-function getBomRoot(payload: any) {
+function getTeamcenterRoot(payload: any): TreeNodeData | null {
   if (!payload) return null;
 
-  if (payload.bomRoot) {
-    return payload.bomRoot;
+  const payloadRoot = payload.bomRoot ?? payload.bomStructure?.bomRoot ?? payload.root ?? null;
+  if (payloadRoot) {
+    return transformTeamcenterNode(payloadRoot, "teamcenter-root");
   }
 
   if (payload.itemId || payload.name || payload.children) {
-    return payload;
+    return transformTeamcenterNode(payload, "teamcenter-root");
   }
 
   return null;
 }
 
-function transformBomToTreeData(node: any): TreeNodeDatum {
+function transformTeamcenterNode(node: any, fallbackId: string): TreeNodeData {
   const attributes: Record<string, string | number | boolean> = {};
 
   if (node.itemId) attributes["Item ID"] = node.itemId;
@@ -40,128 +46,159 @@ function transformBomToTreeData(node: any): TreeNodeDatum {
   if (node.variantCondition) attributes["Variant Condition"] = node.variantCondition;
 
   return {
+    id: node.id ?? node.itemId ?? fallbackId,
     name: node.name || node.itemId || "Unnamed node",
     attributes,
     children: Array.isArray(node.children)
-      ? node.children.map((child: any) => transformBomToTreeData(child))
+      ? node.children.map((child: any, index: number) => transformTeamcenterNode(child, `${fallbackId}-${index}`))
       : [],
   };
 }
 
-function annotateAnimationDelays(root: TreeNodeDatum) {
-  const queue: TreeNodeDatum[] = [root];
-  let index = 0;
-
-  while (queue.length > 0) {
-    const current = queue.shift();
-    if (!current) continue;
-
-    current.animationDelay = index * 0.08;
-    index += 1;
-
-    if (current.children?.length) {
-      queue.push(...current.children);
-    }
+function getConfigitRoot(payload: any): TreeNodeData | null {
+  if (!payload || !Array.isArray(payload.content)) {
+    return null;
   }
 
-  return root;
+  const families = payload.content;
+  if (!families.length) return null;
+
+  return {
+    id: "configit-root",
+    name: payload.productModel ? `Product Model ${payload.productModel}` : "Configit BOM",
+    attributes: payload.workItem ? { "Work Item": payload.workItem } : {},
+    children: families.map((family: any, index: number) => ({
+      id: family.code ? `family-${family.code}` : `family-${index}`,
+      name: family.description || family.code || `Family ${index + 1}`,
+      attributes: {
+        Code: family.code || "",
+        "Family Type": family.familyType || "",
+        Labels: Array.isArray(family.labels) ? family.labels.join(", ") : "",
+      },
+      children: Array.isArray(family.features)
+        ? family.features.map((feature: any, featureIndex: number) => ({
+            id: feature.code ? `feature-${feature.code}` : `feature-${index}-${featureIndex}`,
+            name: feature.description || feature.code || `Feature ${featureIndex + 1}`,
+            attributes: feature.code ? { Code: feature.code } : {},
+          }))
+        : [],
+    })),
+  };
 }
 
-function renderCustomNodeElement({ nodeDatum, toggleNode }: any) {
-  const datum = nodeDatum as TreeNodeDatum;
-  const hasChildren = Boolean(datum.children?.length);
+function TreeNode({ node, style, dragHandle }: NodeRendererProps<TreeNodeData>) {
+  const hasChildren = !node.isLeaf;
 
   return (
-    <g>
-      <circle
-        r={hasChildren ? 12 : 8}
-        fill={hasChildren ? "#34d399" : "#60a5fa"}
-        stroke="#020617"
-        strokeWidth="2"
-      />
-      <foreignObject x="-140" y="16" width="280" height="92">
-        <motion.div
-          initial={{ opacity: 0, y: 12, scale: 0.96 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={{ duration: 0.25, delay: (datum.animationDelay ?? 0) * 0.1 }}
-          className="rounded-xl border border-emerald-400/20 bg-slate-800/95 px-3 py-2 shadow-xl backdrop-blur"
-          onClick={() => hasChildren && toggleNode?.()}
-          style={{ cursor: hasChildren ? "pointer" : "default" }}
+    <div style={style} ref={dragHandle} className="flex items-center">
+      <div className="flex min-w-0 items-center gap-2 rounded-lg border border-slate-700/80 bg-slate-800/80 px-3 py-2 text-sm text-slate-100 shadow-sm shadow-slate-950/20">
+        <span className="font-mono text-[11px] leading-none text-slate-500">{getTreeLinePrefix(node)}</span>
+        <button
+          type="button"
+          aria-label={hasChildren ? "Toggle children" : "Leaf node"}
+          onClick={() => hasChildren && node.toggle()}
+          className="flex h-5 w-5 items-center justify-center rounded-full border border-emerald-400/40 bg-emerald-500/10 text-[11px] font-semibold text-emerald-300"
         >
-          <div className="text-sm font-semibold text-white">{datum.name}</div>
-          <div className="mt-1 space-y-0.5 text-[11px] text-slate-400">
-            {Object.entries(datum.attributes ?? {}).slice(0, 3).map(([key, value]) => (
-              <div key={key}>
-                <span className="text-slate-500">{key}:</span> {String(value)}
-              </div>
+          {hasChildren ? (node.isOpen ? "−" : "+") : "•"}
+        </button>
+        <div className="min-w-0">
+          <div className="truncate font-medium">{node.data.name}</div>
+          <div className="mt-0.5 flex flex-wrap gap-2 text-[11px] text-slate-400">
+            {Object.entries(node.data.attributes ?? {}).slice(0, 2).map(([key, value]) => (
+              <span key={key} className="truncate">
+                {key}: {String(value)}
+              </span>
             ))}
           </div>
-        </motion.div>
-      </foreignObject>
-    </g>
+        </div>
+      </div>
+    </div>
   );
 }
 
-export function BomViewer({ jobId }: BomViewerProps) {
-  const [bom, setBom] = useState<any | null>(null);
+export function BomViewer({
+  jobId,
+  title = "BOM Structure",
+  description = "Rendered from the extraction JSON",
+  endpoint = "/api/bom",
+  transformPayload = getTeamcenterRoot,
+  emptyMessage = "No BOM structure available yet",
+  polling = Boolean(jobId),
+}: BomViewerProps) {
+  const [payload, setPayload] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [retrying, setRetrying] = useState(false);
 
   useEffect(() => {
-    if (!jobId) {
-      setLoading(false);
-      setError("Waiting for pipeline to start...");
-      return;
-    }
+    let isMounted = true;
 
     const fetchBom = async () => {
       try {
-        const response = await fetch("/api/bom", { cache: "no-store" });
+        const response = await fetch(endpoint, { cache: "no-store" });
         if (!response.ok) {
           throw new Error("Extraction file not available yet");
         }
 
-        const payload = await response.json();
-        const root = getBomRoot(payload);
+        const data = await response.json();
+        if (!isMounted) return;
 
+        const root = transformPayload(data);
         if (root) {
-          setBom(root);
+          setPayload(root);
           setError(null);
         } else {
+          setPayload(null);
           setError("The extraction JSON is empty or unreadable.");
         }
       } catch (err) {
         console.error("Failed to fetch BOM:", err);
+        if (!isMounted) return;
+        setPayload(null);
         setError(err instanceof Error ? err.message : "Failed to load BOM");
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
-    const interval = window.setInterval(fetchBom, 1500);
+    if (jobId) {
+      setLoading(true);
+    }
+
     fetchBom();
 
-    return () => window.clearInterval(interval);
-  }, [jobId]);
+    if (polling) {
+      const interval = window.setInterval(fetchBom, 1500);
+      return () => {
+        isMounted = false;
+        window.clearInterval(interval);
+      };
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [endpoint, jobId, polling, transformPayload]);
 
   const treeData = useMemo(() => {
-    if (!bom) return null;
-    const root = transformBomToTreeData(bom);
-    return annotateAnimationDelays(root);
-  }, [bom]);
+    if (!payload) return [];
+    return [payload];
+  }, [payload]);
 
   const handleRetry = async () => {
     setRetrying(true);
     try {
-      const response = await fetch("/api/bom", { cache: "no-store" });
+      const response = await fetch(endpoint, { cache: "no-store" });
       if (!response.ok) throw new Error("Extraction file not available yet");
-      const payload = await response.json();
-      const root = getBomRoot(payload);
+      const data = await response.json();
+      const root = transformPayload(data);
       if (root) {
-        setBom(root);
+        setPayload(root);
         setError(null);
       } else {
+        setPayload(null);
         setError("The extraction JSON is empty or unreadable.");
       }
     } catch (err) {
@@ -171,7 +208,7 @@ export function BomViewer({ jobId }: BomViewerProps) {
     }
   };
 
-  if (loading && !bom) {
+  if (loading && !payload) {
     return (
       <div className="flex flex-col items-center justify-center py-10 text-center">
         <div className="mb-3 h-12 w-12 animate-spin rounded-full border-4 border-emerald-500/30 border-t-emerald-500" />
@@ -181,13 +218,13 @@ export function BomViewer({ jobId }: BomViewerProps) {
     );
   }
 
-  if (error || !treeData) {
+  if (error || !treeData.length) {
     return (
       <div className="flex flex-col items-center justify-center space-y-3 py-10 text-center">
         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-700/50">
           <span className="text-2xl">📋</span>
         </div>
-        <p className="text-slate-400">{error || "No BOM structure available yet"}</p>
+        <p className="text-slate-400">{error || emptyMessage}</p>
         <button
           onClick={handleRetry}
           disabled={retrying}
@@ -202,25 +239,35 @@ export function BomViewer({ jobId }: BomViewerProps) {
   return (
     <div className="space-y-4">
       <div className="rounded-lg border border-slate-700/50 bg-slate-800/30 p-4">
-        <div className="mb-3 flex flex-wrap items-center gap-2">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <div className="text-sm font-semibold text-white">{title}</div>
+            <div className="text-xs text-slate-400">{description}</div>
+          </div>
           <span className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-300">
-            Live BOM stream
+            Expandable hierarchy
           </span>
-          <span className="text-xs text-slate-400">Rendered from the TeamCenter extraction JSON</span>
         </div>
 
-        <div className="h-[70vh] min-h-[420px] overflow-hidden rounded-xl border border-slate-700/50 bg-slate-950/50 p-3">
-          <Tree
-            data={treeData}
-            renderCustomNodeElement={renderCustomNodeElement}
-            pathFunc="step"
-            orientation="vertical"
-            separation={{ siblings: 1.75, nonSiblings: 2.2 }}
-            translate={{ x: 320, y: 60 }}
-            initialDepth={0}
-            collapsible={false}
-            zoom={0.9}
-          />
+        <div className="overflow-hidden rounded-xl border border-slate-700/50 bg-slate-950/50 p-3">
+          <div className="mb-2 text-xs text-slate-400">
+            Click the + or − icon beside a parent to expand and collapse levels, mirroring TeamCenter Structure Manager behaviour.
+          </div>
+          <div className="h-[60vh] min-h-[420px] overflow-auto rounded-lg border border-slate-800/70 bg-slate-900/70 p-2">
+            <Tree
+              data={treeData}
+              openByDefault={false}
+              width="100%"
+              height={Math.max(420, treeData.length * 44 + treeData[0].children?.length ? treeData[0].children.length * 44 : 0)}
+              rowHeight={44}
+              indent={20}
+              overscanCount={3}
+              paddingTop={12}
+              paddingBottom={12}
+            >
+              {TreeNode}
+            </Tree>
+          </div>
         </div>
       </div>
     </div>
