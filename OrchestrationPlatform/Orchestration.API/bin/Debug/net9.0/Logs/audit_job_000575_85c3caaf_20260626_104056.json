@@ -1,0 +1,27 @@
+{
+  "jobId": "job_000575_85c3caaf",
+  "teamcenterItemId": "000575",
+  "startTime": "2026-06-26T10:40:56.3096029Z",
+  "endTime": "2026-06-26T10:40:56.596095Z",
+  "status": "failed",
+  "phases": [
+    {
+      "phase": "extract",
+      "status": "in_progress",
+      "startTime": "2026-06-26T10:40:56.3097729Z",
+      "endTime": null,
+      "progressPercent": 0,
+      "message": null
+    },
+    {
+      "phase": "transform",
+      "status": "in_progress",
+      "startTime": "2026-06-26T10:40:56.3097808Z",
+      "endTime": null,
+      "progressPercent": 20,
+      "message": null
+    }
+  ],
+  "finalBom": null,
+  "error": "Pipeline execution failed: \r\n============================================================\r\n ETL Pipeline: HelloTeamcenter - ConfigitAceIntegration\r\n============================================================\r\n\r\n[STEP 1/2] Running HelloTeamcenter...\r\nConnecting to: http://hnjpitstop3srv:8080/tc\r\n\r\nERROR: HelloTeamcenter failed\r\n\n--- STDERR ---\nUnrecognized option: --add-opens\nError: Could not create the Java Virtual Machine.\r\nError: A fatal exception has occurred. Program will exit.\r\n\r\n"
+}

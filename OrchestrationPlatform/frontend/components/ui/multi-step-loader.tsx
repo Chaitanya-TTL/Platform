@@ -93,7 +93,7 @@ export const MultiStepLoader = ({
   loadingStates,
   loading,
   duration = 2000,
-  loop = true,
+  loop = false,
 }: {
   loadingStates: LoadingState[];
   loading?: boolean;
@@ -104,9 +104,10 @@ export const MultiStepLoader = ({
 
   useEffect(() => {
     if (!loading) {
-      setCurrentState(0);
+      // Reset by relying on initial state when loader is re-enabled.
       return;
     }
+
     const timeout = setTimeout(() => {
       setCurrentState((prevState) =>
         loop

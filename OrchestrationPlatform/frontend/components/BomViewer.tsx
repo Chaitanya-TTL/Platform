@@ -1,3 +1,5 @@
+/* eslint-disable react-hooks/set-state-in-effect */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -91,25 +93,38 @@ function TreeNode({ node, style, dragHandle }: NodeRendererProps<TreeNodeData>) 
 
   return (
     <div style={style} ref={dragHandle} className="flex items-center">
-      <div className="flex min-w-0 items-center gap-2 rounded-lg border border-slate-700/80 bg-slate-800/80 px-3 py-2 text-sm text-slate-100 shadow-sm shadow-slate-950/20">
-        <span className="font-mono text-[11px] leading-none text-slate-500">{getTreeLinePrefix(node)}</span>
+      {/* Dedicated gutter for tree connectors (Teamcenter-like alignment) */}
+      <div className="flex w-full items-center">
+        <div
+          className="flex items-center font-mono text-[11px] leading-none text-slate-500"
+          style={{ width: 70 }}
+        >
+          {getTreeLinePrefix(node)}
+        </div>
+
+        {/* Icon-only toggle (no rounded container padding that shifts gutter) */}
         <button
           type="button"
           aria-label={hasChildren ? "Toggle children" : "Leaf node"}
           onClick={() => hasChildren && node.toggle()}
-          className="flex h-5 w-5 items-center justify-center rounded-full border border-emerald-400/40 bg-emerald-500/10 text-[11px] font-semibold text-emerald-300"
+          className="ml-1 flex h-6 w-6 items-center justify-center text-slate-300 hover:text-white"
         >
-          {hasChildren ? (node.isOpen ? "−" : "+") : "•"}
+          {hasChildren ? (node.isOpen ? "▾" : "▸") : "•"}
         </button>
-        <div className="min-w-0">
-          <div className="truncate font-medium">{node.data.name}</div>
-          <div className="mt-0.5 flex flex-wrap gap-2 text-[11px] text-slate-400">
-            {Object.entries(node.data.attributes ?? {}).slice(0, 2).map(([key, value]) => (
-              <span key={key} className="truncate">
-                {key}: {String(value)}
-              </span>
-            ))}
-          </div>
+
+        <div className="min-w-0 pl-3">
+          <div className="truncate text-[13px] font-medium text-slate-100">{node.data.name}</div>
+          {node.data.attributes && Object.keys(node.data.attributes).length > 0 && (
+            <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-slate-400">
+              {Object.entries(node.data.attributes)
+                .slice(0, 3)
+                .map(([key, value]) => (
+                  <span key={key} className="truncate">
+                    <span className="text-slate-500">{key}:</span> {String(value)}
+                  </span>
+                ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -253,7 +268,7 @@ export function BomViewer({
           <div className="mb-2 text-xs text-slate-400">
             Click the + or − icon beside a parent to expand and collapse levels, mirroring TeamCenter Structure Manager behaviour.
           </div>
-          <div className="h-[60vh] min-h-[420px] overflow-auto rounded-lg border border-slate-800/70 bg-slate-900/70 p-2">
+          <div className="h-[60vh] min-h-105 overflow-auto rounded-lg border border-slate-800/70 bg-slate-900/70 p-2">
             <Tree
               data={treeData}
               openByDefault={false}
