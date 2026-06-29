@@ -59,7 +59,7 @@ export function PipelineForm({ onSubmit, isLoading }: PipelineFormProps) {
       <button
         type="submit"
         disabled={isLoading}
-        className="w-full rounded-lg bg-emerald-600 px-4 py-3 font-semibold text-white transition hover:bg-emerald-700 disabled:bg-gray-500 disabled:opacity-50"
+        className="cursor-pointer w-full rounded-lg bg-emerald-600 px-4 py-3 font-semibold text-white transition hover:bg-emerald-700 disabled:bg-gray-500 disabled:opacity-50"
       >
         {isLoading ? "Running Pipeline..." : "Run Extraction"}
       </button>

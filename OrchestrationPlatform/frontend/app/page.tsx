@@ -8,6 +8,8 @@ import {
   IconPlus,
   IconChevronRight,
   IconCircleCheck,
+  IconRefresh,
+  IconSparkles,
 } from "@tabler/icons-react";
 
 import { PipelineForm } from "@/components/PipelineForm";
@@ -79,20 +81,20 @@ export default function Home() {
       </AnimatePresence>
 
       <div className="mx-auto max-w-7xl px-4 py-10">
-        <div className="mb-10 rounded-4xl border border-slate-700/70 bg-slate-900/80 p-8 shadow-2xl shadow-slate-950/20">
+        <div className="mb-10 rounded-4xl border border-slate-700/80 bg-slate-900/80 p-8 shadow-2xl shadow-slate-950/20">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl">
-              <p className="text-xs uppercase tracking-[0.32em] text-cyan-300">BOM orchestration hub</p>
-              <h1 className="mt-4 text-4xl font-semibold text-white sm:text-5xl">Enterprise-grade TeamCenter + Configit UX</h1>
+              <p className="text-xs uppercase tracking-[0.32em] text-cyan-300">Welcome</p>
+              <h1 className="mt-4 text-4xl font-semibold text-white sm:text-5xl">BOM Orchestration Platform</h1>
               <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-300 sm:text-base">
-                Begin with a source selection, run TeamCenter extraction or Configit preview independently, and compare both BOM trees in one polished interface.
+                Choose a source, enter the extraction input, then compare both BOM outputs in a clean product-ready dashboard.
               </p>
             </div>
 
             <button
               type="button"
               onClick={() => setShowModal(true)}
-              className="inline-flex items-center gap-3 rounded-3xl bg-cyan-500 px-5 py-3 text-sm font-semibold text-slate-950 shadow-lg shadow-cyan-500/20 transition hover:bg-cyan-400"
+              className="cursor-pointer inline-flex items-center gap-3 rounded-3xl bg-cyan-500 px-5 py-3 text-sm font-semibold text-slate-950 shadow-lg shadow-cyan-500/20 transition hover:bg-cyan-400"
             >
               <IconPlus className="h-4 w-4" />
               Select source
@@ -121,98 +123,104 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
-          <div className="space-y-6">
-            {!selection ? (
-              <div className="flex min-h-[56vh] items-center justify-center rounded-[40px] border border-dashed border-slate-600/60 bg-slate-900/60 p-10 text-center">
-                <div>
-                  <motion.div
-                    initial={{ scale: 0.88, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    transition={{ duration: 0.4, ease: "easeOut" }}
-                    className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full border border-cyan-500/30 bg-slate-950/80 text-cyan-300 shadow-xl shadow-cyan-500/10"
-                  >
-                    <IconPlus className="h-10 w-10" />
-                  </motion.div>
-                  <h2 className="text-3xl font-semibold text-white">Pick a BOM source to begin</h2>
-                  <p className="mt-4 max-w-xl text-sm leading-7 text-slate-400">
-                    TeamCenter and Configit are separate, independent flows. Choose one and start the extraction preview with a seamless enterprise experience.
-                  </p>
-                </div>
+        <div className="space-y-8">
+          <div className="rounded-4xl border border-slate-700/80 bg-slate-950/80 p-8 shadow-2xl shadow-slate-950/20">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm uppercase tracking-[0.24em] text-cyan-300">Extraction input</p>
+                <h2 className="mt-2 text-3xl font-semibold text-white">Step 1: Enter input and run extraction</h2>
               </div>
-            ) : (
-              <div className="space-y-6">
-                {selection === "teamcenter" ? (
-                  <div className="rounded-[28px] border border-slate-700/80 bg-slate-950/80 p-6 shadow-2xl shadow-slate-950/20">
-                    <div className="mb-4 flex items-center justify-between gap-4">
+              <button
+                type="button"
+                onClick={() => setShowModal(true)}
+                className="cursor-pointer inline-flex items-center gap-2 rounded-2xl border border-slate-700/80 bg-slate-900/80 px-4 py-3 text-sm text-slate-300 transition hover:border-cyan-400 hover:text-white"
+              >
+                <IconRefresh className="h-4 w-4" />
+                Change source
+              </button>
+            </div>
+
+            <div className="mt-8">
+              {!selection ? (
+                <div className="rounded-4xl border border-dashed border-slate-700/70 bg-slate-900/70 p-10 text-center text-slate-400">
+                  <p className="text-xl font-medium text-white">Pick a source first to start extraction</p>
+                  <p className="mt-3 text-sm leading-7">The extraction form and status will appear here once you choose TeamCenter or Configit.</p>
+                </div>
+              ) : selection === "teamcenter" ? (
+                <div className="space-y-6">
+                  <div className="rounded-4xl border border-slate-700/70 bg-slate-950/80 p-6 shadow-lg shadow-slate-950/10">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                       <div>
                         <p className="text-sm uppercase tracking-[0.24em] text-cyan-300">TeamCenter extraction</p>
-                        <h2 className="mt-3 text-2xl font-semibold text-white">Run the TeamCenter pipeline</h2>
+                        <h3 className="mt-2 text-2xl font-semibold text-white">Run the TeamCenter pipeline</h3>
                       </div>
                       <button
                         type="button"
                         onClick={resetFlow}
-                        className="rounded-2xl border border-slate-700/80 bg-slate-900/80 px-4 py-2 text-sm text-slate-300 transition hover:border-rose-400/50 hover:text-white"
+                        className="cursor-pointer inline-flex items-center gap-2 rounded-2xl border border-slate-700/80 bg-slate-900/80 px-4 py-3 text-sm font-semibold text-slate-300 transition hover:border-rose-400/50 hover:text-white"
                       >
                         Reset
                       </button>
                     </div>
-                    <PipelineForm onSubmit={handlePipelineSubmit} isLoading={teamcenterRunning} />
+                    <div className="mt-6">
+                      <PipelineForm onSubmit={handlePipelineSubmit} isLoading={teamcenterRunning} />
+                    </div>
                   </div>
-                ) : (
-                  <div className="rounded-[28px] border border-slate-700/80 bg-slate-950/80 p-6 shadow-2xl shadow-slate-950/20">
-                    <div className="mb-4 flex items-center justify-between gap-4">
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <div className="rounded-4xl border border-slate-700/70 bg-slate-950/80 p-6 shadow-lg shadow-slate-950/10">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                       <div>
                         <p className="text-sm uppercase tracking-[0.24em] text-cyan-300">Configit preview</p>
-                        <h2 className="mt-3 text-2xl font-semibold text-white">Load the Configit extraction JSON</h2>
+                        <h3 className="mt-2 text-2xl font-semibold text-white">Load the Configit extraction JSON</h3>
                       </div>
                       <button
                         type="button"
                         onClick={resetFlow}
-                        className="rounded-2xl border border-slate-700/80 bg-slate-900/80 px-4 py-2 text-sm text-slate-300 transition hover:border-rose-400/50 hover:text-white"
+                        className="cursor-pointer inline-flex items-center gap-2 rounded-2xl border border-slate-700/80 bg-slate-900/80 px-4 py-3 text-sm font-semibold text-slate-300 transition hover:border-rose-400/50 hover:text-white"
                       >
                         Reset
                       </button>
                     </div>
-                    <ConfigitForm onSubmit={handleConfigitSubmit} isRunning={configitRunning} />
+                    <div className="mt-6">
+                      <ConfigitForm onSubmit={handleConfigitSubmit} isRunning={configitRunning} />
+                    </div>
                   </div>
-                )}
-              </div>
-            )}
+                </div>
+              )}
+            </div>
           </div>
 
-          <div className="space-y-6">
-            <div className="rounded-4xl border border-slate-700/80 bg-slate-950/80 p-6 shadow-2xl shadow-slate-950/20">
-              <div className="mb-5 flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-sm uppercase tracking-[0.24em] text-cyan-300">BOM comparison</p>
-                  <h2 className="mt-2 text-2xl font-semibold text-white">Dual-tree preview</h2>
-                </div>
-                <div className="flex items-center gap-2 rounded-2xl bg-slate-900/80 px-3 py-2 text-xs text-slate-300">
-                  <IconChevronRight className="h-4 w-4 text-cyan-300" />
-                  Live structure preview
-                </div>
+          <div className="rounded-4xl border border-slate-700/80 bg-slate-950/80 p-8 shadow-2xl shadow-slate-950/20">
+            <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <p className="text-sm uppercase tracking-[0.24em] text-cyan-300">BOM comparison</p>
+                <h2 className="mt-2 text-3xl font-semibold text-white">Side-by-side BOM preview</h2>
+                <p className="mt-3 text-sm leading-6 text-slate-400">
+                  Compare TeamCenter and Configit outputs in a cleaner, wider layout with better spacing and tree icons.
+                </p>
               </div>
+            </div>
 
-              <div className="space-y-5">
-                <SourceBomPanel
-                  title="TeamCenter source"
-                  subtitle="Structure Manager BOM"
-                  endpoint="/api/bom"
-                  transformPayload={getTeamcenterRoot}
-                  emptyLabel="Run the TeamCenter extraction to render the BOM tree."
-                  active={Boolean(teamcenterJobId) || teamcenterRunning}
-                />
+            <div className="grid gap-6 lg:grid-cols-2">
+              <SourceBomPanel
+                title="TeamCenter source"
+                subtitle="Structure Manager BOM"
+                endpoint="/api/bom"
+                transformPayload={getTeamcenterRoot}
+                emptyLabel="Run the TeamCenter extraction to render the BOM tree."
+                active={Boolean(teamcenterJobId) || teamcenterRunning}
+              />
 
-                <SourceBomPanel
-                  title="Configit source"
-                  subtitle="Family & Feature BOM"
-                  endpoint="/api/bom-configit"
-                  transformPayload={getConfigitRoot}
-                  emptyLabel="Start Configit preview to load the extracted Configit BOM."
-                  active={configitActive}
-                />
-              </div>
+              <SourceBomPanel
+                title="Configit source"
+                subtitle="Family & Feature BOM"
+                endpoint="/api/bom-configit"
+                transformPayload={getConfigitRoot}
+                emptyLabel="Start Configit preview to load the extracted Configit BOM."
+                active={configitActive}
+              />
             </div>
           </div>
         </div>

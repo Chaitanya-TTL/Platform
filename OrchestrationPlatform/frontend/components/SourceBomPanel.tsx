@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Tree, getTreeLinePrefix, type NodeRendererProps } from "react-arborist";
 import { motion } from "motion/react";
-import { IconChevronRight, IconCircleDashed, IconCircleCheck } from "@tabler/icons-react";
+import { IconChevronRight, IconCircleDashed, IconCircleCheck, IconPackage, IconCircleDot } from "@tabler/icons-react";
 
 type TreeNodeData = {
   id: string;
@@ -25,25 +25,26 @@ type SourceBomPanelProps = {
 
 function TreeRow({ node, style, dragHandle, isVisible }: NodeRendererProps<TreeNodeData> & { isVisible: boolean }) {
   const hasChildren = !node.isLeaf;
+  const icon = hasChildren ? <IconPackage className="h-4 w-4 text-cyan-300" /> : <IconCircleDot className="h-4 w-4 text-slate-400" />;
 
   return (
     <motion.div
       style={style}
       ref={dragHandle}
-      initial={{ opacity: 0, y: 6 }}
-      animate={isVisible ? { opacity: 1, y: 0 } : { opacity: 0, y: 6 }}
+      initial={{ opacity: 0, y: 8 }}
+      animate={isVisible ? { opacity: 1, y: 0 } : { opacity: 0, y: 8 }}
       transition={{ duration: 0.24, ease: "easeOut" }}
       className="flex items-center"
     >
-      <div className="group flex w-full items-center gap-3 rounded-3xl border border-slate-700/70 bg-slate-900/80 px-4 py-3 shadow-xl shadow-slate-950/20 transition hover:border-cyan-500/50">
-        <span className="font-mono text-[11px] text-slate-500" style={{ width: 62, display: "inline-block" }}>
+      <div className="group flex w-full items-center gap-3 rounded-3xl border border-slate-700/70 bg-slate-900/80 px-4 py-4 shadow-xl shadow-slate-950/20 transition hover:border-cyan-500/50">
+        <span className="font-mono text-[11px] text-slate-500" style={{ width: 58, display: "inline-block" }}>
           {getTreeLinePrefix(node)}
         </span>
         <button
           type="button"
           aria-label={hasChildren ? "Toggle children" : "Leaf node"}
           onClick={() => hasChildren && node.toggle()}
-          className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-700/80 bg-slate-800 text-slate-300 transition hover:border-cyan-400 hover:text-white"
+          className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-700/80 bg-slate-900 text-slate-300 transition hover:border-cyan-400 hover:text-white"
         >
           {hasChildren ? (
             <motion.span initial={false} animate={{ rotate: node.isOpen ? 90 : 0 }} transition={{ duration: 0.18, ease: "easeOut" }}>
@@ -53,19 +54,22 @@ function TreeRow({ node, style, dragHandle, isVisible }: NodeRendererProps<TreeN
             <IconCircleDashed className="h-4 w-4 text-slate-500" />
           )}
         </button>
-        <div className="min-w-0">
-          <div className="truncate text-sm font-semibold text-slate-100 group-hover:text-white">{node.data.name}</div>
-          {node.data.attributes && Object.keys(node.data.attributes).length > 0 && (
-            <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-slate-400">
-              {Object.entries(node.data.attributes)
-                .slice(0, 3)
-                .map(([key, value]) => (
-                  <span key={key} className="whitespace-nowrap">
-                    <span className="text-slate-500">{key}:</span> {String(value)}
-                  </span>
-                ))}
-            </div>
-          )}
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-slate-900 text-slate-300">{icon}</span>
+          <div className="min-w-0">
+            <div className="truncate text-sm font-semibold text-slate-100 group-hover:text-white">{node.data.name}</div>
+            {node.data.attributes && Object.keys(node.data.attributes).length > 0 && (
+              <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-slate-400">
+                {Object.entries(node.data.attributes)
+                  .slice(0, 3)
+                  .map(([key, value]) => (
+                    <span key={key} className="whitespace-nowrap">
+                      <span className="text-slate-500">{key}:</span> {String(value)}
+                    </span>
+                  ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </motion.div>
@@ -166,16 +170,16 @@ export function SourceBomPanel({
       </div>
 
       {status === "ready" && bom ? (
-        <div className="h-[56vh] min-h-90 overflow-auto rounded-3xl border border-slate-800/60 bg-slate-950/70 p-3">
+        <div className="h-[60vh] min-h-90 overflow-auto rounded-3xl border border-slate-800/60 bg-slate-950/70 p-4">
           <Tree
             data={treeData}
             width="100%"
-            height={Math.max(360, treeData.length * 60)}
-            rowHeight={56}
-            indent={22}
+            height={Math.max(420, treeData.length * 72)}
+            rowHeight={72}
+            indent={26}
             overscanCount={3}
-            paddingTop={16}
-            paddingBottom={16}
+            paddingTop={14}
+            paddingBottom={14}
             openByDefault={false}
           >
             {(rowProps) => (
