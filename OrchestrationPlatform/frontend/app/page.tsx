@@ -26,6 +26,7 @@ export default function Home() {
   const [configitRunning, setConfigitRunning] = useState(false);
   const [configitWorkItemId, setConfigitWorkItemId] = useState<string | null>(null);
   const [configitProductModel, setConfigitProductModel] = useState<string | null>(null);
+  const [configitRefreshSignal, setConfigitRefreshSignal] = useState(0);
   const [showModal, setShowModal] = useState(true);
 
   const handleSourceSelect = (value: "teamcenter" | "configit") => {
@@ -43,6 +44,7 @@ export default function Home() {
     setConfigitRunning(true);
     setConfigitWorkItemId(workItemId);
     setConfigitProductModel(productModel);
+    setConfigitRefreshSignal((signal) => signal + 1);
   };
 
   const resetFlow = () => {
@@ -216,10 +218,20 @@ export default function Home() {
               <SourceBomPanel
                 title="Configit source"
                 subtitle="Family & Feature BOM"
-                endpoint="/api/bom-configit"
+                endpoint={
+                  configitWorkItemId && configitProductModel
+                    ? `/api/bom-configit?workItemId=${encodeURIComponent(configitWorkItemId)}&productModel=${encodeURIComponent(configitProductModel)}`
+                    : "/api/bom-configit"
+                }
                 transformPayload={getConfigitRoot}
                 emptyLabel="Start Configit preview to load the extracted Configit BOM."
                 active={configitActive}
+                refreshSignal={configitRefreshSignal}
+                onLoadComplete={(status) => {
+                  if (status === "ready" || status === "error") {
+                    setConfigitRunning(false);
+                  }
+                }}
               />
             </div>
           </div>

@@ -21,6 +21,7 @@ type SourceBomPanelProps = {
   refreshSignal?: number;
   loadingLabel?: string;
   emptyLabel?: string;
+  onLoadComplete?: (status: "ready" | "error") => void;
 };
 
 function TreeRow({ node, style, dragHandle, isVisible }: NodeRendererProps<TreeNodeData> & { isVisible: boolean }) {
@@ -116,6 +117,7 @@ export function SourceBomPanel({
   refreshSignal,
   loadingLabel = "Fetching BOM structure...",
   emptyLabel = "No BOM available yet.",
+  onLoadComplete,
 }: SourceBomPanelProps) {
   const [bom, setBom] = useState<TreeNodeData | null>(null);
   const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
@@ -139,10 +141,12 @@ export function SourceBomPanel({
         }
         setBom(root);
         setStatus("ready");
+        onLoadComplete?.("ready");
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load BOM");
         setStatus("error");
         setBom(null);
+        onLoadComplete?.("error");
       }
     };
 

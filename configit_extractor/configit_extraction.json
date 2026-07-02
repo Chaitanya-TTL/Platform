@@ -1,10 +1,10 @@
 {
-  "workItem": "247",
-  "productModel": "_002403",
+  "workItem": "238",
+  "productModel": "_000575",
   "content": [
     {
-      "code": "BODY",
-      "description": "Body",
+      "code": "BODY__VIEW",
+      "description": "Body (View)",
       "familyType": "Feature",
       "labels": [
         "PLM"
@@ -13,18 +13,22 @@
       "isPrivate": false,
       "features": [
         {
-          "code": "NORMAL_BODY",
-          "description": "Normal Body"
+          "code": "BARREL",
+          "description": "Barrel"
         },
         {
-          "code": "SLIM_BODY",
-          "description": "Slim Body"
+          "code": "GRIP",
+          "description": "Grip"
+        },
+        {
+          "code": "TOP",
+          "description": "Top"
         }
       ]
     },
     {
-      "code": "SCREWJACK",
-      "description": "Screwjack",
+      "code": "COLOR",
+      "description": "Color",
       "familyType": "Feature",
       "labels": [
         "PLM"
@@ -33,38 +37,18 @@
       "isPrivate": false,
       "features": [
         {
-          "code": "BODY",
-          "description": "Body"
+          "code": "BLUE",
+          "description": "BLUE"
         },
         {
-          "code": "COUNTER_SINK",
-          "description": "Counter Sink"
-        },
-        {
-          "code": "NUT",
-          "description": "Nut"
-        },
-        {
-          "code": "SCREW_SPINDLE",
-          "description": "Screw Spindle"
-        },
-        {
-          "code": "TOMMY_BAR",
-          "description": "Tommy Bar"
-        },
-        {
-          "code": "TOP_HEAD",
-          "description": "Top Head"
-        },
-        {
-          "code": "WASHER",
-          "description": "Washer"
+          "code": "RED",
+          "description": "RED"
         }
       ]
     },
     {
-      "code": "TOP_HEAD",
-      "description": "Top Head",
+      "code": "NIB_TYPE",
+      "description": "Nib Type",
       "familyType": "Feature",
       "labels": [
         "PLM"
@@ -73,12 +57,12 @@
       "isPrivate": false,
       "features": [
         {
-          "code": "CUP",
-          "description": "Cup"
+          "code": "THICK",
+          "description": "THICK"
         },
         {
-          "code": "CUP_150",
-          "description": "Cup 150"
+          "code": "THIN",
+          "description": "THIN"
         }
       ]
     }
@@ -87,9 +71,9 @@
     {
       "description": "Extracted View",
       "families": [
-        "BODY",
-        "SCREWJACK",
-        "TOP_HEAD"
+        "BODY__VIEW",
+        "COLOR",
+        "NIB_TYPE"
       ]
     }
   ]

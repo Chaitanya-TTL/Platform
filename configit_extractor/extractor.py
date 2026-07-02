@@ -1,3 +1,4 @@
+import argparse
 import requests
 import json
 import os
@@ -148,6 +149,29 @@ def prompt_and_run():
     print(f"Extraction saved to {out_name}")
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description='Configit extraction script')
+    parser.add_argument('--work-item-id', required=True, help='Configit work item ID')
+    parser.add_argument('--product-model', required=True, help='Configit product model code')
+    parser.add_argument('--output', required=False, default='configit_extraction.json', help='Output JSON file path')
+    return parser.parse_args()
+
+
+def run_from_cli():
+    args = parse_args()
+    print('Configit extractor')
+    print('Discovering families for the product model...')
+    family_codes = list_families(args.work_item_id, args.product_model)
+    if not family_codes:
+        raise RuntimeError('No families discovered. Verify the product model code and work item id.')
+    print(f"Found {len(family_codes)} families. Extracting...")
+    data = build_extraction(args.work_item_id, args.product_model, family_codes)
+    save_extraction(data, args.output)
+    print(f"Extraction saved to {args.output}")
+
 
 if __name__ == '__main__':
-    prompt_and_run()
+    if len(os.sys.argv) > 1:
+        run_from_cli()
+    else:
+        prompt_and_run()
