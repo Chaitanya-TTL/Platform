@@ -29,6 +29,12 @@ namespace Orchestration.API.Models
 
         [JsonProperty("error")]
         public string Error { get; set; }
+
+        [JsonProperty("outputFilePath")]
+        public string OutputFilePath { get; set; }
+
+        [JsonProperty("outputKind")]
+        public string OutputKind { get; set; }
     }
 
     public class PhaseLog

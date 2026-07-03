@@ -4,7 +4,21 @@ export async function startPipeline(request: { teamcenterItemId: string }) {
   const response = await fetch(`${API_BASE}/pipeline/start`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(request),
+    body: JSON.stringify({ kind: "teamcenter", ...request }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Pipeline error: ${errorText || response.statusText}`);
+  }
+  return response.json();
+}
+
+export async function startConfigitExtraction(request: { workItemId: string; productModelCode: string }) {
+  const response = await fetch(`${API_BASE}/pipeline/start`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ kind: "configit", ...request }),
   });
 
   if (!response.ok) {
@@ -56,6 +70,7 @@ export function subscribeToProgress(
   eventSource.onmessage = (event) => {
     try {
       const progress = JSON.parse(event.data) as PipelineProgress;
+      console.info("[Progress stream] event", { jobId, progress });
       
       // Check if this event indicates an error
       if (progress.status === "error" || progress.error) {
@@ -79,6 +94,7 @@ export function subscribeToProgress(
   };
 
   eventSource.onerror = () => {
+    console.error("[Progress stream] connection error", { jobId });
     handleComplete();
   };
 
@@ -95,17 +111,32 @@ export async function getLogs() {
 }
 
 export async function getLogByJobId(jobId: string) {
-  const response = await fetch(`${API_BASE}/pipeline/logs/${jobId}`);
-  if (!response.ok) throw new Error("Failed to fetch log");
+  try {
+    const response = await fetch(`${API_BASE}/pipeline/logs/${jobId}`);
+    if (!response.ok) return null;
+    return response.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function getPipelineBom(jobId: string) {
+  const response = await fetch(`${API_BASE}/pipeline/bom/${jobId}`);
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(errorText || "Failed to fetch BOM");
+  }
   return response.json();
 }
 
 export async function getBomStructure(jobId: string): Promise<BomNode | null> {
   try {
-    const log = await getLogByJobId(jobId);
-    // FinalBom is a BomRoot object, get the bomRoot node from it
-    if (log?.finalBom?.bomRoot) {
-      return log.finalBom.bomRoot;
+    const result = await getPipelineBom(jobId);
+    if (result?.finalBom?.bomRoot) {
+      return result.finalBom.bomRoot;
+    }
+    if (result?.finalBom?.bomRootNode) {
+      return result.finalBom.bomRootNode;
     }
     return null;
   } catch (err) {

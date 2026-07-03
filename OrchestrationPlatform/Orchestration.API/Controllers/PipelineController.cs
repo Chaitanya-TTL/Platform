@@ -1,5 +1,5 @@
 using System;
-using System.Collections.Generic;
+using System.IO;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Orchestration.API.Models;
@@ -14,49 +14,75 @@ namespace Orchestration.API.Controllers
         private readonly IPipelineOrchestrator _orchestrator;
         private readonly IAuditLogger _auditLogger;
         private readonly IJobStore _jobStore;
+        private readonly ISubprocessExecutor _subprocessExecutor;
         private readonly ILogger<PipelineController> _logger;
 
         public PipelineController(
             IPipelineOrchestrator orchestrator,
             IAuditLogger auditLogger,
             IJobStore jobStore,
+            ISubprocessExecutor subprocessExecutor,
             ILogger<PipelineController> logger)
         {
             _orchestrator = orchestrator;
             _auditLogger = auditLogger;
             _jobStore = jobStore;
+            _subprocessExecutor = subprocessExecutor;
             _logger = logger;
         }
 
         [HttpPost("start")]
-        public async Task<IActionResult> StartPipeline([FromBody] PipelineRequest request)
+        public async Task<IActionResult> StartPipeline([FromBody] ExtractionRequest request)
         {
-            if (string.IsNullOrEmpty(request.TeamcenterItemId))
+            _logger.LogInformation(
+                "Received pipeline start request. Kind={Kind}, TeamcenterItemId={TeamcenterItemId}, WorkItemId={WorkItemId}, ProductModelCode={ProductModelCode}",
+                request.Kind,
+                request.TeamcenterItemId,
+                request.WorkItemId,
+                request.ProductModelCode);
+
+            if (request.Kind == ExtractionKind.Teamcenter && string.IsNullOrWhiteSpace(request.TeamcenterItemId))
             {
-                return BadRequest("TeamcenterItemId is required");
+                return BadRequest(new { success = false, message = "TeamcenterItemId is required" });
             }
 
-            var jobId = _jobStore.CreateJob(request.TeamcenterItemId);
-            
-            // Initialize the progress channel BEFORE starting the background task
-            await _orchestrator.InitializeProgressChannelAsync(jobId);
-            
-            // Fire and forget - don't await, let it run in background
-            _ = Task.Run(async () =>
+            if (request.Kind == ExtractionKind.Configit && (string.IsNullOrWhiteSpace(request.WorkItemId) || string.IsNullOrWhiteSpace(request.ProductModelCode)))
             {
-                await ExecutePipelineInBackground(jobId, request);
-            });
+                return BadRequest(new { success = false, message = "WorkItemId and ProductModelCode are required" });
+            }
 
-            return Accepted(new { jobId, status = "accepted" });
+            var jobId = _jobStore.CreateJob(request.GetIdentifier() ?? "unknown");
+            request.JobId = jobId;
+            _logger.LogInformation("Created job {JobId} for {Kind} extraction", jobId, request.Kind);
+
+            try
+            {
+                await _orchestrator.InitializeProgressChannelAsync(jobId);
+                _ = Task.Run(() => ExecutePipelineInBackground(jobId, request));
+
+                return Ok(new
+                {
+                    success = true,
+                    jobId,
+                    kind = request.Kind.ToString().ToLowerInvariant(),
+                    message = "Extraction started successfully"
+                });
+            }
+            catch (Exception ex)
+            {
+                _jobStore.FailJob(jobId, ex.Message);
+                _logger.LogError(ex, "Pipeline start failed for job {JobId}", jobId);
+                return StatusCode(500, new { success = false, jobId, message = ex.Message });
+            }
         }
 
         [HttpGet("progress/{jobId}")]
         public async Task StartProgressStream(string jobId)
         {
             Response.ContentType = "text/event-stream";
-            Response.Headers.Add("Cache-Control", "no-cache");
-            Response.Headers.Add("Connection", "keep-alive");
-            Response.Headers.Add("X-Accel-Buffering", "no");
+            Response.Headers["Cache-Control"] = "no-cache";
+            Response.Headers["Connection"] = "keep-alive";
+            Response.Headers["X-Accel-Buffering"] = "no";
 
             if (!_jobStore.JobExists(jobId))
             {
@@ -66,7 +92,6 @@ namespace Orchestration.API.Controllers
                 return;
             }
 
-            // Subscribe to pipeline progress events
             await _orchestrator.SubscribeToProgressAsync(jobId, async (progress) =>
             {
                 var json = System.Text.Json.JsonSerializer.Serialize(progress);
@@ -93,29 +118,40 @@ namespace Orchestration.API.Controllers
             return Ok(log);
         }
 
+        [HttpGet("bom/{jobId}")]
+        public async Task<IActionResult> GetBomByJobId(string jobId)
+        {
+            var log = await _auditLogger.GetLogByJobIdAsync(jobId);
+            if (log == null)
+            {
+                return NotFound(new { error = $"No log found for job {jobId}", jobId });
+            }
+
+            if (log.FinalBom == null)
+            {
+                return NotFound(new { error = $"No final BOM available for job {jobId}", jobId, status = log.Status });
+            }
+
+            return Ok(new { success = true, jobId, status = log.Status, finalBom = log.FinalBom });
+        }
+
         [HttpGet("health")]
         public IActionResult Health()
         {
             return Ok(new { status = "healthy", timestamp = DateTime.UtcNow });
         }
 
-        private async Task ExecutePipelineInBackground(string jobId, PipelineRequest request)
+        private async Task ExecutePipelineInBackground(string jobId, ExtractionRequest request)
         {
             try
             {
-                _logger.LogInformation($"Starting pipeline execution for job {jobId}");
-                
-                // Use provided pipeline path or default to TC-Configit pipeline
-                var pipelinePath = request.PipelinePath ?? GetDefaultPipelinePath();
+                _logger.LogInformation($"Starting {request.Kind} extraction execution for job {jobId}");
 
-                // This is a mock implementation - in real scenario, this would stream events
                 await _orchestrator.ExecutePipelineAsync(
                     jobId,
-                    request.TeamcenterItemId,
-                    pipelinePath,
+                    request,
                     async (progress) =>
                     {
-                        // Here we would stream progress to connected clients
                         _logger.LogInformation($"Job {jobId}: {progress.Phase} - {progress.ProgressPercent}%");
                         await Task.CompletedTask;
                     });
@@ -127,14 +163,6 @@ namespace Orchestration.API.Controllers
                 _logger.LogError($"Pipeline execution failed for job {jobId}: {ex.Message}");
                 _jobStore.FailJob(jobId, ex.Message);
             }
-        }
-
-        private string GetDefaultPipelinePath()
-        {
-            // Default to TC-Configit pipeline batch file
-            // Navigate from bin/Debug/net9.0 -> Orchestration.API -> OrchestrationPlatform -> PLM -> PLM (root) -> TC-Configit
-            var basePath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "TeamCenter-to-Configit-soa_client", "backend", "samples", "run-pipeline.bat"));
-            return basePath;
         }
     }
 }
