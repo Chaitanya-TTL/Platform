@@ -1,0 +1,208 @@
+{
+  "packagePath": "samples/pen~93cca4ec-3651-4c52-a7cf-9e52d3e11804",
+  "root": {
+    "type": "Product",
+    "productId": "USB_DRIVE_002380",
+    "isConfigurable": true,
+    "boms": [
+      {
+        "bomId": "USB_DRIVE_002380",
+        "state": "Selected",
+        "justification": "Properties",
+        "solved": false,
+        "nodeId": "AQACVVNCX0RSSVZFXzAwMjM4MABVU0JfRFJJVkVfMDAyMzgwAA==",
+        "properties": [],
+        "bomItems": [
+          {
+            "type": "Product",
+            "productId": "Body Casing_002381",
+            "isConfigurable": false,
+            "boms": [],
+            "properties": [],
+            "bomItemId": "USB_DRIVE_002380_Body Casing_002381",
+            "state": "Available",
+            "justification": "None",
+            "solved": false,
+            "nodeId": "AQEBVVNCX0RSSVZFXzAwMjM4MABVU0JfRFJJVkVfMDAyMzgwX0JvZHkgQ2FzaW5nXzAwMjM4MQBCb2R5IENhc2luZ18wMDIzODEA",
+            "requiredVariables": [],
+            "quantity": {
+              "value": 1,
+              "unit": "EA"
+            }
+          },
+          {
+            "type": "Product",
+            "productId": "PCB_002382",
+            "isConfigurable": false,
+            "boms": [],
+            "properties": [],
+            "bomItemId": "USB_DRIVE_002380_PCB_002382",
+            "state": "Available",
+            "justification": "None",
+            "solved": false,
+            "nodeId": "AQEBVVNCX0RSSVZFXzAwMjM4MABVU0JfRFJJVkVfMDAyMzgwX1BDQl8wMDIzODIAUENCXzAwMjM4MgA=",
+            "requiredVariables": [],
+            "quantity": {
+              "value": 1,
+              "unit": "EA"
+            }
+          },
+          {
+            "type": "Product",
+            "productId": "Storage_002383",
+            "isConfigurable": false,
+            "boms": [
+              {
+                "bomId": "Storage_002383",
+                "state": "Selected",
+                "justification": "Properties",
+                "solved": false,
+                "nodeId": "AQECVVNCX0RSSVZFXzAwMjM4MABVU0JfRFJJVkVfMDAyMzgwX1N0b3JhZ2VfMDAyMzgzAFN0b3JhZ2VfMDAyMzgzAFN0b3JhZ2VfMDAyMzgzAA==",
+                "properties": [],
+                "bomItems": [
+                  {
+                    "type": "Product",
+                    "productId": "16GB_002384",
+                    "isConfigurable": false,
+                    "boms": [],
+                    "properties": [],
+                    "bomItemId": "Storage_002383_16GB_002384",
+                    "state": "Available",
+                    "justification": "None",
+                    "solved": false,
+                    "nodeId": "AQIBVVNCX0RSSVZFXzAwMjM4MABVU0JfRFJJVkVfMDAyMzgwX1N0b3JhZ2VfMDAyMzgzAFN0b3JhZ2VfMDAyMzgzAFN0b3JhZ2VfMDAyMzgzXzE2R0JfMDAyMzg0ADE2R0JfMDAyMzg0AA==",
+                    "requiredVariables": [],
+                    "quantity": {
+                      "value": 1,
+                      "unit": "EA"
+                    }
+                  },
+                  {
+                    "type": "Product",
+                    "productId": "64GB_002385",
+                    "isConfigurable": false,
+                    "boms": [],
+                    "properties": [],
+                    "bomItemId": "Storage_002383_64GB_002385",
+                    "state": "Available",
+                    "justification": "None",
+                    "solved": false,
+                    "nodeId": "AQIBVVNCX0RSSVZFXzAwMjM4MABVU0JfRFJJVkVfMDAyMzgwX1N0b3JhZ2VfMDAyMzgzAFN0b3JhZ2VfMDAyMzgzAFN0b3JhZ2VfMDAyMzgzXzY0R0JfMDAyMzg1ADY0R0JfMDAyMzg1AA==",
+                    "requiredVariables": [],
+                    "quantity": {
+                      "value": 1,
+                      "unit": "EA"
+                    }
+                  }
+                ]
+              }
+            ],
+            "properties": [],
+            "bomItemId": "USB_DRIVE_002380_Storage_002383",
+            "state": "Selected",
+            "justification": "Properties",
+            "solved": false,
+            "nodeId": "AQEBVVNCX0RSSVZFXzAwMjM4MABVU0JfRFJJVkVfMDAyMzgwX1N0b3JhZ2VfMDAyMzgzAFN0b3JhZ2VfMDAyMzgzAA==",
+            "requiredVariables": [
+              "STORAGE"
+            ],
+            "quantity": {
+              "value": 1,
+              "unit": "EA"
+            }
+          },
+          {
+            "type": "Product",
+            "productId": "Type_002386",
+            "isConfigurable": false,
+            "boms": [
+              {
+                "bomId": "Type_002386",
+                "state": "Selected",
+                "justification": "Properties",
+                "solved": false,
+                "nodeId": "AQECVVNCX0RSSVZFXzAwMjM4MABVU0JfRFJJVkVfMDAyMzgwX1R5cGVfMDAyMzg2AFR5cGVfMDAyMzg2AFR5cGVfMDAyMzg2AA==",
+                "properties": [],
+                "bomItems": [
+                  {
+                    "type": "Product",
+                    "productId": "USB 2.0_002387",
+                    "isConfigurable": false,
+                    "boms": [],
+                    "properties": [],
+                    "bomItemId": "Type_002386_USB 2.0_002387",
+                    "state": "Available",
+                    "justification": "None",
+                    "solved": false,
+                    "nodeId": "AQIBVVNCX0RSSVZFXzAwMjM4MABVU0JfRFJJVkVfMDAyMzgwX1R5cGVfMDAyMzg2AFR5cGVfMDAyMzg2AFR5cGVfMDAyMzg2X1VTQiAyLjBfMDAyMzg3AFVTQiAyLjBfMDAyMzg3AA==",
+                    "requiredVariables": [],
+                    "quantity": {
+                      "value": 1,
+                      "unit": "EA"
+                    }
+                  },
+                  {
+                    "type": "Product",
+                    "productId": "USB 3.0_002390",
+                    "isConfigurable": false,
+                    "boms": [],
+                    "properties": [],
+                    "bomItemId": "Type_002386_USB 3.0_002390",
+                    "state": "Available",
+                    "justification": "None",
+                    "solved": false,
+                    "nodeId": "AQIBVVNCX0RSSVZFXzAwMjM4MABVU0JfRFJJVkVfMDAyMzgwX1R5cGVfMDAyMzg2AFR5cGVfMDAyMzg2AFR5cGVfMDAyMzg2X1VTQiAzLjBfMDAyMzkwAFVTQiAzLjBfMDAyMzkwAA==",
+                    "requiredVariables": [],
+                    "quantity": {
+                      "value": 1,
+                      "unit": "EA"
+                    }
+                  }
+                ]
+              }
+            ],
+            "properties": [],
+            "bomItemId": "USB_DRIVE_002380_Type_002386",
+            "state": "Selected",
+            "justification": "Properties",
+            "solved": false,
+            "nodeId": "AQEBVVNCX0RSSVZFXzAwMjM4MABVU0JfRFJJVkVfMDAyMzgwX1R5cGVfMDAyMzg2AFR5cGVfMDAyMzg2AA==",
+            "requiredVariables": [
+              "TYPE"
+            ],
+            "quantity": {
+              "value": 1,
+              "unit": "EA"
+            }
+          },
+          {
+            "type": "Product",
+            "productId": "Connector_002389",
+            "isConfigurable": false,
+            "boms": [],
+            "properties": [],
+            "bomItemId": "USB_DRIVE_002380_Connector_002389",
+            "state": "Available",
+            "justification": "None",
+            "solved": false,
+            "nodeId": "AQEBVVNCX0RSSVZFXzAwMjM4MABVU0JfRFJJVkVfMDAyMzgwX0Nvbm5lY3Rvcl8wMDIzODkAQ29ubmVjdG9yXzAwMjM4OQA=",
+            "requiredVariables": [],
+            "quantity": {
+              "value": 1,
+              "unit": "EA"
+            }
+          }
+        ]
+      }
+    ],
+    "properties": [],
+    "state": "Selected",
+    "justification": "Properties",
+    "solved": false,
+    "nodeId": "ROOT",
+    "requiredVariables": [
+      "USB_DRIVE"
+    ],
+    "quantity": {}
+  }
+}

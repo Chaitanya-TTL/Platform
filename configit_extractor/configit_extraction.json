@@ -1,80 +1,106 @@
 {
-  "workItem": "238",
-  "productModel": "_000575",
-  "content": [
+  "productId": "USB_DRIVE_002380",
+  "packagePath": "samples/pen",
+  "generatedDate": "2026-07-02T10:36:53.709Z",
+  "bom": [
     {
-      "code": "BODY__VIEW",
-      "description": "Body (View)",
-      "familyType": "Feature",
-      "labels": [
-        "PLM"
-      ],
-      "isCalculated": false,
-      "isPrivate": false,
-      "features": [
+      "id": "USB_DRIVE_002380_Body Casing_002381",
+      "name": "Body Casing_002381",
+      "quantity": "1 EA",
+      "attributes": {
+        "Quantity": "1 EA"
+      },
+      "children": []
+    },
+    {
+      "id": "USB_DRIVE_002380_PCB_002382",
+      "name": "PCB_002382",
+      "quantity": "1 EA",
+      "attributes": {
+        "Quantity": "1 EA"
+      },
+      "children": []
+    },
+    {
+      "id": "Storage_002383",
+      "name": "Storage_002383",
+      "quantity": "1 EA",
+      "attributes": {
+        "Quantity": "1 EA"
+      },
+      "children": [
         {
-          "code": "BARREL",
-          "description": "Barrel"
-        },
-        {
-          "code": "GRIP",
-          "description": "Grip"
-        },
-        {
-          "code": "TOP",
-          "description": "Top"
+          "id": "AQECVVNCX0RSSVZFXzAwMjM4MABVU0JfRFJJVkVfMDAyMzgwX1N0b3JhZ2VfMDAyMzgzAFN0b3JhZ2VfMDAyMzgzAFN0b3JhZ2VfMDAyMzgzAA==",
+          "name": "AQECVVNCX0RSSVZFXzAwMjM4MABVU0JfRFJJVkVfMDAyMzgwX1N0b3JhZ2VfMDAyMzgzAFN0b3JhZ2VfMDAyMzgzAFN0b3JhZ2VfMDAyMzgzAA==",
+          "quantity": null,
+          "attributes": {},
+          "children": [
+            {
+              "id": "Storage_002383_16GB_002384",
+              "name": "16GB_002384",
+              "quantity": "1 EA",
+              "attributes": {
+                "Quantity": "1 EA"
+              },
+              "children": []
+            },
+            {
+              "id": "Storage_002383_64GB_002385",
+              "name": "64GB_002385",
+              "quantity": "1 EA",
+              "attributes": {
+                "Quantity": "1 EA"
+              },
+              "children": []
+            }
+          ]
         }
       ]
     },
     {
-      "code": "COLOR",
-      "description": "Color",
-      "familyType": "Feature",
-      "labels": [
-        "PLM"
-      ],
-      "isCalculated": false,
-      "isPrivate": false,
-      "features": [
+      "id": "Type_002386",
+      "name": "Type_002386",
+      "quantity": "1 EA",
+      "attributes": {
+        "Quantity": "1 EA"
+      },
+      "children": [
         {
-          "code": "BLUE",
-          "description": "BLUE"
-        },
-        {
-          "code": "RED",
-          "description": "RED"
+          "id": "AQECVVNCX0RSSVZFXzAwMjM4MABVU0JfRFJJVkVfMDAyMzgwX1R5cGVfMDAyMzg2AFR5cGVfMDAyMzg2AFR5cGVfMDAyMzg2AA==",
+          "name": "AQECVVNCX0RSSVZFXzAwMjM4MABVU0JfRFJJVkVfMDAyMzgwX1R5cGVfMDAyMzg2AFR5cGVfMDAyMzg2AFR5cGVfMDAyMzg2AA==",
+          "quantity": null,
+          "attributes": {},
+          "children": [
+            {
+              "id": "Type_002386_USB 2.0_002387",
+              "name": "USB 2.0_002387",
+              "quantity": "1 EA",
+              "attributes": {
+                "Quantity": "1 EA"
+              },
+              "children": []
+            },
+            {
+              "id": "Type_002386_USB 3.0_002390",
+              "name": "USB 3.0_002390",
+              "quantity": "1 EA",
+              "attributes": {
+                "Quantity": "1 EA"
+              },
+              "children": []
+            }
+          ]
         }
       ]
     },
     {
-      "code": "NIB_TYPE",
-      "description": "Nib Type",
-      "familyType": "Feature",
-      "labels": [
-        "PLM"
-      ],
-      "isCalculated": false,
-      "isPrivate": false,
-      "features": [
-        {
-          "code": "THICK",
-          "description": "THICK"
-        },
-        {
-          "code": "THIN",
-          "description": "THIN"
-        }
-      ]
-    }
-  ],
-  "view": [
-    {
-      "description": "Extracted View",
-      "families": [
-        "BODY__VIEW",
-        "COLOR",
-        "NIB_TYPE"
-      ]
+      "id": "USB_DRIVE_002380_Connector_002389",
+      "name": "Connector_002389",
+      "quantity": "1 EA",
+      "attributes": {
+        "Quantity": "1 EA"
+      },
+      "children": []
     }
   ]
 }
