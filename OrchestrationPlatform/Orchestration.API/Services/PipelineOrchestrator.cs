@@ -14,10 +14,9 @@ namespace Orchestration.API.Services
     {
         Task InitializeProgressChannelAsync(string jobId);
         
-        Task<(bool success, BomRoot finalBom)> ExecutePipelineAsync(
+        Task<(bool success, BomRoot finalBom, string outputFilePath, string outputKind)> ExecutePipelineAsync(
             string jobId,
-            string teamcenterItemId,
-            string pipelinePath,
+            ExtractionRequest request,
             Func<PipelineProgress, Task> progressCallback);
         
         Task SubscribeToProgressAsync(
@@ -63,10 +62,9 @@ namespace Orchestration.API.Services
             }
         }
 
-        public async Task<(bool success, BomRoot finalBom)> ExecutePipelineAsync(
+        public async Task<(bool success, BomRoot finalBom, string outputFilePath, string outputKind)> ExecutePipelineAsync(
             string jobId,
-            string teamcenterItemId,
-            string pipelinePath,
+            ExtractionRequest request,
             Func<PipelineProgress, Task> progressCallback)
         {
             // Get the pre-initialized channel or create if missing (fallback)
@@ -80,13 +78,15 @@ namespace Orchestration.API.Services
             var auditLog = new AuditLog
             {
                 JobId = jobId,
-                TeamcenterItemId = teamcenterItemId,
+                TeamcenterItemId = request.TeamcenterItemId ?? request.WorkItemId,
                 StartTime = DateTime.UtcNow,
                 Status = "in_progress",
                 Phases = new()
             };
 
             BomRoot finalBom = null;
+            string outputFilePath = null;
+            string outputKind = request.Kind.ToString().ToLowerInvariant();
             string pipelineOutput = null;
 
             try
@@ -117,9 +117,8 @@ namespace Orchestration.API.Services
                 auditLog.Phases.Add(transformPhase);
 
                 // Execute the subprocess
-                var (success, output, bomStructure) = await _subprocessExecutor.ExecuteAsync(
-                    teamcenterItemId,
-                    pipelinePath,
+                var (success, output, bomStructure, producedFilePath) = await _subprocessExecutor.ExecuteAsync(
+                    request,
                     async (progressMsg) =>
                     {
                         await ReportPhaseProgress(jobId, "transform", "in_progress",
@@ -134,6 +133,7 @@ namespace Orchestration.API.Services
 
                 pipelineOutput = output;
                 finalBom = bomStructure;
+                outputFilePath = producedFilePath;
 
                 extractPhase.Status = "complete";
                 extractPhase.EndTime = DateTime.UtcNow;
@@ -166,13 +166,15 @@ namespace Orchestration.API.Services
                 auditLog.Status = "success";
                 auditLog.EndTime = DateTime.UtcNow;
                 auditLog.FinalBom = finalBom;
+                auditLog.OutputFilePath = outputFilePath;
+                auditLog.OutputKind = outputKind;
 
                 await ReportPhaseProgress(jobId, "load", "complete", 100, "✓ Pipeline completed successfully!", progressCallback, channel);
 
                 _logger.LogInformation($"Pipeline executed successfully for job {jobId}");
                 await _auditLogger.LogAsync(auditLog);
 
-                return (true, finalBom);
+                return (true, finalBom, outputFilePath, outputKind);
             }
             catch (Exception ex)
             {
@@ -185,7 +187,7 @@ namespace Orchestration.API.Services
                 await ReportPhaseProgress(jobId, "error", "error", 0, $"❌ Error: {ex.Message}", progressCallback, channel);
                 await _auditLogger.LogAsync(auditLog);
 
-                return (false, null);
+                return (false, null, null, outputKind);
             }
             finally
             {

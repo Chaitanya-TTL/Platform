@@ -25,13 +25,15 @@ type TreeNodeData = {
 function getTeamcenterRoot(payload: any): TreeNodeData | null {
   if (!payload) return null;
 
-  const payloadRoot = payload.bomRoot ?? payload.bomStructure?.bomRoot ?? payload.root ?? null;
+  const payloadBody = payload.payload ?? payload;
+  const payloadRoot = payloadBody.bomRootNode ?? payloadBody.bomRoot ?? payloadBody.bomStructure?.bomRoot ?? payloadBody.root ?? null;
+
   if (payloadRoot) {
     return transformTeamcenterNode(payloadRoot, "teamcenter-root");
   }
 
-  if (payload.itemId || payload.name || payload.children) {
-    return transformTeamcenterNode(payload, "teamcenter-root");
+  if (payloadBody.itemId || payloadBody.name || payloadBody.children) {
+    return transformTeamcenterNode(payloadBody, "teamcenter-root");
   }
 
   return null;

@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { startConfigitExtraction } from "@/lib/api";
 
 interface ConfigitFormProps {
-  onSubmit: (workItemId: string, productModel: string) => void;
+  onSubmit: (jobId: string, payload?: unknown) => void;
   isRunning: boolean;
 }
 
@@ -26,7 +27,15 @@ export function ConfigitForm({ onSubmit, isRunning }: ConfigitFormProps) {
       return;
     }
 
-    onSubmit(workItemId.trim(), productModel.trim());
+    try {
+      const result = await startConfigitExtraction({
+        workItemId: workItemId.trim(),
+        productModelCode: productModel.trim(),
+      });
+      onSubmit(result.jobId ?? "", result.payload ?? null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to start extraction");
+    }
   };
 
   return (
@@ -64,7 +73,7 @@ export function ConfigitForm({ onSubmit, isRunning }: ConfigitFormProps) {
         disabled={isRunning}
         className="w-full rounded-2xl bg-cyan-500 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {isRunning ? "Running Configit extraction..." : "Start Configit extraction"}
+        {isRunning ? "Extracting..." : "Extract BOM"}
       </button>
     </form>
   );

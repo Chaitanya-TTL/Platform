@@ -37,8 +37,17 @@ cd HelloTeamcenter
 REM Build explicit JAXB classpath FIRST, then other libraries
 set JAXB_CP=..\..\libs\jaxb-api-2.3.1.jar;..\..\libs\jaxb-runtime-2.3.1.jar;..\..\libs\jaxb-impl.jar;..\..\libs\javax.activation-api-1.2.0.jar
 
-REM Run HelloTeamcenter with proper JAXB support for Java 17+
-java --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.util=ALL-UNNAMED -Dhost=%TC_HOST% -cp "bin;%JAXB_CP%;..\..\libs\*" com.teamcenter.hello.Hello
+REM Run HelloTeamcenter with the compatible Java runtime installed on this machine.
+set TC_ITEM_ID=%~1
+if not defined TC_ITEM_ID set TC_ITEM_ID=000575
+
+set JAVA_HOME=C:\Program Files\Java\jdk-17
+set PATH=%JAVA_HOME%\bin;%PATH%
+
+REM JVM module options required for Java 9+ (needed by TeamCenter SOA client libraries)
+set JVM_OPTS=--add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.util=ALL-UNNAMED --add-opens java.base/java.io=ALL-UNNAMED
+
+"%JAVA_HOME%\bin\java.exe" %JVM_OPTS% -Dhost=%TC_HOST% -DitemId=%TC_ITEM_ID% -cp "bin;%JAXB_CP%;..\..\libs\*" com.teamcenter.hello.Hello
 
 if errorlevel 1 (
     echo ERROR: HelloTeamcenter failed

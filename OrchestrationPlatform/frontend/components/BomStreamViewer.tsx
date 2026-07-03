@@ -89,14 +89,17 @@ export function getTeamcenterRoot(payload: unknown): TreeNodeData | null {
   const rootObj = asRecord(payload);
   if (!rootObj) return null;
 
-  const bomRoot = rootObj.bomRoot ?? asRecord(rootObj.bomStructure ?? {})?.bomRoot;
+  const payloadBody = asRecord(rootObj.payload) ?? rootObj;
+  const finalBom = asRecord(payloadBody.finalBom) ?? asRecord(rootObj.finalBom) ?? null;
+  const bomRoot = asRecord(finalBom?.bomRootNode) ?? asRecord(finalBom?.bomRoot) ?? asRecord(payloadBody.bomRootNode) ?? asRecord(payloadBody.bomRoot) ?? asRecord(asRecord(payloadBody.bomStructure)?.bomRoot) ?? null;
+
   if (bomRoot) {
     return transformTeamcenterNode(bomRoot, "teamcenter-root");
   }
 
-  const hasAny = Boolean(rootObj.itemId || rootObj.name || rootObj.children);
+  const hasAny = Boolean(payloadBody.itemId || payloadBody.name || payloadBody.children);
   if (hasAny) {
-    return transformTeamcenterNode(payload, "teamcenter-root");
+    return transformTeamcenterNode(payloadBody, "teamcenter-root");
   }
 
   return null;

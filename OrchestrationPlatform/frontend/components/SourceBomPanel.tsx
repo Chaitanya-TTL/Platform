@@ -18,6 +18,7 @@ type SourceBomPanelProps = {
   endpoint: string;
   transformPayload: (payload: unknown) => TreeNodeData | null;
   active: boolean;
+  payloadOverride?: unknown;
   refreshSignal?: number;
   loadingLabel?: string;
   emptyLabel?: string;
@@ -113,6 +114,7 @@ export function SourceBomPanel({
   endpoint,
   transformPayload,
   active,
+  payloadOverride,
   refreshSignal,
   loadingLabel = "Fetching BOM structure...",
   emptyLabel = "No BOM available yet.",
@@ -122,12 +124,37 @@ export function SourceBomPanel({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!active) return;
+    if (!active) {
+      setStatus("idle");
+      setError(null);
+      setBom(null);
+      return;
+    }
+
+    if (payloadOverride !== undefined && payloadOverride !== null) {
+      console.info("[SourceBomPanel] using payload override", { title, payloadOverride });
+      try {
+        const root = transformPayload(payloadOverride);
+        if (!root) {
+          throw new Error("The extraction JSON is unavailable or malformed.");
+        }
+        setBom(root);
+        setStatus("ready");
+        setError(null);
+      } catch (err) {
+        console.error("[SourceBomPanel] payload transform failed", { title, err, payloadOverride });
+        setError(err instanceof Error ? err.message : "Failed to load BOM");
+        setStatus("error");
+        setBom(null);
+      }
+      return;
+    }
 
     const fetchBom = async () => {
       setStatus("loading");
       setError(null);
       try {
+        console.info("[SourceBomPanel] fetching BOM from endpoint", { title, endpoint });
         const response = await fetch(endpoint, { cache: "no-store" });
         if (!response.ok) {
           throw new Error(`No BOM found yet`);
@@ -147,7 +174,7 @@ export function SourceBomPanel({
     };
 
     fetchBom();
-  }, [active, endpoint, refreshSignal, transformPayload]);
+  }, [active, endpoint, payloadOverride, refreshSignal, transformPayload, title]);
 
   const treeData = useMemo(() => (bom ? [bom] : []), [bom]);
   const anim = useMemo(() => (bom ? flattenLevels(bom) : null), [bom]);

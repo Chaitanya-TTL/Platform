@@ -1,6 +1,8 @@
 import requests
 import json
 import os
+import sys
+import argparse
 from urllib.parse import urljoin
 from urllib3.util import Retry
 from requests.adapters import HTTPAdapter
@@ -132,21 +134,49 @@ def save_extraction(data: dict, out_file: str):
         json.dump(data, fh, indent=2)
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description='Extract Configit BOM data for a work item and product model')
+    parser.add_argument('work_item_id', nargs='?', default=None)
+    parser.add_argument('product_model', nargs='?', default=None)
+    parser.add_argument('--work-item-id', dest='work_item_id_opt', default=None)
+    parser.add_argument('--product-model', dest='product_model_opt', default=None)
+    return parser.parse_args()
+
+
 def prompt_and_run():
     print('Configit extractor')
-    wi_id = input("Enter Configit work item id (or 'none' for Master): ").strip()
-    product_model = input("Enter product model code: ").strip()
+    args = parse_args()
+
+    wi_id = (
+        args.work_item_id_opt
+        or args.work_item_id
+        or os.getenv('CONFIGIT_WORK_ITEM_ID')
+        or os.getenv('WORK_ITEM_ID')
+        or ''
+    ).strip()
+    product_model = (
+        args.product_model_opt
+        or args.product_model
+        or os.getenv('CONFIGIT_PRODUCT_MODEL')
+        or ''
+    ).strip()
+
+    if not wi_id or not product_model:
+        if sys.stdin.isatty():
+            wi_id = input("Enter Configit work item id (or 'none' for Master): ").strip()
+            product_model = input("Enter product model code: ").strip()
+        else:
+            raise RuntimeError('Configit work item ID and product model code are required')
+
     print('Discovering families for the product model...')
     family_codes = list_families(wi_id, product_model)
     if not family_codes:
-        print('No families discovered. Verify the product model code and work item id.')
-        return
+        raise RuntimeError('No families discovered. Verify the product model code and work item id.')
     print(f"Found {len(family_codes)} families. Extracting...")
-    out_name = f"configit_extraction.json"
+    out_name = 'configit_extraction.json'
     data = build_extraction(wi_id, product_model, family_codes)
     save_extraction(data, out_name)
     print(f"Extraction saved to {out_name}")
-
 
 
 if __name__ == '__main__':

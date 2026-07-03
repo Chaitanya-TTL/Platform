@@ -35,13 +35,13 @@ select {
 
 /* Modern browsers — Chrome 121+, Edge 121+, Firefox, Safari 18.2+ */
 * {
-  scrollbar-width: 6px;
+  scrollbar-width: 2px;
   scrollbar-color: #00fffb #1e1b4b;
 }
 
 /* Legacy WebKit — older Chrome/Edge/Safari, radius, borders & shadows */
 *::-webkit-scrollbar {
-  width: 6px;
+  width: 2px;
   height: 6px;
 }
 
