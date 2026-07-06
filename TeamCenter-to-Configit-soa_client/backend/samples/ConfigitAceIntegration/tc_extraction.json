@@ -108,8 +108,11 @@
   },
   "sourceRevId": "A",
   "variantOptions": {
+
   },
   "sourceItemId": "000575",
-  "extractedAt": "2026-04-10T07:23:59.478040300Z"
+  "variantRules": [
+
+  ],
+  "extractedAt": "2026-07-06T09:52:19.449931200Z"
 }
- 

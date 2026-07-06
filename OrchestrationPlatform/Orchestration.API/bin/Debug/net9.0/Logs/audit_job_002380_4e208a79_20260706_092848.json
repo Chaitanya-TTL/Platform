@@ -1,0 +1,29 @@
+{
+  "jobId": "job_002380_4e208a79",
+  "teamcenterItemId": "002380",
+  "startTime": "2026-07-06T09:28:48.4244039Z",
+  "endTime": "2026-07-06T09:28:48.5484576Z",
+  "status": "failed",
+  "phases": [
+    {
+      "phase": "extract",
+      "status": "in_progress",
+      "startTime": "2026-07-06T09:28:48.4244383Z",
+      "endTime": null,
+      "progressPercent": 0,
+      "message": null
+    },
+    {
+      "phase": "transform",
+      "status": "in_progress",
+      "startTime": "2026-07-06T09:28:48.4244474Z",
+      "endTime": null,
+      "progressPercent": 20,
+      "message": null
+    }
+  ],
+  "finalBom": null,
+  "error": "Pipeline execution failed: \n--- STDERR ---\n'C:\\Users\\skk932045\\OneDrive' is not recognized as an internal or external command,\r\noperable program or batch file.\r\n\r\n",
+  "outputFilePath": null,
+  "outputKind": null
+}

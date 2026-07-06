@@ -39,7 +39,9 @@ set JAXB_CP=..\..\libs\jaxb-api-2.3.1.jar;..\..\libs\jaxb-runtime-2.3.1.jar;..\.
 
 REM Run HelloTeamcenter with the compatible Java runtime installed on this machine.
 set TC_ITEM_ID=%~1
-if not defined TC_ITEM_ID set TC_ITEM_ID=000575
+if "%TC_ITEM_ID%"=="" set TC_ITEM_ID=002380
+
+echo [INFO] Using TC_ITEM_ID: %TC_ITEM_ID%
 
 set JAVA_HOME=C:\Program Files\Java\jdk-17
 set PATH=%JAVA_HOME%\bin;%PATH%

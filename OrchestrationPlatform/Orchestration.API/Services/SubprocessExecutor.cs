@@ -93,11 +93,11 @@ namespace Orchestration.API.Services
                 var processInfo = new ProcessStartInfo
                 {
                     FileName = "cmd.exe",
-                    Arguments = $"/c \"{pipelinePath}\"",
+                    Arguments = $"/c call \"{pipelinePath}\" \"{request.TeamcenterItemId}\"",
                     UseShellExecute = false,
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
-                    RedirectStandardInput = true,
+                    RedirectStandardInput = false,
                     StandardOutputEncoding = Encoding.UTF8,
                     StandardErrorEncoding = Encoding.UTF8,
                     CreateNoWindow = true,
@@ -106,20 +106,23 @@ namespace Orchestration.API.Services
 
                 processInfo.EnvironmentVariables["TC_ITEM_ID"] = request.TeamcenterItemId;
 
+                // Debug: log the exact command that will be executed to diagnose quoting/path issues
+                try
+                {
+                    _logger.LogInformation("Starting subprocess with FileName='{0}', Arguments='{1}', WorkingDirectory='{2}', UseShellExecute={3}",
+                        processInfo.FileName, processInfo.Arguments, processInfo.WorkingDirectory, processInfo.UseShellExecute);
+                    // Also log that the environment variable has been set (not printing value to avoid sensitive logs)
+                    _logger.LogDebug("Environment variable TC_ITEM_ID present: {0}", processInfo.EnvironmentVariables.ContainsKey("TC_ITEM_ID"));
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning($"Failed to log process start info: {ex.Message}");
+                }
+
                 using (var process = Process.Start(processInfo))
                 {
                     if (process == null)
                         throw new Exception("Failed to start pipeline process");
-
-                    try
-                    {
-                        await process.StandardInput.WriteLineAsync(request.TeamcenterItemId);
-                        process.StandardInput.Close();
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning($"Could not write to stdin: {ex.Message}");
-                    }
 
                     var outputTask = process.StandardOutput.ReadToEndAsync();
                     var errorTask = process.StandardError.ReadToEndAsync();
@@ -127,6 +130,28 @@ namespace Orchestration.API.Services
 
                     var stdOut = await outputTask;
                     var stdErr = await errorTask;
+
+                    // Try to locate an explicit extraction JSON path reported by the pipeline stdout
+                    string explicitExtractionPath = null;
+                    try
+                    {
+                        var regex = new System.Text.RegularExpressions.Regex("Extraction exported to (.+?tc_extraction\\.json)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                        var m = regex.Match(stdOut);
+                        if (m.Success && m.Groups.Count > 1)
+                        {
+                            explicitExtractionPath = m.Groups[1].Value.Trim();
+                            // Normalize relative paths to absolute if necessary
+                            if (!Path.IsPathRooted(explicitExtractionPath))
+                            {
+                                explicitExtractionPath = Path.GetFullPath(Path.Combine(workingDirectory, explicitExtractionPath));
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogDebug($"Could not parse explicit extraction path from stdout: {ex.Message}");
+                        explicitExtractionPath = null;
+                    }
 
                     output.Append(stdOut);
                     if (!string.IsNullOrEmpty(stdErr))
@@ -143,6 +168,35 @@ namespace Orchestration.API.Services
                     {
                         _logger.LogError($"Pipeline exited with code {process.ExitCode}");
                         await progressCallback($"❌ Pipeline failed with exit code {process.ExitCode}");
+
+                        // If the pipeline reported an explicit extraction file, prefer that
+                        if (!string.IsNullOrWhiteSpace(explicitExtractionPath) && File.Exists(explicitExtractionPath))
+                        {
+                            try
+                            {
+                                var json = await File.ReadAllTextAsync(explicitExtractionPath);
+                                var bom = JsonConvert.DeserializeObject<BomRoot>(json);
+                                if (bom != null)
+                                {
+                                    bom.SourceItemId = request.TeamcenterItemId;
+                                    await progressCallback($"⚠️ Partial BOM structure loaded despite pipeline failure: {bom.SourceItemId}");
+                                    _logger.LogWarning("Pipeline failed, but explicit Teamcenter output was available at {0}", explicitExtractionPath);
+                                    return (true, output.ToString(), bom, explicitExtractionPath);
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogWarning($"Failed to read explicit extraction file '{explicitExtractionPath}': {ex.Message}");
+                            }
+                        }
+
+                        (bomStructure, outputFilePath) = await TryParseTeamcenterOutputAsync(workingDirectory, request.TeamcenterItemId);
+                        if (bomStructure != null && !string.IsNullOrWhiteSpace(outputFilePath))
+                        {
+                            await progressCallback($"⚠️ Partial BOM structure loaded despite pipeline failure: {bomStructure.SourceItemId}");
+                            _logger.LogWarning("Pipeline failed, but partial Teamcenter output was available.");
+                            return (true, output.ToString(), bomStructure, outputFilePath);
+                        }
                     }
                     else
                     {

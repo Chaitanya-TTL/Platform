@@ -1,0 +1,52 @@
+{
+  "jobId": "job_002380_3d9bd2d4",
+  "teamcenterItemId": "002380",
+  "startTime": "2026-07-06T09:06:22.9089453Z",
+  "endTime": "2026-07-06T09:06:23.5635079Z",
+  "status": "success",
+  "phases": [
+    {
+      "phase": "extract",
+      "status": "complete",
+      "startTime": "2026-07-06T09:06:22.9120779Z",
+      "endTime": "2026-07-06T09:06:23.2745659Z",
+      "progressPercent": 20,
+      "message": "✓ Data extracted from TeamCenter"
+    },
+    {
+      "phase": "transform",
+      "status": "complete",
+      "startTime": "2026-07-06T09:06:22.9126074Z",
+      "endTime": "2026-07-06T09:06:23.27467Z",
+      "progressPercent": 80,
+      "message": "✓ BOM transformed successfully"
+    },
+    {
+      "phase": "load",
+      "status": "complete",
+      "startTime": "2026-07-06T09:06:23.2747241Z",
+      "endTime": "2026-07-06T09:06:23.5635069Z",
+      "progressPercent": 100,
+      "message": "✓ Pipeline completed successfully"
+    }
+  ],
+  "finalBom": {
+    "bomRoot": {
+      "itemId": "002380",
+      "sequence": null,
+      "variantState": "Y",
+      "revId": "A",
+      "name": "002380/A - Requested TeamCenter Item",
+      "qty": "1",
+      "variantCondition": null,
+      "children": []
+    },
+    "sourceItemId": "002380",
+    "sourceRevId": "A",
+    "variantOptions": {},
+    "extractedAt": "2026-07-06T09:06:23.2740068Z"
+  },
+  "error": null,
+  "outputFilePath": "C:\\Users\\skk932045\\OneDrive - Tata Technologies\\Desktop\\Platform\\TeamCenter-to-Configit-soa_client\\backend\\samples\\..\\tc_extraction.json",
+  "outputKind": "teamcenter"
+}
