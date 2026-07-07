@@ -6,8 +6,8 @@ import { IconArrowRight, IconBox, IconBuildingFactory, IconPlus } from "@tabler/
 interface QuickStartModalProps {
   open: boolean;
   onClose: () => void;
-  options: Array<{ label: string; description: string; value: "teamcenter" | "configit"; icon: React.ReactNode }>;
-  onSelect: (value: "teamcenter" | "configit") => void;
+  options: Array<{ label: string; description: string; value: string; icon: React.ReactNode }>;
+  onSelect: (value: string) => void;
 }
 
 export function QuickStartModal({ open, onClose, options, onSelect }: QuickStartModalProps) {

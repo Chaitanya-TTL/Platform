@@ -45,7 +45,46 @@ def _extract_children(node: dict[str, Any]) -> list[dict[str, Any]]:
         value = node.get(key)
         if isinstance(value, list):
             return value
+
+    # If the node contains top-level "boms" wrappers that themselves hold bomItems,
+    # flatten the wrapper and return the wrapped children directly.
+    bom_wrappers = node.get('boms')
+    if isinstance(bom_wrappers, list):
+        flattened: list[dict[str, Any]] = []
+        for bom in bom_wrappers:
+            if not isinstance(bom, dict):
+                continue
+            bom_items = bom.get('bomItems')
+            if isinstance(bom_items, list) and bom_items:
+                flattened.extend(bom_items)
+                continue
+            nested_boms = bom.get('boms')
+            if isinstance(nested_boms, list) and nested_boms:
+                flattened.extend(nested_boms)
+                continue
+        if flattened:
+            return flattened
+
     return []
+
+
+def _is_wrapper_node(node: dict[str, Any]) -> bool:
+    if not isinstance(node, dict):
+        return False
+    has_label = any(node.get(key) for key in ('productId', 'bomItemId', 'name', 'id', 'itemId'))
+    has_boms = isinstance(node.get('boms'), list) and bool(node['boms'])
+    has_bom_items = isinstance(node.get('bomItems'), list) and bool(node['bomItems'])
+    return not has_label and (has_boms or has_bom_items)
+
+
+def normalize_nodes(node: Any, fallback_id: str) -> list[dict[str, Any]]:
+    if _is_wrapper_node(node):
+        flattened: list[dict[str, Any]] = []
+        for child in _extract_children(node):
+            flattened.extend(normalize_nodes(child, f"{fallback_id}-child"))
+        return flattened
+
+    return [normalize_node(node, fallback_id)]
 
 
 def normalize_node(node: Any, fallback_id: str) -> dict[str, Any]:
@@ -79,9 +118,9 @@ def normalize_node(node: Any, fallback_id: str) -> dict[str, Any]:
     if quantity is not None:
         attributes['Quantity'] = quantity
 
-    children = []
+    children: list[dict[str, Any]] = []
     for child in _extract_children(node):
-        children.append(normalize_node(child, f"{fallback_id}-child"))
+        children.extend(normalize_nodes(child, f"{fallback_id}-child"))
 
     return {
         'id': str(node_id or fallback_id),
@@ -104,17 +143,17 @@ def normalize_solve_response(payload: Any, product_id: str, package_path: str, g
             first_bom = root['boms'][0]
             # prefer bomItems if present
             if isinstance(first_bom.get('bomItems'), list):
-                top_level_nodes = [normalize_node(n, f'bomItem-{i}') for i, n in enumerate(first_bom['bomItems'])]
+                top_level_nodes = [n for i, node in enumerate(first_bom['bomItems']) for n in normalize_nodes(node, f'bomItem-{i}')]
             elif isinstance(first_bom.get('boms'), list):
-                top_level_nodes = [normalize_node(n, f'bom-{i}') for i, n in enumerate(first_bom['boms'])]
+                top_level_nodes = [n for i, node in enumerate(first_bom['boms']) for n in normalize_nodes(node, f'bom-{i}')]
         else:
             for key in ('nodes', 'children', 'items', 'bom'):
                 value = payload.get(key)
                 if isinstance(value, list):
-                    top_level_nodes = [normalize_node(node, f'{key}-{index}') for index, node in enumerate(value)]
+                    top_level_nodes = [n for index, node in enumerate(value) for n in normalize_nodes(node, f'{key}-{index}')]
                     break
                 if isinstance(value, dict):
-                    top_level_nodes = [normalize_node(value, key)]
+                    top_level_nodes = normalize_nodes(value, key)
                     break
 
         if not top_level_nodes and isinstance(payload.get('result'), (dict, list)):

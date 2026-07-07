@@ -97,15 +97,9 @@ function flattenLevels(root: TreeNodeData): { levels: TreeNodeData[][]; ids: Set
   return { levels, ids };
 }
 
-function computeVisibleIds(anim: { levels: TreeNodeData[][]; ids: Set<string> } | null, levelLimit: number) {
+function computeVisibleIds(anim: { levels: TreeNodeData[][]; ids: Set<string> } | null) {
   if (!anim) return new Set<string>();
-  const visible = new Set<string>();
-  for (let level = 0; level <= levelLimit; level += 1) {
-    for (const node of anim.levels[level] ?? []) {
-      visible.add(node.id);
-    }
-  }
-  return visible;
+  return new Set(anim.ids);
 }
 
 export function SourceBomPanel({
@@ -131,10 +125,10 @@ export function SourceBomPanel({
       setError(null);
       try {
         const response = await fetch(endpoint, { cache: "no-store" });
+        const json = await response.json().catch(() => null);
         if (!response.ok) {
-          throw new Error(`No BOM found yet`);
+          throw new Error((json as { error?: string } | null)?.error ?? `No BOM found yet`);
         }
-        const json = await response.json();
         const root = transformPayload(json);
         if (!root) {
           throw new Error("The extraction JSON is unavailable or malformed.");
@@ -155,7 +149,7 @@ export function SourceBomPanel({
 
   const treeData = useMemo(() => (bom ? [bom] : []), [bom]);
   const anim = useMemo(() => (bom ? flattenLevels(bom) : null), [bom]);
-  const visibleIds = useMemo(() => computeVisibleIds(anim, 2), [anim]);
+  const visibleIds = useMemo(() => computeVisibleIds(anim), [anim]);
 
   return (
     <div className="rounded-[28px] border border-slate-700/80 bg-slate-950/80 p-5 shadow-2xl shadow-slate-950/20">

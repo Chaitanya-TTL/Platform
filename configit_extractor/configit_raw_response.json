@@ -1,29 +1,29 @@
 {
-  "packagePath": "samples/pen~93cca4ec-3651-4c52-a7cf-9e52d3e11804",
+  "packagePath": "samples/usb~e5d040af-4a2e-4390-932a-1e65c09eea28",
   "root": {
     "type": "Product",
-    "productId": "USB_DRIVE_002380",
+    "productId": "Screwjack_002403",
     "isConfigurable": true,
     "boms": [
       {
-        "bomId": "USB_DRIVE_002380",
+        "bomId": "Screwjack_002403",
         "state": "Selected",
         "justification": "Properties",
         "solved": false,
-        "nodeId": "AQACVVNCX0RSSVZFXzAwMjM4MABVU0JfRFJJVkVfMDAyMzgwAA==",
+        "nodeId": "AQACU2NyZXdqYWNrXzAwMjQwMwBTY3Jld2phY2tfMDAyNDAzAA==",
         "properties": [],
         "bomItems": [
           {
             "type": "Product",
-            "productId": "Body Casing_002381",
+            "productId": "Counter Sink_002404",
             "isConfigurable": false,
             "boms": [],
             "properties": [],
-            "bomItemId": "USB_DRIVE_002380_Body Casing_002381",
+            "bomItemId": "Screwjack_002403_Counter Sink_002404",
             "state": "Available",
             "justification": "None",
             "solved": false,
-            "nodeId": "AQEBVVNCX0RSSVZFXzAwMjM4MABVU0JfRFJJVkVfMDAyMzgwX0JvZHkgQ2FzaW5nXzAwMjM4MQBCb2R5IENhc2luZ18wMDIzODEA",
+            "nodeId": "AQEBU2NyZXdqYWNrXzAwMjQwMwBTY3Jld2phY2tfMDAyNDAzX0NvdW50ZXIgU2lua18wMDI0MDQAQ291bnRlciBTaW5rXzAwMjQwNAA=",
             "requiredVariables": [],
             "quantity": {
               "value": 1,
@@ -32,15 +32,15 @@
           },
           {
             "type": "Product",
-            "productId": "PCB_002382",
+            "productId": "Washer_002405",
             "isConfigurable": false,
             "boms": [],
             "properties": [],
-            "bomItemId": "USB_DRIVE_002380_PCB_002382",
+            "bomItemId": "Screwjack_002403_Washer_002405",
             "state": "Available",
             "justification": "None",
             "solved": false,
-            "nodeId": "AQEBVVNCX0RSSVZFXzAwMjM4MABVU0JfRFJJVkVfMDAyMzgwX1BDQl8wMDIzODIAUENCXzAwMjM4MgA=",
+            "nodeId": "AQEBU2NyZXdqYWNrXzAwMjQwMwBTY3Jld2phY2tfMDAyNDAzX1dhc2hlcl8wMDI0MDUAV2FzaGVyXzAwMjQwNQA=",
             "requiredVariables": [],
             "quantity": {
               "value": 1,
@@ -49,28 +49,62 @@
           },
           {
             "type": "Product",
-            "productId": "Storage_002383",
+            "productId": "Nut_002407",
+            "isConfigurable": false,
+            "boms": [],
+            "properties": [],
+            "bomItemId": "Screwjack_002403_Nut_002407",
+            "state": "Available",
+            "justification": "None",
+            "solved": false,
+            "nodeId": "AQEBU2NyZXdqYWNrXzAwMjQwMwBTY3Jld2phY2tfMDAyNDAzX051dF8wMDI0MDcATnV0XzAwMjQwNwA=",
+            "requiredVariables": [],
+            "quantity": {
+              "value": 1,
+              "unit": "EA"
+            }
+          },
+          {
+            "type": "Product",
+            "productId": "Tommy Bar_002408",
+            "isConfigurable": false,
+            "boms": [],
+            "properties": [],
+            "bomItemId": "Screwjack_002403_Tommy Bar_002408",
+            "state": "Available",
+            "justification": "None",
+            "solved": false,
+            "nodeId": "AQEBU2NyZXdqYWNrXzAwMjQwMwBTY3Jld2phY2tfMDAyNDAzX1RvbW15IEJhcl8wMDI0MDgAVG9tbXkgQmFyXzAwMjQwOAA=",
+            "requiredVariables": [],
+            "quantity": {
+              "value": 1,
+              "unit": "EA"
+            }
+          },
+          {
+            "type": "Product",
+            "productId": "Body_002409",
             "isConfigurable": false,
             "boms": [
               {
-                "bomId": "Storage_002383",
+                "bomId": "Body_002409",
                 "state": "Selected",
                 "justification": "Properties",
                 "solved": false,
-                "nodeId": "AQECVVNCX0RSSVZFXzAwMjM4MABVU0JfRFJJVkVfMDAyMzgwX1N0b3JhZ2VfMDAyMzgzAFN0b3JhZ2VfMDAyMzgzAFN0b3JhZ2VfMDAyMzgzAA==",
+                "nodeId": "AQECU2NyZXdqYWNrXzAwMjQwMwBTY3Jld2phY2tfMDAyNDAzX0JvZHlfMDAyNDA5AEJvZHlfMDAyNDA5AEJvZHlfMDAyNDA5AA==",
                 "properties": [],
                 "bomItems": [
                   {
                     "type": "Product",
-                    "productId": "16GB_002384",
+                    "productId": "Normal Body_002414",
                     "isConfigurable": false,
                     "boms": [],
                     "properties": [],
-                    "bomItemId": "Storage_002383_16GB_002384",
+                    "bomItemId": "Body_002409_Normal Body_002414",
                     "state": "Available",
                     "justification": "None",
                     "solved": false,
-                    "nodeId": "AQIBVVNCX0RSSVZFXzAwMjM4MABVU0JfRFJJVkVfMDAyMzgwX1N0b3JhZ2VfMDAyMzgzAFN0b3JhZ2VfMDAyMzgzAFN0b3JhZ2VfMDAyMzgzXzE2R0JfMDAyMzg0ADE2R0JfMDAyMzg0AA==",
+                    "nodeId": "AQIBU2NyZXdqYWNrXzAwMjQwMwBTY3Jld2phY2tfMDAyNDAzX0JvZHlfMDAyNDA5AEJvZHlfMDAyNDA5AEJvZHlfMDAyNDA5X05vcm1hbCBCb2R5XzAwMjQxNABOb3JtYWwgQm9keV8wMDI0MTQA",
                     "requiredVariables": [],
                     "quantity": {
                       "value": 1,
@@ -79,15 +113,15 @@
                   },
                   {
                     "type": "Product",
-                    "productId": "64GB_002385",
+                    "productId": "Slim Body_002413",
                     "isConfigurable": false,
                     "boms": [],
                     "properties": [],
-                    "bomItemId": "Storage_002383_64GB_002385",
+                    "bomItemId": "Body_002409_Slim Body_002413",
                     "state": "Available",
                     "justification": "None",
                     "solved": false,
-                    "nodeId": "AQIBVVNCX0RSSVZFXzAwMjM4MABVU0JfRFJJVkVfMDAyMzgwX1N0b3JhZ2VfMDAyMzgzAFN0b3JhZ2VfMDAyMzgzAFN0b3JhZ2VfMDAyMzgzXzY0R0JfMDAyMzg1ADY0R0JfMDAyMzg1AA==",
+                    "nodeId": "AQIBU2NyZXdqYWNrXzAwMjQwMwBTY3Jld2phY2tfMDAyNDAzX0JvZHlfMDAyNDA5AEJvZHlfMDAyNDA5AEJvZHlfMDAyNDA5X1NsaW0gQm9keV8wMDI0MTMAU2xpbSBCb2R5XzAwMjQxMwA=",
                     "requiredVariables": [],
                     "quantity": {
                       "value": 1,
@@ -98,13 +132,13 @@
               }
             ],
             "properties": [],
-            "bomItemId": "USB_DRIVE_002380_Storage_002383",
+            "bomItemId": "Screwjack_002403_Body_002409",
             "state": "Selected",
             "justification": "Properties",
             "solved": false,
-            "nodeId": "AQEBVVNCX0RSSVZFXzAwMjM4MABVU0JfRFJJVkVfMDAyMzgwX1N0b3JhZ2VfMDAyMzgzAFN0b3JhZ2VfMDAyMzgzAA==",
+            "nodeId": "AQEBU2NyZXdqYWNrXzAwMjQwMwBTY3Jld2phY2tfMDAyNDAzX0JvZHlfMDAyNDA5AEJvZHlfMDAyNDA5AA==",
             "requiredVariables": [
-              "STORAGE"
+              "BODY"
             ],
             "quantity": {
               "value": 1,
@@ -113,28 +147,45 @@
           },
           {
             "type": "Product",
-            "productId": "Type_002386",
+            "productId": "Screw Spindle_002410",
+            "isConfigurable": false,
+            "boms": [],
+            "properties": [],
+            "bomItemId": "Screwjack_002403_Screw Spindle_002410",
+            "state": "Available",
+            "justification": "None",
+            "solved": false,
+            "nodeId": "AQEBU2NyZXdqYWNrXzAwMjQwMwBTY3Jld2phY2tfMDAyNDAzX1NjcmV3IFNwaW5kbGVfMDAyNDEwAFNjcmV3IFNwaW5kbGVfMDAyNDEwAA==",
+            "requiredVariables": [],
+            "quantity": {
+              "value": 1,
+              "unit": "EA"
+            }
+          },
+          {
+            "type": "Product",
+            "productId": "Top Head_002412",
             "isConfigurable": false,
             "boms": [
               {
-                "bomId": "Type_002386",
+                "bomId": "Top Head_002412",
                 "state": "Selected",
                 "justification": "Properties",
                 "solved": false,
-                "nodeId": "AQECVVNCX0RSSVZFXzAwMjM4MABVU0JfRFJJVkVfMDAyMzgwX1R5cGVfMDAyMzg2AFR5cGVfMDAyMzg2AFR5cGVfMDAyMzg2AA==",
+                "nodeId": "AQECU2NyZXdqYWNrXzAwMjQwMwBTY3Jld2phY2tfMDAyNDAzX1RvcCBIZWFkXzAwMjQxMgBUb3AgSGVhZF8wMDI0MTIAVG9wIEhlYWRfMDAyNDEyAA==",
                 "properties": [],
                 "bomItems": [
                   {
                     "type": "Product",
-                    "productId": "USB 2.0_002387",
+                    "productId": "Cup_002406",
                     "isConfigurable": false,
                     "boms": [],
                     "properties": [],
-                    "bomItemId": "Type_002386_USB 2.0_002387",
+                    "bomItemId": "Top Head_002412_Cup_002406",
                     "state": "Available",
                     "justification": "None",
                     "solved": false,
-                    "nodeId": "AQIBVVNCX0RSSVZFXzAwMjM4MABVU0JfRFJJVkVfMDAyMzgwX1R5cGVfMDAyMzg2AFR5cGVfMDAyMzg2AFR5cGVfMDAyMzg2X1VTQiAyLjBfMDAyMzg3AFVTQiAyLjBfMDAyMzg3AA==",
+                    "nodeId": "AQIBU2NyZXdqYWNrXzAwMjQwMwBTY3Jld2phY2tfMDAyNDAzX1RvcCBIZWFkXzAwMjQxMgBUb3AgSGVhZF8wMDI0MTIAVG9wIEhlYWRfMDAyNDEyX0N1cF8wMDI0MDYAQ3VwXzAwMjQwNgA=",
                     "requiredVariables": [],
                     "quantity": {
                       "value": 1,
@@ -143,15 +194,15 @@
                   },
                   {
                     "type": "Product",
-                    "productId": "USB 3.0_002390",
+                    "productId": "Cup 150_002411",
                     "isConfigurable": false,
                     "boms": [],
                     "properties": [],
-                    "bomItemId": "Type_002386_USB 3.0_002390",
+                    "bomItemId": "Top Head_002412_Cup 150_002411",
                     "state": "Available",
                     "justification": "None",
                     "solved": false,
-                    "nodeId": "AQIBVVNCX0RSSVZFXzAwMjM4MABVU0JfRFJJVkVfMDAyMzgwX1R5cGVfMDAyMzg2AFR5cGVfMDAyMzg2AFR5cGVfMDAyMzg2X1VTQiAzLjBfMDAyMzkwAFVTQiAzLjBfMDAyMzkwAA==",
+                    "nodeId": "AQIBU2NyZXdqYWNrXzAwMjQwMwBTY3Jld2phY2tfMDAyNDAzX1RvcCBIZWFkXzAwMjQxMgBUb3AgSGVhZF8wMDI0MTIAVG9wIEhlYWRfMDAyNDEyX0N1cCAxNTBfMDAyNDExAEN1cCAxNTBfMDAyNDExAA==",
                     "requiredVariables": [],
                     "quantity": {
                       "value": 1,
@@ -162,31 +213,14 @@
               }
             ],
             "properties": [],
-            "bomItemId": "USB_DRIVE_002380_Type_002386",
+            "bomItemId": "Screwjack_002403_Top Head_002412",
             "state": "Selected",
             "justification": "Properties",
             "solved": false,
-            "nodeId": "AQEBVVNCX0RSSVZFXzAwMjM4MABVU0JfRFJJVkVfMDAyMzgwX1R5cGVfMDAyMzg2AFR5cGVfMDAyMzg2AA==",
+            "nodeId": "AQEBU2NyZXdqYWNrXzAwMjQwMwBTY3Jld2phY2tfMDAyNDAzX1RvcCBIZWFkXzAwMjQxMgBUb3AgSGVhZF8wMDI0MTIA",
             "requiredVariables": [
-              "TYPE"
+              "TOP_HEAD"
             ],
-            "quantity": {
-              "value": 1,
-              "unit": "EA"
-            }
-          },
-          {
-            "type": "Product",
-            "productId": "Connector_002389",
-            "isConfigurable": false,
-            "boms": [],
-            "properties": [],
-            "bomItemId": "USB_DRIVE_002380_Connector_002389",
-            "state": "Available",
-            "justification": "None",
-            "solved": false,
-            "nodeId": "AQEBVVNCX0RSSVZFXzAwMjM4MABVU0JfRFJJVkVfMDAyMzgwX0Nvbm5lY3Rvcl8wMDIzODkAQ29ubmVjdG9yXzAwMjM4OQA=",
-            "requiredVariables": [],
             "quantity": {
               "value": 1,
               "unit": "EA"
@@ -201,7 +235,7 @@
     "solved": false,
     "nodeId": "ROOT",
     "requiredVariables": [
-      "USB_DRIVE"
+      "SCREWJACK"
     ],
     "quantity": {}
   }

@@ -45,18 +45,17 @@ async function findPythonExecutable(scriptDir: string) {
 }
 
 export async function GET(request: NextRequest) {
-  const productId = request.nextUrl.searchParams.get("productId");
-  const date = request.nextUrl.searchParams.get("date");
+  const partId = request.nextUrl.searchParams.get("partId");
   const debug = request.nextUrl.searchParams.get("debug");
 
-  if (!productId) {
-    return NextResponse.json({ error: "productId is required." }, { status: 400 });
+  if (!partId) {
+    return NextResponse.json({ error: "partId is required." }, { status: 400 });
   }
 
   async function findScriptDir(startDir: string) {
     let current = path.resolve(startDir);
     for (let i = 0; i < 6; i += 1) {
-      const candidate = path.resolve(current, "configit_extractor");
+      const candidate = path.resolve(current, "windchill_extractor");
       if (await fileExists(candidate)) {
         return candidate;
       }
@@ -69,29 +68,28 @@ export async function GET(request: NextRequest) {
 
   const scriptDir = await findScriptDir(process.cwd());
   if (!scriptDir) {
-    return NextResponse.json({ error: "Unable to locate configit_extractor directory from the frontend runtime." }, { status: 500 });
+    return NextResponse.json({ error: "Unable to locate windchill_extractor directory from the frontend runtime." }, { status: 500 });
   }
 
   const scriptPath = path.resolve(scriptDir, "extractor.py");
-  const outputPath = path.resolve(scriptDir, "configit_extraction.json");
+  const outputPath = path.resolve(scriptDir, "windchill_extraction.json");
 
   if (!(await fileExists(scriptPath))) {
-    return NextResponse.json({ error: "Configit extractor script not found." }, { status: 500 });
+    return NextResponse.json({ error: "Windchill extractor script not found." }, { status: 500 });
   }
 
   const python = await findPythonExecutable(scriptDir);
   if (!python) {
-    return NextResponse.json({ error: "Unable to find Python executable for Configit extraction." }, { status: 500 });
+    return NextResponse.json({ error: "Unable to find Python executable for Windchill extraction." }, { status: 500 });
   }
 
   try {
     await execFileAsync(python, [
       scriptPath,
-      "--product-id",
-      productId,
+      "--part-id",
+      partId,
       "--output",
       outputPath,
-      ...(date ? ["--date", date] : []),
     ], {
       cwd: scriptDir,
       timeout: 5 * 60 * 1000,
@@ -101,7 +99,7 @@ export async function GET(request: NextRequest) {
     const parsed = JSON.parse(content);
 
     if (debug === "1") {
-      const rawPath = path.resolve(scriptDir, "configit_raw_response.json");
+      const rawPath = path.resolve(scriptDir, "windchill_extraction_raw.json");
       let raw: unknown = null;
       if (await fileExists(rawPath)) {
         try {
@@ -116,6 +114,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(parsed);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unable to run extraction.";
-    return NextResponse.json({ error: `Configit extraction failed: ${message}` }, { status: 500 });
+    return NextResponse.json({ error: `Windchill extraction failed: ${message}` }, { status: 500 });
   }
 }

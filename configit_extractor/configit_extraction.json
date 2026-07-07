@@ -1,11 +1,11 @@
 {
-  "productId": "USB_DRIVE_002380",
-  "packagePath": "samples/pen",
-  "generatedDate": "2026-07-02T10:36:53.709Z",
+  "productId": "Screwjack_002403",
+  "packagePath": "samples/usb",
+  "generatedDate": "2026-07-03T07:27:36.310Z",
   "bom": [
     {
-      "id": "USB_DRIVE_002380_Body Casing_002381",
-      "name": "Body Casing_002381",
+      "id": "Screwjack_002403_Counter Sink_002404",
+      "name": "Counter Sink_002404",
       "quantity": "1 EA",
       "attributes": {
         "Quantity": "1 EA"
@@ -13,8 +13,8 @@
       "children": []
     },
     {
-      "id": "USB_DRIVE_002380_PCB_002382",
-      "name": "PCB_002382",
+      "id": "Screwjack_002403_Washer_002405",
+      "name": "Washer_002405",
       "quantity": "1 EA",
       "attributes": {
         "Quantity": "1 EA"
@@ -22,85 +22,87 @@
       "children": []
     },
     {
-      "id": "Storage_002383",
-      "name": "Storage_002383",
+      "id": "Screwjack_002403_Nut_002407",
+      "name": "Nut_002407",
+      "quantity": "1 EA",
+      "attributes": {
+        "Quantity": "1 EA"
+      },
+      "children": []
+    },
+    {
+      "id": "Screwjack_002403_Tommy Bar_002408",
+      "name": "Tommy Bar_002408",
+      "quantity": "1 EA",
+      "attributes": {
+        "Quantity": "1 EA"
+      },
+      "children": []
+    },
+    {
+      "id": "Body_002409",
+      "name": "Body_002409",
       "quantity": "1 EA",
       "attributes": {
         "Quantity": "1 EA"
       },
       "children": [
         {
-          "id": "AQECVVNCX0RSSVZFXzAwMjM4MABVU0JfRFJJVkVfMDAyMzgwX1N0b3JhZ2VfMDAyMzgzAFN0b3JhZ2VfMDAyMzgzAFN0b3JhZ2VfMDAyMzgzAA==",
-          "name": "AQECVVNCX0RSSVZFXzAwMjM4MABVU0JfRFJJVkVfMDAyMzgwX1N0b3JhZ2VfMDAyMzgzAFN0b3JhZ2VfMDAyMzgzAFN0b3JhZ2VfMDAyMzgzAA==",
-          "quantity": null,
-          "attributes": {},
-          "children": [
-            {
-              "id": "Storage_002383_16GB_002384",
-              "name": "16GB_002384",
-              "quantity": "1 EA",
-              "attributes": {
-                "Quantity": "1 EA"
-              },
-              "children": []
-            },
-            {
-              "id": "Storage_002383_64GB_002385",
-              "name": "64GB_002385",
-              "quantity": "1 EA",
-              "attributes": {
-                "Quantity": "1 EA"
-              },
-              "children": []
-            }
-          ]
+          "id": "Body_002409_Normal Body_002414",
+          "name": "Normal Body_002414",
+          "quantity": "1 EA",
+          "attributes": {
+            "Quantity": "1 EA"
+          },
+          "children": []
+        },
+        {
+          "id": "Body_002409_Slim Body_002413",
+          "name": "Slim Body_002413",
+          "quantity": "1 EA",
+          "attributes": {
+            "Quantity": "1 EA"
+          },
+          "children": []
         }
       ]
     },
     {
-      "id": "Type_002386",
-      "name": "Type_002386",
+      "id": "Screwjack_002403_Screw Spindle_002410",
+      "name": "Screw Spindle_002410",
+      "quantity": "1 EA",
+      "attributes": {
+        "Quantity": "1 EA"
+      },
+      "children": []
+    },
+    {
+      "id": "Top Head_002412",
+      "name": "Top Head_002412",
       "quantity": "1 EA",
       "attributes": {
         "Quantity": "1 EA"
       },
       "children": [
         {
-          "id": "AQECVVNCX0RSSVZFXzAwMjM4MABVU0JfRFJJVkVfMDAyMzgwX1R5cGVfMDAyMzg2AFR5cGVfMDAyMzg2AFR5cGVfMDAyMzg2AA==",
-          "name": "AQECVVNCX0RSSVZFXzAwMjM4MABVU0JfRFJJVkVfMDAyMzgwX1R5cGVfMDAyMzg2AFR5cGVfMDAyMzg2AFR5cGVfMDAyMzg2AA==",
-          "quantity": null,
-          "attributes": {},
-          "children": [
-            {
-              "id": "Type_002386_USB 2.0_002387",
-              "name": "USB 2.0_002387",
-              "quantity": "1 EA",
-              "attributes": {
-                "Quantity": "1 EA"
-              },
-              "children": []
-            },
-            {
-              "id": "Type_002386_USB 3.0_002390",
-              "name": "USB 3.0_002390",
-              "quantity": "1 EA",
-              "attributes": {
-                "Quantity": "1 EA"
-              },
-              "children": []
-            }
-          ]
+          "id": "Top Head_002412_Cup_002406",
+          "name": "Cup_002406",
+          "quantity": "1 EA",
+          "attributes": {
+            "Quantity": "1 EA"
+          },
+          "children": []
+        },
+        {
+          "id": "Top Head_002412_Cup 150_002411",
+          "name": "Cup 150_002411",
+          "quantity": "1 EA",
+          "attributes": {
+            "Quantity": "1 EA"
+          },
+          "children": []
         }
       ]
-    },
-    {
-      "id": "USB_DRIVE_002380_Connector_002389",
-      "name": "Connector_002389",
-      "quantity": "1 EA",
-      "attributes": {
-        "Quantity": "1 EA"
-      },
-      "children": []
     }
   ]
 }

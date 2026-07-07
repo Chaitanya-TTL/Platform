@@ -1,0 +1,116 @@
+{
+  "@odata.context": "$metadata#PartStructureItems",
+  "PartId": "OR:wt.part.WTPart:576218",
+  "HasChildren": true,
+  "PartUseId": null,
+  "PartName": "WCITEST",
+  "PartNumber": "0001",
+  "PathId": null,
+  "Resolved": true,
+  "HasUnresolvedObjectsByAccessRights": false,
+  "PVTreeId": "/",
+  "PVParentTreeId": null,
+  "@PTC.AppliedContainerContext.LocalTimeZone": "Asia/Calcutta",
+  "Components": [
+    {
+      "PartId": "OR:wt.part.WTPart:576231",
+      "HasChildren": true,
+      "PartUseId": "OR:wt.part.WTPartUsageLink:576222",
+      "PartName": "Assembly B",
+      "PartNumber": "0000003503",
+      "PathId": "b0428f3c-6c66-4d89-945f-8667ecc8fd59",
+      "Resolved": true,
+      "HasUnresolvedObjectsByAccessRights": null,
+      "PVTreeId": "/0:576218-570489-b0428f3c-6c66-4d89-945f-8667ecc8fd59",
+      "PVParentTreeId": "/",
+      "Components": [
+        {
+          "PartId": "OR:wt.part.WTPart:576262",
+          "HasChildren": false,
+          "PartUseId": "OR:wt.part.WTPartUsageLink:576238",
+          "PartName": "Part B1",
+          "PartNumber": "0000003504",
+          "PathId": "b0428f3c-6c66-4d89-945f-8667ecc8fd59|25ad2bc9-7c59-4354-aa26-97dc948574a4",
+          "Resolved": true,
+          "HasUnresolvedObjectsByAccessRights": null,
+          "PVTreeId": "/0:576218-570489-b0428f3c-6c66-4d89-945f-8667ecc8fd59/0:576231-570510-25ad2bc9-7c59-4354-aa26-97dc948574a4",
+          "PVParentTreeId": "/0:576218-570489-b0428f3c-6c66-4d89-945f-8667ecc8fd59"
+        },
+        {
+          "PartId": "OR:wt.part.WTPart:576258",
+          "HasChildren": false,
+          "PartUseId": "OR:wt.part.WTPartUsageLink:576240",
+          "PartName": "Part B2",
+          "PartNumber": "0000003505",
+          "PathId": "b0428f3c-6c66-4d89-945f-8667ecc8fd59|32834911-6b95-4187-96da-fc3e9512e8e2",
+          "Resolved": true,
+          "HasUnresolvedObjectsByAccessRights": null,
+          "PVTreeId": "/0:576218-570489-b0428f3c-6c66-4d89-945f-8667ecc8fd59/0:576231-570518-32834911-6b95-4187-96da-fc3e9512e8e2",
+          "PVParentTreeId": "/0:576218-570489-b0428f3c-6c66-4d89-945f-8667ecc8fd59"
+        }
+      ]
+    },
+    {
+      "PartId": "OR:wt.part.WTPart:576353",
+      "HasChildren": true,
+      "PartUseId": "OR:wt.part.WTPartUsageLink:576223",
+      "PartName": "Assembly A",
+      "PartNumber": "0000003500",
+      "PathId": "7604a1b5-5893-4afa-b03f-f790b18970d1",
+      "Resolved": true,
+      "HasUnresolvedObjectsByAccessRights": null,
+      "PVTreeId": "/0:576218-570442-7604a1b5-5893-4afa-b03f-f790b18970d1",
+      "PVParentTreeId": "/",
+      "Components": [
+        {
+          "PartId": "OR:wt.part.WTPart:576261",
+          "HasChildren": false,
+          "PartUseId": "OR:wt.part.WTPartUsageLink:576356",
+          "PartName": "Part A2",
+          "PartNumber": "0000003502",
+          "PathId": "7604a1b5-5893-4afa-b03f-f790b18970d1|5f97d786-631e-4976-b1fd-ee046371d73f",
+          "Resolved": true,
+          "HasUnresolvedObjectsByAccessRights": null,
+          "PVTreeId": "/0:576218-570442-7604a1b5-5893-4afa-b03f-f790b18970d1/0:576353-570476-5f97d786-631e-4976-b1fd-ee046371d73f",
+          "PVParentTreeId": "/0:576218-570442-7604a1b5-5893-4afa-b03f-f790b18970d1"
+        },
+        {
+          "PartId": "OR:wt.part.WTPart:576260",
+          "HasChildren": false,
+          "PartUseId": "OR:wt.part.WTPartUsageLink:576357",
+          "PartName": "Part A1",
+          "PartNumber": "0000003501",
+          "PathId": "7604a1b5-5893-4afa-b03f-f790b18970d1|5e3aa363-c194-4671-b871-85071880ab09",
+          "Resolved": true,
+          "HasUnresolvedObjectsByAccessRights": null,
+          "PVTreeId": "/0:576218-570442-7604a1b5-5893-4afa-b03f-f790b18970d1/0:576353-570463-5e3aa363-c194-4671-b871-85071880ab09",
+          "PVParentTreeId": "/0:576218-570442-7604a1b5-5893-4afa-b03f-f790b18970d1"
+        },
+        {
+          "PartId": "OR:wt.part.WTPart:576259",
+          "HasChildren": false,
+          "PartUseId": "OR:wt.part.WTPartUsageLink:576355",
+          "PartName": "Sub Assembly A3",
+          "PartNumber": "0000003506",
+          "PathId": "7604a1b5-5893-4afa-b03f-f790b18970d1|0a3ec7aa-8dd7-482b-b830-faf8295c406e",
+          "Resolved": true,
+          "HasUnresolvedObjectsByAccessRights": null,
+          "PVTreeId": "/0:576218-570442-7604a1b5-5893-4afa-b03f-f790b18970d1/0:576353-570534-0a3ec7aa-8dd7-482b-b830-faf8295c406e",
+          "PVParentTreeId": "/0:576218-570442-7604a1b5-5893-4afa-b03f-f790b18970d1"
+        },
+        {
+          "PartId": "OR:wt.part.WTPart:576370",
+          "HasChildren": false,
+          "PartUseId": "OR:wt.part.WTPartUsageLink:576378",
+          "PartName": "Consumable 2",
+          "PartNumber": "0000003613",
+          "PathId": "7604a1b5-5893-4afa-b03f-f790b18970d1|ec6de8a6-eacd-412f-a78a-a4be7cc1586d",
+          "Resolved": true,
+          "HasUnresolvedObjectsByAccessRights": null,
+          "PVTreeId": "/0:576218-570442-7604a1b5-5893-4afa-b03f-f790b18970d1/0:576353-576367-ec6de8a6-eacd-412f-a78a-a4be7cc1586d",
+          "PVParentTreeId": "/0:576218-570442-7604a1b5-5893-4afa-b03f-f790b18970d1"
+        }
+      ]
+    }
+  ]
+}

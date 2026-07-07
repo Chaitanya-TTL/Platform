@@ -1,0 +1,74 @@
+{
+  "productId": "576218",
+  "productName": "WCITEST",
+  "generatedDate": "2026-07-06T10:44:28.446Z",
+  "bom": [
+    {
+      "id": "OR:wt.part.WTPart:576218",
+      "name": "WCITEST",
+      "quantity": null,
+      "attributes": {},
+      "children": [
+        {
+          "id": "OR:wt.part.WTPart:576231",
+          "name": "Assembly B",
+          "quantity": null,
+          "attributes": {},
+          "children": [
+            {
+              "id": "OR:wt.part.WTPart:576262",
+              "name": "Part B1",
+              "quantity": null,
+              "attributes": {},
+              "children": []
+            },
+            {
+              "id": "OR:wt.part.WTPart:576258",
+              "name": "Part B2",
+              "quantity": null,
+              "attributes": {},
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": "OR:wt.part.WTPart:576353",
+          "name": "Assembly A",
+          "quantity": null,
+          "attributes": {},
+          "children": [
+            {
+              "id": "OR:wt.part.WTPart:576261",
+              "name": "Part A2",
+              "quantity": null,
+              "attributes": {},
+              "children": []
+            },
+            {
+              "id": "OR:wt.part.WTPart:576260",
+              "name": "Part A1",
+              "quantity": null,
+              "attributes": {},
+              "children": []
+            },
+            {
+              "id": "OR:wt.part.WTPart:576259",
+              "name": "Sub Assembly A3",
+              "quantity": null,
+              "attributes": {},
+              "children": []
+            },
+            {
+              "id": "OR:wt.part.WTPart:576370",
+              "name": "Consumable 2",
+              "quantity": null,
+              "attributes": {},
+              "children": []
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "source": "windchill-api"
+}
