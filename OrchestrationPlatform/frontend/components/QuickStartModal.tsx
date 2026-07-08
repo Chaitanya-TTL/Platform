@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "motion/react";
-import { IconArrowRight, IconBox, IconBuildingFactory, IconPlus } from "@tabler/icons-react";
+import { IconArrowRight } from "@tabler/icons-react";
 
 interface QuickStartModalProps {
   open: boolean;
@@ -41,9 +41,9 @@ export function QuickStartModal({ open, onClose, options, onSelect }: QuickStart
                 <motion.button
                   key={option.value}
                   onClick={() => onSelect(option.value)}
-                  whileHover={{ y: -3 }}
+                  whileHover={{ y: -3, scale: 1.01 }}
                   whileTap={{ scale: 0.98 }}
-                  className="group rounded-[28px] border border-slate-700/60 bg-slate-950/80 p-6 text-left shadow-lg shadow-slate-950/20 transition hover:border-cyan-400/40"
+                  className="group cursor-pointer rounded-[28px] border border-slate-700/60 bg-slate-950/80 p-6 text-left shadow-lg shadow-slate-950/20 transition hover:border-cyan-400/40"
                 >
                   <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-800 text-cyan-300">
                     {option.icon}

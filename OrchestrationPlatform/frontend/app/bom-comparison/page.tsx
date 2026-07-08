@@ -60,8 +60,14 @@ export default function BomComparisonPage() {
   };
 
   const handleSourceSelect = (value: SourceType) => {
-    setActiveSources((current) => (current.includes(value) ? current : [...current, value]));
+    setActiveSources((current) => {
+      if (current.includes(value)) {
+        return current;
+      }
+      return [...current, value];
+    });
     setShowModal(false);
+    toast.success(`${value.charAt(0).toUpperCase() + value.slice(1)} card added`);
   };
 
   const handlePipelineSubmit = async (jobId: string) => {
@@ -127,6 +133,8 @@ export default function BomComparisonPage() {
       setWindchillRunning(false);
       setWindchillPartId(null);
     }
+
+    toast.info(`${source.charAt(0).toUpperCase() + source.slice(1)} card reset`);
   };
 
   const isAnyRunning = teamcenterRunning || configitRunning || windchillRunning;
@@ -168,58 +176,65 @@ export default function BomComparisonPage() {
       </AnimatePresence>
 
       <div className="mx-auto flex max-w-7xl flex-col gap-8 px-6 py-8 sm:px-10 lg:px-14 lg:py-10">
-        <div className="rounded-[32px] border border-slate-700/70 bg-slate-900/80 p-6 shadow-2xl shadow-slate-950/30 sm:p-8">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <motion.div
+          initial={{ opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.28, ease: "easeOut" }}
+          className="rounded-[36px] border border-slate-700/70 bg-slate-900/80 p-6 shadow-[0_24px_80px_-36px_rgba(2,6,23,0.95)] sm:p-8"
+        >
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl">
               <p className="text-xs uppercase tracking-[0.32em] text-cyan-300">Comparison workspace</p>
               <h1 className="mt-4 text-3xl font-semibold text-white sm:text-4xl">Build a multi-source BOM comparison without leaving the flow.</h1>
-              <p className="mt-4 text-sm leading-7 text-slate-300 sm:text-base">
-                Add one or more sources, run extraction in parallel, and inspect each BOM tree in its own card.
+              <p className="mt-4 text-sm leading-8 text-slate-300 sm:text-base">
+                Add one or more sources, run extraction in parallel, and inspect each BOM tree in its own polished card.
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
               <Link
                 href="/"
-                className="inline-flex items-center gap-2 rounded-3xl border border-slate-700/80 bg-slate-950/80 px-4 py-3 text-sm font-semibold text-slate-200 transition hover:border-cyan-400 hover:text-white"
+                className="inline-flex cursor-pointer items-center gap-2 rounded-3xl border border-slate-700/80 bg-slate-950/80 px-4 py-3 text-sm font-semibold text-slate-200 transition hover:border-cyan-400 hover:text-white"
               >
                 <IconArrowLeft className="h-4 w-4" />
                 Back to overview
               </Link>
-              <button
+              <motion.button
                 type="button"
+                whileHover={{ y: -2, scale: 1.01 }}
+                whileTap={{ scale: 0.98 }}
                 onClick={() => setShowModal(true)}
-                className="inline-flex items-center gap-2 rounded-3xl bg-cyan-500 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-400"
+                className="inline-flex cursor-pointer items-center gap-2 rounded-3xl bg-cyan-500 px-4 py-3 text-sm font-semibold text-slate-950 shadow-lg shadow-cyan-500/20 transition hover:bg-cyan-400"
               >
                 <IconPlus className="h-4 w-4" />
                 Add source
-              </button>
+              </motion.button>
             </div>
           </div>
 
-          <div className="mt-8 grid gap-4 md:grid-cols-3">
-            <div className="rounded-[24px] border border-slate-700/70 bg-slate-950/80 p-5">
+          <div className="mt-8 grid gap-4 lg:grid-cols-3">
+            <div className="rounded-[24px] border border-slate-700/70 bg-slate-950/80 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
               <p className="text-sm text-slate-400">Active sources</p>
               <div className="mt-3 flex items-center gap-2 text-lg font-semibold text-white">
                 <span>{activeSources.length ? activeSources.join(", ") : "None"}</span>
                 {activeSources.length ? <IconCircleCheck className="h-5 w-5 text-emerald-400" /> : null}
               </div>
             </div>
-            <div className="rounded-[24px] border border-slate-700/70 bg-slate-950/80 p-5">
+            <div className="rounded-[24px] border border-slate-700/70 bg-slate-950/80 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
               <p className="text-sm text-slate-400">Live status</p>
               <div className="mt-3 flex items-center gap-2 text-lg font-semibold text-white">
                 <span>{isAnyRunning ? "Running" : "Ready"}</span>
                 <span className={`inline-flex h-2.5 w-2.5 rounded-full ${isAnyRunning ? "bg-emerald-400" : "bg-slate-500"}`} />
               </div>
             </div>
-            <div className="rounded-[24px] border border-slate-700/70 bg-slate-950/80 p-5">
+            <div className="rounded-[24px] border border-slate-700/70 bg-slate-950/80 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
               <p className="text-sm text-slate-400">Workspace controls</p>
               <div className="mt-3 flex items-center gap-2 text-sm text-slate-300">
                 <IconRefresh className="h-4 w-4 text-cyan-300" />
-                Reset any card independently at the top-right of the panel.
+                Reset any card independently from the panel header.
               </div>
             </div>
           </div>
-        </div>
+        </motion.div>
 
         {!activeSources.length ? (
           <motion.div
@@ -230,18 +245,20 @@ export default function BomComparisonPage() {
           >
             <p className="text-2xl font-semibold text-white">Add your first source to begin</p>
             <p className="mt-3 text-sm leading-7 text-slate-400">Choose Teamcenter, Configit, or Windchill to start a focused extraction and BOM review.</p>
-            <button
+            <motion.button
               type="button"
+              whileHover={{ y: -2, scale: 1.01 }}
+              whileTap={{ scale: 0.98 }}
               onClick={() => setShowModal(true)}
-              className="mt-6 inline-flex items-center gap-2 rounded-3xl bg-cyan-500 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-400"
+              className="mt-6 inline-flex cursor-pointer items-center gap-2 rounded-3xl bg-cyan-500 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-400"
             >
               <IconPlus className="h-4 w-4" />
               Add a source card
-            </button>
+            </motion.button>
           </motion.div>
         ) : null}
 
-        <div className="grid gap-6 xl:grid-cols-2">
+        <div className="grid gap-6 lg:grid-cols-2">
           {activeSources.includes("teamcenter") ? (
             <motion.article
               initial={{ opacity: 0, y: 16 }}
@@ -254,13 +271,15 @@ export default function BomComparisonPage() {
                   <p className="text-xs uppercase tracking-[0.28em] text-cyan-400">Teamcenter</p>
                   <h2 className="mt-3 text-2xl font-semibold text-white">BOM extraction</h2>
                 </div>
-                <button
+                <motion.button
                   type="button"
+                  whileHover={{ y: -1, scale: 1.01 }}
+                  whileTap={{ scale: 0.98 }}
                   onClick={() => resetSource("teamcenter")}
-                  className="rounded-2xl border border-slate-700/80 bg-slate-950/80 px-3 py-2 text-sm font-semibold text-slate-300 transition hover:border-rose-400/50 hover:text-white"
+                  className="cursor-pointer rounded-2xl border border-slate-700/80 bg-slate-950/80 px-3 py-2 text-sm font-semibold text-slate-300 transition hover:border-rose-400/50 hover:text-white"
                 >
                   Reset
-                </button>
+                </motion.button>
               </div>
 
               <PipelineForm onSubmit={handlePipelineSubmit} isLoading={teamcenterRunning} />
@@ -296,13 +315,15 @@ export default function BomComparisonPage() {
                   <p className="text-xs uppercase tracking-[0.28em] text-cyan-400">Configit</p>
                   <h2 className="mt-3 text-2xl font-semibold text-white">Product model preview</h2>
                 </div>
-                <button
+                <motion.button
                   type="button"
+                  whileHover={{ y: -1, scale: 1.01 }}
+                  whileTap={{ scale: 0.98 }}
                   onClick={() => resetSource("configit")}
-                  className="rounded-2xl border border-slate-700/80 bg-slate-950/80 px-3 py-2 text-sm font-semibold text-slate-300 transition hover:border-rose-400/50 hover:text-white"
+                  className="cursor-pointer rounded-2xl border border-slate-700/80 bg-slate-950/80 px-3 py-2 text-sm font-semibold text-slate-300 transition hover:border-rose-400/50 hover:text-white"
                 >
                   Reset
-                </button>
+                </motion.button>
               </div>
 
               <ConfigitForm onSubmit={handleConfigitSubmit} isRunning={configitRunning} />
@@ -351,13 +372,15 @@ export default function BomComparisonPage() {
                   <p className="text-xs uppercase tracking-[0.28em] text-cyan-400">Windchill</p>
                   <h2 className="mt-3 text-2xl font-semibold text-white">Part hierarchy preview</h2>
                 </div>
-                <button
+                <motion.button
                   type="button"
+                  whileHover={{ y: -1, scale: 1.01 }}
+                  whileTap={{ scale: 0.98 }}
                   onClick={() => resetSource("windchill")}
-                  className="rounded-2xl border border-slate-700/80 bg-slate-950/80 px-3 py-2 text-sm font-semibold text-slate-300 transition hover:border-rose-400/50 hover:text-white"
+                  className="cursor-pointer rounded-2xl border border-slate-700/80 bg-slate-950/80 px-3 py-2 text-sm font-semibold text-slate-300 transition hover:border-rose-400/50 hover:text-white"
                 >
                   Reset
-                </button>
+                </motion.button>
               </div>
 
               <WindchillForm onSubmit={handleWindchillSubmit} isRunning={windchillRunning} />

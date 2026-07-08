@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Tree, getTreeLinePrefix, type NodeRendererProps } from "react-arborist";
 import { motion } from "motion/react";
-import { IconChevronRight, IconCircleDashed, IconCircleCheck, IconPackage, IconCircleDot } from "@tabler/icons-react";
+import { IconChevronRight, IconCircleDashed, IconPackage, IconCircleDot } from "@tabler/icons-react";
 
 type TreeNodeData = {
   id: string;
@@ -121,29 +121,29 @@ export function SourceBomPanel({
 
   useEffect(() => {
     if (!active) {
-      setStatus("idle");
-      setError(null);
-      setBom(null);
-      return;
+      const resetTimeout = window.setTimeout(() => {
+        setBom(null);
+        setStatus("idle");
+        setError(null);
+      }, 0);
+      return () => window.clearTimeout(resetTimeout);
     }
 
     if (payloadOverride !== undefined && payloadOverride !== null) {
-      console.info("[SourceBomPanel] using payload override", { title, payloadOverride });
-      try {
+      const payloadTimeout = window.setTimeout(() => {
+        console.info("[SourceBomPanel] using payload override", { title, payloadOverride });
         const root = transformPayload(payloadOverride);
         if (!root) {
-          throw new Error("The extraction JSON is unavailable or malformed.");
+          setBom(null);
+          setStatus("error");
+          setError("The extraction JSON is unavailable or malformed.");
+          return;
         }
         setBom(root);
         setStatus("ready");
         setError(null);
-      } catch (err) {
-        console.error("[SourceBomPanel] payload transform failed", { title, err, payloadOverride });
-        setError(err instanceof Error ? err.message : "Failed to load BOM");
-        setStatus("error");
-        setBom(null);
-      }
-      return;
+      }, 0);
+      return () => window.clearTimeout(payloadTimeout);
     }
 
     const fetchBom = async () => {
@@ -171,31 +171,39 @@ export function SourceBomPanel({
       }
     };
 
-    fetchBom();
-  }, [active, endpoint, payloadOverride, refreshSignal, transformPayload, title]);
+    void fetchBom();
+  }, [active, endpoint, onLoadComplete, payloadOverride, refreshSignal, transformPayload, title]);
 
   const treeData = useMemo(() => (bom ? [bom] : []), [bom]);
   const anim = useMemo(() => (bom ? flattenLevels(bom) : null), [bom]);
   const visibleIds = useMemo(() => computeVisibleIds(anim), [anim]);
+  const resolvedStatus = !active ? "idle" : status;
+  const resolvedError = !active ? null : error;
+  const resolvedBom = !active ? null : bom;
 
   return (
-    <div className="rounded-[28px] border border-slate-700/80 bg-slate-950/80 p-5 shadow-2xl shadow-slate-950/20">
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.24, ease: "easeOut" }}
+      className="rounded-[28px] border border-slate-700/70 bg-slate-950/80 p-5 shadow-[0_24px_80px_-32px_rgba(2,6,23,0.95)]"
+    >
       <div className="mb-5 flex items-start justify-between gap-3">
         <div>
           <p className="text-xs uppercase tracking-[0.28em] text-cyan-400">{title}</p>
           <h3 className="mt-3 text-2xl font-semibold text-white">{subtitle}</h3>
         </div>
-        <div className="rounded-2xl bg-slate-900/90 px-3 py-2 text-xs text-slate-300 ring-1 ring-slate-700/90">
-          {status === "loading" ? "Loading" : status === "ready" ? "Ready" : status === "error" ? "Error" : "Idle"}
+        <div className={`rounded-2xl px-3 py-2 text-xs font-semibold ${status === "ready" ? "bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-400/30" : status === "loading" ? "bg-cyan-500/10 text-cyan-300 ring-1 ring-cyan-400/30" : status === "error" ? "bg-rose-500/10 text-rose-300 ring-1 ring-rose-400/30" : "bg-slate-900/90 text-slate-300 ring-1 ring-slate-700/90"}`}>
+          {resolvedStatus === "loading" ? "Loading" : resolvedStatus === "ready" ? "Ready" : resolvedStatus === "error" ? "Error" : "Idle"}
         </div>
       </div>
 
-      <div className="mb-4 rounded-3xl border border-slate-800/70 bg-slate-900/80 p-4 text-sm text-slate-300">
-        {status === "loading" ? loadingLabel : status === "error" ? error : emptyLabel}
+      <div className="mb-4 rounded-[22px] border border-slate-800/70 bg-slate-900/85 p-4 text-sm leading-7 text-slate-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+        {resolvedStatus === "loading" ? loadingLabel : resolvedStatus === "error" ? resolvedError : emptyLabel}
       </div>
 
-      {status === "ready" && bom ? (
-        <div className="h-[60vh] min-h-90 overflow-auto rounded-3xl border border-slate-800/60 bg-slate-950/70 p-4">
+      {resolvedStatus === "ready" && resolvedBom ? (
+        <div className="h-[60vh] min-h-90 overflow-auto rounded-[24px] border border-slate-800/60 bg-slate-950/70 p-4">
           <Tree
             data={treeData}
             width="100%"
@@ -213,13 +221,13 @@ export function SourceBomPanel({
           </Tree>
         </div>
       ) : (
-        <div className="flex min-h-90 items-center justify-center rounded-3xl border border-dashed border-slate-700/70 bg-slate-900/60 px-6 py-12 text-center text-slate-500">
+        <div className="flex min-h-90 items-center justify-center rounded-[24px] border border-dashed border-slate-700/70 bg-slate-900/70 px-6 py-12 text-center text-slate-500">
           <div>
-            <p className="text-lg font-semibold text-slate-100">{status === "loading" ? "Preparing BOM preview…" : "Waiting for extraction"}</p>
-            <p className="mt-3 text-sm text-slate-400">Once the extraction completes, the JSON will render as a collapsible BOM tree.</p>
+            <p className="text-lg font-semibold text-slate-100">{resolvedStatus === "loading" ? "Preparing BOM preview…" : "Waiting for extraction"}</p>
+            <p className="mt-3 text-sm leading-7 text-slate-400">Once the extraction completes, the JSON will render as a collapsible BOM tree.</p>
           </div>
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }

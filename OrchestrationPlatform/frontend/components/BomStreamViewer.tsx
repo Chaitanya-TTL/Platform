@@ -128,8 +128,8 @@ function transformConfigitNodes(node: unknown, fallbackId: string): TreeNodeData
     return children;
   }
 
-  let id = productId ?? bomItemId ?? bomId ?? nodeId ?? getString(obj.id) ?? fallbackId;
-  let name = productId ?? bomItemId ?? bomId ?? nameValue ?? nodeId ?? getString(obj.id) ?? "Configit node";
+  const id = productId ?? bomItemId ?? bomId ?? nodeId ?? getString(obj.id) ?? fallbackId;
+  const name = productId ?? bomItemId ?? bomId ?? nameValue ?? nodeId ?? getString(obj.id) ?? "Configit node";
   const attributes: Record<string, string | number | boolean> = {};
   if (quantity !== undefined && quantity !== null) attributes.Quantity = quantity;
 
