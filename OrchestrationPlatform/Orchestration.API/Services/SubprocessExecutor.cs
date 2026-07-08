@@ -201,6 +201,7 @@ namespace Orchestration.API.Services
                     Name = $"{teamcenterItemId}/A - Main Assembly",
                     RevId = "A",
                     Qty = "1",
+                    BlQuantity = "1",
                     VariantState = "Y",
                     Children = new List<BomNode>
                     {

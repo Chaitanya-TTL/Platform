@@ -52,23 +52,6 @@ function getArray(x: unknown): unknown[] | null {
   return Array.isArray(x) ? x : null;
 }
 
-function getTeamcenterQuantity(obj: Record<string, unknown> | null): string | number | boolean | undefined {
-  const candidates = [
-    obj?.bl_quantity,
-    obj?.qty,
-    obj?.quantity,
-    asRecord(obj?.BOMLine)?.bl_quantity,
-    asRecord(obj?.bomLine)?.bl_quantity,
-  ];
-
-  for (const candidate of candidates) {
-    const value = getNumberOrString(candidate);
-    if (value !== undefined && value !== null && value !== "") return value;
-  }
-
-  return undefined;
-}
-
 function transformTeamcenterNode(node: unknown, fallbackId: string): TreeNodeData {
   const obj = asRecord(node);
   const attributes: Record<string, string | number | boolean> = {};
@@ -78,7 +61,7 @@ function transformTeamcenterNode(node: unknown, fallbackId: string): TreeNodeDat
   const variantState = getString(obj?.variantState);
   const revId = getString(obj?.revId);
   const qty = getString(obj?.qty);
-  const quantity = getTeamcenterQuantity(obj);
+  const blQuantity = getNumberOrString(obj?.bl_quantity);
   const variantCondition = getString(obj?.variantCondition);
 
   if (itemId) attributes["Item ID"] = itemId;
@@ -86,7 +69,7 @@ function transformTeamcenterNode(node: unknown, fallbackId: string): TreeNodeDat
   if (variantState) attributes["Variant State"] = variantState;
   if (revId) attributes["Rev ID"] = revId;
   if (qty) attributes["Qty"] = qty;
-  if (quantity !== undefined) attributes["Quantity"] = quantity;
+  if (blQuantity !== undefined && blQuantity !== null && blQuantity !== "") attributes["Quantity"] = blQuantity;
   if (variantCondition) attributes["Variant Condition"] = variantCondition;
 
   const id = getString(obj?.id) ?? itemId ?? fallbackId;
@@ -108,14 +91,17 @@ export function getTeamcenterRoot(payload: unknown): TreeNodeData | null {
   const rootObj = asRecord(payload);
   if (!rootObj) return null;
 
-  const bomRoot = rootObj.bomRoot ?? asRecord(rootObj.bomStructure ?? {})?.bomRoot;
+  const payloadBody = asRecord(rootObj.payload) ?? rootObj;
+  const finalBom = asRecord(payloadBody.finalBom) ?? asRecord(rootObj.finalBom) ?? null;
+  const bomRoot = asRecord(finalBom?.bomRootNode) ?? asRecord(finalBom?.bomRoot) ?? asRecord(payloadBody.bomRootNode) ?? asRecord(payloadBody.bomRoot) ?? asRecord(asRecord(payloadBody.bomStructure)?.bomRoot) ?? null;
+
   if (bomRoot) {
     return transformTeamcenterNode(bomRoot, "teamcenter-root");
   }
 
-  const hasAny = Boolean(rootObj.itemId || rootObj.name || rootObj.children);
+  const hasAny = Boolean(payloadBody.itemId || payloadBody.name || payloadBody.children);
   if (hasAny) {
-    return transformTeamcenterNode(payload, "teamcenter-root");
+    return transformTeamcenterNode(payloadBody, "teamcenter-root");
   }
 
   return null;
@@ -307,24 +293,14 @@ function TreeRow({
           </div>
           {node.data.attributes && Object.keys(node.data.attributes).length > 0 && (
             <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-slate-400">
-              {Object.entries(node.data.attributes)
-                .slice(0, 3)
-                .map(([k, v]) => (
-                  <span key={k} className="whitespace-nowrap">
-                    <span className="text-slate-500">{k}:</span> {String(v)}
-                  </span>
-                ))}
+              {Object.entries(node.data.attributes).map(([k, v]) => (
+                <span key={k} className="whitespace-nowrap">
+                  <span className="text-slate-500">{k}:</span> {String(v)}
+                </span>
+              ))}
             </div>
           )}
         </div>
-        {/* Quantity badge (aligned right) */}
-        {node.data.attributes?.Quantity && (
-          <div className="ml-3 flex-shrink-0">
-            <span className="rounded-md bg-slate-800/60 px-2 py-1 text-xs font-medium text-slate-200">
-              {String(node.data.attributes.Quantity)}
-            </span>
-          </div>
-        )}
       </div>
     </motion.div>
   );

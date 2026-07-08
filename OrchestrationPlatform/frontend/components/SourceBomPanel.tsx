@@ -61,13 +61,11 @@ function TreeRow({ node, style, dragHandle, isVisible }: NodeRendererProps<TreeN
             <div className="truncate text-sm font-semibold text-slate-100 group-hover:text-white">{node.data.name}</div>
             {node.data.attributes && Object.keys(node.data.attributes).length > 0 && (
               <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-slate-400">
-                {Object.entries(node.data.attributes)
-                  .slice(0, 3)
-                  .map(([key, value]) => (
-                    <span key={key} className="whitespace-nowrap">
-                      <span className="text-slate-500">{key}:</span> {String(value)}
-                    </span>
-                  ))}
+                {Object.entries(node.data.attributes).map(([key, value]) => (
+                  <span key={key} className="whitespace-nowrap">
+                    <span className="text-slate-500">{key}:</span> {String(value)}
+                  </span>
+                ))}
               </div>
             )}
           </div>

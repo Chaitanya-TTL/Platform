@@ -5,6 +5,7 @@ export interface BomNode {
   revId: string;
   name: string;
   qty: string;
+  bl_quantity?: string | number;
   variantCondition: string | null;
   children: BomNode[];
 }

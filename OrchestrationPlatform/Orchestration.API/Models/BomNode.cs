@@ -23,6 +23,9 @@ namespace Orchestration.API.Models
         [JsonProperty("qty")]
         public string Qty { get; set; }
 
+        [JsonProperty("bl_quantity")]
+        public string BlQuantity { get; set; }
+
         [JsonProperty("variantCondition")]
         public string VariantCondition { get; set; }
 

@@ -25,24 +25,18 @@ type TreeNodeData = {
 function getTeamcenterRoot(payload: any): TreeNodeData | null {
   if (!payload) return null;
 
-  const payloadRoot = payload.bomRoot ?? payload.bomStructure?.bomRoot ?? payload.root ?? null;
+  const payloadBody = payload.payload ?? payload;
+  const payloadRoot = payloadBody.bomRootNode ?? payloadBody.bomRoot ?? payloadBody.bomStructure?.bomRoot ?? payloadBody.root ?? null;
+
   if (payloadRoot) {
     return transformTeamcenterNode(payloadRoot, "teamcenter-root");
   }
 
-  if (payload.itemId || payload.name || payload.children) {
-    return transformTeamcenterNode(payload, "teamcenter-root");
+  if (payloadBody.itemId || payloadBody.name || payloadBody.children) {
+    return transformTeamcenterNode(payloadBody, "teamcenter-root");
   }
 
   return null;
-}
-
-function getTeamcenterQuantity(node: any): string | number | boolean | undefined {
-  const candidates = [node?.bl_quantity, node?.qty, node?.quantity, node?.BOMLine?.bl_quantity, node?.bomLine?.bl_quantity];
-  for (const candidate of candidates) {
-    if (candidate !== undefined && candidate !== null && candidate !== "") return candidate;
-  }
-  return undefined;
 }
 
 function transformTeamcenterNode(node: any, fallbackId: string): TreeNodeData {
@@ -53,8 +47,9 @@ function transformTeamcenterNode(node: any, fallbackId: string): TreeNodeData {
   if (node.variantState) attributes["Variant State"] = node.variantState;
   if (node.revId) attributes["Rev ID"] = node.revId;
   if (node.qty) attributes["Qty"] = node.qty;
-  const quantity = getTeamcenterQuantity(node);
-  if (quantity !== undefined) attributes["Quantity"] = quantity;
+  if (node.bl_quantity !== undefined && node.bl_quantity !== null && node.bl_quantity !== "") {
+    attributes["Quantity"] = node.bl_quantity;
+  }
   if (node.variantCondition) attributes["Variant Condition"] = node.variantCondition;
 
   return {
@@ -126,13 +121,11 @@ function TreeNode({ node, style, dragHandle }: NodeRendererProps<TreeNodeData>) 
           <div className="truncate text-[13px] font-medium text-slate-100">{node.data.name}</div>
           {node.data.attributes && Object.keys(node.data.attributes).length > 0 && (
             <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-slate-400">
-              {Object.entries(node.data.attributes)
-                .slice(0, 3)
-                .map(([key, value]) => (
-                  <span key={key} className="truncate">
-                    <span className="text-slate-500">{key}:</span> {String(value)}
-                  </span>
-                ))}
+              {Object.entries(node.data.attributes).map(([key, value]) => (
+                <span key={key} className="truncate">
+                  <span className="text-slate-500">{key}:</span> {String(value)}
+                </span>
+              ))}
             </div>
           )}
         </div>
