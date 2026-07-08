@@ -23,6 +23,25 @@
       "HasUnresolvedObjectsByAccessRights": null,
       "PVTreeId": "/0:576218-570489-b0428f3c-6c66-4d89-945f-8667ecc8fd59",
       "PVParentTreeId": "/",
+      "PartUse": {
+        "CreatedOn": "2025-05-22T15:01:30+05:30",
+        "ID": "OR:wt.part.WTPartUsageLink:576222",
+        "LastModified": "2025-05-22T15:01:30+05:30",
+        "FindNumber": null,
+        "LineNumber": null,
+        "ObjectType": "Part Usage",
+        "PartOccurrenceAssignedExpression": "",
+        "Quantity": 1.0,
+        "ReferenceDesignatorRange": null,
+        "TraceCode": {
+          "Value": "0",
+          "Display": "Untraced"
+        },
+        "Unit": {
+          "Value": "ea",
+          "Display": "each"
+        }
+      },
       "Components": [
         {
           "PartId": "OR:wt.part.WTPart:576262",
@@ -34,7 +53,26 @@
           "Resolved": true,
           "HasUnresolvedObjectsByAccessRights": null,
           "PVTreeId": "/0:576218-570489-b0428f3c-6c66-4d89-945f-8667ecc8fd59/0:576231-570510-25ad2bc9-7c59-4354-aa26-97dc948574a4",
-          "PVParentTreeId": "/0:576218-570489-b0428f3c-6c66-4d89-945f-8667ecc8fd59"
+          "PVParentTreeId": "/0:576218-570489-b0428f3c-6c66-4d89-945f-8667ecc8fd59",
+          "PartUse": {
+            "CreatedOn": "2025-05-22T15:01:30+05:30",
+            "ID": "OR:wt.part.WTPartUsageLink:576238",
+            "LastModified": "2025-05-22T15:01:30+05:30",
+            "FindNumber": null,
+            "LineNumber": null,
+            "ObjectType": "Part Usage",
+            "PartOccurrenceAssignedExpression": "",
+            "Quantity": 1.0,
+            "ReferenceDesignatorRange": null,
+            "TraceCode": {
+              "Value": "0",
+              "Display": "Untraced"
+            },
+            "Unit": {
+              "Value": "ea",
+              "Display": "each"
+            }
+          }
         },
         {
           "PartId": "OR:wt.part.WTPart:576258",
@@ -46,7 +84,26 @@
           "Resolved": true,
           "HasUnresolvedObjectsByAccessRights": null,
           "PVTreeId": "/0:576218-570489-b0428f3c-6c66-4d89-945f-8667ecc8fd59/0:576231-570518-32834911-6b95-4187-96da-fc3e9512e8e2",
-          "PVParentTreeId": "/0:576218-570489-b0428f3c-6c66-4d89-945f-8667ecc8fd59"
+          "PVParentTreeId": "/0:576218-570489-b0428f3c-6c66-4d89-945f-8667ecc8fd59",
+          "PartUse": {
+            "CreatedOn": "2025-05-22T15:01:30+05:30",
+            "ID": "OR:wt.part.WTPartUsageLink:576240",
+            "LastModified": "2025-05-22T15:01:30+05:30",
+            "FindNumber": null,
+            "LineNumber": null,
+            "ObjectType": "Part Usage",
+            "PartOccurrenceAssignedExpression": "",
+            "Quantity": 1.0,
+            "ReferenceDesignatorRange": null,
+            "TraceCode": {
+              "Value": "0",
+              "Display": "Untraced"
+            },
+            "Unit": {
+              "Value": "ea",
+              "Display": "each"
+            }
+          }
         }
       ]
     },
@@ -61,6 +118,25 @@
       "HasUnresolvedObjectsByAccessRights": null,
       "PVTreeId": "/0:576218-570442-7604a1b5-5893-4afa-b03f-f790b18970d1",
       "PVParentTreeId": "/",
+      "PartUse": {
+        "CreatedOn": "2025-05-22T15:01:30+05:30",
+        "ID": "OR:wt.part.WTPartUsageLink:576223",
+        "LastModified": "2025-05-22T15:01:30+05:30",
+        "FindNumber": null,
+        "LineNumber": null,
+        "ObjectType": "Part Usage",
+        "PartOccurrenceAssignedExpression": "",
+        "Quantity": 1.0,
+        "ReferenceDesignatorRange": null,
+        "TraceCode": {
+          "Value": "0",
+          "Display": "Untraced"
+        },
+        "Unit": {
+          "Value": "ea",
+          "Display": "each"
+        }
+      },
       "Components": [
         {
           "PartId": "OR:wt.part.WTPart:576261",
@@ -72,7 +148,26 @@
           "Resolved": true,
           "HasUnresolvedObjectsByAccessRights": null,
           "PVTreeId": "/0:576218-570442-7604a1b5-5893-4afa-b03f-f790b18970d1/0:576353-570476-5f97d786-631e-4976-b1fd-ee046371d73f",
-          "PVParentTreeId": "/0:576218-570442-7604a1b5-5893-4afa-b03f-f790b18970d1"
+          "PVParentTreeId": "/0:576218-570442-7604a1b5-5893-4afa-b03f-f790b18970d1",
+          "PartUse": {
+            "CreatedOn": "2025-05-22T15:03:42+05:30",
+            "ID": "OR:wt.part.WTPartUsageLink:576356",
+            "LastModified": "2025-05-22T15:03:42+05:30",
+            "FindNumber": null,
+            "LineNumber": null,
+            "ObjectType": "Part Usage",
+            "PartOccurrenceAssignedExpression": "",
+            "Quantity": 1.0,
+            "ReferenceDesignatorRange": null,
+            "TraceCode": {
+              "Value": "0",
+              "Display": "Untraced"
+            },
+            "Unit": {
+              "Value": "ea",
+              "Display": "each"
+            }
+          }
         },
         {
           "PartId": "OR:wt.part.WTPart:576260",
@@ -84,7 +179,26 @@
           "Resolved": true,
           "HasUnresolvedObjectsByAccessRights": null,
           "PVTreeId": "/0:576218-570442-7604a1b5-5893-4afa-b03f-f790b18970d1/0:576353-570463-5e3aa363-c194-4671-b871-85071880ab09",
-          "PVParentTreeId": "/0:576218-570442-7604a1b5-5893-4afa-b03f-f790b18970d1"
+          "PVParentTreeId": "/0:576218-570442-7604a1b5-5893-4afa-b03f-f790b18970d1",
+          "PartUse": {
+            "CreatedOn": "2025-05-22T15:03:42+05:30",
+            "ID": "OR:wt.part.WTPartUsageLink:576357",
+            "LastModified": "2025-05-22T15:03:42+05:30",
+            "FindNumber": null,
+            "LineNumber": null,
+            "ObjectType": "Part Usage",
+            "PartOccurrenceAssignedExpression": "",
+            "Quantity": 1.0,
+            "ReferenceDesignatorRange": null,
+            "TraceCode": {
+              "Value": "0",
+              "Display": "Untraced"
+            },
+            "Unit": {
+              "Value": "ea",
+              "Display": "each"
+            }
+          }
         },
         {
           "PartId": "OR:wt.part.WTPart:576259",
@@ -96,7 +210,26 @@
           "Resolved": true,
           "HasUnresolvedObjectsByAccessRights": null,
           "PVTreeId": "/0:576218-570442-7604a1b5-5893-4afa-b03f-f790b18970d1/0:576353-570534-0a3ec7aa-8dd7-482b-b830-faf8295c406e",
-          "PVParentTreeId": "/0:576218-570442-7604a1b5-5893-4afa-b03f-f790b18970d1"
+          "PVParentTreeId": "/0:576218-570442-7604a1b5-5893-4afa-b03f-f790b18970d1",
+          "PartUse": {
+            "CreatedOn": "2025-05-22T15:03:42+05:30",
+            "ID": "OR:wt.part.WTPartUsageLink:576355",
+            "LastModified": "2025-05-22T15:03:42+05:30",
+            "FindNumber": null,
+            "LineNumber": null,
+            "ObjectType": "Part Usage",
+            "PartOccurrenceAssignedExpression": "",
+            "Quantity": 1.0,
+            "ReferenceDesignatorRange": null,
+            "TraceCode": {
+              "Value": "0",
+              "Display": "Untraced"
+            },
+            "Unit": {
+              "Value": "ea",
+              "Display": "each"
+            }
+          }
         },
         {
           "PartId": "OR:wt.part.WTPart:576370",
@@ -108,7 +241,26 @@
           "Resolved": true,
           "HasUnresolvedObjectsByAccessRights": null,
           "PVTreeId": "/0:576218-570442-7604a1b5-5893-4afa-b03f-f790b18970d1/0:576353-576367-ec6de8a6-eacd-412f-a78a-a4be7cc1586d",
-          "PVParentTreeId": "/0:576218-570442-7604a1b5-5893-4afa-b03f-f790b18970d1"
+          "PVParentTreeId": "/0:576218-570442-7604a1b5-5893-4afa-b03f-f790b18970d1",
+          "PartUse": {
+            "CreatedOn": "2025-05-22T15:03:55+05:30",
+            "ID": "OR:wt.part.WTPartUsageLink:576378",
+            "LastModified": "2025-05-22T15:03:55+05:30",
+            "FindNumber": null,
+            "LineNumber": null,
+            "ObjectType": "Part Usage",
+            "PartOccurrenceAssignedExpression": "",
+            "Quantity": 1.0,
+            "ReferenceDesignatorRange": "",
+            "TraceCode": {
+              "Value": "0",
+              "Display": "Untraced"
+            },
+            "Unit": {
+              "Value": "ea",
+              "Display": "each"
+            }
+          }
         }
       ]
     }

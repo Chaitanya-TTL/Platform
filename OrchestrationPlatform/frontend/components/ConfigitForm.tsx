@@ -20,7 +20,7 @@ export function ConfigitForm({ onSubmit, isRunning }: ConfigitFormProps) {
       return;
     }
 
-    onSubmit(productId.trim());
+    onSubmit(productId.trim(), "");
   };
 
   return (

@@ -52,6 +52,23 @@ function getArray(x: unknown): unknown[] | null {
   return Array.isArray(x) ? x : null;
 }
 
+function getTeamcenterQuantity(obj: Record<string, unknown> | null): string | number | boolean | undefined {
+  const candidates = [
+    obj?.bl_quantity,
+    obj?.qty,
+    obj?.quantity,
+    asRecord(obj?.BOMLine)?.bl_quantity,
+    asRecord(obj?.bomLine)?.bl_quantity,
+  ];
+
+  for (const candidate of candidates) {
+    const value = getNumberOrString(candidate);
+    if (value !== undefined && value !== null && value !== "") return value;
+  }
+
+  return undefined;
+}
+
 function transformTeamcenterNode(node: unknown, fallbackId: string): TreeNodeData {
   const obj = asRecord(node);
   const attributes: Record<string, string | number | boolean> = {};
@@ -61,6 +78,7 @@ function transformTeamcenterNode(node: unknown, fallbackId: string): TreeNodeDat
   const variantState = getString(obj?.variantState);
   const revId = getString(obj?.revId);
   const qty = getString(obj?.qty);
+  const quantity = getTeamcenterQuantity(obj);
   const variantCondition = getString(obj?.variantCondition);
 
   if (itemId) attributes["Item ID"] = itemId;
@@ -68,6 +86,7 @@ function transformTeamcenterNode(node: unknown, fallbackId: string): TreeNodeDat
   if (variantState) attributes["Variant State"] = variantState;
   if (revId) attributes["Rev ID"] = revId;
   if (qty) attributes["Qty"] = qty;
+  if (quantity !== undefined) attributes["Quantity"] = quantity;
   if (variantCondition) attributes["Variant Condition"] = variantCondition;
 
   const id = getString(obj?.id) ?? itemId ?? fallbackId;
@@ -107,9 +126,11 @@ function transformConfigitNodes(node: unknown, fallbackId: string): TreeNodeData
   if (!obj) return [];
 
   const rawQty = obj.quantity ?? obj.qty ?? obj.amount ?? obj.count;
-  const quantity = typeof rawQty === 'object' && rawQty !== null && 'value' in rawQty ? `${rawQty.value} ${rawQty.unit ?? ''}`.trim() : getNumberOrString(rawQty);
+  const quantity = typeof rawQty === 'object' && rawQty !== null && 'value' in rawQty
+    ? `${String((rawQty as Record<string, unknown>).value ?? '')} ${String((rawQty as Record<string, unknown>).unit ?? '')}`.trim()
+    : getNumberOrString(rawQty);
 
-  const childValues = getArray(obj.children) ?? getArray(obj.nodes) ?? getArray(obj.items) ?? getArray(obj.bom) ?? getArray(obj.bomItems) ?? getArray(obj.boms);
+  const childValues = getArray(obj.children) ?? getArray(obj.nodes) ?? getArray(obj.items) ?? getArray(obj.bom) ?? getArray(obj.bomItems) ?? getArray(obj.boms) ?? [];
   const children = childValues
     .flatMap((child, index) => transformConfigitNodes(child, `${fallbackId}-${index}`));
 
@@ -296,6 +317,14 @@ function TreeRow({
             </div>
           )}
         </div>
+        {/* Quantity badge (aligned right) */}
+        {node.data.attributes?.Quantity && (
+          <div className="ml-3 flex-shrink-0">
+            <span className="rounded-md bg-slate-800/60 px-2 py-1 text-xs font-medium text-slate-200">
+              {String(node.data.attributes.Quantity)}
+            </span>
+          </div>
+        )}
       </div>
     </motion.div>
   );

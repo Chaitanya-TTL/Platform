@@ -55,7 +55,7 @@ def get_bom(part_id: str) -> Any:
             'Content-Type': 'application/json',
             'CSRF_NONCE': csrf_token,
         }
-        params = {'$expand': 'Components($levels=max)'}
+        params = {'$expand': 'Components($levels=max;$expand=PartUse)'}
         response = requests.post(bom_url, headers=headers, params=params, auth=(USERNAME, PASSWORD), verify=VERIFY_SSL, timeout=60)
         response.raise_for_status()
         return response.json()
@@ -71,16 +71,54 @@ def _pick_first(node: dict[str, Any], keys: list[str]) -> Any:
     return None
 
 
+def _normalize_quantity_value(quantity: Any, unit: Any = None) -> Any:
+    if quantity is None:
+        return None
+
+    if isinstance(quantity, dict):
+        if 'value' in quantity:
+            value = quantity.get('value')
+            unit = quantity.get('unit') or unit
+            return _normalize_quantity_value(value, unit)
+        if 'Value' in quantity:
+            value = quantity.get('Value')
+            unit = quantity.get('Unit') or unit
+            return _normalize_quantity_value(value, unit)
+        return None
+
+    if isinstance(unit, dict):
+        unit = unit.get('Value') or unit.get('Display') or unit.get('value') or unit.get('unit')
+
+    if unit:
+        return f"{quantity} {unit}".strip()
+    return quantity
+
+
 def _extract_quantity(node: dict[str, Any]) -> Any:
+    if isinstance(node, dict):
+        part_use = node.get('PartUse')
+        if isinstance(part_use, dict):
+            quantity = _normalize_quantity_value(part_use.get('Quantity'), part_use.get('Unit'))
+            if quantity is not None:
+                return quantity
+        if isinstance(part_use, list):
+            for item in part_use:
+                if isinstance(item, dict):
+                    quantity = _normalize_quantity_value(item.get('Quantity'), item.get('Unit'))
+                    if quantity is not None:
+                        return quantity
+
     for key in ('quantity', 'qty', 'amount', 'count'):
         if key in node and node[key] is not None:
             value = node[key]
-            if isinstance(value, dict) and 'value' in value:
-                unit = value.get('unit')
-                if unit:
-                    return f"{value['value']} {unit}"
-                return value['value']
-            return value
+            if isinstance(value, dict):
+                if 'value' in value:
+                    unit = value.get('unit')
+                    return _normalize_quantity_value(value['value'], unit)
+                if 'Value' in value:
+                    unit = value.get('Unit')
+                    return _normalize_quantity_value(value['Value'], unit)
+            return _normalize_quantity_value(value)
     return None
 
 
@@ -92,7 +130,7 @@ def _extract_children(node: dict[str, Any]) -> list[dict[str, Any]]:
     return []
 
 
-def normalize_node(node: Any, fallback_id: str) -> dict[str, Any]:
+def normalize_node(node: Any, fallback_id: str, uses_map: dict[str, dict] | None = None) -> dict[str, Any]:
     if not isinstance(node, dict):
         return {
             'id': fallback_id,
@@ -105,7 +143,18 @@ def normalize_node(node: Any, fallback_id: str) -> dict[str, Any]:
     # Try Windchill-specific fields first, then fall back to generic
     node_id = _pick_first(node, ['PartId', 'PartNumber', 'id', 'partId', 'partNumber', 'name', 'itemId', 'nodeId'])
     name = _pick_first(node, ['PartName', 'PartNumber', 'name', 'partNumber', 'partId', 'id', 'itemId', 'nodeId'])
+    # Try to obtain quantity from node first
     quantity = _extract_quantity(node)
+    # If not present, try to look up quantity from the Uses map (by PartId)
+    if (quantity is None or quantity == '') and uses_map is not None:
+        part_id_val = _pick_first(node, ['PartId', 'ID', 'id', 'partId', 'PartNumber'])
+        if part_id_val:
+            m = uses_map.get(str(part_id_val))
+            if m:
+                qty = m.get('Quantity')
+                unit = m.get('Unit')
+                if qty is not None:
+                    quantity = f"{qty} {unit or ''}".strip()
 
     attributes: dict[str, Any] = {}
     if quantity is not None:
@@ -113,7 +162,7 @@ def normalize_node(node: Any, fallback_id: str) -> dict[str, Any]:
 
     children: list[dict[str, Any]] = []
     for child in _extract_children(node):
-        children.append(normalize_node(child, f"{fallback_id}-child"))
+        children.append(normalize_node(child, f"{fallback_id}-child", uses_map))
 
     return {
         'id': str(node_id or fallback_id),
@@ -124,12 +173,12 @@ def normalize_node(node: Any, fallback_id: str) -> dict[str, Any]:
     }
 
 
-def normalize_bom_payload(payload: Any, part_id: str, product_name: str, generated_date: str) -> dict[str, Any]:
+def normalize_bom_payload(payload: Any, part_id: str, product_name: str, generated_date: str, uses_map: dict[str, dict] | None = None) -> dict[str, Any]:
     if isinstance(payload, dict):
         # If the response is a Windchill GetPartStructure root object,
         # keep the root part and attach components as children.
         if 'PartId' in payload or 'PartName' in payload:
-            root_node = normalize_node(payload, 'root')
+            root_node = normalize_node(payload, 'root', uses_map)
             return {
                 'productId': part_id,
                 'productName': product_name,
@@ -147,14 +196,14 @@ def normalize_bom_payload(payload: Any, part_id: str, product_name: str, generat
         if candidates:
             candidates = [c for c in candidates if c is not None and isinstance(c, dict) and c]
         if candidates:
-            top_level_nodes = [normalize_node(node, f'node-{index}') for index, node in enumerate(candidates)]
+            top_level_nodes = [normalize_node(node, f'node-{index}', uses_map) for index, node in enumerate(candidates)]
         else:
             top_level_nodes = [normalize_node(payload, 'root')]
     elif isinstance(payload, list):
         # Filter out None/empty items
         candidates = [p for p in payload if p is not None and isinstance(p, dict) and p]
         if candidates:
-            top_level_nodes = [normalize_node(node, f'node-{index}') for index, node in enumerate(candidates)]
+            top_level_nodes = [normalize_node(node, f'node-{index}', uses_map) for index, node in enumerate(candidates)]
         else:
             top_level_nodes = []
     else:
@@ -186,7 +235,7 @@ def run(part_id: str = DEFAULT_PART_ID, product_name: str = DEFAULT_PRODUCT_NAME
         product_name = api_product_name
     
     generated_date = generate_date()
-    normalized = normalize_bom_payload(payload, part_id, product_name, generated_date)
+    normalized = normalize_bom_payload(payload, part_id, product_name, generated_date, None)
     normalized['source'] = 'sample-fallback' if payload == load_sample_payload() else 'windchill-api'
     save_extraction(normalized, output)
     return normalized

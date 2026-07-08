@@ -37,6 +37,14 @@ function getTeamcenterRoot(payload: any): TreeNodeData | null {
   return null;
 }
 
+function getTeamcenterQuantity(node: any): string | number | boolean | undefined {
+  const candidates = [node?.bl_quantity, node?.qty, node?.quantity, node?.BOMLine?.bl_quantity, node?.bomLine?.bl_quantity];
+  for (const candidate of candidates) {
+    if (candidate !== undefined && candidate !== null && candidate !== "") return candidate;
+  }
+  return undefined;
+}
+
 function transformTeamcenterNode(node: any, fallbackId: string): TreeNodeData {
   const attributes: Record<string, string | number | boolean> = {};
 
@@ -45,6 +53,8 @@ function transformTeamcenterNode(node: any, fallbackId: string): TreeNodeData {
   if (node.variantState) attributes["Variant State"] = node.variantState;
   if (node.revId) attributes["Rev ID"] = node.revId;
   if (node.qty) attributes["Qty"] = node.qty;
+  const quantity = getTeamcenterQuantity(node);
+  if (quantity !== undefined) attributes["Quantity"] = quantity;
   if (node.variantCondition) attributes["Variant Condition"] = node.variantCondition;
 
   return {

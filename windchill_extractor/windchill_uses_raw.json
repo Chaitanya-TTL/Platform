@@ -1,0 +1,184 @@
+{
+  "@odata.context": "http://hnjdigisolnwnc.tatatechnologies.com/Windchill/servlet/odata/v5/ProdMgmt/$metadata#Parts('OR:wt.part.WTPart:576218')/Uses",
+  "value": [
+    {
+      "CreatedOn": "2025-05-22T15:01:30+05:30",
+      "ID": "OR:wt.part.WTPartUsageLink:576222",
+      "LastModified": "2025-05-22T15:01:30+05:30",
+      "FindNumber": null,
+      "LineNumber": null,
+      "ObjectType": "Part Usage",
+      "PartOccurrenceAssignedExpression": "",
+      "Quantity": 1.0,
+      "ReferenceDesignatorRange": null,
+      "TraceCode": {
+        "Value": "0",
+        "Display": "Untraced"
+      },
+      "Unit": {
+        "Value": "ea",
+        "Display": "each"
+      },
+      "Uses": {
+        "CreatedOn": "2025-05-22T15:01:30+05:30",
+        "ID": "OR:wt.part.WTPart:576231",
+        "LastModified": "2025-05-22T15:01:30+05:30",
+        "AlternateNumber": null,
+        "AssemblyMode": {
+          "Value": "separable",
+          "Display": "Separable"
+        },
+        "BOMType": null,
+        "CabinetName": "Default",
+        "ChangeStatus": null,
+        "CheckOutStatus": "",
+        "CheckoutState": "Checked in",
+        "ComTatatechnologiesTestAttribute": null,
+        "Comments": null,
+        "ConfigurableModule": {
+          "Value": "dynamic",
+          "Display": "Yes"
+        },
+        "CreatedBy": "Site, Administrator",
+        "DefaultTraceCode": {
+          "Value": "0",
+          "Display": "Untraced"
+        },
+        "DefaultUnit": {
+          "Value": "ea",
+          "Display": "each"
+        },
+        "EndItem": false,
+        "FolderLocation": "/WCI INTEG Prod",
+        "FolderName": null,
+        "GatheringPart": false,
+        "GeneralStatus": null,
+        "Identity": "Part - 0000003503, Assembly B, TTL, A.1 (Germany)",
+        "Latest": true,
+        "LifeCycleTemplateName": "Basic",
+        "ModifiedBy": "Site, Administrator",
+        "Name": "Assembly B",
+        "Number": "0000003503",
+        "OEMPartSourcingStatus": [],
+        "ObjectType": "Part",
+        "OrganizationName": "TTL",
+        "OrganizationReference": "TTL",
+        "PartClassification": null,
+        "PhantomManufacturingPart": false,
+        "Revision": "A",
+        "ShareStatus": null,
+        "Source": {
+          "Value": "make",
+          "Display": "Make"
+        },
+        "State": {
+          "Value": "INWORK",
+          "Display": "In Work"
+        },
+        "Supersedes": null,
+        "TranslationName": "Assembly B",
+        "TypeIcon": {
+          "Path": "http://hnjdigisolnwnc.tatatechnologies.com/Windchill/netmarkets/images/config_part.gif",
+          "Tooltip": "Configurable Module"
+        },
+        "Version": "A.1 (Germany)",
+        "VersionID": "VR:wt.part.WTPart:576229",
+        "View": "Germany",
+        "WorkInProgressState": {
+          "Value": "c/i",
+          "Display": "Checked in"
+        }
+      }
+    },
+    {
+      "CreatedOn": "2025-05-22T15:01:30+05:30",
+      "ID": "OR:wt.part.WTPartUsageLink:576223",
+      "LastModified": "2025-05-22T15:01:30+05:30",
+      "FindNumber": null,
+      "LineNumber": null,
+      "ObjectType": "Part Usage",
+      "PartOccurrenceAssignedExpression": "",
+      "Quantity": 1.0,
+      "ReferenceDesignatorRange": null,
+      "TraceCode": {
+        "Value": "0",
+        "Display": "Untraced"
+      },
+      "Unit": {
+        "Value": "ea",
+        "Display": "each"
+      },
+      "Uses": {
+        "CreatedOn": "2025-05-22T15:01:30+05:30",
+        "ID": "OR:wt.part.WTPart:576353",
+        "LastModified": "2025-05-22T15:04:14+05:30",
+        "AlternateNumber": null,
+        "AssemblyMode": {
+          "Value": "separable",
+          "Display": "Separable"
+        },
+        "BOMType": null,
+        "CabinetName": "Default",
+        "ChangeStatus": null,
+        "CheckOutStatus": "",
+        "CheckoutState": "Checked in",
+        "ComTatatechnologiesTestAttribute": null,
+        "Comments": null,
+        "ConfigurableModule": {
+          "Value": "dynamic",
+          "Display": "Yes"
+        },
+        "CreatedBy": "Site, Administrator",
+        "DefaultTraceCode": {
+          "Value": "0",
+          "Display": "Untraced"
+        },
+        "DefaultUnit": {
+          "Value": "ea",
+          "Display": "each"
+        },
+        "EndItem": false,
+        "FolderLocation": "/WCI INTEG Prod",
+        "FolderName": null,
+        "GatheringPart": false,
+        "GeneralStatus": null,
+        "Identity": "Part - 0000003500, Assembly A, TTL, A.2 (Germany)",
+        "Latest": true,
+        "LifeCycleTemplateName": "Basic",
+        "ModifiedBy": "Site, Administrator",
+        "Name": "Assembly A",
+        "Number": "0000003500",
+        "OEMPartSourcingStatus": [],
+        "ObjectType": "Part",
+        "OrganizationName": "TTL",
+        "OrganizationReference": "TTL",
+        "PartClassification": null,
+        "PhantomManufacturingPart": false,
+        "Revision": "A",
+        "ShareStatus": null,
+        "Source": {
+          "Value": "make",
+          "Display": "Make"
+        },
+        "State": {
+          "Value": "INWORK",
+          "Display": "In Work"
+        },
+        "Supersedes": null,
+        "TranslationName": "Assembly A",
+        "TypeIcon": {
+          "Path": "http://hnjdigisolnwnc.tatatechnologies.com/Windchill/netmarkets/images/config_part.gif",
+          "Tooltip": "Configurable Module"
+        },
+        "Version": "A.2 (Germany)",
+        "VersionID": "VR:wt.part.WTPart:576228",
+        "View": "Germany",
+        "WorkInProgressState": {
+          "Value": "c/i",
+          "Display": "Checked in"
+        }
+      }
+    }
+  ],
+  "@PTC.AppliedContainerContext.LocalTimeZone": "Asia/Calcutta"
+}
