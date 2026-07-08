@@ -26,13 +26,18 @@ echo ============================================================
 echo.
 
 REM ============================================================
-REM STEP 1: Run HelloTeamcenter (Java)
+REM STEP 1: Build and run HelloTeamcenter (Java)
 REM ============================================================
-echo [STEP 1/2] Running HelloTeamcenter...
+echo [STEP 1/2] Building and running HelloTeamcenter...
 echo Connecting to: %TC_HOST%
 echo.
 
 cd HelloTeamcenter
+call rebuild-java17-direct.bat
+if errorlevel 1 (
+    echo ERROR: HelloTeamcenter build failed
+    exit /b 1
+)
 
 REM Build explicit JAXB classpath FIRST, then other libraries
 set JAXB_CP=..\..\libs\jaxb-api-2.3.1.jar;..\..\libs\jaxb-runtime-2.3.1.jar;..\..\libs\jaxb-impl.jar;..\..\libs\javax.activation-api-1.2.0.jar

@@ -1,0 +1,242 @@
+{
+  "packagePath": "samples/usb~e5d040af-4a2e-4390-932a-1e65c09eea28",
+  "root": {
+    "type": "Product",
+    "productId": "Screwjack_002403",
+    "isConfigurable": true,
+    "boms": [
+      {
+        "bomId": "Screwjack_002403",
+        "state": "Selected",
+        "justification": "Properties",
+        "solved": false,
+        "nodeId": "AQACU2NyZXdqYWNrXzAwMjQwMwBTY3Jld2phY2tfMDAyNDAzAA==",
+        "properties": [],
+        "bomItems": [
+          {
+            "type": "Product",
+            "productId": "Counter Sink_002404",
+            "isConfigurable": false,
+            "boms": [],
+            "properties": [],
+            "bomItemId": "Screwjack_002403_Counter Sink_002404",
+            "state": "Available",
+            "justification": "None",
+            "solved": false,
+            "nodeId": "AQEBU2NyZXdqYWNrXzAwMjQwMwBTY3Jld2phY2tfMDAyNDAzX0NvdW50ZXIgU2lua18wMDI0MDQAQ291bnRlciBTaW5rXzAwMjQwNAA=",
+            "requiredVariables": [],
+            "quantity": {
+              "value": 1,
+              "unit": "EA"
+            }
+          },
+          {
+            "type": "Product",
+            "productId": "Washer_002405",
+            "isConfigurable": false,
+            "boms": [],
+            "properties": [],
+            "bomItemId": "Screwjack_002403_Washer_002405",
+            "state": "Available",
+            "justification": "None",
+            "solved": false,
+            "nodeId": "AQEBU2NyZXdqYWNrXzAwMjQwMwBTY3Jld2phY2tfMDAyNDAzX1dhc2hlcl8wMDI0MDUAV2FzaGVyXzAwMjQwNQA=",
+            "requiredVariables": [],
+            "quantity": {
+              "value": 1,
+              "unit": "EA"
+            }
+          },
+          {
+            "type": "Product",
+            "productId": "Nut_002407",
+            "isConfigurable": false,
+            "boms": [],
+            "properties": [],
+            "bomItemId": "Screwjack_002403_Nut_002407",
+            "state": "Available",
+            "justification": "None",
+            "solved": false,
+            "nodeId": "AQEBU2NyZXdqYWNrXzAwMjQwMwBTY3Jld2phY2tfMDAyNDAzX051dF8wMDI0MDcATnV0XzAwMjQwNwA=",
+            "requiredVariables": [],
+            "quantity": {
+              "value": 1,
+              "unit": "EA"
+            }
+          },
+          {
+            "type": "Product",
+            "productId": "Tommy Bar_002408",
+            "isConfigurable": false,
+            "boms": [],
+            "properties": [],
+            "bomItemId": "Screwjack_002403_Tommy Bar_002408",
+            "state": "Available",
+            "justification": "None",
+            "solved": false,
+            "nodeId": "AQEBU2NyZXdqYWNrXzAwMjQwMwBTY3Jld2phY2tfMDAyNDAzX1RvbW15IEJhcl8wMDI0MDgAVG9tbXkgQmFyXzAwMjQwOAA=",
+            "requiredVariables": [],
+            "quantity": {
+              "value": 1,
+              "unit": "EA"
+            }
+          },
+          {
+            "type": "Product",
+            "productId": "Body_002409",
+            "isConfigurable": false,
+            "boms": [
+              {
+                "bomId": "Body_002409",
+                "state": "Selected",
+                "justification": "Properties",
+                "solved": false,
+                "nodeId": "AQECU2NyZXdqYWNrXzAwMjQwMwBTY3Jld2phY2tfMDAyNDAzX0JvZHlfMDAyNDA5AEJvZHlfMDAyNDA5AEJvZHlfMDAyNDA5AA==",
+                "properties": [],
+                "bomItems": [
+                  {
+                    "type": "Product",
+                    "productId": "Normal Body_002414",
+                    "isConfigurable": false,
+                    "boms": [],
+                    "properties": [],
+                    "bomItemId": "Body_002409_Normal Body_002414",
+                    "state": "Available",
+                    "justification": "None",
+                    "solved": false,
+                    "nodeId": "AQIBU2NyZXdqYWNrXzAwMjQwMwBTY3Jld2phY2tfMDAyNDAzX0JvZHlfMDAyNDA5AEJvZHlfMDAyNDA5AEJvZHlfMDAyNDA5X05vcm1hbCBCb2R5XzAwMjQxNABOb3JtYWwgQm9keV8wMDI0MTQA",
+                    "requiredVariables": [],
+                    "quantity": {
+                      "value": 1,
+                      "unit": "EA"
+                    }
+                  },
+                  {
+                    "type": "Product",
+                    "productId": "Slim Body_002413",
+                    "isConfigurable": false,
+                    "boms": [],
+                    "properties": [],
+                    "bomItemId": "Body_002409_Slim Body_002413",
+                    "state": "Available",
+                    "justification": "None",
+                    "solved": false,
+                    "nodeId": "AQIBU2NyZXdqYWNrXzAwMjQwMwBTY3Jld2phY2tfMDAyNDAzX0JvZHlfMDAyNDA5AEJvZHlfMDAyNDA5AEJvZHlfMDAyNDA5X1NsaW0gQm9keV8wMDI0MTMAU2xpbSBCb2R5XzAwMjQxMwA=",
+                    "requiredVariables": [],
+                    "quantity": {
+                      "value": 1,
+                      "unit": "EA"
+                    }
+                  }
+                ]
+              }
+            ],
+            "properties": [],
+            "bomItemId": "Screwjack_002403_Body_002409",
+            "state": "Selected",
+            "justification": "Properties",
+            "solved": false,
+            "nodeId": "AQEBU2NyZXdqYWNrXzAwMjQwMwBTY3Jld2phY2tfMDAyNDAzX0JvZHlfMDAyNDA5AEJvZHlfMDAyNDA5AA==",
+            "requiredVariables": [
+              "BODY"
+            ],
+            "quantity": {
+              "value": 1,
+              "unit": "EA"
+            }
+          },
+          {
+            "type": "Product",
+            "productId": "Screw Spindle_002410",
+            "isConfigurable": false,
+            "boms": [],
+            "properties": [],
+            "bomItemId": "Screwjack_002403_Screw Spindle_002410",
+            "state": "Available",
+            "justification": "None",
+            "solved": false,
+            "nodeId": "AQEBU2NyZXdqYWNrXzAwMjQwMwBTY3Jld2phY2tfMDAyNDAzX1NjcmV3IFNwaW5kbGVfMDAyNDEwAFNjcmV3IFNwaW5kbGVfMDAyNDEwAA==",
+            "requiredVariables": [],
+            "quantity": {
+              "value": 1,
+              "unit": "EA"
+            }
+          },
+          {
+            "type": "Product",
+            "productId": "Top Head_002412",
+            "isConfigurable": false,
+            "boms": [
+              {
+                "bomId": "Top Head_002412",
+                "state": "Selected",
+                "justification": "Properties",
+                "solved": false,
+                "nodeId": "AQECU2NyZXdqYWNrXzAwMjQwMwBTY3Jld2phY2tfMDAyNDAzX1RvcCBIZWFkXzAwMjQxMgBUb3AgSGVhZF8wMDI0MTIAVG9wIEhlYWRfMDAyNDEyAA==",
+                "properties": [],
+                "bomItems": [
+                  {
+                    "type": "Product",
+                    "productId": "Cup_002406",
+                    "isConfigurable": false,
+                    "boms": [],
+                    "properties": [],
+                    "bomItemId": "Top Head_002412_Cup_002406",
+                    "state": "Available",
+                    "justification": "None",
+                    "solved": false,
+                    "nodeId": "AQIBU2NyZXdqYWNrXzAwMjQwMwBTY3Jld2phY2tfMDAyNDAzX1RvcCBIZWFkXzAwMjQxMgBUb3AgSGVhZF8wMDI0MTIAVG9wIEhlYWRfMDAyNDEyX0N1cF8wMDI0MDYAQ3VwXzAwMjQwNgA=",
+                    "requiredVariables": [],
+                    "quantity": {
+                      "value": 1,
+                      "unit": "EA"
+                    }
+                  },
+                  {
+                    "type": "Product",
+                    "productId": "Cup 150_002411",
+                    "isConfigurable": false,
+                    "boms": [],
+                    "properties": [],
+                    "bomItemId": "Top Head_002412_Cup 150_002411",
+                    "state": "Available",
+                    "justification": "None",
+                    "solved": false,
+                    "nodeId": "AQIBU2NyZXdqYWNrXzAwMjQwMwBTY3Jld2phY2tfMDAyNDAzX1RvcCBIZWFkXzAwMjQxMgBUb3AgSGVhZF8wMDI0MTIAVG9wIEhlYWRfMDAyNDEyX0N1cCAxNTBfMDAyNDExAEN1cCAxNTBfMDAyNDExAA==",
+                    "requiredVariables": [],
+                    "quantity": {
+                      "value": 1,
+                      "unit": "EA"
+                    }
+                  }
+                ]
+              }
+            ],
+            "properties": [],
+            "bomItemId": "Screwjack_002403_Top Head_002412",
+            "state": "Selected",
+            "justification": "Properties",
+            "solved": false,
+            "nodeId": "AQEBU2NyZXdqYWNrXzAwMjQwMwBTY3Jld2phY2tfMDAyNDAzX1RvcCBIZWFkXzAwMjQxMgBUb3AgSGVhZF8wMDI0MTIA",
+            "requiredVariables": [
+              "TOP_HEAD"
+            ],
+            "quantity": {
+              "value": 1,
+              "unit": "EA"
+            }
+          }
+        ]
+      }
+    ],
+    "properties": [],
+    "state": "Selected",
+    "justification": "Properties",
+    "solved": false,
+    "nodeId": "ROOT",
+    "requiredVariables": [
+      "SCREWJACK"
+    ],
+    "quantity": {}
+  }
+}

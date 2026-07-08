@@ -21,7 +21,7 @@ type TreeNodeData = {
   children?: TreeNodeData[];
 };
 
-type BomSource = "teamcenter" | "configit";
+type BomSource = "teamcenter" | "configit" | "windchill";
 
 type UnknownJson = Record<string, unknown>;
 
@@ -105,55 +105,81 @@ export function getTeamcenterRoot(payload: unknown): TreeNodeData | null {
   return null;
 }
 
+function transformConfigitNodes(node: unknown, fallbackId: string): TreeNodeData[] {
+  const obj = asRecord(node);
+  if (!obj) return [];
+
+  const rawQty = obj.quantity ?? obj.qty ?? obj.amount ?? obj.count;
+  const quantity = typeof rawQty === 'object' && rawQty !== null && 'value' in rawQty ? `${rawQty.value} ${rawQty.unit ?? ''}`.trim() : getNumberOrString(rawQty);
+
+  const childValues = getArray(obj.children) ?? getArray(obj.nodes) ?? getArray(obj.items) ?? getArray(obj.bom) ?? getArray(obj.bomItems) ?? getArray(obj.boms);
+  const children = childValues
+    .flatMap((child, index) => transformConfigitNodes(child, `${fallbackId}-${index}`));
+
+  const productId = getString(obj.productId);
+  const bomItemId = getString(obj.bomItemId);
+  const bomId = getString(obj.bomId);
+  const nodeId = getString(obj.nodeId);
+  const nameValue = getString(obj.name);
+
+  const isBomWrapper = !productId && !bomItemId && !nameValue && (getArray(obj.bomItems)?.length ?? getArray(obj.boms)?.length);
+  const isNodeIdOnlyWrapper = !productId && !bomItemId && !nameValue && Boolean(nodeId) && children.length;
+  if ((isBomWrapper || isNodeIdOnlyWrapper) && children.length) {
+    return children;
+  }
+
+  let id = productId ?? bomItemId ?? bomId ?? nodeId ?? getString(obj.id) ?? fallbackId;
+  let name = productId ?? bomItemId ?? bomId ?? nameValue ?? nodeId ?? getString(obj.id) ?? "Configit node";
+  const attributes: Record<string, string | number | boolean> = {};
+  if (quantity !== undefined && quantity !== null) attributes.Quantity = quantity;
+
+  return [
+    {
+      id: String(id),
+      name: String(name),
+      attributes,
+      children,
+    },
+  ];
+}
+
 export function getConfigitRoot(payload: unknown): TreeNodeData | null {
   const obj = asRecord(payload);
   if (!obj) return null;
 
-  const families = getArray(obj.content);
-  if (!families || !families.length) return null;
+  const bom = getArray(obj.bom) ?? getArray(obj.nodes) ?? getArray(obj.children) ?? getArray(obj.items);
+  if (!bom || !bom.length) {
+    const roots = transformConfigitNodes(payload, "configit-root");
+    if (!roots.length) return null;
+    return roots.length === 1 ? { ...roots[0], id: "configit-root" } : { id: "configit-root", name: "Configit BOM", attributes: {}, children: roots };
+  }
 
-  const productModel = getString(obj.productModel);
-  const workItem = getString(obj.workItem);
+  const productId = getString(obj.productId) ?? getString(obj.productModel) ?? getString(obj.productID);
+  const packagePath = getString(obj.packagePath);
+  const attributes: Record<string, string | number | boolean> = {};
+  if (productId) attributes["Product ID"] = productId;
+  if (packagePath) attributes["Package Path"] = packagePath;
 
   return {
-    id: "configit-root",
-    name: productModel ? `Product Model ${productModel}` : "Configit BOM",
-    attributes: workItem ? { "Work Item": workItem } : {},
-    children: families.map((familyRaw, index) => {
-      const family = asRecord(familyRaw) ?? {};
-      const code = getString(family.code);
-      const description = getString(family.description);
-      const familyType = getString(family.familyType);
-      const labelsArr = getArray(family.labels);
-      const labels = labelsArr?.filter((l): l is string => typeof l === "string").join(", ") ?? "";
-
-      const features = getArray(family.features);
-      const familyAttributes: Record<string, string | number | boolean> = {};
-      if (code) familyAttributes.Code = code;
-      if (familyType) familyAttributes["Family Type"] = familyType;
-      if (labels) familyAttributes.Labels = labels;
-
-      return {
-        id: code ? `family-${code}` : `family-${index}`,
-        name: description ?? code ?? `Family ${index + 1}`,
-        attributes: familyAttributes,
-        children:
-          features?.map((featureRaw, featureIndex) => {
-            const feature = asRecord(featureRaw) ?? {};
-            const fCode = getString(feature.code);
-            const fDesc = getString(feature.description);
-            const featureAttributes: Record<string, string | number | boolean> = {};
-            if (fCode) featureAttributes.Code = fCode;
-
-            return {
-              id: fCode ? `feature-${fCode}` : `feature-${index}-${featureIndex}`,
-              name: fDesc ?? fCode ?? `Feature ${featureIndex + 1}`,
-              attributes: featureAttributes,
-            };
-          }) ?? [],
-      };
-    }),
+    id: productId ? `configit-${productId}` : "configit-root",
+    name: productId ? `Product ${productId}` : "Configit BOM",
+    attributes,
+    children: bom.flatMap((node, index) => transformConfigitNodes(node, `configit-node-${index}`)),
   };
+}
+
+export function getWindchillRoot(payload: unknown): TreeNodeData | null {
+  const obj = asRecord(payload);
+  if (!obj) return null;
+
+  const bom = getArray(obj.bom);
+  if (!bom || !bom.length) {
+    return null;
+  }
+
+  // The bom array already contains the root node—transform and return it directly
+  const roots = bom.flatMap((node, index) => transformConfigitNodes(node, `windchill-node-${index}`));
+  return roots.length > 0 ? roots[0] : null;
 }
 
 
@@ -190,6 +216,7 @@ function flattenLevels(root: TreeNodeData): { levels: TreeNodeData[][]; ids: Set
 
 function IconForSource({ source }: { source: BomSource }) {
   if (source === "teamcenter") return <IconPlugConnected className="h-4 w-4 text-emerald-300" />;
+  if (source === "windchill") return <IconBuildingFactory className="h-4 w-4 text-amber-300" />;
   return <IconBox className="h-4 w-4 text-indigo-300" />;
 }
 
@@ -281,11 +308,12 @@ export function BomStreamViewer({
   sources,
   showBoth,
 }: {
-  sources: { teamcenter: BomViewerKind; configit: BomViewerKind };
+  sources: { teamcenter: BomViewerKind; configit: BomViewerKind; windchill?: BomViewerKind };
   showBoth: boolean;
 }) {
   const [teamPayload, setTeamPayload] = useState<TreeNodeData | null>(null);
   const [configPayload, setConfigPayload] = useState<TreeNodeData | null>(null);
+  const [windchillPayload, setWindchillPayload] = useState<TreeNodeData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -295,6 +323,7 @@ export function BomStreamViewer({
   const [animLevelBySource, setAnimLevelBySource] = useState<Record<BomSource, number>>({
     teamcenter: 0,
     configit: 0,
+    windchill: 0,
   });
 
   const startedAtRef = useRef<number | null>(null);
@@ -304,7 +333,7 @@ export function BomStreamViewer({
     let isMounted = true;
 
     const fetchOnce = async (source: BomSource) => {
-      const cfg = source === "teamcenter" ? sources.teamcenter : sources.configit;
+      const cfg = source === "teamcenter" ? sources.teamcenter : source === "windchill" ? (sources.windchill || sources.configit) : sources.configit;
       const res = await fetch(cfg.endpoint, { cache: "no-store" });
       if (!res.ok) throw new Error(cfg.emptyMessage);
       const json = await res.json();
@@ -316,14 +345,27 @@ export function BomStreamViewer({
         setLoading(true);
         setError(null);
 
-        const [tc, ci] = await Promise.all([
+        const promises: Array<Promise<TreeNodeData | null>> = [
           fetchOnce("teamcenter").catch(() => null),
-          showBoth ? fetchOnce("configit").catch(() => null) : Promise.resolve(null),
-        ]);
+        ];
+        
+        if (showBoth && sources.windchill) {
+          promises.push(fetchOnce("windchill").catch(() => null));
+        } else if (showBoth) {
+          promises.push(fetchOnce("configit").catch(() => null));
+        }
 
+        const results = await Promise.all(promises);
         if (!isMounted) return;
-        setTeamPayload(tc);
-        setConfigPayload(ci);
+        
+        setTeamPayload(results[0]);
+        if (sources.windchill && showBoth) {
+          setWindchillPayload(results[1] || null);
+          setConfigPayload(null);
+        } else if (showBoth) {
+          setConfigPayload(results[1] || null);
+          setWindchillPayload(null);
+        }
       } catch (e) {
         if (!isMounted) return;
         setError(e instanceof Error ? e.message : "Failed to load BOM");
@@ -341,9 +383,10 @@ export function BomStreamViewer({
 
   const teamAnim = useMemo(() => (teamPayload ? flattenLevels(teamPayload) : null), [teamPayload]);
   const configAnim = useMemo(() => (configPayload ? flattenLevels(configPayload) : null), [configPayload]);
+  const windchillAnim = useMemo(() => (windchillPayload ? flattenLevels(windchillPayload) : null), [windchillPayload]);
 
   useEffect(() => {
-    if (!teamAnim && !configAnim) return;
+    if (!teamAnim && !configAnim && !windchillAnim) return;
 
     const start = startedAtRef.current ?? Date.now();
 
@@ -359,13 +402,15 @@ export function BomStreamViewer({
         const next = { ...prev };
         if (teamAnim) next.teamcenter = revealLevel(teamAnim.levels.length);
         if (configAnim) next.configit = revealLevel(configAnim.levels.length);
+        if (windchillAnim) next.windchill = revealLevel(windchillAnim.levels.length);
         return next;
       });
 
       const doneTeam = teamAnim ? animLevelBySource.teamcenter >= teamAnim.levels.length - 1 : true;
       const doneConfig = configAnim ? animLevelBySource.configit >= configAnim.levels.length - 1 : true;
+      const doneWindchill = windchillAnim ? animLevelBySource.windchill >= windchillAnim.levels.length - 1 : true;
 
-      if (doneTeam && doneConfig) return;
+      if (doneTeam && doneConfig && doneWindchill) return;
 
       requestAnimationFrame(tick);
     };
@@ -375,12 +420,12 @@ export function BomStreamViewer({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [teamAnim, configAnim]);
+  }, [teamAnim, configAnim, windchillAnim]);
 
   const renderOne = (source: BomSource) => {
-    const cfg = source === "teamcenter" ? sources.teamcenter : sources.configit;
-    const payload = source === "teamcenter" ? teamPayload : configPayload;
-    const anim = source === "teamcenter" ? teamAnim : configAnim;
+    const cfg = source === "teamcenter" ? sources.teamcenter : source === "windchill" ? (sources.windchill || sources.configit) : sources.configit;
+    const payload = source === "teamcenter" ? teamPayload : source === "windchill" ? windchillPayload : configPayload;
+    const anim = source === "teamcenter" ? teamAnim : source === "windchill" ? windchillAnim : configAnim;
 
     const levelLimit = anim ? animLevelBySource[source] : 0;
 
@@ -396,7 +441,7 @@ export function BomStreamViewer({
             <IconForSource source={source} />
             <div>
               <div className="text-sm font-semibold text-white">{cfg.title}</div>
-              <div className="text-xs text-slate-400">{cfg.kind === "teamcenter" ? "Teamcenter Structure Manager" : "Configit Family → Features"}</div>
+              <div className="text-xs text-slate-400">{cfg.kind === "teamcenter" ? "Teamcenter Structure Manager" : cfg.kind === "windchill" ? "Windchill BOM" : "Configit Family → Features"}</div>
             </div>
           </div>
 

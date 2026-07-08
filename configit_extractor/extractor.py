@@ -1,183 +1,239 @@
-import requests
+import argparse
 import json
 import os
-import sys
-import argparse
-from urllib.parse import urljoin
-from urllib3.util import Retry
-from requests.adapters import HTTPAdapter
+from datetime import datetime, timezone
+from typing import Any
 
-# Minimal extractor for Configit: fetch families and their features for a given work item and product model.
-# Default Configit settings are embedded so you can run the script without extra environment setup.
-from config import BASE_URL, API_KEY, VERIFY
-HEADERS = {'Authorization': f'Apikey {API_KEY}', 'Content-Type': 'application/json', 'Accept': 'application/json'}
+import requests
 
+from config import API_KEY, BASE_URL, PACKAGE_PATH, VERIFY
 
-def extract_list_items(data, key_hints=None):
-    if isinstance(data, list):
-        return data
-    if isinstance(data, dict):
-        key_hints = key_hints or ['families', 'items', 'content', 'features']
-        for key in key_hints:
-            if key in data and isinstance(data[key], list):
-                return data[key]
-        for value in data.values():
-            if isinstance(value, list):
-                return value
-    return []
+HEADERS = {
+    'Authorization': f'ApiKey {API_KEY}',
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+}
 
 
-def find_next_url(data):
-    if not isinstance(data, dict):
-        return None
-    if data.get('next'):
-        next_value = data['next']
-        if isinstance(next_value, str):
-            return next_value
-        if isinstance(next_value, dict):
-            return next_value.get('href') or next_value.get('url')
-    for parent in ('links', 'paging', 'page'):
-        parent_value = data.get(parent)
-        if isinstance(parent_value, dict):
-            if parent_value.get('next'):
-                next_value = parent_value['next']
-                if isinstance(next_value, str):
-                    return next_value
-                if isinstance(next_value, dict):
-                    return next_value.get('href') or next_value.get('url')
-        if isinstance(parent_value, str) and parent == 'next':
-            return parent_value
+def generate_date() -> str:
+    return datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + 'Z'
+
+
+def _pick_first(value: dict[str, Any], keys: list[str]) -> Any:
+    for key in keys:
+        if isinstance(value, dict) and key in value:
+            return value[key]
     return None
 
 
-def fetch_json_list(url: str, key_hints=None):
-    items = []
-    current_url = url
-    while current_url:
-        r = SESSION.get(current_url, headers=HEADERS, verify=VERIFY)
-        if r.status_code != 200:
-            raise RuntimeError(f"Failed to fetch list from {current_url}: {r.status_code} {r.text}")
-        data = r.json()
-        page_items = extract_list_items(data, key_hints)
-        items.extend(page_items)
-        next_url = find_next_url(data)
-        if not next_url:
-            break
-        current_url = next_url if next_url.startswith('http') else urljoin(current_url, next_url)
-    return items
+def _extract_quantity(node: dict[str, Any]) -> Any:
+    for key in ('quantity', 'qty', 'amount', 'count'):
+        if key in node and node[key] is not None:
+            val = node[key]
+            # Configit returns quantity as object {value, unit}
+            if isinstance(val, dict) and 'value' in val:
+                unit = val.get('unit')
+                if unit:
+                    return f"{val['value']} {unit}"
+                return val['value']
+            return val
+    return None
 
 
-# session with retries
-def make_session(retries=3, backoff_factor=0.3, status_forcelist=(500, 502, 503, 504)):
-    s = requests.Session()
-    retry = Retry(total=retries, read=retries, connect=retries, backoff_factor=backoff_factor,
-                  status_forcelist=status_forcelist, allowed_methods=["GET"])
-    adapter = HTTPAdapter(max_retries=retry)
-    s.mount('http://', adapter)
-    s.mount('https://', adapter)
-    return s
+def _extract_children(node: dict[str, Any]) -> list[dict[str, Any]]:
+    for key in ('children', 'nodes', 'items', 'bom', 'childNodes', 'subNodes', 'boms', 'bomItems'):
+        value = node.get(key)
+        if isinstance(value, list):
+            return value
 
-SESSION = make_session()
+    # If the node contains top-level "boms" wrappers that themselves hold bomItems,
+    # flatten the wrapper and return the wrapped children directly.
+    bom_wrappers = node.get('boms')
+    if isinstance(bom_wrappers, list):
+        flattened: list[dict[str, Any]] = []
+        for bom in bom_wrappers:
+            if not isinstance(bom, dict):
+                continue
+            bom_items = bom.get('bomItems')
+            if isinstance(bom_items, list) and bom_items:
+                flattened.extend(bom_items)
+                continue
+            nested_boms = bom.get('boms')
+            if isinstance(nested_boms, list) and nested_boms:
+                flattened.extend(nested_boms)
+                continue
+        if flattened:
+            return flattened
 
-
-def fetch_family(wi_id: str, product_model: str, family_code: str):
-    url = f"{BASE_URL}{wi_id}/products/productmodels/{product_model}/families/{family_code}"
-    r = SESSION.get(url, headers=HEADERS, verify=VERIFY)
-    if r.status_code != 200:
-        raise RuntimeError(f"Failed to fetch family {family_code}: {r.status_code} {r.text}")
-    return r.json()
-
-
-def fetch_features(wi_id: str, product_model: str, family_code: str):
-    url = f"{BASE_URL}{wi_id}/products/productmodels/{product_model}/families/{family_code}/features"
-    features = fetch_json_list(url, key_hints=['features'])
-    return features
-
-
-def list_families(wi_id: str, product_model: str):
-    """List families for a product model; returns list of family codes."""
-    url = f"{BASE_URL}{wi_id}/products/productmodels/{product_model}/families"
-    family_list = fetch_json_list(url, key_hints=['families', 'items', 'content'])
-    codes = []
-    for f in family_list:
-        if isinstance(f, dict) and 'code' in f:
-            codes.append(f['code'])
-        elif isinstance(f, str):
-            codes.append(f)
-    return codes
+    return []
 
 
-def build_extraction(wi_id: str, product_model: str, family_codes: list):
-    result = {'workItem': wi_id, 'productModel': product_model, 'content': [], 'view': []}
-    for code in family_codes:
-        fam = fetch_family(wi_id, product_model, code)
-        features = fetch_features(wi_id, product_model, code)
-        # normalize feature list
-        feat_list = features.get('features') if isinstance(features, dict) and 'features' in features else features
-        result['content'].append({
-            'code': fam.get('code'),
-            'description': fam.get('description'),
-            'familyType': fam.get('familyType'),
-            'labels': fam.get('labels'),
-            'isCalculated': fam.get('isCalculated'),
-            'isPrivate': fam.get('isPrivate'),
-            'features': [{'code': f.get('code'), 'description': f.get('description')} for f in feat_list]
-        })
-
-    # simple view: list family codes
-    result['view'].append({'description': 'Extracted View', 'families': [c['code'] for c in result['content']]})
-    return result
+def _is_wrapper_node(node: dict[str, Any]) -> bool:
+    if not isinstance(node, dict):
+        return False
+    has_label = any(node.get(key) for key in ('productId', 'bomItemId', 'name', 'id', 'itemId'))
+    has_boms = isinstance(node.get('boms'), list) and bool(node['boms'])
+    has_bom_items = isinstance(node.get('bomItems'), list) and bool(node['bomItems'])
+    return not has_label and (has_boms or has_bom_items)
 
 
-def save_extraction(data: dict, out_file: str):
+def normalize_nodes(node: Any, fallback_id: str) -> list[dict[str, Any]]:
+    if _is_wrapper_node(node):
+        flattened: list[dict[str, Any]] = []
+        for child in _extract_children(node):
+            flattened.extend(normalize_nodes(child, f"{fallback_id}-child"))
+        return flattened
+
+    return [normalize_node(node, fallback_id)]
+
+
+def normalize_node(node: Any, fallback_id: str) -> dict[str, Any]:
+    if not isinstance(node, dict):
+        return {
+            'id': fallback_id,
+            'name': fallback_id,
+            'quantity': None,
+            'attributes': {},
+            'children': [],
+        }
+
+    # If the node contains nested 'boms' with a bomId, prefer that as a grouping name
+    if isinstance(node.get('boms'), list) and len(node.get('boms')):
+        first_bom = node['boms'][0]
+        bom_name = _pick_first(first_bom, ['bomId', 'id', 'name'])
+        if bom_name:
+            node_id = bom_name
+            name = bom_name
+        else:
+            # fallback to regular picks
+            node_id = _pick_first(node, ['bomItemId', 'nodeId', 'id', 'productId', 'itemId'])
+            name = _pick_first(node, ['productId', 'bomItemId', 'name', 'nodeId', 'id', 'itemId'])
+    else:
+        # Prefer human-friendly identifiers for display: productId or bomItemId, fallback to nodeId
+        node_id = _pick_first(node, ['bomItemId', 'nodeId', 'id', 'productId', 'itemId'])
+        name = _pick_first(node, ['productId', 'bomItemId', 'name', 'nodeId', 'id', 'itemId'])
+    quantity = _extract_quantity(node)
+
+    attributes: dict[str, Any] = {}
+    if quantity is not None:
+        attributes['Quantity'] = quantity
+
+    children: list[dict[str, Any]] = []
+    for child in _extract_children(node):
+        children.extend(normalize_nodes(child, f"{fallback_id}-child"))
+
+    return {
+        'id': str(node_id or fallback_id),
+        'name': str(name or fallback_id),
+        'quantity': quantity,
+        'attributes': attributes,
+        'children': children,
+    }
+
+
+def normalize_solve_response(payload: Any, product_id: str, package_path: str, generated_date: str) -> dict[str, Any]:
+    top_level_nodes: list[dict[str, Any]] = []
+
+    if isinstance(payload, list):
+        top_level_nodes = [normalize_node(node, f'node-{index}') for index, node in enumerate(payload)]
+    elif isinstance(payload, dict):
+        # If the response wraps data under 'root' with nested 'boms', prefer the first bom's items
+        root = payload.get('root') if isinstance(payload.get('root'), dict) else None
+        if root and isinstance(root.get('boms'), list) and len(root['boms']) > 0:
+            first_bom = root['boms'][0]
+            # prefer bomItems if present
+            if isinstance(first_bom.get('bomItems'), list):
+                top_level_nodes = [n for i, node in enumerate(first_bom['bomItems']) for n in normalize_nodes(node, f'bomItem-{i}')]
+            elif isinstance(first_bom.get('boms'), list):
+                top_level_nodes = [n for i, node in enumerate(first_bom['boms']) for n in normalize_nodes(node, f'bom-{i}')]
+        else:
+            for key in ('nodes', 'children', 'items', 'bom'):
+                value = payload.get(key)
+                if isinstance(value, list):
+                    top_level_nodes = [n for index, node in enumerate(value) for n in normalize_nodes(node, f'{key}-{index}')]
+                    break
+                if isinstance(value, dict):
+                    top_level_nodes = normalize_nodes(value, key)
+                    break
+
+        if not top_level_nodes and isinstance(payload.get('result'), (dict, list)):
+            return normalize_solve_response(payload['result'], product_id, package_path, generated_date)
+
+    return {
+        'productId': product_id,
+        'packagePath': package_path,
+        'generatedDate': generated_date,
+        'bom': top_level_nodes,
+    }
+
+
+def solve_bom(product_id: str, package_path: str, generated_date: str | None = None) -> Any:
+    body = {
+        'productId': product_id,
+        'date': generated_date or generate_date(),
+        'nodes': [{'nodeId': 'ROOT'}],
+    }
+    url = f"{BASE_URL.rstrip('/')}/solve"
+    response = requests.post(
+        url,
+        headers=HEADERS,
+        params={'packagePath': package_path},
+        json=body,
+        verify=VERIFY,
+        timeout=120,
+    )
+    if response.status_code >= 400:
+        raise RuntimeError(f"Configit solve failed: {response.status_code} {response.text}")
+    return response.json()
+
+
+def save_extraction(data: dict[str, Any], out_file: str) -> None:
     with open(out_file, 'w', encoding='utf-8') as fh:
         json.dump(data, fh, indent=2)
 
 
-def parse_args():
-    parser = argparse.ArgumentParser(description='Extract Configit BOM data for a work item and product model')
-    parser.add_argument('work_item_id', nargs='?', default=None)
-    parser.add_argument('product_model', nargs='?', default=None)
-    parser.add_argument('--work-item-id', dest='work_item_id_opt', default=None)
-    parser.add_argument('--product-model', dest='product_model_opt', default=None)
+def prompt_and_run() -> None:
+    print('Configit BOM solver')
+    product_id = input('Enter product ID: ').strip()
+    package_path = input(f'Enter package path [{PACKAGE_PATH}]: ').strip() or PACKAGE_PATH
+    generated_date = generate_date()
+    print('Calling Configit BOM solve API...')
+    payload = solve_bom(product_id, package_path, generated_date)
+    # save raw payload for debugging
+    try:
+        save_extraction(payload, 'configit_raw_response.json')
+    except Exception:
+        pass
+    normalized = normalize_solve_response(payload, product_id, package_path, generated_date)
+    save_extraction(normalized, 'configit_extraction.json')
+    print('Extraction saved to configit_extraction.json')
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description='Configit BOM solve extractor')
+    parser.add_argument('--product-id', required=True, help='Configit product ID')
+    parser.add_argument('--package-path', default=PACKAGE_PATH, help='Configit package path')
+    parser.add_argument('--date', default=None, help='Optional solve date')
+    parser.add_argument('--output', default='configit_extraction.json', help='Output JSON file path')
     return parser.parse_args()
 
 
-def prompt_and_run():
-    print('Configit extractor')
+def run_from_cli() -> None:
     args = parse_args()
-
-    wi_id = (
-        args.work_item_id_opt
-        or args.work_item_id
-        or os.getenv('CONFIGIT_WORK_ITEM_ID')
-        or os.getenv('WORK_ITEM_ID')
-        or ''
-    ).strip()
-    product_model = (
-        args.product_model_opt
-        or args.product_model
-        or os.getenv('CONFIGIT_PRODUCT_MODEL')
-        or ''
-    ).strip()
-
-    if not wi_id or not product_model:
-        if sys.stdin.isatty():
-            wi_id = input("Enter Configit work item id (or 'none' for Master): ").strip()
-            product_model = input("Enter product model code: ").strip()
-        else:
-            raise RuntimeError('Configit work item ID and product model code are required')
-
-    print('Discovering families for the product model...')
-    family_codes = list_families(wi_id, product_model)
-    if not family_codes:
-        raise RuntimeError('No families discovered. Verify the product model code and work item id.')
-    print(f"Found {len(family_codes)} families. Extracting...")
-    out_name = 'configit_extraction.json'
-    data = build_extraction(wi_id, product_model, family_codes)
-    save_extraction(data, out_name)
-    print(f"Extraction saved to {out_name}")
+    print('Configit BOM solver')
+    payload = solve_bom(args.product_id, args.package_path, args.date)
+    # save raw payload for debugging
+    try:
+        save_extraction(payload, 'configit_raw_response.json')
+    except Exception:
+        pass
+    normalized = normalize_solve_response(payload, args.product_id, args.package_path, args.date or generate_date())
+    save_extraction(normalized, args.output)
+    print(f'Extraction saved to {args.output}')
 
 
 if __name__ == '__main__':
-    prompt_and_run()
+    if len(os.sys.argv) > 1:
+        run_from_cli()
+    else:
+        prompt_and_run()

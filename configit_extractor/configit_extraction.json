@@ -1,0 +1,108 @@
+{
+  "productId": "Screwjack_002403",
+  "packagePath": "samples/usb",
+  "generatedDate": "2026-07-08T06:07:49.438Z",
+  "bom": [
+    {
+      "id": "Screwjack_002403_Counter Sink_002404",
+      "name": "Counter Sink_002404",
+      "quantity": "1 EA",
+      "attributes": {
+        "Quantity": "1 EA"
+      },
+      "children": []
+    },
+    {
+      "id": "Screwjack_002403_Washer_002405",
+      "name": "Washer_002405",
+      "quantity": "1 EA",
+      "attributes": {
+        "Quantity": "1 EA"
+      },
+      "children": []
+    },
+    {
+      "id": "Screwjack_002403_Nut_002407",
+      "name": "Nut_002407",
+      "quantity": "1 EA",
+      "attributes": {
+        "Quantity": "1 EA"
+      },
+      "children": []
+    },
+    {
+      "id": "Screwjack_002403_Tommy Bar_002408",
+      "name": "Tommy Bar_002408",
+      "quantity": "1 EA",
+      "attributes": {
+        "Quantity": "1 EA"
+      },
+      "children": []
+    },
+    {
+      "id": "Body_002409",
+      "name": "Body_002409",
+      "quantity": "1 EA",
+      "attributes": {
+        "Quantity": "1 EA"
+      },
+      "children": [
+        {
+          "id": "Body_002409_Normal Body_002414",
+          "name": "Normal Body_002414",
+          "quantity": "1 EA",
+          "attributes": {
+            "Quantity": "1 EA"
+          },
+          "children": []
+        },
+        {
+          "id": "Body_002409_Slim Body_002413",
+          "name": "Slim Body_002413",
+          "quantity": "1 EA",
+          "attributes": {
+            "Quantity": "1 EA"
+          },
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "Screwjack_002403_Screw Spindle_002410",
+      "name": "Screw Spindle_002410",
+      "quantity": "1 EA",
+      "attributes": {
+        "Quantity": "1 EA"
+      },
+      "children": []
+    },
+    {
+      "id": "Top Head_002412",
+      "name": "Top Head_002412",
+      "quantity": "1 EA",
+      "attributes": {
+        "Quantity": "1 EA"
+      },
+      "children": [
+        {
+          "id": "Top Head_002412_Cup_002406",
+          "name": "Cup_002406",
+          "quantity": "1 EA",
+          "attributes": {
+            "Quantity": "1 EA"
+          },
+          "children": []
+        },
+        {
+          "id": "Top Head_002412_Cup 150_002411",
+          "name": "Cup 150_002411",
+          "quantity": "1 EA",
+          "attributes": {
+            "Quantity": "1 EA"
+          },
+          "children": []
+        }
+      ]
+    }
+  ]
+}

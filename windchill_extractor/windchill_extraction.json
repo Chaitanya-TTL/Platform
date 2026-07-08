@@ -1,0 +1,46 @@
+{
+  "productId": "576218",
+  "productName": "Bike",
+  "generatedDate": "2026-07-08T06:07:36.887Z",
+  "bom": [
+    {
+      "id": "bike-572081",
+      "name": "Bike Assembly",
+      "quantity": "1 EA",
+      "attributes": {
+        "Quantity": "1 EA"
+      },
+      "children": [
+        {
+          "id": "frame-1001",
+          "name": "Frame",
+          "quantity": "1 EA",
+          "attributes": {
+            "Quantity": "1 EA"
+          },
+          "children": []
+        },
+        {
+          "id": "wheel-1002",
+          "name": "Wheel Assembly",
+          "quantity": "2 EA",
+          "attributes": {
+            "Quantity": "2 EA"
+          },
+          "children": [
+            {
+              "id": "tire-1003",
+              "name": "Tire",
+              "quantity": "2 EA",
+              "attributes": {
+                "Quantity": "2 EA"
+              },
+              "children": []
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "source": "sample-fallback"
+}

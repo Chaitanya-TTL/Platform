@@ -80,9 +80,13 @@ public class PLMXMLExport {
         // Don't call setObjectPolicy() here - it needs to be called AFTER login succeeds
     }
 
+    private boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
+    }
+
     public PLMXMLExport setRoot(String itemId, String revId) {
-        if (itemId != null && !itemId.isBlank()) this.rootItemId = itemId;
-        if (revId != null && !revId.isBlank())  this.rootRevId  = revId;
+        if (!isBlank(itemId)) this.rootItemId = itemId;
+        if (!isBlank(revId))  this.rootRevId  = revId;
         return this;
     }
     
@@ -397,11 +401,11 @@ public void printFullBOMTree() {
         String seq    = safeGet(() -> String.valueOf(line.get_bl_sequence_no()));
         String qty    = safeGet(() -> String.valueOf(line.get_bl_quantity()));
  
-        if (itemId.isBlank()) itemId = "-";
-        if (revId.isBlank())  revId  = "-";
-        if (name.isBlank())   name   = "-";
-        if (seq.isBlank())    seq    = "-";
-        if (qty.isBlank())    qty    = "-";
+        if (isBlank(itemId)) itemId = "-";
+        if (isBlank(revId))  revId  = "-";
+        if (isBlank(name))   name   = "-";
+        if (isBlank(seq))    seq    = "-";
+        if (isBlank(qty))    qty    = "-";
  
         return String.format("%s/%s  seq=%s  qty=%s  name=%s", itemId, revId, seq, qty, name);
     }
