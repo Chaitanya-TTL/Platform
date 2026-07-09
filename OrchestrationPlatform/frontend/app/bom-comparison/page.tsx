@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type DragEvent } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
 import { toast } from "sonner";
@@ -19,7 +19,6 @@ import { ConfigitForm } from "@/components/ConfigitForm";
 import { WindchillForm } from "@/components/WindchillForm";
 import { QuickStartModal } from "@/components/QuickStartModal";
 import { SourceBomPanel } from "@/components/SourceBomPanel";
-import { getBomStructure } from "@/lib/api";
 import { getConfigitRoot, getTeamcenterRoot, getWindchillRoot } from "@/components/BomStreamViewer";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5212/api";
@@ -67,6 +66,29 @@ const sourceDefinitions: SourceDefinition[] = [
 const categoryOrder: SourceCategory[] = ["PLM", "CPQ"];
 
 const getSourceMeta = (type: SourceType) => sourceDefinitions.find((item) => item.type === type)!;
+
+const getGroupWidthStyle = (groupCount: number, share: number) => ({
+  flexBasis: 0,
+  flexGrow: share,
+  flexShrink: 0,
+  minWidth: 0,
+  maxWidth: groupCount <= 1 ? "100%" : undefined,
+});
+
+const getCardWidthStyle = (cardCount: number) => {
+  if (cardCount <= 1) {
+    return {
+      flex: "0 0 100%",
+      maxWidth: "100%",
+    };
+  }
+
+  const width = `calc((100% - ${(cardCount - 1) * 1.5}rem) / ${cardCount})`;
+  return {
+    flex: `0 0 ${width}`,
+    maxWidth: width,
+  };
+};
 
 export default function BomComparisonPage() {
   const [activeSources, setActiveSources] = useState<ActiveSource[]>([]);
@@ -145,24 +167,6 @@ export default function BomComparisonPage() {
     showToast("info", "Teamcenter extraction started");
   };
 
-  const handleTeamcenterComplete = async (jobId: string) => {
-    try {
-      const bomRoot = await getBomStructure(jobId);
-      if (bomRoot) {
-        setTeamcenterPayload(bomRoot);
-        showToast("success", "Teamcenter extraction completed");
-      } else {
-        setTeamcenterPayload(null);
-        showToast("error", "Extraction completed but no BOM was found");
-      }
-    } catch (err) {
-      setTeamcenterPayload(null);
-      showToast("error", err instanceof Error ? err.message : "Failed to load final BOM");
-    } finally {
-      setTeamcenterRunning(false);
-    }
-  };
-
   const handleConfigitSubmit = (productId: string) => {
     setConfigitPayload(null);
     setConfigitActive(true);
@@ -207,29 +211,17 @@ export default function BomComparisonPage() {
     toast.info(`${getSourceMeta(sourceType).label} card removed`);
   };
 
-  const handleDropOnGroup = (targetCategory: SourceCategory, event: React.DragEvent<HTMLElement>) => {
+  const handleDropOnCard = (targetType: SourceType, event: DragEvent<HTMLElement>) => {
     event.preventDefault();
-    if (!draggedSource) {
+    event.stopPropagation();
+    if (!draggedSource || draggedSource === targetType) {
+      setDraggedSource(null);
       return;
     }
 
-    setActiveSources((current) => {
-      const sourceIndex = current.findIndex((item) => item.type === draggedSource);
-      if (sourceIndex < 0) {
-        return current;
-      }
-
-      const updated = [...current];
-      const [movedSource] = updated.splice(sourceIndex, 1);
-      updated.push({ ...movedSource, category: targetCategory });
-      return updated;
-    });
-    setDraggedSource(null);
-  };
-
-  const handleDropOnCard = (targetType: SourceType, event: React.DragEvent<HTMLElement>) => {
-    event.preventDefault();
-    if (!draggedSource || draggedSource === targetType) {
+    const draggedMeta = getSourceMeta(draggedSource);
+    const targetMeta = getSourceMeta(targetType);
+    if (draggedMeta.category !== targetMeta.category) {
       setDraggedSource(null);
       return;
     }
@@ -244,10 +236,7 @@ export default function BomComparisonPage() {
       const updated = [...current];
       const [movedSource] = updated.splice(sourceIndex, 1);
       const adjustedTargetIndex = sourceIndex < targetIndex ? targetIndex - 1 : targetIndex;
-      updated.splice(adjustedTargetIndex, 0, {
-        ...movedSource,
-        category: getSourceMeta(targetType).category,
-      });
+      updated.splice(adjustedTargetIndex, 0, movedSource);
       return updated;
     });
     setDraggedSource(null);
@@ -363,28 +352,27 @@ export default function BomComparisonPage() {
         ) : null}
 
         {activeSources.length ? (
-          <div className="flex flex-row flex-wrap items-start gap-6">
+          <div className="flex w-full flex-row flex-nowrap items-start gap-6 overflow-hidden pb-2">
             {groups.map((group) => (
               <motion.section
                 key={group.category}
                 layout
-                className="flex-1 rounded-[32px] border border-slate-700/70 bg-slate-900/80 p-6 shadow-2xl shadow-slate-950/20"
-                onDragOver={(event) => event.preventDefault()}
-                onDrop={(event) => handleDropOnGroup(group.category, event)}
+                style={getGroupWidthStyle(groups.length, group.sources.length / activeSources.length)}
+                className="min-w-0 flex-shrink-0 rounded-[32px] border border-slate-700/70 bg-slate-900/80 p-6 shadow-2xl shadow-slate-950/20"
               >
                 <div className="mb-5 flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-xs uppercase tracking-[0.28em] text-cyan-400">{group.category}</p>
-                    <h2 className="mt-2 text-xl font-semibold text-white">
+                    <p className="text-sm uppercase tracking-[0.28em] text-cyan-400">{group.category}</p>
+                    {/* <h2 className="mt-2 text-xl font-semibold text-white">
                       {group.category === "PLM" ? "PLM sources" : "CPQ sources"}
-                    </h2>
+                    </h2> */}
                   </div>
                   <div className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-sm text-cyan-200">
                     {group.sources.length} active
                   </div>
                 </div>
 
-                <motion.div layout className="flex flex-row flex-wrap gap-6">
+                <motion.div layout className="flex flex-row flex-nowrap gap-6 overflow-hidden">
                   <AnimatePresence mode="popLayout">
                     {group.sources.map((source) => {
                       const sourceMeta = getSourceMeta(source.type);
@@ -393,6 +381,8 @@ export default function BomComparisonPage() {
                         <motion.div
                           key={source.type}
                           layout
+                          style={getCardWidthStyle(group.sources.length)}
+                          className="min-w-0 flex-shrink-0"
                           initial={{ opacity: 0, y: 14, scale: 0.98 }}
                           animate={{ opacity: 1, y: 0, scale: 1 }}
                           exit={{ opacity: 0, y: -10, scale: 0.97 }}
@@ -401,21 +391,21 @@ export default function BomComparisonPage() {
                           <motion.article
                             layout
                             draggable
-                            onDragStart={(event) => {
+                            onDragStartCapture={(event: DragEvent<HTMLElement>) => {
                               event.dataTransfer.effectAllowed = "move";
                               setDraggedSource(source.type);
                             }}
                             onDragEnd={() => setDraggedSource(null)}
-                            onDragOver={(event) => {
+                            onDragOverCapture={(event: DragEvent<HTMLElement>) => {
                               event.preventDefault();
                               event.dataTransfer.dropEffect = "move";
                             }}
-                            onDrop={(event) => handleDropOnCard(source.type, event)}
-                            className="h-full min-w-[320px] flex-1 rounded-[28px] border border-slate-700/70 bg-slate-950/80 p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+                            onDropCapture={(event) => handleDropOnCard(source.type, event)}
+                            className="h-full w-full rounded-[28px] border border-slate-700/70 bg-slate-950/80 p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
                           >
                             <div className="mb-6 flex items-start justify-between gap-3">
                               <div>
-                                <p className="text-xs uppercase tracking-[0.28em] text-cyan-400">{source.category}</p>
+                                {/* <p className="text-xs uppercase tracking-[0.28em] text-cyan-400">{source.category}</p> */}
                                 <h3 className="mt-3 text-2xl font-semibold text-white">{sourceMeta.label}</h3>
                               </div>
                               <div className="flex items-center gap-2">
@@ -435,9 +425,9 @@ export default function BomComparisonPage() {
                               </div>
                             </div>
 
-                            <div className="mb-5 flex items-center gap-2 rounded-full border border-slate-700/70 bg-slate-900/70 px-3 py-2 text-xs uppercase tracking-[0.2em] text-slate-400">
+                            {/* <div className="mb-5 flex items-center gap-2 rounded-full border border-slate-700/70 bg-slate-900/70 px-3 py-2 text-xs uppercase tracking-[0.2em] text-slate-400">
                               <span>Drag to reorder</span>
-                            </div>
+                            </div> */}
 
                             {source.type === "teamcenter" ? (
                               <>
@@ -459,7 +449,7 @@ export default function BomComparisonPage() {
                             {source.type === "configit" ? (
                               <>
                                 <ConfigitForm onSubmit={handleConfigitSubmit} isRunning={configitRunning} />
-                                {configitRunning ? (
+                                {/* {configitRunning ? (
                                   <div className="mt-5 rounded-2xl border border-cyan-400/30 bg-cyan-500/10 p-4">
                                     <div className="mb-2 flex items-center justify-between text-sm text-cyan-100">
                                       <span>Live progress</span>
@@ -470,7 +460,7 @@ export default function BomComparisonPage() {
                                     </div>
                                     <p className="mt-2 text-sm text-slate-300">{configitMessage}</p>
                                   </div>
-                                ) : null}
+                                ) : null} */}
                                 <div className="mt-6">
                                   <SourceBomPanel
                                     title="CPQ"
