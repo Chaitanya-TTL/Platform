@@ -189,21 +189,21 @@ export function SourceBomPanel({
       className="rounded-[28px] border border-slate-700/70 bg-slate-950/80 p-5 shadow-[0_24px_80px_-32px_rgba(2,6,23,0.95)]"
     >
       <div className="mb-5 flex items-start justify-between gap-3">
-        <div>
+        {/* <div>
           <p className="text-xs uppercase tracking-[0.28em] text-cyan-400">{title}</p>
           <h3 className="mt-3 text-2xl font-semibold text-white">{subtitle}</h3>
-        </div>
+        </div> */}
         <div className={`rounded-2xl px-3 py-2 text-xs font-semibold ${status === "ready" ? "bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-400/30" : status === "loading" ? "bg-cyan-500/10 text-cyan-300 ring-1 ring-cyan-400/30" : status === "error" ? "bg-rose-500/10 text-rose-300 ring-1 ring-rose-400/30" : "bg-slate-900/90 text-slate-300 ring-1 ring-slate-700/90"}`}>
           {resolvedStatus === "loading" ? "Loading" : resolvedStatus === "ready" ? "Ready" : resolvedStatus === "error" ? "Error" : "Idle"}
         </div>
       </div>
 
-      <div className="mb-4 rounded-[22px] border border-slate-800/70 bg-slate-900/85 p-4 text-sm leading-7 text-slate-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+      {/* <div className="mb-4 rounded-[22px] border border-slate-800/70 bg-slate-900/85 p-4 text-sm leading-7 text-slate-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
         {resolvedStatus === "loading" ? loadingLabel : resolvedStatus === "error" ? resolvedError : emptyLabel}
-      </div>
+      </div> */}
 
       {resolvedStatus === "ready" && resolvedBom ? (
-        <div className="h-[60vh] min-h-90 overflow-auto rounded-[24px] border border-slate-800/60 bg-slate-950/70 p-4">
+        <div className="h-full overflow-auto rounded-[24px] border border-slate-800/60 bg-slate-950/70 p-4">
           <Tree
             data={treeData}
             width="100%"

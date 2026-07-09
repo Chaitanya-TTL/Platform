@@ -5,9 +5,8 @@ import { motion } from "motion/react";
 import { IconArrowRight, IconBox, IconBuildingFactory, IconPlugConnected } from "@tabler/icons-react";
 
 const highlights = [
-  { title: "Teamcenter", description: "Run the pipeline-based BOM extraction and inspect the structure manager style hierarchy." },
-  { title: "Configit", description: "Preview product-model data and compare family and feature-level content side by side." },
-  { title: "Windchill", description: "Launch a part-based extraction and review the resulting hierarchy in a focused workspace." },
+  { title: "PLM", description: "Run the pipeline-based BOM extraction and inspect the structure manager style hierarchy." },
+  { title: "CPQ", description: "Preview product-model data and compare family and feature-level content side by side." },
 ];
 
 export default function Home() {
@@ -42,7 +41,7 @@ export default function Home() {
           </div>
         </motion.section>
 
-        <div className="grid gap-6 md:grid-cols-3">
+        <div className="w-full flex gap-8">
           {highlights.map((item, index) => (
             <motion.article
               key={item.title}

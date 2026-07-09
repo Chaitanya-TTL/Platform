@@ -2,7 +2,7 @@
 
 import { motion } from "motion/react";
 import { useState } from "react";
-
+import { StatefulButtonDemo } from "./StatefulButton";
 interface ConfigitFormProps {
   onSubmit: (workItemId: string, productModel: string) => void;
   isRunning: boolean;
@@ -39,16 +39,16 @@ export function ConfigitForm({ onSubmit, isRunning }: ConfigitFormProps) {
             Configit
           </span>
         </div>
-        <input
-          value={productId}
-          onChange={(event) => setProductId(event.target.value)}
-          placeholder="Enter the Configit product ID"
-          disabled={isRunning}
-          className="mt-1 w-full rounded-2xl border border-slate-700/80 bg-slate-950/90 px-4 py-3.5 text-sm text-slate-100 placeholder-slate-500 transition-all duration-200 focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-400/25 disabled:cursor-not-allowed disabled:opacity-60"
-        />
-        <p className="mt-2 text-xs leading-6 text-slate-400">
-          Use a product-model identifier to preview the family and feature structure.
-        </p>
+        <div className="flex items-stretch overflow-hidden rounded-xl border border-slate-700/80 bg-slate-950/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+          <input
+            value={productId}
+            onChange={(event) => setProductId(event.target.value)}
+            placeholder="Enter the Configit product ID"
+            disabled={isRunning}
+            className="min-w-0 flex-1 border-0 bg-transparent px-4 py-3 text-sm text-slate-100 placeholder-slate-500 transition-all duration-200 focus:border-0 focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:opacity-60"
+          />
+          <StatefulButtonDemo isLoading={isRunning} disabled={isRunning} />
+        </div>
       </div>
 
       {error && (
@@ -57,15 +57,6 @@ export function ConfigitForm({ onSubmit, isRunning }: ConfigitFormProps) {
         </div>
       )}
 
-      <motion.button
-        type="submit"
-        disabled={isRunning}
-        whileHover={{ y: -2, scale: 1.01 }}
-        whileTap={{ scale: 0.98 }}
-        className="cursor-pointer w-full rounded-2xl bg-gradient-to-r from-cyan-500 to-sky-500 px-5 py-3.5 text-sm font-semibold text-slate-950 shadow-lg shadow-cyan-500/20 transition disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {isRunning ? "Running Configit BOM extraction..." : "Start Configit BOM extraction"}
-      </motion.button>
     </motion.form>
   );
 }
