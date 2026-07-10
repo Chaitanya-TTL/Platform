@@ -2,15 +2,21 @@
 
 import { motion } from "motion/react";
 import { useState } from "react";
+import { IconRefresh } from "@tabler/icons-react";
 import { StatefulButtonDemo } from "./StatefulButton";
 interface ConfigitFormProps {
-  onSubmit: (workItemId: string, productModel: string) => void;
+  onSubmit: (productId: string) => void;
   isRunning: boolean;
 }
 
 export function ConfigitForm({ onSubmit, isRunning }: ConfigitFormProps) {
   const [productId, setProductId] = useState("");
   const [error, setError] = useState("");
+
+  const resetForm = () => {
+    setProductId("");
+    setError("");
+  };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -47,6 +53,15 @@ export function ConfigitForm({ onSubmit, isRunning }: ConfigitFormProps) {
             disabled={isRunning}
             className="min-w-0 flex-1 border-0 bg-transparent px-4 py-3 text-sm text-slate-100 placeholder-slate-500 transition-all duration-200 focus:border-0 focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:opacity-60"
           />
+          <motion.button
+            type="button"
+            onClick={resetForm}
+            disabled={isRunning}
+            aria-label="Reset Configit form"
+            className="flex items-center justify-center border-l border-slate-700/80 bg-slate-900/80 px-3 text-slate-300 transition hover:border-cyan-400 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <IconRefresh className="h-4 w-4" />
+          </motion.button>
           <StatefulButtonDemo isLoading={isRunning} disabled={isRunning} />
         </div>
       </div>

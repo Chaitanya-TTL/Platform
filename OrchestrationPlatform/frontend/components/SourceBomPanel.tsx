@@ -14,14 +14,12 @@ type TreeNodeData = {
 
 type SourceBomPanelProps = {
   title: string;
-  subtitle: string;
   endpoint: string;
   transformPayload: (payload: unknown) => TreeNodeData | null;
   active: boolean;
   payloadOverride?: unknown;
   refreshSignal?: number;
   loadingLabel?: string;
-  emptyLabel?: string;
   onLoadComplete?: (status: "ready" | "error") => void;
 };
 
@@ -38,7 +36,7 @@ function TreeRow({ node, style, dragHandle, isVisible }: NodeRendererProps<TreeN
       transition={{ duration: 0.24, ease: "easeOut" }}
       className="flex items-center"
     >
-      <div className="group flex w-full items-center gap-3 rounded-3xl border border-slate-700/70 bg-slate-900/80 px-4 py-4 shadow-xl shadow-slate-950/20 transition hover:border-cyan-500/50">
+      <div className="group flex w-full items-center gap-3 rounded-full px-4 py-4 shadow-xl shadow-slate-950/20 transition hover:border-cyan-500/50">
         <span className="font-mono text-[11px] text-slate-500" style={{ width: 58, display: "inline-block" }}>
           {getTreeLinePrefix(node)}
         </span>
@@ -46,14 +44,14 @@ function TreeRow({ node, style, dragHandle, isVisible }: NodeRendererProps<TreeN
           type="button"
           aria-label={hasChildren ? "Toggle children" : "Leaf node"}
           onClick={() => hasChildren && node.toggle()}
-          className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-700/80 bg-slate-900 text-slate-300 transition hover:border-cyan-400 hover:text-white"
+          className="flex h-10 w-10 items-center justify-center rounded-full  text-slate-300 transition hover:border-cyan-400 hover:text-white"
         >
           {hasChildren ? (
             <motion.span initial={false} animate={{ rotate: node.isOpen ? 90 : 0 }} transition={{ duration: 0.18, ease: "easeOut" }}>
-              <IconChevronRight className="h-4 w-4" />
+              <IconChevronRight className="h-5 w-5" />
             </motion.span>
           ) : (
-            <IconCircleDashed className="h-4 w-4 text-slate-500" />
+            <IconCircleDashed className="h-5 w-5 text-slate-500" />
           )}
         </button>
         <div className="flex items-center gap-3 min-w-0">
@@ -112,7 +110,6 @@ export function SourceBomPanel({
   payloadOverride,
   refreshSignal,
   loadingLabel = "Fetching BOM structure...",
-  emptyLabel = "No BOM available yet.",
   onLoadComplete,
 }: SourceBomPanelProps) {
   const [bom, setBom] = useState<TreeNodeData | null>(null);
@@ -146,25 +143,62 @@ export function SourceBomPanel({
       return () => window.clearTimeout(payloadTimeout);
     }
 
-    const fetchBom = async () => {
+    let cancelled = false;
+    let retryTimer: number | undefined;
+
+    const fetchBom = async (attempt = 0) => {
+      if (cancelled) {
+        return;
+      }
+
       setStatus("loading");
       setError(null);
+
       try {
-        console.info("[SourceBomPanel] fetching BOM from endpoint", { title, endpoint });
+        console.info("[SourceBomPanel] fetching BOM from endpoint", { title, endpoint, attempt });
         const response = await fetch(endpoint, { cache: "no-store" });
         const json = await response.json().catch(() => null);
+
         if (!response.ok) {
-          throw new Error((json as { error?: string } | null)?.error ?? `No BOM found yet`);
+          const transientError = (json as { error?: string } | null)?.error ?? "No BOM found yet";
+          const shouldRetry = attempt < 4 && /no bom found yet|not ready|processing|accepted/i.test(transientError);
+          if (shouldRetry) {
+            retryTimer = window.setTimeout(() => {
+              void fetchBom(attempt + 1);
+            }, 1500);
+            return;
+          }
+
+          throw new Error(transientError);
         }
+
         const root = transformPayload(json);
         if (!root) {
           throw new Error("The extraction JSON is unavailable or malformed.");
         }
+
+        if (cancelled) {
+          return;
+        }
+
         setBom(root);
         setStatus("ready");
+        setError(null);
         onLoadComplete?.("ready");
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load BOM");
+        if (cancelled) {
+          return;
+        }
+
+        const message = err instanceof Error ? err.message : "Failed to load BOM";
+        if (attempt < 4 && /no bom found yet|not ready|processing|accepted/i.test(message)) {
+          retryTimer = window.setTimeout(() => {
+            void fetchBom(attempt + 1);
+          }, 1500);
+          return;
+        }
+
+        setError(message);
         setStatus("error");
         setBom(null);
         onLoadComplete?.("error");
@@ -172,13 +206,19 @@ export function SourceBomPanel({
     };
 
     void fetchBom();
+
+    return () => {
+      cancelled = true;
+      if (retryTimer) {
+        window.clearTimeout(retryTimer);
+      }
+    };
   }, [active, endpoint, onLoadComplete, payloadOverride, refreshSignal, transformPayload, title]);
 
   const treeData = useMemo(() => (bom ? [bom] : []), [bom]);
   const anim = useMemo(() => (bom ? flattenLevels(bom) : null), [bom]);
   const visibleIds = useMemo(() => computeVisibleIds(anim), [anim]);
   const resolvedStatus = !active ? "idle" : status;
-  const resolvedError = !active ? null : error;
   const resolvedBom = !active ? null : bom;
 
   return (
@@ -193,8 +233,8 @@ export function SourceBomPanel({
           <p className="text-xs uppercase tracking-[0.28em] text-cyan-400">{title}</p>
           <h3 className="mt-3 text-2xl font-semibold text-white">{subtitle}</h3>
         </div> */}
-        <div className={`rounded-2xl px-3 py-2 text-xs font-semibold ${status === "ready" ? "bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-400/30" : status === "loading" ? "bg-cyan-500/10 text-cyan-300 ring-1 ring-cyan-400/30" : status === "error" ? "bg-rose-500/10 text-rose-300 ring-1 ring-rose-400/30" : "bg-slate-900/90 text-slate-300 ring-1 ring-slate-700/90"}`}>
-          {resolvedStatus === "loading" ? "Loading" : resolvedStatus === "ready" ? "Ready" : resolvedStatus === "error" ? "Error" : "Idle"}
+        <div className={`rounded-2xl px-3 py-2 text-xs font-semibold ${resolvedStatus === "ready" ? "bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-400/30" : resolvedStatus === "loading" ? "bg-cyan-500/10 text-cyan-300 ring-1 ring-cyan-400/30" : resolvedStatus === "error" ? "bg-rose-500/10 text-rose-300 ring-1 ring-rose-400/30" : "bg-slate-900/90 text-slate-300 ring-1 ring-slate-700/90"}`}>
+          {resolvedStatus === "loading" ? "Processing" : resolvedStatus === "ready" ? "Ready" : resolvedStatus === "error" ? "Error" : "Idle"}
         </div>
       </div>
 
@@ -224,7 +264,7 @@ export function SourceBomPanel({
         <div className="flex min-h-90 items-center justify-center rounded-[24px] border border-dashed border-slate-700/70 bg-slate-900/70 px-6 py-12 text-center text-slate-500">
           <div>
             <p className="text-lg font-semibold text-slate-100">{resolvedStatus === "loading" ? "Preparing BOM preview…" : "Waiting for extraction"}</p>
-            <p className="mt-3 text-sm leading-7 text-slate-400">Once the extraction completes, the JSON will render as a collapsible BOM tree.</p>
+            <p className="mt-3 text-sm leading-7 text-slate-400">{resolvedStatus === "loading" ? loadingLabel : "Once the extraction completes, the JSON will render as a collapsible BOM tree."}</p>
           </div>
         </div>
       )}

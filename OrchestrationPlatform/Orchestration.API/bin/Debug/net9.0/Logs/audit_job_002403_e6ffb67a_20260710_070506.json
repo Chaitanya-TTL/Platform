@@ -1,0 +1,165 @@
+{
+  "jobId": "job_002403_e6ffb67a",
+  "teamcenterItemId": "002403",
+  "startTime": "2026-07-10T07:04:46.2637899Z",
+  "endTime": "2026-07-10T07:05:06.8319636Z",
+  "status": "success",
+  "phases": [
+    {
+      "phase": "extract",
+      "status": "complete",
+      "startTime": "2026-07-10T07:04:46.2637977Z",
+      "endTime": "2026-07-10T07:05:06.5214605Z",
+      "progressPercent": 20,
+      "message": "✓ Data extracted from TeamCenter"
+    },
+    {
+      "phase": "transform",
+      "status": "complete",
+      "startTime": "2026-07-10T07:04:46.2637996Z",
+      "endTime": "2026-07-10T07:05:06.5214609Z",
+      "progressPercent": 80,
+      "message": "✓ BOM transformed successfully"
+    },
+    {
+      "phase": "load",
+      "status": "complete",
+      "startTime": "2026-07-10T07:05:06.5214659Z",
+      "endTime": "2026-07-10T07:05:06.8319626Z",
+      "progressPercent": 100,
+      "message": "✓ Pipeline completed successfully"
+    }
+  ],
+  "finalBom": {
+    "bomRoot": {
+      "itemId": "002403",
+      "sequence": "",
+      "variantState": "Y",
+      "revId": "A",
+      "name": "002403/A;1-Screwjack",
+      "qty": "",
+      "variantCondition": null,
+      "children": [
+        {
+          "itemId": "002404",
+          "sequence": "10",
+          "variantState": "Y",
+          "revId": "A",
+          "name": "002404/A;1-Counter Sink",
+          "qty": "",
+          "variantCondition": null,
+          "children": []
+        },
+        {
+          "itemId": "002405",
+          "sequence": "20",
+          "variantState": "Y",
+          "revId": "A",
+          "name": "002405/A;1-Washer",
+          "qty": "",
+          "variantCondition": null,
+          "children": []
+        },
+        {
+          "itemId": "002407",
+          "sequence": "40",
+          "variantState": "Y",
+          "revId": "A",
+          "name": "002407/A;1-Nut",
+          "qty": "",
+          "variantCondition": null,
+          "children": []
+        },
+        {
+          "itemId": "002408",
+          "sequence": "50",
+          "variantState": "Y",
+          "revId": "A",
+          "name": "002408/A;1-Tommy Bar",
+          "qty": "",
+          "variantCondition": null,
+          "children": []
+        },
+        {
+          "itemId": "002409",
+          "sequence": "60",
+          "variantState": "Y",
+          "revId": "A",
+          "name": "002409/A;1-Body",
+          "qty": "",
+          "variantCondition": null,
+          "children": [
+            {
+              "itemId": "002414",
+              "sequence": "10",
+              "variantState": "Y",
+              "revId": "A",
+              "name": "002414/A;1-Normal Body",
+              "qty": "",
+              "variantCondition": null,
+              "children": []
+            },
+            {
+              "itemId": "002413",
+              "sequence": "20",
+              "variantState": "Y",
+              "revId": "A",
+              "name": "002413/A;1-Slim Body",
+              "qty": "",
+              "variantCondition": null,
+              "children": []
+            }
+          ]
+        },
+        {
+          "itemId": "002410",
+          "sequence": "70",
+          "variantState": "Y",
+          "revId": "A",
+          "name": "002410/A;1-Screw Spindle",
+          "qty": "",
+          "variantCondition": null,
+          "children": []
+        },
+        {
+          "itemId": "002412",
+          "sequence": "90",
+          "variantState": "Y",
+          "revId": "A",
+          "name": "002412/A;1-Top Head",
+          "qty": "",
+          "variantCondition": null,
+          "children": [
+            {
+              "itemId": "002406",
+              "sequence": "10",
+              "variantState": "Y",
+              "revId": "A",
+              "name": "002406/A;1-Cup",
+              "qty": "",
+              "variantCondition": null,
+              "children": []
+            },
+            {
+              "itemId": "002411",
+              "sequence": "20",
+              "variantState": "Y",
+              "revId": "A",
+              "name": "002411/A;1-Cup 150",
+              "qty": "",
+              "variantCondition": null,
+              "children": []
+            }
+          ]
+        }
+      ]
+    },
+    "sourceItemId": "002403",
+    "sourceRevId": "A",
+    "variantOptions": {},
+    "extractedAt": "2026-07-10T07:05:03.948008Z"
+  },
+  "error": null,
+  "outputFilePath": "C:\\Users\\skk932045\\OneDrive - Tata Technologies\\Desktop\\Platform\\TeamCenter-to-Configit-soa_client\\backend\\samples\\HelloTeamcenter\\tc_extraction.json",
+  "outputKind": "teamcenter"
+}
