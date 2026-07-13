@@ -37,6 +37,10 @@ import com.teamcenter.soa.exceptions.CanceledOperationException;
 public class AppXCredentialManager implements CredentialManager
 {
 
+    private boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
+    }
+
     private String name          = null;
     private String password      = null;
     private String group         = "";          // default group
@@ -63,8 +67,7 @@ public class AppXCredentialManager implements CredentialManager
      */
     public AppXCredentialManager(String ssoURL, String appID)
     {
-        if(ssoURL != null && !ssoURL.isBlank() &&
-           appID  != null && !appID.isBlank() )
+        if(!isBlank(ssoURL) && !isBlank(appID))
         {
             ssoCred = new SsoCredentials( ssoURL, appID);
             type    = CredentialManager.CLIENT_CREDENTIAL_TYPE_SSO;

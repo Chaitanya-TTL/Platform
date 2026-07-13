@@ -1,0 +1,24 @@
+{
+  "value": [
+    {
+      "id": "bike-572081",
+      "name": "Bike Assembly",
+      "quantity": {"value": 1, "unit": "EA"},
+      "components": [
+        {
+          "id": "frame-1001",
+          "name": "Frame",
+          "quantity": {"value": 1, "unit": "EA"}
+        },
+        {
+          "id": "wheel-1002",
+          "name": "Wheel Assembly",
+          "quantity": {"value": 2, "unit": "EA"},
+          "components": [
+            {"id": "tire-1003", "name": "Tire", "quantity": {"value": 2, "unit": "EA"}}
+          ]
+        }
+      ]
+    }
+  ]
+}

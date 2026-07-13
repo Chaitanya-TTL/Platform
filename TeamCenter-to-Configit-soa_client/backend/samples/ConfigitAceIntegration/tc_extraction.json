@@ -6,98 +6,98 @@
     "children": [
       {
         "itemId": "000577",
-        "sequence": "10",
+        "sequence": "40",
         "variantState": "Y",
         "children": [
           {
             "itemId": "000578",
-            "sequence": "10",
+            "sequence": "50",
             "variantState": "Y",
-            "qty": "",
+            "qty": "1",
             "revId": "A",
-            "name": "000578/A;1-Top",
+            "name": "000578/A;1-Top x 1",
             "variantCondition": null
           },
           {
             "itemId": "000579",
-            "sequence": "20",
+            "sequence": "60",
             "variantState": "Y",
-            "qty": "",
+            "qty": "1",
             "revId": "A",
-            "name": "000579/A;1-Barrel",
+            "name": "000579/A;1-Barrel x 1",
             "variantCondition": null
           },
           {
             "itemId": "000582",
-            "sequence": "30",
+            "sequence": "70",
             "variantState": "Y",
-            "qty": "",
+            "qty": "1",
             "revId": "A",
-            "name": "000582/A;1-Grip",
+            "name": "000582/A;1-Grip x 1",
             "variantCondition": null
           }
         ],
-        "qty": "",
+        "qty": "1",
         "revId": "A",
-        "name": "000577/A;1-Body (View)",
+        "name": "000577/A;1-Body (View) x 1",
         "variantCondition": null
       },
       {
         "itemId": "001908",
-        "sequence": "20",
+        "sequence": "50",
         "variantState": "Y",
         "children": [
           {
             "itemId": "001909",
-            "sequence": "10",
+            "sequence": "30",
             "variantState": "Y",
-            "qty": "",
+            "qty": "1",
             "revId": "A",
-            "name": "001909/A;1-BLUE",
+            "name": "001909/A;1-BLUE x 1",
             "variantCondition": null
           },
           {
             "itemId": "001910",
-            "sequence": "20",
+            "sequence": "40",
             "variantState": "Y",
-            "qty": "",
+            "qty": "1",
             "revId": "A",
-            "name": "001910/A;1-RED",
+            "name": "001910/A;1-RED x 1",
             "variantCondition": null
           }
         ],
-        "qty": "",
+        "qty": "1",
         "revId": "A",
-        "name": "001908/A;1-Color",
+        "name": "001908/A;1-Color x 1",
         "variantCondition": null
       },
       {
         "itemId": "001911",
-        "sequence": "30",
+        "sequence": "60",
         "variantState": "Y",
         "children": [
           {
             "itemId": "001912",
-            "sequence": "10",
+            "sequence": "30",
             "variantState": "Y",
-            "qty": "",
+            "qty": "1",
             "revId": "A",
-            "name": "001912/A;1-THICK",
+            "name": "001912/A;1-THICK x 1",
             "variantCondition": null
           },
           {
             "itemId": "001913",
-            "sequence": "20",
+            "sequence": "40",
             "variantState": "Y",
-            "qty": "",
+            "qty": "1",
             "revId": "A",
-            "name": "001913/A;1-THIN",
+            "name": "001913/A;1-THIN x 1",
             "variantCondition": null
           }
         ],
-        "qty": "",
+        "qty": "1",
         "revId": "A",
-        "name": "001911/A;1-Nib Type",
+        "name": "001911/A;1-Nib Type x 1",
         "variantCondition": null
       }
     ],
@@ -114,5 +114,5 @@
   "variantRules": [
 
   ],
-  "extractedAt": "2026-07-06T09:52:19.449931200Z"
+  "extractedAt": "2026-07-13T10:11:15.160442400Z"
 }

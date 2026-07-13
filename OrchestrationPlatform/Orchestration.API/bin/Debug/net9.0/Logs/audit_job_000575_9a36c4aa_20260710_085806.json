@@ -1,0 +1,156 @@
+{
+  "jobId": "job_000575_9a36c4aa",
+  "teamcenterItemId": "000575",
+  "startTime": "2026-07-10T08:57:48.3528097Z",
+  "endTime": "2026-07-10T08:58:06.8453626Z",
+  "status": "success",
+  "phases": [
+    {
+      "phase": "extract",
+      "status": "complete",
+      "startTime": "2026-07-10T08:57:48.3528224Z",
+      "endTime": "2026-07-10T08:58:06.5329097Z",
+      "progressPercent": 20,
+      "message": "✓ Data extracted from TeamCenter"
+    },
+    {
+      "phase": "transform",
+      "status": "complete",
+      "startTime": "2026-07-10T08:57:48.3528249Z",
+      "endTime": "2026-07-10T08:58:06.5329101Z",
+      "progressPercent": 80,
+      "message": "✓ BOM transformed successfully"
+    },
+    {
+      "phase": "load",
+      "status": "complete",
+      "startTime": "2026-07-10T08:58:06.5329177Z",
+      "endTime": "2026-07-10T08:58:06.8453617Z",
+      "progressPercent": 100,
+      "message": "✓ Pipeline completed successfully"
+    }
+  ],
+  "finalBom": {
+    "bomRoot": {
+      "itemId": "000575",
+      "sequence": "",
+      "variantState": "Y",
+      "revId": "A",
+      "name": "000575/A;2-PEN (View)",
+      "qty": "",
+      "variantCondition": null,
+      "children": [
+        {
+          "itemId": "000577",
+          "sequence": "40",
+          "variantState": "Y",
+          "revId": "A",
+          "name": "000577/A;1-Body (View) x 1",
+          "qty": "1",
+          "variantCondition": null,
+          "children": [
+            {
+              "itemId": "000578",
+              "sequence": "50",
+              "variantState": "Y",
+              "revId": "A",
+              "name": "000578/A;1-Top x 1",
+              "qty": "1",
+              "variantCondition": null,
+              "children": []
+            },
+            {
+              "itemId": "000579",
+              "sequence": "60",
+              "variantState": "Y",
+              "revId": "A",
+              "name": "000579/A;1-Barrel x 1",
+              "qty": "1",
+              "variantCondition": null,
+              "children": []
+            },
+            {
+              "itemId": "000582",
+              "sequence": "70",
+              "variantState": "Y",
+              "revId": "A",
+              "name": "000582/A;1-Grip x 1",
+              "qty": "1",
+              "variantCondition": null,
+              "children": []
+            }
+          ]
+        },
+        {
+          "itemId": "001908",
+          "sequence": "50",
+          "variantState": "Y",
+          "revId": "A",
+          "name": "001908/A;1-Color x 1",
+          "qty": "1",
+          "variantCondition": null,
+          "children": [
+            {
+              "itemId": "001909",
+              "sequence": "30",
+              "variantState": "Y",
+              "revId": "A",
+              "name": "001909/A;1-BLUE x 1",
+              "qty": "1",
+              "variantCondition": null,
+              "children": []
+            },
+            {
+              "itemId": "001910",
+              "sequence": "40",
+              "variantState": "Y",
+              "revId": "A",
+              "name": "001910/A;1-RED x 1",
+              "qty": "1",
+              "variantCondition": null,
+              "children": []
+            }
+          ]
+        },
+        {
+          "itemId": "001911",
+          "sequence": "60",
+          "variantState": "Y",
+          "revId": "A",
+          "name": "001911/A;1-Nib Type x 1",
+          "qty": "1",
+          "variantCondition": null,
+          "children": [
+            {
+              "itemId": "001912",
+              "sequence": "30",
+              "variantState": "Y",
+              "revId": "A",
+              "name": "001912/A;1-THICK x 1",
+              "qty": "1",
+              "variantCondition": null,
+              "children": []
+            },
+            {
+              "itemId": "001913",
+              "sequence": "40",
+              "variantState": "Y",
+              "revId": "A",
+              "name": "001913/A;1-THIN x 1",
+              "qty": "1",
+              "variantCondition": null,
+              "children": []
+            }
+          ]
+        }
+      ]
+    },
+    "sourceItemId": "000575",
+    "sourceRevId": "A",
+    "variantOptions": {},
+    "extractedAt": "2026-07-10T08:58:03.965027400Z"
+  },
+  "error": null,
+  "outputFilePath": "C:\\Users\\skk932045\\OneDrive - Tata Technologies\\Desktop\\Platform\\TeamCenter-to-Configit-soa_client\\backend\\samples\\HelloTeamcenter\\tc_extraction.json",
+  "outputKind": "teamcenter"
+}

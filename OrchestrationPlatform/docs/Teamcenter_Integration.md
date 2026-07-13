@@ -100,3 +100,37 @@ npm run dev
 - The backend now supports partial output even when the Configit transform fails.
 - The live extraction is prioritized over stale fallback data.
 - This fix is specific to Windows path handling for `.bat` execution via `cmd.exe`.
+
+## Frontend restoration and validation
+
+The Teamcenter flow was also restored on the frontend after a merge introduced a partial state rewrite in the main page component.
+
+### What was restored
+
+- The Teamcenter form still submits the item ID through the pipeline API and stores the returned job ID.
+- The progress tracker continues to subscribe to the backend SSE stream and completes the run when the API reports success or failure.
+- The BOM preview panel uses the job ID endpoint to request the final BOM tree from the backend rather than relying on stale local sample data.
+- The Configit preview path was reconnected to the product-id-based preview endpoint so the UI can render the extracted Configit tree again.
+
+### Files involved
+
+- `OrchestrationPlatform/frontend/app/page.tsx`
+- `OrchestrationPlatform/frontend/components/ConfigitForm.tsx`
+- `OrchestrationPlatform/frontend/components/PipelineForm.tsx`
+- `OrchestrationPlatform/frontend/components/SourceBomPanel.tsx`
+- `TeamCenter-to-Configit-soa_client/backend/samples/HelloTeamcenter/rebuild-java17-direct.bat`
+
+### Validation flow
+
+1. Start the backend and frontend servers.
+2. Delete any stale Teamcenter extraction output if needed.
+3. Submit `002380` from the Teamcenter form.
+4. Confirm the backend creates a fresh `HelloTeamcenter/tc_extraction.json` and the UI renders the BOM preview.
+
+This is the working end-to-end sequence that was validated:
+
+- frontend form submits the Teamcenter item ID
+- backend creates a pipeline job
+- `run-pipeline.bat` launches the Teamcenter extraction
+- HelloTeamcenter produces `tc_extraction.json`
+- the backend returns a BOM structure for the preview panel

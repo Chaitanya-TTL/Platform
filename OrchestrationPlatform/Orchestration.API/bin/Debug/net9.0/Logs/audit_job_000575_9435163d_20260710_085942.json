@@ -1,0 +1,83 @@
+{
+  "jobId": "job_000575_9435163d",
+  "teamcenterItemId": "000575",
+  "startTime": "2026-07-10T08:59:03.1336121Z",
+  "endTime": "2026-07-10T08:59:42.412417Z",
+  "status": "success",
+  "phases": [
+    {
+      "phase": "extract",
+      "status": "complete",
+      "startTime": "2026-07-10T08:59:03.133618Z",
+      "endTime": "2026-07-10T08:59:42.1141339Z",
+      "progressPercent": 20,
+      "message": "✓ Data extracted from TeamCenter"
+    },
+    {
+      "phase": "transform",
+      "status": "complete",
+      "startTime": "2026-07-10T08:59:03.1336192Z",
+      "endTime": "2026-07-10T08:59:42.1141342Z",
+      "progressPercent": 80,
+      "message": "✓ BOM transformed successfully"
+    },
+    {
+      "phase": "load",
+      "status": "complete",
+      "startTime": "2026-07-10T08:59:42.1141413Z",
+      "endTime": "2026-07-10T08:59:42.4124164Z",
+      "progressPercent": 100,
+      "message": "✓ Pipeline completed successfully"
+    }
+  ],
+  "finalBom": {
+    "bomRoot": {
+      "itemId": "000575",
+      "sequence": "",
+      "variantState": "Y",
+      "revId": "A",
+      "name": "000575/A;2-PEN (View)",
+      "qty": "",
+      "variantCondition": null,
+      "children": [
+        {
+          "itemId": "",
+          "sequence": "",
+          "variantState": null,
+          "revId": "",
+          "name": "",
+          "qty": "",
+          "variantCondition": null,
+          "children": []
+        },
+        {
+          "itemId": "",
+          "sequence": "",
+          "variantState": null,
+          "revId": "",
+          "name": "",
+          "qty": "",
+          "variantCondition": null,
+          "children": []
+        },
+        {
+          "itemId": "",
+          "sequence": "",
+          "variantState": null,
+          "revId": "",
+          "name": "",
+          "qty": "",
+          "variantCondition": null,
+          "children": []
+        }
+      ]
+    },
+    "sourceItemId": "000575",
+    "sourceRevId": "A",
+    "variantOptions": {},
+    "extractedAt": "2026-07-10T08:59:39.985198Z"
+  },
+  "error": null,
+  "outputFilePath": "C:\\Users\\skk932045\\OneDrive - Tata Technologies\\Desktop\\Platform\\TeamCenter-to-Configit-soa_client\\backend\\samples\\HelloTeamcenter\\tc_extraction.json",
+  "outputKind": "teamcenter"
+}
