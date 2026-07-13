@@ -1,0 +1,29 @@
+{
+  "jobId": "job_000575_9e84cc79",
+  "teamcenterItemId": "000575",
+  "startTime": "2026-07-13T09:20:40.3760265Z",
+  "endTime": "2026-07-13T09:20:40.3800168Z",
+  "status": "failed",
+  "phases": [
+    {
+      "phase": "extract",
+      "status": "in_progress",
+      "startTime": "2026-07-13T09:20:40.3785482Z",
+      "endTime": null,
+      "progressPercent": 0,
+      "message": null
+    },
+    {
+      "phase": "transform",
+      "status": "in_progress",
+      "startTime": "2026-07-13T09:20:40.3785536Z",
+      "endTime": null,
+      "progressPercent": 20,
+      "message": null
+    }
+  ],
+  "finalBom": null,
+  "error": "Pipeline execution failed: ",
+  "outputFilePath": null,
+  "outputKind": null
+}
