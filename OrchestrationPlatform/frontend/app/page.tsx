@@ -52,7 +52,7 @@ const capabilities = [
       "Connect engineering structures with design context while preserving hierarchy and traceability.",
     icon: IconCode,
     accent: "amber",
-    systems: ["Engineering data"],
+    systems: ["NX", "Creo", "SolidWorks"],
   },
 ] as const;
 
@@ -126,15 +126,15 @@ export default function Home() {
             transition={{ duration: 0.5, ease: "easeOut" }}
             className="max-w-3xl"
           >
-            <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/[0.06] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-300 shadow-[0_0_28px_rgba(34,211,238,0.08)]">
+            {/* <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/[0.06] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-300 shadow-[0_0_28px_rgba(34,211,238,0.08)]">
               <IconSparkles className="h-3.5 w-3.5" />
               Digital thread orchestration
-            </div>
+            </div> */}
 
-            <h1 className="mt-7 max-w-3xl text-balance text-5xl font-semibold leading-[1.02] tracking-[-0.045em] text-white sm:text-6xl lg:text-7xl">
-              One workspace for your
+            <h1 className="mt-7 max-w-5xl text-balance text-5xl font-semibold leading-[1.02] tracking-[-0.045em] text-white sm:text-3xl lg:text-6xl">
+              Digital Thread
               <span className="block bg-gradient-to-r from-cyan-300 via-sky-300 to-indigo-300 bg-clip-text text-transparent">
-                product structure.
+                Orchestration Platform
               </span>
             </h1>
 
@@ -253,7 +253,7 @@ export default function Home() {
             <div className="grid gap-10 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
               <SectionHeading
                 eyebrow="Simple by design"
-                title="From source ID to review-ready BOM"
+                title="From source ID to review-ready Products"
                 description="The platform preserves the right execution path for every source, then presents the result through one consistent enterprise workspace."
                 compact
               />

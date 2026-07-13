@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "motion/react";
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { StatefulButtonDemo } from "./StatefulButton";
 
 
@@ -14,7 +14,7 @@ export function WindchillForm({ onSubmit, isRunning }: WindchillFormProps) {
   const [partId, setPartId] = useState("");
   const [error, setError] = useState("");
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError("");
 

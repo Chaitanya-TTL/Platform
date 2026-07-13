@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "motion/react";
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { StatefulButtonDemo } from "./StatefulButton";
 interface ConfigitFormProps {
   onSubmit: (workItemId: string, productModel: string) => void;
@@ -12,7 +12,7 @@ export function ConfigitForm({ onSubmit, isRunning }: ConfigitFormProps) {
   const [productId, setProductId] = useState("");
   const [error, setError] = useState("");
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError("");
 
