@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Orchestration.API.Models;
@@ -21,16 +22,20 @@ namespace Orchestration.API.Services
 
         public FileAuditLogger(ILogger<FileAuditLogger> logger)
         {
-            // Get the base directory for logs - OrchestrationPlatform/Orchestration.API/Logs
-            var apiDirectory = AppContext.BaseDirectory;
-            _logsDirectory = Path.Combine(apiDirectory, "Logs");
+            _logger = logger;
+
+            var baseDirectory = AppContext.GetData("APP_CONTEXT_BASE_DIRECTORY") as string;
+            if (string.IsNullOrWhiteSpace(baseDirectory))
+            {
+                baseDirectory = AppContext.BaseDirectory;
+            }
+
+            _logsDirectory = Path.Combine(baseDirectory, "Logs");
 
             if (!Directory.Exists(_logsDirectory))
             {
                 Directory.CreateDirectory(_logsDirectory);
             }
-
-            _logger = logger;
         }
 
         public async Task LogAsync(AuditLog log)
@@ -60,14 +65,20 @@ namespace Orchestration.API.Services
                 if (!Directory.Exists(_logsDirectory))
                     return logs;
 
-                var files = Directory.GetFiles(_logsDirectory, "audit_*.json");
+                var files = Directory.GetFiles(_logsDirectory, "audit_*.json")
+                    .OrderByDescending(file => new FileInfo(file).LastWriteTimeUtc)
+                    .ToList();
+
                 foreach (var file in files)
                 {
                     try
                     {
                         var json = await File.ReadAllTextAsync(file);
                         var log = JsonConvert.DeserializeObject<AuditLog>(json);
-                        logs.Add(log);
+                        if (log != null)
+                        {
+                            logs.Add(log);
+                        }
                     }
                     catch (Exception ex)
                     {
@@ -90,8 +101,11 @@ namespace Orchestration.API.Services
                 if (!Directory.Exists(_logsDirectory))
                     return null;
 
-                var files = Directory.GetFiles(_logsDirectory, $"audit_{jobId}_*.json");
-                if (files.Length > 0)
+                var files = Directory.GetFiles(_logsDirectory, $"audit_{jobId}_*.json")
+                    .OrderByDescending(file => new FileInfo(file).LastWriteTimeUtc)
+                    .ToList();
+
+                if (files.Count > 0)
                 {
                     var json = await File.ReadAllTextAsync(files[0]);
                     return JsonConvert.DeserializeObject<AuditLog>(json);

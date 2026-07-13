@@ -84,6 +84,8 @@ namespace Orchestration.API.Services
                 Phases = new()
             };
 
+            await _auditLogger.LogAsync(auditLog);
+
             BomRoot finalBom = null;
             string outputFilePath = null;
             string outputKind = request.Kind.ToString().ToLowerInvariant();
@@ -93,7 +95,7 @@ namespace Orchestration.API.Services
             {
                 // Send initial "starting" event
                 await ReportPhaseProgress(jobId, "extract", "in_progress", 0, "Starting pipeline...", progressCallback, channel);
-                
+
                 // Phase 1: Parse/Extract
                 await ReportPhaseProgress(jobId, "extract", "in_progress", 0, "Connecting to TeamCenter...", progressCallback, channel);
                 var extractPhase = new PhaseLog 

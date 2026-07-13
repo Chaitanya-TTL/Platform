@@ -2,7 +2,6 @@
 
 import { motion } from "motion/react";
 import { useState } from "react";
-import { IconRefresh } from "@tabler/icons-react";
 import { startPipeline } from "@/lib/api";
 import { StatefulButtonDemo } from "./StatefulButton";
 interface PipelineFormProps {
@@ -13,11 +12,6 @@ interface PipelineFormProps {
 export function PipelineForm({ onSubmit, isLoading }: PipelineFormProps) {
   const [itemId, setItemId] = useState("");
   const [error, setError] = useState("");
-
-  const resetForm = () => {
-    setItemId("");
-    setError("");
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,15 +58,6 @@ export function PipelineForm({ onSubmit, isLoading }: PipelineFormProps) {
             disabled={isLoading}
             className="min-w-0 flex-1 border-0 bg-transparent px-4 py-3 text-sm text-slate-100 placeholder-slate-500 transition-all duration-200 focus:border-0 focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:opacity-60"
           />
-          <motion.button
-            type="button"
-            onClick={resetForm}
-            disabled={isLoading}
-            aria-label="Reset Teamcenter form"
-            className="flex items-center justify-center border-l border-slate-700/80 bg-slate-900/80 px-3 text-slate-300 transition hover:border-cyan-400 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <IconRefresh className="h-4 w-4" />
-          </motion.button>
           <StatefulButtonDemo isLoading={isLoading} disabled={isLoading} />
         </div>
       </div>

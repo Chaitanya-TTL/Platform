@@ -7,6 +7,8 @@ import { IconArrowRight, IconBox, IconBuildingFactory, IconPlugConnected } from 
 const highlights = [
   { title: "PLM", description: "Run the pipeline-based BOM extraction and inspect the structure manager style hierarchy." },
   { title: "CPQ", description: "Preview product-model data and compare family and feature-level content side by side." },
+  { title: "ERP", description: "Run the pipeline-based BOM extraction and inspect the structure manager style hierarchy." },
+  { title: "CAD", description: "Preview product-model data and compare family and feature-level content side by side." },
 ];
 
 export default function Home() {
@@ -19,9 +21,9 @@ export default function Home() {
           transition={{ duration: 0.28, ease: "easeOut" }}
           className="overflow-hidden rounded-[36px] border border-slate-700/70 bg-slate-900/80 p-8 shadow-2xl shadow-slate-950/30 sm:p-10"
         >
-          <div className="max-w-3xl">
+          <div className="max-w-4xl">
             <p className="text-xs uppercase tracking-[0.32em] text-cyan-300">BOM orchestration</p>
-            <h1 className="mt-4 text-4xl font-semibold text-white sm:text-5xl">Explore BOMs from Teamcenter, Configit, and Windchill in one immersive workspace.</h1>
+            <h1 className="mt-4 text-4xl font-semibold text-white sm:text-5xl">Digital Thread Orchestration Platform</h1>
             <p className="mt-5 text-base leading-8 text-slate-300 sm:text-lg">
               Start with a source, feed the extraction input, and compare the resulting structure in a dedicated comparison experience designed for rapid review.
             </p>
