@@ -1,0 +1,12 @@
+{
+  "jobId": "job_002403_0ac1c8db",
+  "teamcenterItemId": "002403",
+  "startTime": "2026-07-14T10:00:11.6436318Z",
+  "endTime": null,
+  "status": "in_progress",
+  "phases": [],
+  "finalBom": null,
+  "error": null,
+  "outputFilePath": null,
+  "outputKind": null
+}

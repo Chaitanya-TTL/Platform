@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "motion/react";
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
 import { StatefulButtonDemo } from "./StatefulButton";
 interface ConfigitFormProps {
   onSubmit: (workItemId: string, productModel: string) => void;
@@ -12,7 +12,7 @@ export function ConfigitForm({ onSubmit, isRunning }: ConfigitFormProps) {
   const [productId, setProductId] = useState("");
   const [error, setError] = useState("");
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError("");
 
@@ -34,7 +34,9 @@ export function ConfigitForm({ onSubmit, isRunning }: ConfigitFormProps) {
     >
       <div className="rounded-[24px] border border-slate-700/70 bg-slate-900/80 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
         <div className="mb-3 flex items-center justify-between gap-3">
-          <label className="text-xs font-semibold text-slate-100">Product ID</label>
+          <label className="text-xs font-semibold text-slate-100">
+            Product ID
+          </label>
           <span className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-2.5 py-1 text-xs font-medium uppercase tracking-[0.24em] text-cyan-300">
             Configit
           </span>
@@ -56,8 +58,6 @@ export function ConfigitForm({ onSubmit, isRunning }: ConfigitFormProps) {
           {error}
         </div>
       )}
-
     </motion.form>
   );
 }
- 

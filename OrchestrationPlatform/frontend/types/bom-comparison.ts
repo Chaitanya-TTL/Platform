@@ -1,0 +1,82 @@
+export type SourceType = "teamcenter" | "windchill" | "configit";
+export type ComparisonStatus =
+  | "matched"
+  | "changed"
+  | "missing"
+  | "source-only"
+  | "probable";
+export type ComparisonFilter = "all" | ComparisonStatus;
+export type ComparisonSessionState =
+  | "idle"
+  | "selecting"
+  | "preparing"
+  | "active";
+export type ComparisonSelection = {
+  leftSource: SourceType;
+  rightSource: SourceType;
+};
+export type MatchReason = "item-id" | "name-context" | "name" | "none";
+export type ComparisonField =
+  | "itemId"
+  | "name"
+  | "quantity"
+  | "revision"
+  | "parent"
+  | "level"
+  | "nodeType";
+export type TreeNodeData = {
+  id: string;
+  name: string;
+  attributes?: Record<string, string | number | boolean>;
+  children?: TreeNodeData[];
+};
+export type NormalizedBomNode = {
+  source: SourceType;
+  nodeId: string;
+  itemId?: string;
+  name: string;
+  normalizedName: string;
+  quantity?: string;
+  revision?: string;
+  parentName?: string;
+  normalizedParentName?: string;
+  level: number;
+  childCount: number;
+};
+export type FieldDifference = {
+  field: "name" | "quantity" | "revision" | "parent";
+  left?: string;
+  right?: string;
+};
+export type ComparisonReasoning = {
+  summary: string;
+  details: string[];
+  matchedFields: ComparisonField[];
+  differentFields: ComparisonField[];
+};
+export type NodeComparison = {
+  status: ComparisonStatus;
+  nodeId: string;
+  counterpartNodeId?: string;
+  counterpartSource?: SourceType;
+  confidence: number;
+  matchReason: MatchReason;
+  differences: FieldDifference[];
+  reasoning: ComparisonReasoning;
+};
+export type ComparisonSummary = {
+  matched: number;
+  changed: number;
+  missing: number;
+  sourceOnly: number;
+  probable: number;
+  total: number;
+};
+export type BomComparisonResult = {
+  leftSource: SourceType;
+  rightSource: SourceType;
+  left: Record<string, NodeComparison>;
+  right: Record<string, NodeComparison>;
+  summary: ComparisonSummary;
+  generatedAt: string;
+};

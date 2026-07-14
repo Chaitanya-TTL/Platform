@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "motion/react";
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useState } from "react";
 import { startPipeline } from "@/lib/api";
 import { StatefulButtonDemo } from "./StatefulButton";
 interface PipelineFormProps {
@@ -13,7 +13,7 @@ export function PipelineForm({ onSubmit, isLoading }: PipelineFormProps) {
   const [itemId, setItemId] = useState("");
   const [error, setError] = useState("");
 
-  const handleSubmit = async (e: FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
