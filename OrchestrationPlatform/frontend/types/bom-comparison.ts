@@ -15,6 +15,10 @@ export type ComparisonSelection = {
   leftSource: SourceType;
   rightSource: SourceType;
 };
+export type MultiComparisonSelection = {
+  primarySource: SourceType;
+  comparedSources: SourceType[];
+};
 export type MatchReason = "item-id" | "name-context" | "name" | "none";
 export type ComparisonField =
   | "itemId"
@@ -77,6 +81,14 @@ export type BomComparisonResult = {
   rightSource: SourceType;
   left: Record<string, NodeComparison>;
   right: Record<string, NodeComparison>;
+  summary: ComparisonSummary;
+  generatedAt: string;
+};
+export type MultiBomComparisonResult = {
+  primarySource: SourceType;
+  comparedSources: SourceType[];
+  pairResults: BomComparisonResult[];
+  maps: Partial<Record<SourceType, Record<string, NodeComparison>>>;
   summary: ComparisonSummary;
   generatedAt: string;
 };

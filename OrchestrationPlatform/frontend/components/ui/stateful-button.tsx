@@ -1,34 +1,49 @@
 "use client";
-import { cn } from "@/lib/utils";
+
+import type { HTMLMotionProps } from "motion/react";
 import { motion } from "motion/react";
-import type { ButtonHTMLAttributes, ReactNode } from "react";
-interface Props extends ButtonHTMLAttributes<HTMLButtonElement> {
-  children: ReactNode;
-  isLoading?: boolean;
-}
-export const Button = ({
-  className,
+
+import { cn } from "@/lib/utils";
+
+type Props = HTMLMotionProps<"button"> & {
+  loading?: boolean;
+  loadingText?: string;
+};
+
+export function Button({
   children,
-  isLoading = false,
-  onClick,
+  loading = false,
+  loadingText = "Working...",
+  disabled,
+  className,
+  type = "button",
   ...props
-}: Props) => (
-  <motion.button
-    whileHover={props.disabled ? undefined : { y: -1 }}
-    whileTap={props.disabled ? undefined : { scale: 0.98 }}
-    className={cn(
-      "flex cursor-pointer items-center justify-center gap-2 border-0 transition disabled:cursor-not-allowed disabled:opacity-60",
-      className,
-    )}
-    onClick={onClick}
-    {...props}
-  >
-    {isLoading ? (
-      <span
-        className="h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent"
-        aria-hidden="true"
-      />
-    ) : null}
-    <span>{children}</span>
-  </motion.button>
-);
+}: Props) {
+  const isDisabled = disabled || loading;
+
+  return (
+    <motion.button
+      {...props}
+      type={type}
+      disabled={isDisabled}
+      whileHover={isDisabled ? undefined : { y: -1 }}
+      whileTap={isDisabled ? undefined : { scale: 0.98 }}
+      className={cn(
+        "inline-flex items-center justify-center transition disabled:cursor-not-allowed disabled:opacity-60",
+        className,
+      )}
+    >
+      {loading ? (
+        <>
+          <span
+            className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
+            aria-hidden="true"
+          />
+          <span>{loadingText}</span>
+        </>
+      ) : (
+        children
+      )}
+    </motion.button>
+  );
+}

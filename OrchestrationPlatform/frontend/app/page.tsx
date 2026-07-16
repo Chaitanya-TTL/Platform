@@ -474,12 +474,8 @@ export default function Home() {
                 <IconDatabase className="h-5 w-5" />
               </span>
 
-              <span className="mt-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-700 dark:text-cyan-200">
-                Product
-              </span>
-
-              <span className="mt-1 text-[9px] text-slate-500">
-                Unified BOM core
+              <span className="mt-3 text-[8px] text-center font-semibold uppercase tracking-[0.2em] text-cyan-700 dark:text-cyan-200">
+                Orchestration <br /> Platform
               </span>
             </motion.div>
 
