@@ -134,7 +134,7 @@ export function QuickStartModal({
                   <motion.button
                     key={`${item.value}-${item.label}`}
                     type="button"
-                    disabled={"disabled" in item && item.disabled}
+                    disabled={"disabled" in item ? Boolean(item.disabled) : false}
                     onClick={() =>
                       currentView === "categories"
                         ? onOpenCategory(item.value)

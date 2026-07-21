@@ -1,11 +1,5 @@
-using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Threading.Channels;
-using System.Threading.Tasks;
-using Newtonsoft.Json;
 using Orchestration.API.Models;
 
 namespace Orchestration.API.Services
@@ -13,15 +7,8 @@ namespace Orchestration.API.Services
     public interface IPipelineOrchestrator
     {
         Task InitializeProgressChannelAsync(string jobId);
-        
-        Task<(bool success, BomRoot finalBom, string outputFilePath, string outputKind)> ExecutePipelineAsync(
-            string jobId,
-            ExtractionRequest request,
-            Func<PipelineProgress, Task> progressCallback);
-        
-        Task SubscribeToProgressAsync(
-            string jobId,
-            Func<PipelineProgress, Task> callback);
+        Task<(bool success, BomRoot finalBom, string outputFilePath, string outputKind)> ExecutePipelineAsync(string jobId, ExtractionRequest request, Func<PipelineProgress, Task> progressCallback);
+        Task SubscribeToProgressAsync(string jobId, Func<PipelineProgress, Task> callback);
     }
 
     public class PipelineOrchestrator : IPipelineOrchestrator
@@ -29,206 +16,71 @@ namespace Orchestration.API.Services
         private readonly ISubprocessExecutor _subprocessExecutor;
         private readonly IAuditLogger _auditLogger;
         private readonly ILogger<PipelineOrchestrator> _logger;
-        private readonly ConcurrentDictionary<string, Channel<PipelineProgress>> _progressChannels;
+        private readonly ConcurrentDictionary<string, Channel<PipelineProgress>> _progressChannels = new();
 
-        public PipelineOrchestrator(
-            ISubprocessExecutor subprocessExecutor,
-            IAuditLogger auditLogger,
-            ILogger<PipelineOrchestrator> logger)
-        {
-            _subprocessExecutor = subprocessExecutor;
-            _auditLogger = auditLogger;
-            _logger = logger;
-            _progressChannels = new ConcurrentDictionary<string, Channel<PipelineProgress>>();
-        }
+        public PipelineOrchestrator(ISubprocessExecutor subprocessExecutor, IAuditLogger auditLogger, ILogger<PipelineOrchestrator> logger)
+        { _subprocessExecutor = subprocessExecutor; _auditLogger = auditLogger; _logger = logger; }
 
-        public async Task InitializeProgressChannelAsync(string jobId)
-        {
-            var channel = Channel.CreateUnbounded<PipelineProgress>();
-            _progressChannels.TryAdd(jobId, channel);
-            await Task.CompletedTask;
-        }
+        public Task InitializeProgressChannelAsync(string jobId)
+        { _progressChannels.TryAdd(jobId, Channel.CreateUnbounded<PipelineProgress>()); return Task.CompletedTask; }
 
-        public async Task SubscribeToProgressAsync(
-            string jobId,
-            Func<PipelineProgress, Task> callback)
+        public async Task SubscribeToProgressAsync(string jobId, Func<PipelineProgress, Task> callback)
         {
             if (_progressChannels.TryGetValue(jobId, out var channel))
-            {
-                await foreach (var progress in channel.Reader.ReadAllAsync())
-                {
-                    await callback(progress);
-                }
-            }
+                await foreach (var progress in channel.Reader.ReadAllAsync()) await callback(progress);
         }
 
         public async Task<(bool success, BomRoot finalBom, string outputFilePath, string outputKind)> ExecutePipelineAsync(
-            string jobId,
-            ExtractionRequest request,
-            Func<PipelineProgress, Task> progressCallback)
+            string jobId, ExtractionRequest request, Func<PipelineProgress, Task> progressCallback)
         {
-            // Get the pre-initialized channel or create if missing (fallback)
             if (!_progressChannels.TryGetValue(jobId, out var channel))
-            {
-                var newChannel = Channel.CreateUnbounded<PipelineProgress>();
-                _progressChannels.TryAdd(jobId, newChannel);
-                channel = newChannel;
-            }
-
-            var auditLog = new AuditLog
-            {
-                JobId = jobId,
-                TeamcenterItemId = request.TeamcenterItemId ?? request.WorkItemId,
-                StartTime = DateTime.UtcNow,
-                Status = "in_progress",
-                Phases = new()
-            };
-
+            { channel = Channel.CreateUnbounded<PipelineProgress>(); _progressChannels.TryAdd(jobId, channel); }
+            var source = request.Kind == ExtractionKind.Sap ? "SAP" : request.Kind == ExtractionKind.Configit ? "Configit" : "TeamCenter";
+            var auditLog = new AuditLog { JobId = jobId, TeamcenterItemId = request.GetIdentifier(), StartTime = DateTime.UtcNow, Status = "in_progress", Phases = new() };
             await _auditLogger.LogAsync(auditLog);
-
-            BomRoot finalBom = null;
-            string outputFilePath = null;
-            string outputKind = request.Kind.ToString().ToLowerInvariant();
-            string pipelineOutput = null;
-
+            var outputKind = request.Kind.ToString().ToLowerInvariant();
             try
             {
-                // Send initial "starting" event
-                await ReportPhaseProgress(jobId, "extract", "in_progress", 0, "Starting pipeline...", progressCallback, channel);
+                await Report(jobId, "extract", "in_progress", 0, $"Connecting to {source}...", progressCallback, channel);
+                var extract = new PhaseLog { Phase = "extract", StartTime = DateTime.UtcNow, ProgressPercent = 0, Status = "in_progress" };
+                auditLog.Phases.Add(extract);
+                await Report(jobId, "transform", "in_progress", 20, $"Executing {source} extraction...", progressCallback, channel);
+                var transform = new PhaseLog { Phase = "transform", StartTime = DateTime.UtcNow, ProgressPercent = 20, Status = "in_progress" };
+                auditLog.Phases.Add(transform);
 
-                // Phase 1: Parse/Extract
-                await ReportPhaseProgress(jobId, "extract", "in_progress", 0, "Connecting to TeamCenter...", progressCallback, channel);
-                var extractPhase = new PhaseLog 
-                { 
-                    Phase = "extract", 
-                    StartTime = DateTime.UtcNow, 
-                    ProgressPercent = 0,
-                    Status = "in_progress"
-                };
-                auditLog.Phases.Add(extractPhase);
+                var (success, output, bom, path) = await _subprocessExecutor.ExecuteAsync(request,
+                    message => Report(jobId, "transform", "in_progress", 70, message, progressCallback, channel));
+                if (!success || bom == null) throw new Exception($"Pipeline execution failed: {output}");
 
-                // Phase 2: Execute Pipeline
-                await ReportPhaseProgress(jobId, "transform", "in_progress", 20, "Executing ETL pipeline...", progressCallback, channel);
-                var transformPhase = new PhaseLog 
-                { 
-                    Phase = "transform", 
-                    StartTime = DateTime.UtcNow, 
-                    ProgressPercent = 20,
-                    Status = "in_progress"
-                };
-                auditLog.Phases.Add(transformPhase);
-
-                // Execute the subprocess
-                var (success, output, bomStructure, producedFilePath) = await _subprocessExecutor.ExecuteAsync(
-                    request,
-                    async (progressMsg) =>
-                    {
-                        await ReportPhaseProgress(jobId, "transform", "in_progress",
-                            Math.Min(80, 20 + 50), 
-                            progressMsg, progressCallback, channel);
-                    });
-
-                if (!success)
-                {
-                    throw new Exception($"Pipeline execution failed: {output}");
-                }
-
-                pipelineOutput = output;
-                finalBom = bomStructure;
-                outputFilePath = producedFilePath;
-
-                extractPhase.Status = "complete";
-                extractPhase.EndTime = DateTime.UtcNow;
-                extractPhase.ProgressPercent = 20;
-                extractPhase.Message = "✓ Data extracted from TeamCenter";
-
-                transformPhase.Status = "complete";
-                transformPhase.EndTime = DateTime.UtcNow;
-                transformPhase.ProgressPercent = 80;
-                transformPhase.Message = "✓ BOM transformed successfully";
-
-                // Phase 3: Load/Complete
-                await ReportPhaseProgress(jobId, "load", "in_progress", 90, "Finalizing...", progressCallback, channel);
-                var loadPhase = new PhaseLog 
-                { 
-                    Phase = "load", 
-                    StartTime = DateTime.UtcNow, 
-                    ProgressPercent = 90,
-                    Status = "in_progress"
-                };
-                auditLog.Phases.Add(loadPhase);
-
+                extract.Status = "complete"; extract.EndTime = DateTime.UtcNow; extract.ProgressPercent = 20; extract.Message = $"Data extracted from {source}";
+                transform.Status = "complete"; transform.EndTime = DateTime.UtcNow; transform.ProgressPercent = 80; transform.Message = "BOM transformed successfully";
+                await Report(jobId, "load", "in_progress", 90, "Finalizing...", progressCallback, channel);
+                var load = new PhaseLog { Phase = "load", StartTime = DateTime.UtcNow, ProgressPercent = 90, Status = "in_progress" };
+                auditLog.Phases.Add(load);
                 await Task.Delay(300);
-
-                loadPhase.Status = "complete";
-                loadPhase.EndTime = DateTime.UtcNow;
-                loadPhase.ProgressPercent = 100;
-                loadPhase.Message = "✓ Pipeline completed successfully";
-
-                auditLog.Status = "success";
-                auditLog.EndTime = DateTime.UtcNow;
-                auditLog.FinalBom = finalBom;
-                auditLog.OutputFilePath = outputFilePath;
-                auditLog.OutputKind = outputKind;
-
-                await ReportPhaseProgress(jobId, "load", "complete", 100, "✓ Pipeline completed successfully!", progressCallback, channel);
-
-                _logger.LogInformation($"Pipeline executed successfully for job {jobId}");
+                load.Status = "complete"; load.EndTime = DateTime.UtcNow; load.ProgressPercent = 100; load.Message = "Pipeline completed successfully";
+                auditLog.Status = "success"; auditLog.EndTime = DateTime.UtcNow; auditLog.FinalBom = bom; auditLog.OutputFilePath = path; auditLog.OutputKind = outputKind;
+                await Report(jobId, "load", "complete", 100, "Pipeline completed successfully!", progressCallback, channel);
                 await _auditLogger.LogAsync(auditLog);
-
-                return (true, finalBom, outputFilePath, outputKind);
+                return (true, bom, path, outputKind);
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Pipeline failed for job {jobId}: {ex.Message}");
-
-                auditLog.Status = "failed";
-                auditLog.Error = ex.Message;
-                auditLog.EndTime = DateTime.UtcNow;
-
-                await ReportPhaseProgress(jobId, "error", "error", 0, $"❌ Error: {ex.Message}", progressCallback, channel);
+                _logger.LogError(ex, "Pipeline failed for job {JobId}", jobId);
+                auditLog.Status = "failed"; auditLog.Error = ex.Message; auditLog.EndTime = DateTime.UtcNow;
+                await Report(jobId, "error", "error", 0, $"Error: {ex.Message}", progressCallback, channel);
                 await _auditLogger.LogAsync(auditLog);
-
-                return (false, null, null, outputKind);
+                return (false, null!, null!, outputKind);
             }
-            finally
-            {
-                // Close the channel
-                if (_progressChannels.TryGetValue(jobId, out var ch))
-                {
-                    ch.Writer.TryComplete();
-                }
-            }
+            finally { if (_progressChannels.TryGetValue(jobId, out var ch)) ch.Writer.TryComplete(); }
         }
 
-        private async Task ReportPhaseProgress(
-            string jobId,
-            string phase,
-            string status,
-            int progressPercent,
-            string message,
-            Func<PipelineProgress, Task> progressCallback,
-            Channel<PipelineProgress> channel)
+        private async Task Report(string jobId, string phase, string status, int percent, string message,
+            Func<PipelineProgress, Task> callback, Channel<PipelineProgress> channel)
         {
-            var progress = new PipelineProgress
-            {
-                JobId = jobId,
-                Phase = phase,
-                Status = status,
-                ProgressPercent = progressPercent,
-                Message = message,
-                Timestamp = DateTime.UtcNow.ToString("O")
-            };
-
-            try
-            {
-                await progressCallback(progress);
-                await channel.Writer.WriteAsync(progress);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"Error reporting progress: {ex.Message}");
-            }
+            var progress = new PipelineProgress { JobId = jobId, Phase = phase, Status = status, ProgressPercent = percent, Message = message, Timestamp = DateTime.UtcNow.ToString("O") };
+            try { await callback(progress); await channel.Writer.WriteAsync(progress); }
+            catch (Exception ex) { _logger.LogError(ex, "Error reporting progress"); }
         }
     }
 }

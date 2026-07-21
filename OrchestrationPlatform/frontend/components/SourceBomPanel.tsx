@@ -1,4 +1,5 @@
 "use client";
+
 import {
   useEffect,
   useMemo,
@@ -25,34 +26,40 @@ import {
   IconSearch,
   IconX,
 } from "@tabler/icons-react";
-import { sourcePresentation } from "@/lib/bom-comparison";
+
 import type { PipelineProgress } from "@/lib/api";
-import type {
-  ComparisonFilter,
-  NodeComparison,
-  SourceType,
-  TreeNodeData,
-} from "@/types/bom-comparison";
+
+import { BomViewSwitcher } from "@/components/bom-visualization/BomViewSwitcher";
+import { BomConstellationView } from "@/components/bom-visualization/BomConstellationView";
+import { ImpactAnalysisWorkspace, ImpactModeToggle } from "@/components/bom-impact/ImpactAnalysisWorkspace";
+import { occurrencesForSource, registerImpactBom, runImpactSearch, useCrossBomImpact } from "@/lib/cross-bom-impact-store";
+import { BomRadialExplorerView } from "@/components/bom-visualization/BomRadialExplorerView";
+import { BomThreeUniverseView } from "@/components/bom-visualization/BomThreeUniverseView";
+import { SourceType, TreeNodeData, NodeComparison, ComparisonFilter } from "@/types/bom-comparison";
+import { BomViewMode } from "@/types/bom-visualization";
+import { sourcePresentation } from "@/lib/bom-comparison";
+
 type Props = {
   source: SourceType;
   title: string;
   endpoint: string;
-  transformPayload: (p: unknown) => TreeNodeData | null;
+  transformPayload: (payload: unknown) => TreeNodeData | null;
   active: boolean;
   payloadOverride?: unknown;
   refreshSignal?: number;
   loadingLabel?: string;
-  onLoadComplete?: (s: "ready" | "error") => void;
-  onBomReady?: (s: SourceType, r: TreeNodeData | null) => void;
+  onLoadComplete?: (status: "ready" | "error") => void;
+  onBomReady?: (source: SourceType, root: TreeNodeData | null) => void;
   progress?: PipelineProgress | null;
   comparisonMode?: boolean;
   comparison?: Record<string, NodeComparison>;
   comparisonFilter?: ComparisonFilter;
   counterpartLabel?: string;
 };
+
 type Status = "idle" | "loading" | "ready" | "error";
-const POLL = 2000;
-const V = {
+const POLL_INTERVAL = 2000;
+const visuals = {
   matched: {
     label: "Matched",
     row: "border-emerald-300 bg-emerald-50 dark:border-emerald-400/25 dark:bg-emerald-400/[.08]",
@@ -79,25 +86,26 @@ const V = {
     dot: "bg-violet-500",
   },
 } as const;
-function rec(v: unknown) {
-  return v && typeof v === "object" && !Array.isArray(v)
-    ? (v as Record<string, unknown>)
+
+function record(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
     : null;
 }
-function state(v: unknown) {
-  const r = rec(v);
-  return typeof r?.status === "string" ? r.status.toLowerCase() : "";
+function backendStatus(value: unknown) {
+  const item = record(value);
+  return typeof item?.status === "string" ? item.status.toLowerCase() : "";
 }
-function msg(v: unknown) {
-  if (typeof v === "string" && v.trim()) return v;
-  const r = rec(v);
-  return typeof r?.error === "string"
-    ? r.error
-    : typeof r?.message === "string"
-      ? r.message
+function backendMessage(value: unknown) {
+  if (typeof value === "string" && value.trim()) return value;
+  const item = record(value);
+  return typeof item?.error === "string"
+    ? item.error
+    : typeof item?.message === "string"
+      ? item.message
       : "Failed to load BOM";
 }
-function pending(v: unknown) {
+function isPending(value: unknown) {
   return [
     "in_progress",
     "in progress",
@@ -105,16 +113,16 @@ function pending(v: unknown) {
     "pending",
     "accepted",
     "running",
-  ].includes(state(v));
+  ].includes(backendStatus(value));
 }
-function text(n: TreeNodeData, s: SourceType) {
-  const p = sourcePresentation(n, s);
+function searchText(node: TreeNodeData, source: SourceType) {
+  const presented = sourcePresentation(node, source);
   return [
-    p.name,
-    p.itemId,
-    p.quantity,
-    n.name,
-    ...Object.values(n.attributes ?? {}),
+    presented.name,
+    presented.itemId,
+    presented.quantity,
+    node.name,
+    ...Object.values(node.attributes ?? {}),
   ]
     .filter(Boolean)
     .join(" ")
@@ -125,41 +133,28 @@ function metrics(root: TreeNodeData) {
     assemblies = 0,
     leaves = 0,
     depth = 0;
-  const q = [{ node: root, level: 1 }];
-  while (q.length) {
-    const x = q.shift();
-    if (!x) continue;
-    total++;
-    depth = Math.max(depth, x.level);
-    const c = Array.isArray(x.node.children) ? x.node.children : [];
-    if (c.length) {
-      assemblies++;
-      q.push(...c.map((node) => ({ node, level: x.level + 1 })));
-    } else leaves++;
+  const queue: Array<{ node: TreeNodeData; level: number }> = [
+    { node: root, level: 1 },
+  ];
+  while (queue.length) {
+    const current = queue.shift();
+    if (!current) continue;
+    total += 1;
+    depth = Math.max(depth, current.level);
+    const children = Array.isArray(current.node.children)
+      ? current.node.children
+      : [];
+    if (children.length) {
+      assemblies += 1;
+      queue.push(
+        ...children.map((node) => ({ node, level: current.level + 1 })),
+      );
+    } else leaves += 1;
   }
   return { total, assemblies, leaves, depth };
 }
-function Tip({ c }: { c: NodeComparison }) {
-  return (
-    <div
-      role="tooltip"
-      className="pointer-events-none absolute bottom-[calc(100%+9px)] right-0 z-50 hidden w-[300px] rounded-xl border border-slate-200 bg-white p-3 text-left shadow-2xl group-hover/tip:block group-focus-within/tip:block dark:border-slate-700 dark:bg-slate-900"
-    >
-      <p className="text-xs font-semibold">
-        {V[c.status].label} · {Math.round(c.confidence * 100)}%
-      </p>
-      <p className="mt-1 text-[11px] leading-5 text-slate-500">
-        {c.reasoning.summary}
-      </p>
-      <ul className="mt-2 space-y-1 text-[10px] text-slate-500">
-        {c.reasoning.details.slice(0, 4).map((x) => (
-          <li key={x}>• {x}</li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-function Row({
+
+function TreeRow({
   node,
   style,
   dragHandle,
@@ -167,27 +162,29 @@ function Row({
   comparisonMode,
   comparison,
   selected,
+  impactMatch,
   onSelect,
 }: NodeRendererProps<TreeNodeData> & {
   source: SourceType;
   comparisonMode: boolean;
   comparison?: NodeComparison;
   selected: boolean;
-  onSelect: (n: TreeNodeData) => void;
+  impactMatch: boolean;
+  onSelect: (node: TreeNodeData) => void;
 }) {
-  const p = sourcePresentation(node.data, source),
-    has = !node.isLeaf,
-    c = comparisonMode ? comparison : undefined,
-    v = c ? V[c.status] : null;
-  const key = (e: KeyboardEvent<HTMLDivElement>) => {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
+  const presented = sourcePresentation(node.data, source);
+  const hasChildren = !node.isLeaf;
+  const result = comparisonMode ? comparison : undefined;
+  const visual = result ? visuals[result.status] : null;
+  const keyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
       onSelect(node.data);
     }
   };
-  const toggle = (e: MouseEvent<HTMLButtonElement>) => {
-    e.stopPropagation();
-    if (has) node.toggle();
+  const toggle = (event: MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    if (hasChildren) node.toggle();
   };
   return (
     <motion.div
@@ -198,25 +195,27 @@ function Row({
       <div
         role="button"
         tabIndex={0}
-        onKeyDown={key}
+        onKeyDown={keyDown}
         onClick={() => onSelect(node.data)}
-        onDoubleClick={() => has && node.toggle()}
+        onDoubleClick={() => hasChildren && node.toggle()}
         className={[
           "flex w-full min-w-0 items-center gap-2 rounded-xl border px-2 py-2 outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 sm:gap-3 sm:px-3",
-          selected
-            ? "border-cyan-300 bg-cyan-50 dark:border-cyan-400/30 dark:bg-cyan-400/[.09]"
-            : v
-              ? v.row
+          impactMatch
+            ? "border-emerald-400 bg-emerald-50 ring-2 ring-emerald-400/30 dark:border-emerald-400/50 dark:bg-emerald-400/[.12]"
+            : selected
+              ? "border-cyan-300 bg-cyan-50 dark:border-cyan-400/30 dark:bg-cyan-400/[.09]"
+              : visual
+              ? visual.row
               : "border-transparent hover:bg-slate-100 dark:hover:bg-slate-800/60",
         ].join(" ")}
       >
         <button
           type="button"
           onClick={toggle}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-500"
-          aria-label={has ? "Toggle children" : "Leaf node"}
+          className="flex h-8 w-8 shrink-0 items-center justify-center text-slate-500"
+          aria-label={hasChildren ? "Toggle children" : "Leaf node"}
         >
-          {has ? (
+          {hasChildren ? (
             <motion.span animate={{ rotate: node.isOpen ? 90 : 0 }}>
               <IconChevronRight className="h-4 w-4" />
             </motion.span>
@@ -228,32 +227,24 @@ function Row({
           <IconPackage className="h-4 w-4" />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-medium">{p.name}</span>
-          <span className="mt-.5 flex gap-2 overflow-hidden text-[11px] text-slate-500">
-            {p.itemId ? (
-              <span className="truncate">Item ID: {p.itemId}</span>
-            ) : null}
-            {p.quantity ? (
-              <span className="truncate">Quantity: {p.quantity}</span>
-            ) : null}
+          <span className="block truncate text-sm font-medium">
+            {presented.name}
+          </span>
+          <span className="text-[11px] text-slate-500">
+            {presented.itemId ? `Item ID: ${presented.itemId}` : ""}
           </span>
         </span>
-        {c && v ? (
-          <span className="group/tip relative hidden sm:block">
-            <span
-              tabIndex={0}
-              className="inline-flex items-center gap-1.5 rounded-full border border-current/20 bg-white/60 px-2 py-1 text-[9px] font-semibold uppercase dark:bg-slate-950/30"
-            >
-              <span className={`h-1.5 w-1.5 rounded-full ${v.dot}`} />
-              {v.label}
-            </span>
-            <Tip c={c} />
+        {result && visual ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-current/20 bg-white/60 px-2 py-1 text-[9px] font-semibold uppercase dark:bg-slate-950/30">
+            <span className={`h-1.5 w-1.5 rounded-full ${visual.dot}`} />
+            {visual.label}
           </span>
         ) : null}
       </div>
     </motion.div>
   );
 }
+
 export function SourceBomPanel({
   source,
   title,
@@ -271,57 +262,67 @@ export function SourceBomPanel({
   comparisonFilter = "all",
   counterpartLabel,
 }: Props) {
-  const [bom, setBom] = useState<TreeNodeData | null>(null),
-    [status, setStatus] = useState<Status>("idle"),
-    [error, setError] = useState<string | null>(null),
-    [search, setSearch] = useState(""),
-    [selected, setSelected] = useState<TreeNodeData | null>(null),
-    [full, setFull] = useState(false),
-    [retry, setRetry] = useState(0),
-    [fallback, setFallback] = useState(false);
+  const [bom, setBom] = useState<TreeNodeData | null>(null);
+  const [status, setStatus] = useState<Status>("idle");
+  const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [selected, setSelected] = useState<TreeNodeData | null>(null);
+  const [fullScreen, setFullScreen] = useState(false);
+  const [retry, setRetry] = useState(0);
+  const [fallback, setFallback] = useState(false);
+  const [viewMode, setViewMode] = useState<BomViewMode>("tree");
   const tree = useRef<TreeApi<TreeNodeData> | null>(null);
+  const impact = useCrossBomImpact();
+  const impactOccurrences = occurrencesForSource(impact.result, source);
+  const impactMatchIds = useMemo(
+    () => new Set(impactOccurrences.map((item) => item.nodeId)),
+    [impactOccurrences],
+  );
+  const loadedImpactBomCount = Object.keys(impact.loadedBoms).length;
+
   useEffect(() => {
     if (!active) {
-      const t = setTimeout(() => {
+      const timer = window.setTimeout(() => {
         setBom(null);
         onBomReady?.(source, null);
         setStatus("idle");
-        setError(null);
         setSelected(null);
+        setViewMode("tree");
       }, 0);
-      return () => clearTimeout(t);
+      return () => window.clearTimeout(timer);
     }
     if (payloadOverride != null) {
-      const t = setTimeout(() => {
+      const timer = window.setTimeout(() => {
         try {
           const root = transformPayload(payloadOverride);
           if (!root) throw new Error("Malformed extraction payload.");
-          setFallback(rec(payloadOverride)?.source === "sample-fallback");
+          setFallback(record(payloadOverride)?.source === "sample-fallback");
           setBom(root);
           onBomReady?.(source, root);
           setStatus("ready");
           onLoadComplete?.("ready");
-        } catch (e) {
+        } catch (cause) {
           setStatus("error");
-          setError(e instanceof Error ? e.message : String(e));
+          setError(cause instanceof Error ? cause.message : String(cause));
           onLoadComplete?.("error");
         }
       }, 0);
-      return () => clearTimeout(t);
+      return () => window.clearTimeout(timer);
     }
     if (!endpoint) return;
-    let cancelled = false,
-      timer: number | undefined;
+    let cancelled = false;
+    let timer: number | undefined;
     const again = () => {
-      if (!cancelled) timer = window.setTimeout(() => void load(), POLL);
+      if (!cancelled)
+        timer = window.setTimeout(() => void load(), POLL_INTERVAL);
     };
     const load = async () => {
       if (cancelled) return;
       setStatus("loading");
       setError(null);
       try {
-        const response = await fetch(endpoint, { cache: "no-store" }),
-          raw = await response.text();
+        const response = await fetch(endpoint, { cache: "no-store" });
+        const raw = await response.text();
         let payload: unknown = null;
         if (raw) {
           try {
@@ -330,38 +331,36 @@ export function SourceBomPanel({
             payload = raw;
           }
         }
-        if (!response.ok && pending(payload)) {
+        if (!response.ok && isPending(payload)) {
           again();
           return;
         }
-        if (!response.ok) throw new Error(msg(payload));
-        if (["error", "failed", "failure"].includes(state(payload)))
-          throw new Error(msg(payload));
+        if (!response.ok) throw new Error(backendMessage(payload));
         const root = transformPayload(payload);
         if (!root) {
           again();
           return;
         }
         if (cancelled) return;
-        setFallback(rec(payload)?.source === "sample-fallback");
+        setFallback(record(payload)?.source === "sample-fallback");
         setBom(root);
         onBomReady?.(source, root);
         setSelected(null);
         setStatus("ready");
         onLoadComplete?.("ready");
-      } catch (e) {
+      } catch (cause) {
         if (cancelled) return;
         setBom(null);
         onBomReady?.(source, null);
         setStatus("error");
-        setError(e instanceof Error ? e.message : String(e));
+        setError(cause instanceof Error ? cause.message : String(cause));
         onLoadComplete?.("error");
       }
     };
     void load();
     return () => {
       cancelled = true;
-      if (timer) clearTimeout(timer);
+      if (timer) window.clearTimeout(timer);
     };
   }, [
     active,
@@ -372,40 +371,40 @@ export function SourceBomPanel({
     source,
     transformPayload,
   ]);
+
   useEffect(() => {
-    if (!full) return;
-    const old = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    const close = (e: globalThis.KeyboardEvent) => {
-      if (e.key === "Escape") setFull(false);
-    };
-    addEventListener("keydown", close);
-    return () => {
-      document.body.style.overflow = old;
-      removeEventListener("keydown", close);
-    };
-  }, [full]);
-  const data = useMemo(() => (bom ? [bom] : []), [bom]),
-    m = useMemo(() => (bom ? metrics(bom) : null), [bom]),
-    shown = selected ? sourcePresentation(selected, source) : null,
-    c = selected && comparisonMode ? comparison?.[selected.id] : undefined,
-    term = `${search.toLowerCase()}|${comparisonMode ? comparisonFilter : "all"}`;
+    registerImpactBom(source, bom);
+    return () => registerImpactBom(source, null);
+  }, [source, bom]);
+
+  const handleNodeSelection = (node: TreeNodeData) => {
+    setSelected(node);
+    if (impact.enabled) runImpactSearch(source, node);
+  };
+
+  const data = useMemo(() => (bom ? [bom] : []), [bom]);
+  const summary = useMemo(() => (bom ? metrics(bom) : null), [bom]);
+  const shown = selected ? sourcePresentation(selected, source) : null;
+  const selectedComparison =
+    selected && comparisonMode ? comparison?.[selected.id] : undefined;
+  const term = `${search.toLowerCase()}|${comparisonMode ? comparisonFilter : "all"}`;
+
   const panel = (
     <section
       className={[
-        "relative flex min-h-0 flex-col overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-950/95",
-        full ? "fixed inset-2 z-[100] shadow-2xl sm:inset-6" : "h-full",
+        "bom-panel relative flex min-h-0 flex-col overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-950/95",
+        fullScreen ? "fixed inset-2 z-[100] shadow-2xl sm:inset-6" : "h-full",
       ].join(" ")}
     >
       <header className="flex items-center justify-between border-b border-slate-200 px-4 py-3.5 dark:border-slate-800">
-        <div>
+        {/* <div>
           <h3 className="text-sm font-semibold">{title}</h3>
           <p className="mt-1 text-xs text-slate-500">
             {comparisonMode
               ? `Compared with ${counterpartLabel}`
               : "Extracted BOM structure"}
           </p>
-        </div>
+        </div> */}
         <span className="rounded-full border border-slate-200 px-2.5 py-1 text-[10px] font-semibold uppercase dark:border-slate-700">
           {status}
         </span>
@@ -416,19 +415,20 @@ export function SourceBomPanel({
           Sample Windchill fallback data is displayed.
         </div>
       ) : null}
-      {status === "ready" && bom && m ? (
+      {status === "ready" && bom && summary ? (
         <>
           <div className="border-b border-slate-200 bg-slate-50/70 p-3 dark:border-slate-800 dark:bg-slate-950/60">
             <div className="relative">
               <IconSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(event) => setSearch(event.target.value)}
                 placeholder="Search this BOM"
                 className="h-10 w-full rounded-xl border border-slate-300 bg-white pl-9 pr-9 text-sm dark:border-slate-700 dark:bg-slate-900"
               />
               {search ? (
                 <button
+                  type="button"
                   onClick={() => setSearch("")}
                   className="absolute right-2 top-1/2 -translate-y-1/2"
                 >
@@ -436,124 +436,126 @@ export function SourceBomPanel({
                 </button>
               ) : null}
             </div>
-            <div className="mt-2 grid grid-cols-3 gap-2">
-              <Tool onClick={() => tree.current?.openAll()}>
-                <IconChevronsDown className="h-4 w-4" />
-                Expand
-              </Tool>
-              <Tool onClick={() => tree.current?.closeAll()}>
-                <IconChevronsUp className="h-4 w-4" />
-                Collapse
-              </Tool>
-              <Tool onClick={() => setFull((v) => !v)}>
-                <IconArrowsMaximize className="h-4 w-4" />
-                {full ? "Close" : "Full screen"}
-              </Tool>
+            <div className="bom-toolbar mt-2">
+              <div className="space-x-2">
+                <Tool  disabled={viewMode !== "tree"} onClick={() => tree.current?.openAll()}>
+                  <IconChevronsDown className="h-4 w-4" />
+                </Tool>
+                <Tool disabled={viewMode !== "tree"} onClick={() => tree.current?.closeAll()}>
+                  <IconChevronsUp className="h-4 w-4" />
+                </Tool>
+                <Tool onClick={() => setFullScreen((value) => !value)}>
+                  <IconArrowsMaximize className="h-4 w-4" />
+                </Tool>
+              </div>
+              <div className="flex items-center justify-end-safe space-x-2">
+                <ImpactModeToggle enabled={impact.enabled} result={impact.result} loadedCount={loadedImpactBomCount} />
+                <BomViewSwitcher mode={viewMode} onChange={setViewMode} />
+              </div>
             </div>
             <div className="mt-3 grid grid-cols-4 divide-x divide-slate-200 rounded-lg border border-slate-200 dark:divide-slate-800 dark:border-slate-800">
               {[
-                [m.total, "Items"],
-                [m.assemblies, "Assemblies"],
-                [m.leaves, "Leaf"],
-                [m.depth, "Levels"],
-              ].map(([v, l]) => (
-                <div key={String(l)} className="p-2 text-center">
-                  <b className="block text-xs">{v}</b>
+                [summary.total, "Items"],
+                [summary.assemblies, "Assemblies"],
+                [summary.leaves, "Leaf"],
+                [summary.depth, "Levels"],
+              ].map(([value, label]) => (
+                <div key={String(label)} className="p-2 text-center">
+                  <b className="block text-xs">{value}</b>
                   <span className="text-[9px] uppercase text-slate-500">
-                    {l}
+                    {label}
                   </span>
                 </div>
               ))}
             </div>
           </div>
           <div className="relative flex-1 p-2 sm:p-3">
-            <Tree
-              ref={tree}
-              data={data}
-              openByDefault={false}
-              width="100%"
-              height={full ? 650 : 510}
-              rowHeight={68}
-              indent={22}
-              overscanCount={8}
-              searchTerm={term}
-              searchMatch={(node, t) => {
-                const [q, f] = t.split("|");
-                return (
-                  (!q || text(node.data, source).includes(q)) &&
-                  (f === "all" || comparison?.[node.data.id]?.status === f)
-                );
-              }}
-            >
-              {(props) => (
-                <Row
-                  {...props}
+            <AnimatePresence mode="wait">
+              {viewMode === "constellation" ? (
+                <BomConstellationView
+                  key="constellation"
+                  root={bom}
                   source={source}
-                  comparisonMode={comparisonMode}
-                  comparison={comparison?.[props.node.data.id]}
-                  selected={selected?.id === props.node.data.id}
-                  onSelect={setSelected}
+                  comparison={comparisonMode ? comparison : undefined}
+                  search={search}
+                  selectedId={selected?.id}
+                  onSelect={handleNodeSelection}
+                  onClearSelection={() => setSelected(null)}
+                  onFullScreen={() => setFullScreen(true)}
                 />
-              )}
-            </Tree>
-            <AnimatePresence>
-              {selected ? (
-                <motion.aside
-                  initial={{ opacity: 0, y: 15 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 15 }}
-                  className={[
-                    "absolute z-10 overflow-auto rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-2xl dark:border-slate-700 dark:bg-slate-900/95",
-                    full
-                      ? "bottom-3 right-3 top-3 w-[390px]"
-                      : "bottom-3 left-3 right-3 max-h-[75%]",
-                  ].join(" ")}
+              ) : viewMode === "three-dimensional" ? (
+                <BomThreeUniverseView
+                  key="three-dimensional"
+                  root={bom}
+                  source={source}
+                  comparison={comparisonMode ? comparison : undefined}
+                  search={search}
+                  selectedId={selected?.id}
+                  onSelect={handleNodeSelection}
+                  onFullScreen={() => setFullScreen(true)}
+                />
+              ) : viewMode === "radial" ? (
+                <BomRadialExplorerView
+                  key="radial"
+                  root={bom}
+                  source={source}
+                  comparison={comparisonMode ? comparison : undefined}
+                  search={search}
+                  selectedId={selected?.id}
+                  onSelect={handleNodeSelection}
+                  onFullScreen={() => setFullScreen(true)}
+                />
+              ) : (
+                <motion.div
+                  key="tree"
+                  initial={{ opacity: 0, x: -12 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 12 }}
                 >
-                  <div className="flex justify-between">
-                    <div>
-                      <p className="text-[10px] font-semibold uppercase text-cyan-600">
-                        BOM line details
-                      </p>
-                      <h4 className="mt-1 text-sm font-semibold">
-                        {shown?.name}
-                      </h4>
-                    </div>
-                    <button onClick={() => setSelected(null)}>
-                      <IconX className="h-4 w-4" />
-                    </button>
-                  </div>
-                  {c ? (
-                    <div className="mt-5 rounded-xl border border-slate-200 p-3 dark:border-slate-700">
-                      <p className="flex items-center gap-2 text-xs font-semibold">
-                        {c.status === "matched" ? (
-                          <IconCircleCheck className="h-4 w-4 text-emerald-500" />
-                        ) : (
-                          <IconHelpCircle className="h-4 w-4 text-amber-500" />
-                        )}
-                        {V[c.status].label} · {Math.round(c.confidence * 100)}%
-                      </p>
-                      <p className="mt-2 text-xs text-slate-500">
-                        {c.reasoning.summary}
-                      </p>
-                      <div className="mt-3 space-y-2">
-                        {c.reasoning.details.map((x) => (
-                          <div
-                            key={x}
-                            className="rounded-lg bg-slate-50 p-2 text-[11px] dark:bg-slate-800/60"
-                          >
-                            {x}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ) : null}
-                  <div className="mt-5 rounded-xl border border-slate-200 p-3 text-xs text-slate-500 dark:border-slate-800">
-                    <IconHierarchy className="mr-2 inline h-4 w-4" />
-                    {selected.children?.length
-                      ? `${selected.children.length} direct children`
-                      : "Leaf component"}
-                  </div>
-                </motion.aside>
+                  <Tree
+                    ref={tree}
+                    data={data}
+                    openByDefault={false}
+                    width="100%"
+                    height={fullScreen ? 650 : 510}
+                    rowHeight={68}
+                    indent={22}
+                    overscanCount={8}
+                    searchTerm={term}
+                    searchMatch={(node, value) => {
+                      const [query, filter] = value.split("|");
+                      return (
+                        (!query ||
+                          searchText(node.data, source).includes(query)) &&
+                        (filter === "all" ||
+                          comparison?.[node.data.id]?.status === filter)
+                      );
+                    }}
+                  >
+                    {(props) => (
+                      <TreeRow
+                        {...props}
+                        source={source}
+                        comparisonMode={comparisonMode}
+                        comparison={comparison?.[props.node.data.id]}
+                        selected={selected?.id === props.node.data.id}
+                        impactMatch={impactMatchIds.has(props.node.data.id)}
+                        onSelect={handleNodeSelection}
+                      />
+                    )}
+                  </Tree>
+                </motion.div>
+              )}
+            </AnimatePresence>
+            <AnimatePresence>
+              {selected && viewMode === "tree" ? (
+                <Details
+                  node={selected}
+                  shown={shown}
+                  comparison={selectedComparison}
+                  onClose={() => setSelected(null)}
+                  fullScreen={fullScreen}
+                />
               ) : null}
             </AnimatePresence>
           </div>
@@ -564,36 +566,114 @@ export function SourceBomPanel({
           error={error}
           progress={progress}
           label={loadingLabel}
-          retry={() => setRetry((v) => v + 1)}
+          retry={() => setRetry((value) => value + 1)}
         />
       )}
     </section>
   );
   return (
     <>
-      {full ? (
+      {fullScreen ? (
         <button
+          type="button"
           className="fixed inset-0 z-[90] bg-slate-950/70"
-          onClick={() => setFull(false)}
+          onClick={() => setFullScreen(false)}
+          aria-label="Close full screen"
         />
       ) : null}
       {panel}
+      {impact.enabled && !impact.result ? (
+        <div className="fixed bottom-4 left-1/2 z-[150] -translate-x-1/2 rounded-xl border border-cyan-400/30 bg-slate-950/95 px-4 py-2 text-xs text-cyan-200 shadow-2xl">
+          Impact Analysis is ON. Click any BOM line to search all loaded BOMs.
+        </div>
+      ) : null}
+      {impact.enabled && impact.result?.selectedSource === source ? (
+        <ImpactAnalysisWorkspace result={impact.result} />
+      ) : null}
     </>
+  );
+}
+
+function Details({
+  node,
+  shown,
+  comparison,
+  onClose,
+  fullScreen,
+}: {
+  node: TreeNodeData;
+  shown: ReturnType<typeof sourcePresentation> | null;
+  comparison?: NodeComparison;
+  onClose: () => void;
+  fullScreen: boolean;
+}) {
+  return (
+    <motion.aside
+      initial={{ opacity: 0, y: 15 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 15 }}
+      className={[
+        "absolute z-40 overflow-auto rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-2xl dark:border-slate-700 dark:bg-slate-900/95",
+        fullScreen
+          ? "bottom-3 right-3 top-3 w-[390px]"
+          : "bottom-3 left-3 right-3 max-h-[75%]",
+      ].join(" ")}
+    >
+      <div className="flex justify-between">
+        <div>
+          <p className="text-[10px] font-semibold uppercase text-cyan-600">
+            BOM line details
+          </p>
+          <h4 className="mt-1 text-sm font-semibold">{shown?.name}</h4>
+        </div>
+        <button type="button" onClick={onClose}>
+          <IconX className="h-4 w-4" />
+        </button>
+      </div>
+      {comparison ? (
+        <div className="mt-5 rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+          <p className="flex items-center gap-2 text-xs font-semibold">
+            {comparison.status === "matched" ? (
+              <IconCircleCheck className="h-4 w-4 text-emerald-500" />
+            ) : (
+              <IconHelpCircle className="h-4 w-4 text-amber-500" />
+            )}
+            {visuals[comparison.status].label} ·{" "}
+            {Math.round(comparison.confidence * 100)}%
+          </p>
+          <p className="mt-2 text-xs text-slate-500">
+            {comparison.reasoning.summary}
+          </p>
+        </div>
+      ) : null}
+      <div className="mt-5 rounded-xl border border-slate-200 p-3 text-xs text-slate-500 dark:border-slate-800">
+        <IconHierarchy className="mr-2 inline h-4 w-4" />
+        {node.children?.length
+          ? `${node.children.length} direct children`
+          : "Leaf component"}
+      </div>
+    </motion.aside>
   );
 }
 function Tool({
   children,
   onClick,
+  disabled = false,
 }: {
   children: ReactNode;
   onClick: () => void;
+  disabled?: boolean;
 }) {
   return (
     <button
+      type="button"
+
+      disabled={disabled}
       onClick={onClick}
-      className="inline-flex h-9 items-center justify-center gap-1 rounded-lg border border-slate-300 text-[11px] dark:border-slate-700"
+      className="bom-tool cursor-pointer inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 px-2 text-[11px] font-medium disabled:cursor-not-allowed disabled:opacity-35 dark:border-slate-700"
     >
       {children}
+      <span className="bom-tool__label truncate"></span>
     </button>
   );
 }
@@ -630,6 +710,7 @@ function Empty({
         </p>
         {status === "error" ? (
           <button
+            type="button"
             onClick={retry}
             className="mt-5 rounded-xl bg-cyan-600 px-4 py-2 text-sm font-semibold text-white"
           >

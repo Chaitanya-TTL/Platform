@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { IconArrowsExchange, IconCheck, IconX } from "@tabler/icons-react";
 import type { ComparisonSelection, SourceType } from "@/types/bom-comparison";
@@ -57,8 +57,8 @@ export function ComparisonSetupModal({
     <AnimatePresence>
       {open ? (
         <div
-          className="fixed inset-0 z-[120] flex items-end justify-center bg-slate-950/75 p-0 backdrop-blur-sm sm:items-center sm:p-6"
-          onMouseDown={(e: { target: any; currentTarget: any }) => {
+          className="fixed inset-0 z-[120] flex items-end justify-center bg-slate-950/75 backdrop-blur-sm sm:items-center sm:p-6"
+          onMouseDown={(e: MouseEvent<HTMLDivElement>) => {
             if (e.target === e.currentTarget) onClose();
           }}
         >
@@ -66,62 +66,43 @@ export function ComparisonSetupModal({
             ref={dialog}
             role="dialog"
             aria-modal="true"
-            aria-labelledby="compare-title"
             initial={{ opacity: 0, y: 25, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20 }}
             className="w-full rounded-t-[28px] border border-slate-200 bg-white p-5 shadow-2xl dark:border-slate-700 dark:bg-slate-900 sm:max-w-xl sm:rounded-[28px] sm:p-7"
           >
-            <div className="flex items-start justify-between gap-4">
+            <div className="flex justify-between gap-4">
               <div>
                 <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-cyan-50 text-cyan-700 dark:bg-cyan-400/[.08] dark:text-cyan-300">
                   <IconArrowsExchange className="h-5 w-5" />
                 </span>
-                <h2 id="compare-title" className="mt-4 text-2xl font-semibold">
-                  Choose BOMs to compare
+                <h2 className="mt-4 text-2xl font-semibold">
+                  Choose initial BOMs
                 </h2>
-                <p className="mt-2 text-sm leading-6 text-slate-500">
-                  Select two ready structures. Existing extraction results
-                  remain loaded.
+                <p className="mt-2 text-sm text-slate-500">
+                  Choose the primary BOM and the first source to compare.
+                  Additional ready BOMs can be added later.
                 </p>
               </div>
-              <button type="button" onClick={onClose} aria-label="Close">
+              <button onClick={onClose}>
                 <IconX className="h-5 w-5" />
               </button>
             </div>
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
-              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                Source A
-                <select
-                  value={first}
-                  onChange={(e: { target: { value: any } }) =>
-                    setFirst(e.target.value as SourceType)
-                  }
-                  className="mt-2 h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm normal-case text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
-                >
-                  {readySources.map((s) => (
-                    <option key={s} value={s}>
-                      {labels[s]}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                Source B
-                <select
-                  value={second}
-                  onChange={(e: { target: { value: any } }) =>
-                    setSecond(e.target.value as SourceType)
-                  }
-                  className="mt-2 h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm normal-case text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
-                >
-                  {readySources.map((s) => (
-                    <option key={s} value={s}>
-                      {labels[s]}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <Select
+                label="Primary source"
+                value={first}
+                sources={readySources}
+                labels={labels}
+                onChange={setFirst}
+              />
+              <Select
+                label="Compare with"
+                value={second}
+                sources={readySources}
+                labels={labels}
+                onChange={setSecond}
+              />
             </div>
             {first === second ? (
               <p className="mt-3 text-xs text-rose-600">
@@ -144,19 +125,17 @@ export function ComparisonSetupModal({
             </div>
             <div className="mt-6 flex justify-end gap-2">
               <button
-                type="button"
                 onClick={onClose}
                 className="h-10 rounded-xl border border-slate-300 px-4 text-sm font-semibold dark:border-slate-700"
               >
                 Cancel
               </button>
               <button
-                type="button"
                 disabled={!valid}
                 onClick={() =>
                   onStart({ leftSource: first, rightSource: second })
                 }
-                className="h-10 rounded-xl bg-cyan-600 px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                className="h-10 rounded-xl bg-cyan-600 px-4 text-sm font-semibold text-white disabled:opacity-50"
               >
                 Start comparison
               </button>
@@ -165,5 +144,35 @@ export function ComparisonSetupModal({
         </div>
       ) : null}
     </AnimatePresence>
+  );
+}
+function Select({
+  label,
+  value,
+  sources,
+  labels,
+  onChange,
+}: {
+  label: string;
+  value: SourceType;
+  sources: SourceType[];
+  labels: Record<SourceType, string>;
+  onChange: (s: SourceType) => void;
+}) {
+  return (
+    <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+      {label}
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value as SourceType)}
+        className="mt-2 h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm normal-case text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+      >
+        {sources.map((s) => (
+          <option key={s} value={s}>
+            {labels[s]}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }

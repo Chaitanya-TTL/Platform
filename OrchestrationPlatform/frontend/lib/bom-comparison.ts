@@ -5,6 +5,7 @@ import type {
   ComparisonSummary,
   FieldDifference,
   MatchReason,
+  MultiBomComparisonResult,
   NodeComparison,
   NormalizedBomNode,
   SourceType,
@@ -113,7 +114,7 @@ function score(a: NormalizedBomNode, b: NormalizedBomNode) {
   if (a.childCount > 0 === b.childCount > 0) s += 0.06;
   return Math.min(1, s);
 }
-function diffs(a: NormalizedBomNode, b: NormalizedBomNode) {
+function differences(a: NormalizedBomNode, b: NormalizedBomNode) {
   const d: FieldDifference[] = [];
   if (a.normalizedName !== b.normalizedName)
     d.push({ field: "name", left: a.name, right: b.name });
@@ -129,7 +130,7 @@ function diffs(a: NormalizedBomNode, b: NormalizedBomNode) {
     d.push({ field: "parent", left: a.parentName, right: b.parentName });
   return d;
 }
-function why(
+function explain(
   a: NormalizedBomNode,
   b: NormalizedBomNode | undefined,
   reason: MatchReason,
@@ -269,19 +270,19 @@ export function compareBoms(
         confidence: 0,
         matchReason: "none",
         differences: [],
-        reasoning: why(a, undefined, "none", 0, []),
+        reasoning: explain(a, undefined, "none", 0, []),
       };
       continue;
     }
     used.add(b.nodeId);
-    const d = diffs(a, b),
+    const d = differences(a, b),
       status =
         reason === "name" || confidence < 0.78
           ? "probable"
           : d.length
             ? "changed"
             : "matched",
-      reasoning = why(a, b, reason, confidence, d);
+      reasoning = explain(a, b, reason, confidence, d);
     left[a.nodeId] = {
       status,
       nodeId: a.nodeId,
@@ -300,7 +301,7 @@ export function compareBoms(
       confidence,
       matchReason: reason,
       differences: d.map((x) => ({ ...x, left: x.right, right: x.left })),
-      reasoning: { ...reasoning },
+      reasoning,
     };
   }
   for (const b of B)
@@ -311,7 +312,7 @@ export function compareBoms(
         confidence: 0,
         matchReason: "none",
         differences: [],
-        reasoning: why(b, undefined, "none", 0, [], true),
+        reasoning: explain(b, undefined, "none", 0, [], true),
       };
   const summary: ComparisonSummary = {
     matched: 0,
@@ -339,11 +340,99 @@ export function compareBoms(
     generatedAt: new Date().toISOString(),
   };
 }
-export function downloadComparison(
-  result: BomComparisonResult,
+const rank: Record<NodeComparison["status"], number> = {
+  matched: 0,
+  probable: 1,
+  changed: 2,
+  missing: 3,
+  "source-only": 3,
+};
+function aggregatePrimary(
+  primary: SourceType,
+  pairs: BomComparisonResult[],
+  labels: Record<SourceType, string>,
+) {
+  const ids = new Set(pairs.flatMap((p) => Object.keys(p.left))),
+    out: Record<string, NodeComparison> = {};
+  for (const id of ids) {
+    const entries = pairs
+      .map((p) => ({ source: p.rightSource, value: p.left[id] }))
+      .filter((x) => x.value);
+    if (!entries.length) continue;
+    const worst = [...entries].sort(
+      (a, b) => rank[b.value.status] - rank[a.value.status],
+    )[0].value;
+    const details = entries.flatMap(({ source, value }) => [
+      `Against ${labels[source]}: ${value.reasoning.summary}`,
+      ...value.reasoning.details.slice(0, 2).map((x) => `• ${x}`),
+    ]);
+    out[id] = {
+      ...worst,
+      nodeId: id,
+      counterpartSource: undefined,
+      counterpartNodeId: undefined,
+      reasoning: {
+        summary: entries.every((x) => x.value.status === "matched")
+          ? `Matched across all ${entries.length} compared sources.`
+          : `Combined result across ${entries.length} compared sources. The most significant status is ${worst.status}.`,
+        details,
+        matchedFields: [
+          ...new Set(entries.flatMap((x) => x.value.reasoning.matchedFields)),
+        ],
+        differentFields: [
+          ...new Set(entries.flatMap((x) => x.value.reasoning.differentFields)),
+        ],
+      },
+    };
+  }
+  return out;
+}
+export function compareMultipleBoms(
+  primarySource: SourceType,
+  comparedSources: SourceType[],
+  roots: Partial<Record<SourceType, TreeNodeData>>,
+  labels: Record<SourceType, string>,
+): MultiBomComparisonResult | null {
+  const primary = roots[primarySource];
+  if (!primary || !comparedSources.length) return null;
+  const pairs = comparedSources
+    .filter((s) => roots[s])
+    .map((s) => compareBoms(primary, primarySource, roots[s]!, s));
+  if (!pairs.length) return null;
+  const maps: Partial<Record<SourceType, Record<string, NodeComparison>>> = {
+    [primarySource]: aggregatePrimary(primarySource, pairs, labels),
+  };
+  for (const pair of pairs) maps[pair.rightSource] = pair.right;
+  const summary: ComparisonSummary = {
+    matched: 0,
+    changed: 0,
+    missing: 0,
+    sourceOnly: 0,
+    probable: 0,
+    total: 0,
+  };
+  for (const pair of pairs) {
+    summary.matched += pair.summary.matched;
+    summary.changed += pair.summary.changed;
+    summary.missing += pair.summary.missing;
+    summary.sourceOnly += pair.summary.sourceOnly;
+    summary.probable += pair.summary.probable;
+    summary.total += pair.summary.total;
+  }
+  return {
+    primarySource,
+    comparedSources: pairs.map((p) => p.rightSource),
+    pairResults: pairs,
+    maps,
+    summary,
+    generatedAt: new Date().toISOString(),
+  };
+}
+export function downloadMultiComparison(
+  result: MultiBomComparisonResult,
   format: "json" | "csv",
 ) {
-  let content, mime, ext;
+  let content: string, mime: string, ext: string;
   if (format === "json") {
     content = JSON.stringify(result, null, 2);
     mime = "application/json";
@@ -351,6 +440,7 @@ export function downloadComparison(
   } else {
     const rows = [
       [
+        "comparison",
         "source",
         "nodeId",
         "status",
@@ -360,20 +450,22 @@ export function downloadComparison(
         "details",
       ],
     ];
-    for (const [source, values] of [
-      [result.leftSource, result.left],
-      [result.rightSource, result.right],
-    ] as Array<[SourceType, Record<string, NodeComparison>]>)
-      for (const x of Object.values(values))
-        rows.push([
-          source,
-          x.nodeId,
-          x.status,
-          x.counterpartNodeId ?? "",
-          x.confidence.toFixed(2),
-          x.reasoning.summary,
-          x.reasoning.details.join(" | "),
-        ]);
+    for (const pair of result.pairResults)
+      for (const [source, values] of [
+        [pair.leftSource, pair.left],
+        [pair.rightSource, pair.right],
+      ] as Array<[SourceType, Record<string, NodeComparison>]>)
+        for (const x of Object.values(values))
+          rows.push([
+            `${pair.leftSource}-vs-${pair.rightSource}`,
+            source,
+            x.nodeId,
+            x.status,
+            x.counterpartNodeId ?? "",
+            x.confidence.toFixed(2),
+            x.reasoning.summary,
+            x.reasoning.details.join(" | "),
+          ]);
     content = rows
       .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
       .join("\n");
@@ -383,7 +475,7 @@ export function downloadComparison(
   const url = URL.createObjectURL(new Blob([content], { type: mime })),
     a = document.createElement("a");
   a.href = url;
-  a.download = `bom-comparison-${result.leftSource}-vs-${result.rightSource}.${ext}`;
+  a.download = `multi-bom-comparison-${result.primarySource}.${ext}`;
   a.click();
   URL.revokeObjectURL(url);
 }

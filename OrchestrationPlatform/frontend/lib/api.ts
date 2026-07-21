@@ -8,28 +8,32 @@ async function readError(response: Response) {
     return text || response.statusText;
   }
 }
-export async function startPipeline(request: { teamcenterItemId: string }) {
+async function postPipeline(body: Record<string, unknown>) {
   const response = await fetch(`${API_BASE}/pipeline/start`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ kind: "teamcenter", ...request }),
+    body: JSON.stringify(body),
   });
   if (!response.ok)
     throw new Error(`Pipeline error: ${await readError(response)}`);
   return response.json();
 }
-export async function startConfigitExtraction(request: {
+export function startPipeline(request: { teamcenterItemId: string }) {
+  return postPipeline({ kind: "teamcenter", ...request });
+}
+export function startConfigitExtraction(request: {
   workItemId: string;
   productModelCode: string;
 }) {
-  const response = await fetch(`${API_BASE}/pipeline/start`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ kind: "configit", ...request }),
-  });
-  if (!response.ok)
-    throw new Error(`Pipeline error: ${await readError(response)}`);
-  return response.json();
+  return postPipeline({ kind: "configit", ...request });
+}
+export function startSapExtraction(request: {
+  materialId: string;
+  plant?: string;
+  bomUsage?: string;
+  alternative?: string;
+}) {
+  return postPipeline({ kind: "sap", ...request });
 }
 export interface BomNode {
   itemId: string;
@@ -84,9 +88,7 @@ export function subscribeToProgress(
       complete();
     }
   };
-  eventSource.onerror = () => {
-    eventSource.close();
-  };
+  eventSource.onerror = () => eventSource.close();
   return () => eventSource.close();
 }
 export async function getLogs() {
@@ -99,8 +101,7 @@ export async function getLogByJobId(jobId: string) {
     const response = await fetch(
       `${API_BASE}/pipeline/logs/${encodeURIComponent(jobId)}`,
     );
-    if (!response.ok) return null;
-    return response.json();
+    return response.ok ? response.json() : null;
   } catch {
     return null;
   }

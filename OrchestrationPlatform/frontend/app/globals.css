@@ -76,3 +76,24 @@ button:not(:disabled),
     scroll-behavior: auto !important;
   }
 }
+
+
+/* Responsive multi-BOM workspace */
+.bom-source-group { min-width: min(88vw, 390px); }
+.bom-source-group:has(.bom-source-card:nth-child(2)) { min-width: min(176vw, 780px); }
+.bom-source-group:has(.bom-source-card:nth-child(3)) { min-width: min(264vw, 1170px); }
+.bom-source-card, .bom-panel { container-type: inline-size; }
+.bom-source-grid { align-items: stretch; }
+.bom-toolbar { display:flex; flex-wrap:wrap; align-items:center; justify-content: space-between; min-width:0; }
+.bom-tool { white-space:nowrap; overflow:hidden; }
+@container (max-width: 560px) {
+  .bom-toolbar__primary, .bom-toolbar__secondary { flex-basis:100%; width:100%; }
+  .bom-toolbar__secondary { justify-content:space-between; margin-left:0; }
+}
+@container (max-width: 350px) {
+  .bom-tool__label { display:none; }
+  .bom-tool { padding-inline:.5rem; }
+  .extract-bom-button { min-width:88px; padding-inline:.5rem; }
+}
+@media (min-width:1024px) { .bom-source-group { min-width:0; } }
+@media (max-width:1023px) { .bom-source-group { flex-grow:0 !important; } }

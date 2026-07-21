@@ -16,28 +16,32 @@ import {
   IconArrowsExchange,
   IconBox,
   IconBuildingFactory,
+  IconDatabase,
   IconGripVertical,
   IconPlus,
   IconPlugConnected,
   IconX,
 } from "@tabler/icons-react";
-
-import { PipelineForm } from "@/components/PipelineForm";
-import { ConfigitForm } from "@/components/ConfigitForm";
-import { WindchillForm } from "@/components/WindchillForm";
-import { QuickStartModal } from "@/components/QuickStartModal";
-import { SourceBomPanel } from "@/components/SourceBomPanel";
-import { ComparisonSummary } from "@/components/ComparisonSummary";
-import { ComparisonSetupModal } from "@/components/ComparisonSetupModal";
-import { ComparisonLoader } from "@/components/ComparisonLoader";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import { AddComparisonSourceModal } from "@/components/AddComparisonSourceModal";
 import {
   getConfigitRoot,
   getTeamcenterRoot,
   getWindchillRoot,
 } from "@/components/BomStreamViewer";
-import { compareBoms, isValidComparisonPair } from "@/lib/bom-comparison";
+import { ComparisonLoader } from "@/components/ComparisonLoader";
+import { ComparisonSetupModal } from "@/components/ComparisonSetupModal";
+import { ComparisonSummary } from "@/components/ComparisonSummary";
+import { ConfigitForm } from "@/components/ConfigitForm";
+import { PipelineForm } from "@/components/PipelineForm";
+import { QuickStartModal } from "@/components/QuickStartModal";
+import { RequirementContextBanner } from "@/components/RequirementContextBanner";
+import { SAPForm } from "@/components/SAPForm";
+import { SourceBomPanel } from "@/components/SourceBomPanel";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { WindchillForm } from "@/components/WindchillForm";
 import { subscribeToProgress, type PipelineProgress } from "@/lib/api";
+import { compareMultipleBoms } from "@/lib/bom-comparison";
+import { resolveRequirementContext } from "@/lib/requirement-context";
 import type {
   ComparisonFilter,
   ComparisonSelection,
@@ -47,9 +51,9 @@ import type {
 } from "@/types/bom-comparison";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5212/api";
-
-type Category = "PLM" | "CPQ";
-type ActiveSource = { type: SourceType; category: Category };
+type Category = "PLM" | "ERP" | "CPQ";
+type Active = { type: SourceType; category: Category };
+type Transition = "enter" | "exit" | "add" | null;
 type SourceDefinition = {
   type: SourceType;
   label: string;
@@ -58,294 +62,441 @@ type SourceDefinition = {
   icon: ReactNode;
 };
 
-type TransitionMode = "enter" | "exit" | null;
-
-const definitions: SourceDefinition[] = [
+const defs: SourceDefinition[] = [
   {
     type: "teamcenter",
     label: "Teamcenter",
     category: "PLM",
-    description: "Run Teamcenter extraction and inspect its BOM hierarchy.",
+    description: "Run Teamcenter extraction.",
     icon: <IconPlugConnected className="h-6 w-6" />,
   },
   {
     type: "windchill",
     label: "Windchill",
     category: "PLM",
-    description: "Extract and inspect a Windchill part hierarchy.",
+    description: "Extract a Windchill hierarchy.",
     icon: <IconBuildingFactory className="h-6 w-6" />,
+  },
+  {
+    type: "sap",
+    label: "SAP",
+    category: "ERP",
+    description: "Extract an SAP material BOM.",
+    icon: <IconDatabase className="h-6 w-6" />,
   },
   {
     type: "configit",
     label: "Configit",
     category: "CPQ",
-    description: "Resolve and inspect a Configit product-model BOM.",
+    description: "Resolve a Configit product model.",
     icon: <IconBox className="h-6 w-6" />,
   },
 ];
-
-const sourceLabels: Record<SourceType, string> = {
+const labels: Record<SourceType, string> = {
   teamcenter: "Teamcenter",
   windchill: "Windchill",
+  sap: "SAP",
   configit: "Configit",
 };
+const meta = (type: SourceType) => defs.find((item) => item.type === type)!;
 
-const sourceMeta = (type: SourceType) =>
-  definitions.find((definition) => definition.type === type)!;
+function record(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+function text(value: unknown) {
+  return typeof value === "string" ? value : undefined;
+}
+function scalar(value: unknown) {
+  return typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+    ? value
+    : undefined;
+}
+function sapNode(value: unknown, path: string): TreeNodeData {
+  const node = record(value) ?? {};
+  const material = text(node.itemId) || text(node.id) || path;
+  const name = text(node.name) || material;
+  const attributes: Record<string, string | number | boolean> = {
+    "Item ID": material,
+  };
+  const sequence = text(node.sequence);
+  const qty = scalar(node.qty);
+  const revision = text(node.revId);
+  if (sequence) attributes.Sequence = sequence;
+  if (qty !== undefined) attributes.Qty = qty;
+  if (revision) attributes["Rev ID"] = revision;
+  const children = Array.isArray(node.children) ? node.children : [];
+  return {
+    id: `${path}-${material}`,
+    name,
+    attributes,
+    children: children.map((child, index) =>
+      sapNode(child, `${path}-${index}`),
+    ),
+  };
+}
+function getSapRoot(payload: unknown): TreeNodeData | null {
+  const response = record(payload);
+  if (!response) return null;
+  const body = record(response.payload) ?? response;
+  const finalBom = record(body.finalBom) ?? record(response.finalBom) ?? body;
+  const root =
+    record(finalBom.bomRoot) ??
+    record(finalBom.bomRootNode) ??
+    record(body.bomRoot) ??
+    record(body.bomRootNode);
+  return root ? sapNode(root, "sap-root") : null;
+}
 
-export default function BomComparisonPage() {
-  const [activeSources, setActiveSources] = useState<ActiveSource[]>([]);
-  const [showSourceModal, setShowSourceModal] = useState(false);
-  const [sourceModalView, setSourceModalView] = useState<
-    "categories" | "options"
-  >("categories");
-  const [selectedCategory, setSelectedCategory] = useState<Category | null>(
-    null,
+export default function Page() {
+  const [active, setActive] = useState<Active[]>([]);
+  const [modal, setModal] = useState(false);
+  const [view, setView] = useState<"categories" | "options">("categories");
+  const [category, setCategory] = useState<Category | null>(null);
+  const [job, setJob] = useState<string | null>(null);
+  const [teamcenterItemId, setTeamcenterItemId] = useState<string | null>(null);
+  const [tcRun, setTcRun] = useState(false);
+  const [progress, setProgress] = useState<PipelineProgress | null>(null);
+  const [sapJob, setSapJob] = useState<string | null>(null);
+  const [sapRun, setSapRun] = useState(false);
+  const [sapProgress, setSapProgress] = useState<PipelineProgress | null>(null);
+  const [cfgActive, setCfgActive] = useState(false);
+  const [cfgRun, setCfgRun] = useState(false);
+  const [product, setProduct] = useState<string | null>(null);
+  const [cfgRefresh, setCfgRefresh] = useState(0);
+  const [wcActive, setWcActive] = useState(false);
+  const [wcRun, setWcRun] = useState(false);
+  const [part, setPart] = useState<string | null>(null);
+  const [wcRefresh, setWcRefresh] = useState(0);
+  const [dragged, setDragged] = useState<SourceType | null>(null);
+  const [roots, setRoots] = useState<Partial<Record<SourceType, TreeNodeData>>>(
+    {},
   );
+  const [session, setSession] = useState<ComparisonSessionState>("idle");
+  const [primary, setPrimary] = useState<SourceType | null>(null);
+  const [compared, setCompared] = useState<SourceType[]>([]);
+  const [filter, setFilter] = useState<ComparisonFilter>("all");
+  const [transition, setTransition] = useState<Transition>(null);
+  const [addModal, setAddModal] = useState(false);
+  const [pendingAdd, setPendingAdd] = useState<SourceType | null>(null);
 
-  const [teamcenterJobId, setTeamcenterJobId] = useState<string | null>(null);
-  const [teamcenterRunning, setTeamcenterRunning] = useState(false);
-  const [teamcenterProgress, setTeamcenterProgress] =
-    useState<PipelineProgress | null>(null);
-
-  const [configitActive, setConfigitActive] = useState(false);
-  const [configitRunning, setConfigitRunning] = useState(false);
-  const [configitProductId, setConfigitProductId] = useState<string | null>(
-    null,
-  );
-  const [configitRefresh, setConfigitRefresh] = useState(0);
-
-  const [windchillActive, setWindchillActive] = useState(false);
-  const [windchillRunning, setWindchillRunning] = useState(false);
-  const [windchillPartId, setWindchillPartId] = useState<string | null>(null);
-  const [windchillRefresh, setWindchillRefresh] = useState(0);
-
-  const [draggedSource, setDraggedSource] = useState<SourceType | null>(null);
-  const [bomRoots, setBomRoots] = useState<
-    Partial<Record<SourceType, TreeNodeData>>
-  >({});
-  const [comparisonSession, setComparisonSession] =
-    useState<ComparisonSessionState>("idle");
-  const [comparisonSelection, setComparisonSelection] =
-    useState<ComparisonSelection | null>(null);
-  const [comparisonFilter, setComparisonFilter] =
-    useState<ComparisonFilter>("all");
-  const [transitionMode, setTransitionMode] = useState<TransitionMode>(null);
-
-  const readySources = useMemo(
+  const ready = useMemo(
     () =>
-      activeSources
-        .map((source) => source.type)
-        .filter((source) => Boolean(bomRoots[source])),
-    [activeSources, bomRoots],
+      active.map((item) => item.type).filter((type) => Boolean(roots[type])),
+    [active, roots],
   );
+  const result = useMemo(
+    () =>
+      session === "active" && primary
+        ? compareMultipleBoms(primary, compared, roots, labels)
+        : null,
+    [session, primary, compared, roots],
+  );
+  const comparing = session === "active" && Boolean(result);
+  const included = primary ? [primary, ...compared] : [];
+  const remaining = ready.filter((source) => !included.includes(source));
+  const visible = comparing
+    ? active.filter((item) => included.includes(item.type))
+    : active;
+  const groups = (["PLM", "ERP", "CPQ"] as Category[])
+    .map((groupCategory) => ({
+      category: groupCategory,
+      sources: visible.filter((item) => item.category === groupCategory),
+    }))
+    .filter((group) => group.sources.length);
+  const options = defs
+    .filter((def) => !active.some((item) => item.type === def.type))
+    .map((def) => ({ ...def, value: def.type, disabled: false }));
 
-  const comparisonResult = useMemo(() => {
-    if (
-      comparisonSession !== "active" ||
-      !comparisonSelection ||
-      !isValidComparisonPair(
-        comparisonSelection.leftSource,
-        comparisonSelection.rightSource,
-        bomRoots,
-      )
-    ) {
-      return null;
-    }
-
-    return compareBoms(
-      bomRoots[comparisonSelection.leftSource]!,
-      comparisonSelection.leftSource,
-      bomRoots[comparisonSelection.rightSource]!,
-      comparisonSelection.rightSource,
-    );
-  }, [comparisonSession, comparisonSelection, bomRoots]);
-
-  const closeSourceModal = () => {
-    setShowSourceModal(false);
-    setSourceModalView("categories");
-    setSelectedCategory(null);
+  const closeModal = () => {
+    setModal(false);
+    setView("categories");
+    setCategory(null);
   };
-
   const addSource = (type: SourceType) => {
-    setActiveSources((current) =>
-      current.some((source) => source.type === type)
+    setActive((current) =>
+      current.some((item) => item.type === type)
         ? current
-        : [...current, { type, category: sourceMeta(type).category }],
+        : [...current, { type, category: meta(type).category }],
     );
-    closeSourceModal();
-    toast.success(`${sourceLabels[type]} card added`);
+    closeModal();
   };
-
-  const handlePipelineSubmit = useCallback((jobId: string) => {
-    if (!jobId.trim()) {
-      toast.error("The backend did not return a Teamcenter job ID.");
-      return;
-    }
-    setTeamcenterJobId(jobId);
-    setTeamcenterRunning(true);
-    setTeamcenterProgress(null);
-    toast.info("Teamcenter extraction started");
-  }, []);
-
-  useEffect(() => {
-    if (!teamcenterJobId || !teamcenterRunning) return;
-    return subscribeToProgress(
-      teamcenterJobId,
-      setTeamcenterProgress,
-      (message) => toast.error(message),
-      () => undefined,
-    );
-  }, [teamcenterJobId, teamcenterRunning]);
-
-  const handleBomReady = useCallback(
-    (source: SourceType, root: TreeNodeData | null) => {
-      setBomRoots((current) => {
+  const onReady = useCallback(
+    (source: SourceType, root: TreeNodeData | null) =>
+      setRoots((current) => {
         const next = { ...current };
         if (root) next[source] = root;
         else delete next[source];
         return next;
-      });
+      }),
+    [],
+  );
+  const submitTc = useCallback(
+    (id: string, _payload?: unknown, submittedItemId?: string) => {
+      if (!id.trim()) return toast.error("No Teamcenter job ID returned");
+      setJob(id);
+      setTeamcenterItemId(submittedItemId?.trim() || null);
+      setTcRun(true);
+      setProgress(null);
     },
     [],
   );
+  const submitSap = useCallback((id: string) => {
+    if (!id.trim()) return toast.error("No SAP job ID returned");
+    setSapJob(id);
+    setSapRun(true);
+    setSapProgress(null);
+  }, []);
 
-  const removeSource = (type: SourceType) => {
-    setActiveSources((current) =>
-      current.filter((source) => source.type !== type),
+  useEffect(() => {
+    if (!job || !tcRun) return;
+    return subscribeToProgress(
+      job,
+      setProgress,
+      (message) => toast.error(message),
+      () => undefined,
     );
-    handleBomReady(type, null);
+  }, [job, tcRun]);
+  useEffect(() => {
+    if (!sapJob || !sapRun) return;
+    return subscribeToProgress(
+      sapJob,
+      setSapProgress,
+      (message) => toast.error(message),
+      () => undefined,
+    );
+  }, [sapJob, sapRun]);
 
-    if (
-      comparisonSelection &&
-      (comparisonSelection.leftSource === type ||
-        comparisonSelection.rightSource === type)
-    ) {
-      setComparisonSession("idle");
-      setComparisonSelection(null);
-      setComparisonFilter("all");
+  const start = (selection: ComparisonSelection) => {
+    setPrimary(selection.leftSource);
+    setCompared([selection.rightSource]);
+    setSession("preparing");
+    setTransition("enter");
+  };
+  const addComparisonSource = (source: SourceType) => {
+    setAddModal(false);
+    setPendingAdd(source);
+    setTransition("add");
+  };
+  const complete = useCallback(() => {
+    if (transition === "enter") setSession("active");
+    if (transition === "add" && pendingAdd) {
+      setCompared((current) =>
+        current.includes(pendingAdd) ? current : [...current, pendingAdd],
+      );
+      setPendingAdd(null);
     }
+    if (transition === "exit") {
+      setSession("idle");
+      setPrimary(null);
+      setCompared([]);
+      setFilter("all");
+    }
+    setTransition(null);
+  }, [transition, pendingAdd]);
 
+  const remove = (type: SourceType) => {
+    setActive((current) => current.filter((item) => item.type !== type));
+    onReady(type, null);
+    if (included.includes(type)) {
+      setSession("idle");
+      setPrimary(null);
+      setCompared([]);
+    }
     if (type === "teamcenter") {
-      setTeamcenterJobId(null);
-      setTeamcenterRunning(false);
-      setTeamcenterProgress(null);
+      setJob(null);
+      setTeamcenterItemId(null);
+      setTcRun(false);
+      setProgress(null);
+    }
+    if (type === "sap") {
+      setSapJob(null);
+      setSapRun(false);
+      setSapProgress(null);
     }
     if (type === "configit") {
-      setConfigitActive(false);
-      setConfigitRunning(false);
-      setConfigitProductId(null);
+      setCfgActive(false);
+      setCfgRun(false);
+      setProduct(null);
     }
     if (type === "windchill") {
-      setWindchillActive(false);
-      setWindchillRunning(false);
-      setWindchillPartId(null);
+      setWcActive(false);
+      setWcRun(false);
+      setPart(null);
     }
   };
-
-  const handleDrop = (target: SourceType, event: DragEvent<HTMLElement>) => {
+  const drop = (target: SourceType, event: DragEvent<HTMLElement>) => {
     event.preventDefault();
     if (
-      !draggedSource ||
-      draggedSource === target ||
-      sourceMeta(draggedSource).category !== sourceMeta(target).category
-    ) {
-      setDraggedSource(null);
-      return;
-    }
-
-    setActiveSources((current) => {
+      !dragged ||
+      dragged === target ||
+      meta(dragged).category !== meta(target).category
+    )
+      return setDragged(null);
+    setActive((current) => {
       const next = [...current];
-      const sourceIndex = next.findIndex(
-        (source) => source.type === draggedSource,
-      );
-      const targetIndex = next.findIndex((source) => source.type === target);
-      if (sourceIndex < 0 || targetIndex < 0) return current;
-      const [moved] = next.splice(sourceIndex, 1);
-      next.splice(
-        sourceIndex < targetIndex ? targetIndex - 1 : targetIndex,
-        0,
-        moved,
-      );
+      const from = next.findIndex((item) => item.type === dragged);
+      const to = next.findIndex((item) => item.type === target);
+      const [moved] = next.splice(from, 1);
+      next.splice(from < to ? to - 1 : to, 0, moved);
       return next;
     });
-    setDraggedSource(null);
+    setDragged(null);
   };
+  const mapFor = (source: SourceType) => result?.maps[source];
+  const counterpart = (source: SourceType) =>
+    source === primary
+      ? compared.map((item) => labels[item]).join(" + ")
+      : primary
+        ? labels[primary]
+        : undefined;
 
-  const startComparison = (selection: ComparisonSelection) => {
-    setComparisonSelection(selection);
-    setComparisonSession("preparing");
-    setTransitionMode("enter");
+  const panelFor = (source: Active) => {
+    if (source.type === "teamcenter")
+      return (
+        <>
+          <PipelineForm onSubmit={submitTc} isLoading={tcRun} />
+          <div className="mt-4">
+            {roots.teamcenter ? (
+              <RequirementContextBanner
+                requirement={resolveRequirementContext(
+                  "teamcenter",
+                  teamcenterItemId,
+                )}
+              />
+            ) : null}
+            <SourceBomPanel
+              source="teamcenter"
+              title="PLM"
+              endpoint={
+                job ? `${API_BASE}/pipeline/bom/${encodeURIComponent(job)}` : ""
+              }
+              transformPayload={getTeamcenterRoot}
+              active={Boolean(job)}
+              onLoadComplete={() => setTcRun(false)}
+              onBomReady={onReady}
+              progress={progress}
+              comparisonMode={Boolean(comparing)}
+              comparison={mapFor("teamcenter")}
+              comparisonFilter={filter}
+              counterpartLabel={counterpart("teamcenter")}
+            />
+          </div>
+        </>
+      );
+    if (source.type === "windchill")
+      return (
+        <>
+          <WindchillForm
+            onSubmit={(id) => {
+              setWcActive(true);
+              setWcRun(true);
+              setPart(id);
+              setWcRefresh((value) => value + 1);
+            }}
+            isRunning={wcRun}
+          />
+          <div className="mt-4">
+            {roots.windchill ? (
+              <RequirementContextBanner
+                requirement={resolveRequirementContext("windchill", part)}
+              />
+            ) : null}
+            <SourceBomPanel
+              source="windchill"
+              title="PLM"
+              endpoint={
+                part
+                  ? `/api/bom-windchill?partId=${encodeURIComponent(part)}`
+                  : "/api/bom-windchill"
+              }
+              transformPayload={getWindchillRoot}
+              active={wcActive}
+              refreshSignal={wcRefresh}
+              onLoadComplete={() => setWcRun(false)}
+              onBomReady={onReady}
+              comparisonMode={Boolean(comparing)}
+              comparison={mapFor("windchill")}
+              comparisonFilter={filter}
+              counterpartLabel={counterpart("windchill")}
+            />
+          </div>
+        </>
+      );
+    if (source.type === "configit")
+      return (
+        <>
+          <ConfigitForm
+            onSubmit={(id) => {
+              setCfgActive(true);
+              setCfgRun(true);
+              setProduct(id);
+              setCfgRefresh((value) => value + 1);
+            }}
+            isRunning={cfgRun}
+          />
+          <div className="mt-4">
+            {roots.configit ? (
+              <RequirementContextBanner
+                requirement={resolveRequirementContext("configit", product)}
+              />
+            ) : null}
+            <SourceBomPanel
+              source="configit"
+              title="CPQ"
+              endpoint={
+                product
+                  ? `/api/bom-configit?productId=${encodeURIComponent(product)}`
+                  : "/api/bom-configit"
+              }
+              transformPayload={getConfigitRoot}
+              active={cfgActive || cfgRun}
+              refreshSignal={cfgRefresh}
+              onLoadComplete={() => setCfgRun(false)}
+              onBomReady={onReady}
+              comparisonMode={Boolean(comparing)}
+              comparison={mapFor("configit")}
+              comparisonFilter={filter}
+              counterpartLabel={counterpart("configit")}
+            />
+          </div>
+        </>
+      );
+    return (
+      <>
+        <SAPForm onSubmit={submitSap} isLoading={sapRun} />
+        <div className="mt-4">
+          <SourceBomPanel
+            source="sap"
+            title="ERP"
+            endpoint={
+              sapJob
+                ? `${API_BASE}/pipeline/bom/${encodeURIComponent(sapJob)}`
+                : ""
+            }
+            transformPayload={getSapRoot}
+            active={Boolean(sapJob)}
+            onLoadComplete={() => setSapRun(false)}
+            onBomReady={onReady}
+            progress={sapProgress}
+            comparisonMode={Boolean(comparing)}
+            comparison={mapFor("sap")}
+            comparisonFilter={filter}
+            counterpartLabel={counterpart("sap")}
+          />
+        </div>
+      </>
+    );
   };
-
-  const returnToWorkspace = () => {
-    if (transitionMode) return;
-    setTransitionMode("exit");
-  };
-
-  const handleTransitionComplete = useCallback(() => {
-    if (transitionMode === "enter") {
-      setComparisonSession("active");
-    } else if (transitionMode === "exit") {
-      setComparisonSession("idle");
-      setComparisonSelection(null);
-      setComparisonFilter("all");
-    }
-    setTransitionMode(null);
-  }, [transitionMode]);
-
-  const comparing = comparisonSession === "active" && Boolean(comparisonResult);
-
-  const visibleSources =
-    comparing && comparisonSelection
-      ? activeSources.filter(
-          (source) =>
-            source.type === comparisonSelection.leftSource ||
-            source.type === comparisonSelection.rightSource,
-        )
-      : activeSources;
-
-  const visibleGroups = (["PLM", "CPQ"] as Category[])
-    .map((category) => ({
-      category,
-      sources: visibleSources.filter((source) => source.category === category),
-    }))
-    .filter((group) => group.sources.length > 0);
-
-  const modalOptions = definitions
-    .filter(
-      (definition) =>
-        !activeSources.some((source) => source.type === definition.type),
-    )
-    .map((definition) => ({
-      ...definition,
-      value: definition.type,
-      disabled: false,
-    }));
-
-  const comparisonFor = (source: SourceType) =>
-    !comparisonResult
-      ? undefined
-      : source === comparisonResult.leftSource
-        ? comparisonResult.left
-        : source === comparisonResult.rightSource
-          ? comparisonResult.right
-          : undefined;
-
-  const counterpartFor = (source: SourceType) =>
-    !comparisonResult
-      ? undefined
-      : source === comparisonResult.leftSource
-        ? sourceLabels[comparisonResult.rightSource]
-        : source === comparisonResult.rightSource
-          ? sourceLabels[comparisonResult.leftSource]
-          : undefined;
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900 dark:bg-[radial-gradient(circle_at_top,rgba(34,211,238,.10),transparent_42%),linear-gradient(135deg,#020617,#0f172a_48%,#111827)] dark:text-slate-50">
       <QuickStartModal
-        open={showSourceModal}
-        onClose={closeSourceModal}
+        open={modal}
+        onClose={closeModal}
         categories={[
           {
             label: "PLM",
@@ -354,42 +505,56 @@ export default function BomComparisonPage() {
             icon: <IconPlugConnected className="h-6 w-6" />,
           },
           {
+            label: "ERP",
+            value: "ERP",
+            description: "SAP enterprise resource planning",
+            icon: <IconDatabase className="h-6 w-6" />,
+          },
+          {
             label: "CPQ",
             value: "CPQ",
             description: "Configit",
             icon: <IconBox className="h-6 w-6" />,
           },
         ]}
-        options={modalOptions}
-        currentView={sourceModalView}
-        selectedCategory={selectedCategory}
-        onOpenCategory={(category) => {
-          setSelectedCategory(category as Category);
-          setSourceModalView("options");
+        options={options}
+        currentView={view}
+        selectedCategory={category}
+        onOpenCategory={(value) => {
+          setCategory(value as Category);
+          setView("options");
         }}
-        onBack={() => setSourceModalView("categories")}
+        onBack={() => setView("categories")}
         onSelect={(value) => addSource(value as SourceType)}
       />
-
       <ComparisonSetupModal
-        open={comparisonSession === "selecting"}
-        readySources={readySources}
-        labels={sourceLabels}
-        initialSelection={comparisonSelection}
-        onClose={() =>
-          setComparisonSession(comparisonResult ? "active" : "idle")
+        open={session === "selecting"}
+        readySources={ready}
+        labels={labels}
+        initialSelection={
+          primary && compared[0]
+            ? { leftSource: primary, rightSource: compared[0] }
+            : null
         }
-        onStart={startComparison}
+        onClose={() => setSession(comparing ? "active" : "idle")}
+        onStart={start}
       />
-
+      <AddComparisonSourceModal
+        open={addModal}
+        availableSources={remaining}
+        labels={labels}
+        onClose={() => setAddModal(false)}
+        onAdd={addComparisonSource}
+      />
       <AnimatePresence>
-        {transitionMode ? (
+        {transition ? (
           <ComparisonLoader
-            mode={transitionMode}
-            left={comparisonSelection?.leftSource}
-            right={comparisonSelection?.rightSource}
-            labels={sourceLabels}
-            onComplete={handleTransitionComplete}
+            mode={transition}
+            left={primary ?? undefined}
+            right={compared[0]}
+            addedSource={pendingAdd ?? undefined}
+            labels={labels}
+            onComplete={complete}
           />
         ) : null}
       </AnimatePresence>
@@ -398,9 +563,6 @@ export default function BomComparisonPage() {
         <header className="rounded-[28px] border border-slate-200 bg-white/90 p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900/80 sm:p-7">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-600 dark:text-cyan-300">
-                WELCOME
-              </p>
               <h1 className="mt-3 text-3xl font-semibold sm:text-4xl">
                 Digital Thread Orchestration Platform
               </h1>
@@ -409,84 +571,75 @@ export default function BomComparisonPage() {
                 when needed.
               </p>
             </div>
-
             <div className="flex flex-wrap gap-2">
               <ThemeToggle compact />
               <Link
                 href="/"
                 className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-300 px-3 text-sm font-semibold dark:border-slate-700"
               >
-                <IconArrowLeft className="h-4 w-4" /> Overview
+                <IconArrowLeft className="h-4 w-4" />
+                Overview
               </Link>
               <button
-                type="button"
-                onClick={() => setShowSourceModal(true)}
+                onClick={() => setModal(true)}
                 className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-300 px-4 text-sm font-semibold dark:border-slate-700"
               >
-                <IconPlus className="h-4 w-4" /> Add source
+                <IconPlus className="h-4 w-4" />
+                Add source
               </button>
-
               {comparing ? (
                 <button
-                  type="button"
-                  onClick={returnToWorkspace}
+                  onClick={() => setTransition("exit")}
                   className="inline-flex h-10 items-center gap-2 rounded-xl bg-cyan-600 px-4 text-sm font-semibold text-white"
                 >
-                  <IconArrowLeft className="h-4 w-4" /> Back to workspace
+                  <IconArrowLeft className="h-4 w-4" />
+                  Back to workspace
                 </button>
               ) : (
                 <button
-                  type="button"
-                  disabled={readySources.length < 2}
-                  onClick={() => setComparisonSession("selecting")}
-                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-cyan-600 px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45"
+                  disabled={ready.length < 2}
+                  onClick={() => setSession("selecting")}
+                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-cyan-600 px-4 text-sm font-semibold text-white disabled:opacity-45"
                 >
-                  <IconArrowsExchange className="h-4 w-4" /> Compare BOMs
+                  <IconArrowsExchange className="h-4 w-4" />
+                  Compare BOMs
                 </button>
               )}
             </div>
           </div>
-
-          {readySources.length < 2 && !comparing ? (
+          {ready.length < 2 && !comparing ? (
             <p className="mt-4 border-t border-slate-200 pt-3 text-xs text-slate-500 dark:border-slate-700">
               Load at least two BOMs to enable comparison.
             </p>
           ) : null}
         </header>
 
-        {comparisonResult ? (
+        {result ? (
           <ComparisonSummary
-            result={comparisonResult}
-            filter={comparisonFilter}
-            onFilterChange={setComparisonFilter}
-            sourceLabels={sourceLabels}
-            onChangeSources={() => setComparisonSession("selecting")}
-            onExit={returnToWorkspace}
+            result={result}
+            filter={filter}
+            onFilterChange={setFilter}
+            sourceLabels={labels}
+            canAddSource={remaining.length > 0}
+            onAddSource={() => setAddModal(true)}
           />
         ) : null}
-
-        {!activeSources.length ? (
+        {!active.length ? (
           <section className="flex min-h-[55vh] items-center justify-center rounded-[28px] border border-dashed border-slate-300 bg-white/60 text-center dark:border-slate-700 dark:bg-slate-900/60">
-            <div>
-              <IconPlus className="mx-auto h-8 w-8 text-cyan-500" />
-              <h2 className="mt-4 text-xl font-semibold">
-                Add your first source
-              </h2>
-              <button
-                type="button"
-                onClick={() => setShowSourceModal(true)}
-                className="mt-5 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white"
-              >
-                Add source
-              </button>
-            </div>
+            <button
+              onClick={() => setModal(true)}
+              className="rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white"
+            >
+              Add your first source
+            </button>
           </section>
         ) : (
-          <div className="flex gap-5 overflow-x-auto pb-4 snap-x snap-mandatory">
-            {visibleGroups.map((group) => (
+          <div className="bom-groups flex gap-5 overflow-x-auto pb-4 snap-x snap-mandatory">
+            {groups.map((group) => (
               <section
                 key={group.category}
-                className="min-w-[min(100%,460px)] flex-1 snap-start rounded-[26px] border border-slate-200 bg-white/70 p-3 dark:border-slate-700 dark:bg-slate-900/70 sm:p-4 lg:min-w-[540px]"
+                className="bom-source-group flex-none snap-start rounded-[26px] border border-slate-200 bg-white/70 p-3 dark:border-slate-700 dark:bg-slate-900/70 sm:p-4 lg:min-w-0 lg:basis-0"
+                style={{ flexGrow: group.sources.length }}
               >
                 <div className="mb-4 flex justify-between">
                   <b className="text-xs uppercase tracking-wider text-cyan-600 dark:text-cyan-400">
@@ -496,138 +649,43 @@ export default function BomComparisonPage() {
                     {group.sources.length} visible
                   </span>
                 </div>
-
                 <div
-                  className={
-                    group.sources.length === 1
-                      ? "grid gap-4"
-                      : "grid gap-4 2xl:grid-cols-2"
-                  }
+                  className="bom-source-grid grid gap-4"
+                  style={{
+                    gridTemplateColumns: `repeat(${group.sources.length}, minmax(0, 1fr))`,
+                  }}
                 >
                   {group.sources.map((source) => (
                     <article
                       key={source.type}
                       draggable={!comparing}
-                      onDragStart={() => setDraggedSource(source.type)}
-                      onDragEnd={() => setDraggedSource(null)}
+                      onDragStart={() => setDragged(source.type)}
                       onDragOver={(event) => event.preventDefault()}
-                      onDrop={(event) => handleDrop(source.type, event)}
-                      className="min-w-0 rounded-[22px] border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-950/80"
+                      onDrop={(event) => drop(source.type, event)}
+                      className="bom-source-card min-w-0 rounded-[22px] border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-950/80 sm:p-4"
                     >
-                      <div className="mb-5 flex justify-between">
-                        <h2 className="text-xl font-semibold">
-                          {sourceLabels[source.type]}
+                      <div className="mb-5 flex justify-between gap-3">
+                        <h2 className="min-w-0 truncate text-xl font-semibold">
+                          {labels[source.type]}
+                          {source.type === primary && comparing ? (
+                            <span className="ml-2 rounded-full bg-cyan-50 px-2 py-1 text-[9px] uppercase text-cyan-700 dark:bg-cyan-400/[.08] dark:text-cyan-300">
+                              Primary
+                            </span>
+                          ) : null}
                         </h2>
-                        <div className="flex gap-2">
+                        <div className="flex shrink-0 gap-2">
                           {!comparing ? (
                             <IconGripVertical className="h-5 w-5 text-slate-400" />
                           ) : null}
                           <button
-                            type="button"
-                            onClick={() => removeSource(source.type)}
-                            aria-label={`Remove ${sourceLabels[source.type]}`}
+                            onClick={() => remove(source.type)}
+                            aria-label={`Remove ${labels[source.type]}`}
                           >
                             <IconX className="h-5 w-5" />
                           </button>
                         </div>
                       </div>
-
-                      {source.type === "teamcenter" ? (
-                        <>
-                          <PipelineForm
-                            onSubmit={handlePipelineSubmit}
-                            isLoading={teamcenterRunning}
-                          />
-                          <div className="mt-4">
-                            <SourceBomPanel
-                              source="teamcenter"
-                              title="PLM"
-                              endpoint={
-                                teamcenterJobId
-                                  ? `${API_BASE}/pipeline/bom/${encodeURIComponent(teamcenterJobId)}`
-                                  : ""
-                              }
-                              transformPayload={getTeamcenterRoot}
-                              active={Boolean(teamcenterJobId)}
-                              onLoadComplete={() => setTeamcenterRunning(false)}
-                              onBomReady={handleBomReady}
-                              progress={teamcenterProgress}
-                              comparisonMode={comparing}
-                              comparison={comparisonFor("teamcenter")}
-                              comparisonFilter={comparisonFilter}
-                              counterpartLabel={counterpartFor("teamcenter")}
-                            />
-                          </div>
-                        </>
-                      ) : null}
-
-                      {source.type === "configit" ? (
-                        <>
-                          <ConfigitForm
-                            onSubmit={(id) => {
-                              setConfigitActive(true);
-                              setConfigitRunning(true);
-                              setConfigitProductId(id);
-                              setConfigitRefresh((value) => value + 1);
-                            }}
-                            isRunning={configitRunning}
-                          />
-                          <div className="mt-4">
-                            <SourceBomPanel
-                              source="configit"
-                              title="CPQ"
-                              endpoint={
-                                configitProductId
-                                  ? `/api/bom-configit?productId=${encodeURIComponent(configitProductId)}`
-                                  : "/api/bom-configit"
-                              }
-                              transformPayload={getConfigitRoot}
-                              active={configitActive || configitRunning}
-                              refreshSignal={configitRefresh}
-                              onLoadComplete={() => setConfigitRunning(false)}
-                              onBomReady={handleBomReady}
-                              comparisonMode={comparing}
-                              comparison={comparisonFor("configit")}
-                              comparisonFilter={comparisonFilter}
-                              counterpartLabel={counterpartFor("configit")}
-                            />
-                          </div>
-                        </>
-                      ) : null}
-
-                      {source.type === "windchill" ? (
-                        <>
-                          <WindchillForm
-                            onSubmit={(id) => {
-                              setWindchillActive(true);
-                              setWindchillRunning(true);
-                              setWindchillPartId(id);
-                              setWindchillRefresh((value) => value + 1);
-                            }}
-                            isRunning={windchillRunning}
-                          />
-                          <div className="mt-4">
-                            <SourceBomPanel
-                              source="windchill"
-                              title="PLM"
-                              endpoint={
-                                windchillPartId
-                                  ? `/api/bom-windchill?partId=${encodeURIComponent(windchillPartId)}`
-                                  : "/api/bom-windchill"
-                              }
-                              transformPayload={getWindchillRoot}
-                              active={windchillActive}
-                              refreshSignal={windchillRefresh}
-                              onLoadComplete={() => setWindchillRunning(false)}
-                              onBomReady={handleBomReady}
-                              comparisonMode={comparing}
-                              comparison={comparisonFor("windchill")}
-                              comparisonFilter={comparisonFilter}
-                              counterpartLabel={counterpartFor("windchill")}
-                            />
-                          </div>
-                        </>
-                      ) : null}
+                      {panelFor(source)}
                     </article>
                   ))}
                 </div>
