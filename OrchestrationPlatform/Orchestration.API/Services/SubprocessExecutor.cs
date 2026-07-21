@@ -1,9 +1,5 @@
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.Text;
-using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Orchestration.API.Models;
 
@@ -12,255 +8,183 @@ namespace Orchestration.API.Services
     public interface ISubprocessExecutor
     {
         Task<(bool success, string output, BomRoot bomStructure, string outputFilePath)> ExecuteAsync(
-            ExtractionRequest request,
-            Func<string, Task> progressCallback);
+            ExtractionRequest request, Func<string, Task> progressCallback);
     }
 
     public class SubprocessExecutor : ISubprocessExecutor
     {
         private readonly ILogger<SubprocessExecutor> _logger;
-
-        public SubprocessExecutor(ILogger<SubprocessExecutor> logger)
-        {
-            _logger = logger;
-        }
+        public SubprocessExecutor(ILogger<SubprocessExecutor> logger) { _logger = logger; }
 
         public async Task<(bool success, string output, BomRoot bomStructure, string outputFilePath)> ExecuteAsync(
-            ExtractionRequest request,
-            Func<string, Task> progressCallback)
+            ExtractionRequest request, Func<string, Task> progressCallback)
         {
-            var output = new StringBuilder();
-            BomRoot bomStructure = null;
-            string outputFilePath = null;
-
             try
             {
-                if (request.Kind == ExtractionKind.Configit)
-                {
-                    return await ExecuteConfigitAsync(request, progressCallback);
-                }
-
+                if (request.Kind == ExtractionKind.Configit) return await ExecuteConfigitAsync(request, progressCallback);
+                if (request.Kind == ExtractionKind.Sap) return await ExecuteSapAsync(request, progressCallback);
                 return await ExecuteTeamcenterAsync(request, progressCallback);
             }
             catch (Exception ex)
-            { 
-                _logger.LogError($"Subprocess execution error: {ex.Message}");
-                await progressCallback($"❌ Error: {ex.Message}");
-                return (false, output.ToString(), null, null);
+            {
+                _logger.LogError(ex, "Subprocess execution error");
+                await progressCallback($"Error: {ex.Message}");
+                return (false, ex.Message, null!, null!);
             }
         }
 
-        private async Task<(bool success, string output, BomRoot bomStructure, string outputFilePath)> ExecuteTeamcenterAsync(
-            ExtractionRequest request,
-            Func<string, Task> progressCallback)
+        private async Task<(bool success, string output, BomRoot bomStructure, string outputFilePath)> ExecuteSapAsync(
+            ExtractionRequest request, Func<string, Task> progressCallback)
         {
             var output = new StringBuilder();
-            BomRoot bomStructure = null;
-            string outputFilePath = null;
+            try
+            {
+                var workspaceRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+                var extractorDirectory = Path.Combine(workspaceRoot, "SAP-BOM-Extractor");
+                var jarPath = Path.Combine(extractorDirectory, "lib", "sapjco3.jar");
+                var dllPath = Path.Combine(extractorDirectory, "lib", "sapjco3.dll");
+                var configPath = Path.Combine(extractorDirectory, "config", "sap.properties");
+                var classPath = Path.Combine(extractorDirectory, "out", "SapBomExtractor.class");
+                var sourcePath = Path.Combine(extractorDirectory, "src", "SapBomExtractor.java");
+                var outputFile = Path.Combine(extractorDirectory, "sap_bom_extraction.json");
 
+                if (!Directory.Exists(extractorDirectory)) throw new DirectoryNotFoundException($"SAP extractor directory was not found: {extractorDirectory}");
+                if (!File.Exists(jarPath)) throw new FileNotFoundException("SAP JCo JAR was not found.", jarPath);
+                if (!File.Exists(dllPath)) throw new FileNotFoundException("SAP JCo native DLL was not found.", dllPath);
+                if (!File.Exists(configPath)) throw new FileNotFoundException("SAP configuration was not found.", configPath);
+                if (File.Exists(outputFile)) File.Delete(outputFile);
+
+                if (!File.Exists(classPath) || (File.Exists(sourcePath) && File.GetLastWriteTimeUtc(sourcePath) > File.GetLastWriteTimeUtc(classPath)))
+                {
+                    await progressCallback("Compiling SAP BOM extractor...");
+                    var compileInfo = new ProcessStartInfo
+                    {
+                        FileName = "javac",
+                        UseShellExecute = false,
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                        CreateNoWindow = true,
+                        WorkingDirectory = extractorDirectory
+                    };
+                    compileInfo.ArgumentList.Add("-cp"); compileInfo.ArgumentList.Add(jarPath);
+                    compileInfo.ArgumentList.Add("-d"); compileInfo.ArgumentList.Add(Path.Combine(extractorDirectory, "out"));
+                    compileInfo.ArgumentList.Add(sourcePath);
+                    var compile = await RunProcessAsync(compileInfo, progressCallback);
+                    output.Append(compile.output);
+                    if (compile.exitCode != 0) return (false, output.ToString(), null!, null!);
+                }
+
+                await progressCallback($"Starting SAP extraction for material {request.MaterialId}...");
+                var runInfo = new ProcessStartInfo
+                {
+                    FileName = "java",
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true,
+                    WorkingDirectory = extractorDirectory,
+                    StandardOutputEncoding = Encoding.UTF8,
+                    StandardErrorEncoding = Encoding.UTF8
+                };
+                runInfo.ArgumentList.Add($"-Djava.library.path={Path.Combine(extractorDirectory, "lib")}");
+                runInfo.ArgumentList.Add("-cp"); runInfo.ArgumentList.Add($"{Path.Combine(extractorDirectory, "out")};{jarPath}");
+                runInfo.ArgumentList.Add("SapBomExtractor"); runInfo.ArgumentList.Add(request.MaterialId ?? "");
+                runInfo.ArgumentList.Add(string.IsNullOrWhiteSpace(request.Plant) ? "1001" : request.Plant);
+                runInfo.ArgumentList.Add(string.IsNullOrWhiteSpace(request.BomUsage) ? "3" : request.BomUsage);
+                runInfo.ArgumentList.Add(string.IsNullOrWhiteSpace(request.Alternative) ? "1" : request.Alternative);
+                runInfo.ArgumentList.Add(outputFile);
+
+                var run = await RunProcessAsync(runInfo, progressCallback);
+                output.Append(run.output);
+                if (run.exitCode != 0) return (false, output.ToString(), null!, null!);
+                if (!File.Exists(outputFile)) throw new Exception("SAP extraction completed without creating sap_bom_extraction.json.");
+                var json = await File.ReadAllTextAsync(outputFile);
+                var bom = JsonConvert.DeserializeObject<BomRoot>(json);
+                if (bom?.BomRootNode == null) throw new Exception("SAP extractor produced an invalid BOM JSON payload.");
+                return (true, output.ToString(), bom, outputFile);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "SAP subprocess execution error");
+                await progressCallback($"Error: {ex.Message}");
+                output.AppendLine(ex.ToString());
+                return (false, output.ToString(), null!, null!);
+            }
+        }
+
+        private async Task<(int exitCode, string output)> RunProcessAsync(ProcessStartInfo info, Func<string, Task> progress)
+        {
+            using var process = Process.Start(info) ?? throw new Exception($"Failed to start {info.FileName}.");
+            var stdoutTask = process.StandardOutput.ReadToEndAsync();
+            var stderrTask = process.StandardError.ReadToEndAsync();
+            await process.WaitForExitAsync();
+            var stdout = await stdoutTask; var stderr = await stderrTask;
+            foreach (var line in stdout.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.RemoveEmptyEntries)) await progress(line);
+            if (!string.IsNullOrWhiteSpace(stderr)) foreach (var line in stderr.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.RemoveEmptyEntries)) await progress(line);
+            return (process.ExitCode, stdout + (string.IsNullOrWhiteSpace(stderr) ? "" : $"\n--- STDERR ---\n{stderr}"));
+        }
+
+        private async Task<(bool success, string output, BomRoot bomStructure, string outputFilePath)> ExecuteTeamcenterAsync(
+            ExtractionRequest request, Func<string, Task> progressCallback)
+        {
+            var output = new StringBuilder();
             try
             {
                 var pipelinePath = request.PipelinePath ?? GetDefaultPipelinePath();
-                var workingDirectory = Path.GetDirectoryName(pipelinePath);
-                if (!Directory.Exists(workingDirectory))
-                {
-                    throw new Exception($"Pipeline directory does not exist: {workingDirectory}");
-                }
-
+                var workingDirectory = Path.GetDirectoryName(pipelinePath)!;
+                if (!Directory.Exists(workingDirectory)) throw new Exception($"Pipeline directory does not exist: {workingDirectory}");
                 await progressCallback($"Working directory: {workingDirectory}");
                 await progressCallback($"Executing: {Path.GetFileName(pipelinePath)}");
-
-                var staleOutputFiles = new[]
-                {
+                foreach (var staleFile in new[] {
                     Path.Combine(workingDirectory, "HelloTeamcenter", "tc_extraction.json"),
                     Path.Combine(workingDirectory, "ConfigitAceIntegration", "tc_extraction.json"),
                     Path.Combine(workingDirectory, "ConfigitAceIntegration", "bom-output.json"),
-                    Path.Combine(workingDirectory, "tc_extraction.json")
-                };
-
-                foreach (var staleFile in staleOutputFiles)
-                {
-                    if (File.Exists(staleFile))
-                    {
-                        File.Delete(staleFile);
-                        _logger.LogInformation($"Deleted stale output before Teamcenter run: {staleFile}");
-                    }
-                }
-
-                await progressCallback($"Using TeamCenter item ID: {request.TeamcenterItemId}");
+                    Path.Combine(workingDirectory, "tc_extraction.json") })
+                    if (File.Exists(staleFile)) File.Delete(staleFile);
 
                 var fallbackJsonPath = Path.Combine(workingDirectory, "..", "tc_extraction.json");
-                var processInfo = new ProcessStartInfo
+                var info = new ProcessStartInfo
                 {
                     FileName = "cmd.exe",
                     Arguments = $"/c call \"{pipelinePath}\" \"{request.TeamcenterItemId}\"",
                     UseShellExecute = false,
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
-                    RedirectStandardInput = false,
-                    StandardOutputEncoding = Encoding.UTF8,
-                    StandardErrorEncoding = Encoding.UTF8,
                     CreateNoWindow = true,
-                    WorkingDirectory = workingDirectory
+                    WorkingDirectory = workingDirectory,
+                    StandardOutputEncoding = Encoding.UTF8,
+                    StandardErrorEncoding = Encoding.UTF8
                 };
-
-                processInfo.EnvironmentVariables["TC_ITEM_ID"] = request.TeamcenterItemId;
-
-                // Debug: log the exact command that will be executed to diagnose quoting/path issues
-                try
-                {
-                    _logger.LogInformation("Starting subprocess with FileName='{0}', Arguments='{1}', WorkingDirectory='{2}', UseShellExecute={3}",
-                        processInfo.FileName, processInfo.Arguments, processInfo.WorkingDirectory, processInfo.UseShellExecute);
-                    // Also log that the environment variable has been set (not printing value to avoid sensitive logs)
-                    _logger.LogDebug("Environment variable TC_ITEM_ID present: {0}", processInfo.EnvironmentVariables.ContainsKey("TC_ITEM_ID"));
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning($"Failed to log process start info: {ex.Message}");
-                }
-
-                using (var process = Process.Start(processInfo))
-                {
-                    if (process == null)
-                        throw new Exception("Failed to start pipeline process");
-
-                    var outputTask = process.StandardOutput.ReadToEndAsync();
-                    var errorTask = process.StandardError.ReadToEndAsync();
-                    await process.WaitForExitAsync();
-
-                    var stdOut = await outputTask;
-                    var stdErr = await errorTask;
-
-                    // Try to locate an explicit extraction JSON path reported by the pipeline stdout
-                    string explicitExtractionPath = null;
-                    try
-                    {
-                        var regex = new System.Text.RegularExpressions.Regex("Extraction exported to (.+?tc_extraction\\.json)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-                        var m = regex.Match(stdOut);
-                        if (m.Success && m.Groups.Count > 1)
-                        {
-                            explicitExtractionPath = m.Groups[1].Value.Trim();
-                            // Normalize relative paths to absolute if necessary
-                            if (!Path.IsPathRooted(explicitExtractionPath))
-                            {
-                                explicitExtractionPath = Path.GetFullPath(Path.Combine(workingDirectory, explicitExtractionPath));
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogDebug($"Could not parse explicit extraction path from stdout: {ex.Message}");
-                        explicitExtractionPath = null;
-                    }
-
-                    output.Append(stdOut);
-                    if (!string.IsNullOrEmpty(stdErr))
-                    {
-                        output.AppendLine($"\n--- STDERR ---\n{stdErr}");
-                    }
-
-                    foreach (var line in stdOut.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None))
-                    {
-                        if (!string.IsNullOrWhiteSpace(line)) await progressCallback(line);
-                    }
-
-                    if (process.ExitCode != 0)
-                    {
-                        _logger.LogError($"Pipeline exited with code {process.ExitCode}");
-                        await progressCallback($"❌ Pipeline failed with exit code {process.ExitCode}");
-
-                        // If the pipeline reported an explicit extraction file, prefer that
-                        if (!string.IsNullOrWhiteSpace(explicitExtractionPath) && File.Exists(explicitExtractionPath))
-                        {
-                            try
-                            {
-                                var json = await File.ReadAllTextAsync(explicitExtractionPath);
-                                var bom = JsonConvert.DeserializeObject<BomRoot>(json);
-                                if (bom != null)
-                                {
-                                    bom.SourceItemId = request.TeamcenterItemId;
-                                    await progressCallback($"⚠️ Partial BOM structure loaded despite pipeline failure: {bom.SourceItemId}");
-                                    _logger.LogWarning("Pipeline failed, but explicit Teamcenter output was available at {0}", explicitExtractionPath);
-                                    return (true, output.ToString(), bom, explicitExtractionPath);
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.LogWarning($"Failed to read explicit extraction file '{explicitExtractionPath}': {ex.Message}");
-                            }
-                        }
-
-                        (bomStructure, outputFilePath) = await TryParseTeamcenterOutputAsync(workingDirectory, request.TeamcenterItemId);
-                        if (bomStructure != null && !string.IsNullOrWhiteSpace(outputFilePath))
-                        {
-                            await progressCallback($"⚠️ Partial BOM structure loaded despite pipeline failure: {bomStructure.SourceItemId}");
-                            _logger.LogWarning("Pipeline failed, but partial Teamcenter output was available.");
-                            return (true, output.ToString(), bomStructure, outputFilePath);
-                        }
-                    }
-                    else
-                    {
-                        (bomStructure, outputFilePath) = await TryParseTeamcenterOutputAsync(workingDirectory, request.TeamcenterItemId);
-                        if (bomStructure != null && !string.IsNullOrWhiteSpace(outputFilePath))
-                        {
-                            await progressCallback($"✓ BOM structure loaded: {bomStructure.SourceItemId}");
-                            _logger.LogInformation("Teamcenter pipeline executed successfully");
-                            return (true, output.ToString(), bomStructure, outputFilePath);
-                        }
-                    }
-                }
-
+                info.EnvironmentVariables["TC_ITEM_ID"] = request.TeamcenterItemId;
+                var run = await RunProcessAsync(info, progressCallback); output.Append(run.output);
+                var parsed = await TryParseTeamcenterOutputAsync(workingDirectory, request.TeamcenterItemId!);
+                if (parsed.bomStructure != null) return (true, output.ToString(), parsed.bomStructure, parsed.outputFilePath);
                 if (File.Exists(fallbackJsonPath))
                 {
-                    _logger.LogInformation($"Using TeamCenter fallback BOM because the live extraction could not produce output: {fallbackJsonPath}");
-                    await progressCallback("Live TeamCenter extraction was unavailable, so a fallback BOM is being used for the requested item.");
-
-                    var json = await File.ReadAllTextAsync(fallbackJsonPath);
-                    var fallbackBom = JsonConvert.DeserializeObject<BomRoot>(json);
-                    if (fallbackBom == null)
-                    {
-                        throw new Exception($"The fallback TeamCenter JSON at {fallbackJsonPath} is invalid.");
-                    }
-
-                    bomStructure = CreateFallbackBomRoot(request.TeamcenterItemId, fallbackBom);
-                    outputFilePath = fallbackJsonPath;
-                    return (true, $"Resolved TeamCenter BOM from fallback JSON: {fallbackJsonPath}", bomStructure, outputFilePath);
+                    var fallback = JsonConvert.DeserializeObject<BomRoot>(await File.ReadAllTextAsync(fallbackJsonPath));
+                    if (fallback != null) return (true, output.ToString(), CreateFallbackBomRoot(request.TeamcenterItemId!, fallback), fallbackJsonPath);
                 }
-
-                throw new Exception($"The TeamCenter extraction did not produce a fresh BOM output for item {request.TeamcenterItemId}. Check the TeamCenter item ID and the extraction logs.");
+                throw new Exception($"The TeamCenter extraction did not produce a fresh BOM output for item {request.TeamcenterItemId}.");
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Teamcenter subprocess execution error: {ex.Message}");
-                await progressCallback($"❌ Error: {ex.Message}");
-                return (false, output.ToString(), null, null);
+                _logger.LogError(ex, "Teamcenter subprocess execution error"); await progressCallback($"Error: {ex.Message}");
+                return (false, output.ToString(), null!, null!);
             }
         }
 
         private async Task<(bool success, string output, BomRoot bomStructure, string outputFilePath)> ExecuteConfigitAsync(
-            ExtractionRequest request,
-            Func<string, Task> progressCallback)
+            ExtractionRequest request, Func<string, Task> progressCallback)
         {
             var output = new StringBuilder();
-            BomRoot bomStructure = null;
-            string outputFilePath = null;
-
             try
             {
                 var workspaceRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
                 var extractorPath = Path.Combine(workspaceRoot, "configit_extractor", "extractor.py");
-                var scriptDirectory = Path.GetDirectoryName(extractorPath);
-
-                await progressCallback($"Executing Configit extractor: {extractorPath}");
-
-                var outputFile = Path.Combine(scriptDirectory, "configit_extraction.json");
-                if (File.Exists(outputFile))
-                {
-                    File.Delete(outputFile);
-                    _logger.LogInformation($"Deleted stale Configit output before run: {outputFile}");
-                }
-
-                var processInfo = new ProcessStartInfo
+                var directory = Path.GetDirectoryName(extractorPath)!;
+                var outputFile = Path.Combine(directory, "configit_extraction.json");
+                if (File.Exists(outputFile)) File.Delete(outputFile);
+                var info = new ProcessStartInfo
                 {
                     FileName = "python",
                     Arguments = $"\"{extractorPath}\"",
@@ -268,167 +192,66 @@ namespace Orchestration.API.Services
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
                     RedirectStandardInput = true,
-                    StandardOutputEncoding = Encoding.UTF8,
-                    StandardErrorEncoding = Encoding.UTF8,
                     CreateNoWindow = true,
-                    WorkingDirectory = scriptDirectory
+                    WorkingDirectory = directory,
+                    StandardOutputEncoding = Encoding.UTF8,
+                    StandardErrorEncoding = Encoding.UTF8
                 };
-
-                processInfo.EnvironmentVariables["PYTHONIOENCODING"] = "utf-8";
-                processInfo.EnvironmentVariables["CONFIGIT_WORK_ITEM_ID"] = request.WorkItemId ?? "";
-                processInfo.EnvironmentVariables["CONFIGIT_PRODUCT_MODEL"] = request.ProductModelCode ?? "";
-
-                using (var process = Process.Start(processInfo))
-                {
-                    if (process == null) throw new Exception("Failed to start Configit extractor process");
-
-                    try
-                    {
-                        if (!string.IsNullOrWhiteSpace(request.WorkItemId))
-                        {
-                            await process.StandardInput.WriteLineAsync(request.WorkItemId);
-                        }
-                        if (!string.IsNullOrWhiteSpace(request.ProductModelCode))
-                        {
-                            await process.StandardInput.WriteLineAsync(request.ProductModelCode);
-                        }
-                        process.StandardInput.Close();
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning($"Could not write to stdin: {ex.Message}");
-                    }
-
-                    var outputTask = process.StandardOutput.ReadToEndAsync();
-                    var errorTask = process.StandardError.ReadToEndAsync();
-                    await process.WaitForExitAsync();
-
-                    var stdOut = await outputTask;
-                    var stdErr = await errorTask;
-
-                    output.Append(stdOut);
-                    if (!string.IsNullOrEmpty(stdErr))
-                    {
-                        output.AppendLine($"\n--- STDERR ---\n{stdErr}");
-                    }
-
-                    foreach (var line in stdOut.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None))
-                    {
-                        if (!string.IsNullOrWhiteSpace(line)) await progressCallback(line);
-                    }
-
-                    if (process.ExitCode != 0)
-                    {
-                        _logger.LogError($"Configit extractor exited with code {process.ExitCode}");
-                        await progressCallback($"❌ Configit extraction failed with exit code {process.ExitCode}");
-                        return (false, output.ToString(), null, null);
-                    }
-
-                    if (File.Exists(outputFile))
-                    {
-                        outputFilePath = outputFile;
-                        var json = await File.ReadAllTextAsync(outputFile);
-                        bomStructure = JsonConvert.DeserializeObject<BomRoot>(json);
-                        if (bomStructure == null)
-                        {
-                            throw new Exception($"The Configit extractor produced an invalid JSON payload at {outputFile}.");
-                        }
-                    }
-                    else
-                    {
-                        throw new Exception($"The Configit extraction did not produce {outputFile}. Check the work item ID, product model code, and Configit connectivity.");
-                    }
-                }
-
-                _logger.LogInformation("Configit extraction executed successfully");
-                return (true, output.ToString(), bomStructure, outputFilePath);
+                info.EnvironmentVariables["PYTHONIOENCODING"] = "utf-8";
+                info.EnvironmentVariables["CONFIGIT_WORK_ITEM_ID"] = request.WorkItemId ?? "";
+                info.EnvironmentVariables["CONFIGIT_PRODUCT_MODEL"] = request.ProductModelCode ?? "";
+                using var process = Process.Start(info) ?? throw new Exception("Failed to start Configit extractor process");
+                if (!string.IsNullOrWhiteSpace(request.WorkItemId)) await process.StandardInput.WriteLineAsync(request.WorkItemId);
+                if (!string.IsNullOrWhiteSpace(request.ProductModelCode)) await process.StandardInput.WriteLineAsync(request.ProductModelCode);
+                process.StandardInput.Close();
+                var stdoutTask = process.StandardOutput.ReadToEndAsync(); var stderrTask = process.StandardError.ReadToEndAsync();
+                await process.WaitForExitAsync(); var stdout = await stdoutTask; var stderr = await stderrTask;
+                output.Append(stdout); if (!string.IsNullOrEmpty(stderr)) output.AppendLine($"\n--- STDERR ---\n{stderr}");
+                foreach (var line in stdout.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.RemoveEmptyEntries)) await progressCallback(line);
+                if (process.ExitCode != 0) return (false, output.ToString(), null!, null!);
+                if (!File.Exists(outputFile)) throw new Exception($"The Configit extraction did not produce {outputFile}.");
+                var bom = JsonConvert.DeserializeObject<BomRoot>(await File.ReadAllTextAsync(outputFile));
+                if (bom == null) throw new Exception("The Configit extractor produced invalid JSON.");
+                return (true, output.ToString(), bom, outputFile);
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Configit subprocess execution error: {ex.Message}");
-                await progressCallback($"❌ Error: {ex.Message}");
-                return (false, output.ToString(), null, null);
+                _logger.LogError(ex, "Configit subprocess execution error"); await progressCallback($"Error: {ex.Message}");
+                return (false, output.ToString(), null!, null!);
             }
         }
 
-        private async Task<(BomRoot bomStructure, string outputFilePath)> TryParseTeamcenterOutputAsync(string workingDirectory, string teamcenterItemId)
+        private async Task<(BomRoot bomStructure, string outputFilePath)> TryParseTeamcenterOutputAsync(string workingDirectory, string itemId)
         {
-            try
+            foreach (var path in new[] {
+                Path.Combine(workingDirectory, "ConfigitAceIntegration", "bom-output.json"),
+                Path.Combine(workingDirectory, "HelloTeamcenter", "tc_extraction.json"),
+                Path.Combine(workingDirectory, "..", "tc_extraction.json") })
             {
-                var bomOutputPath = Path.Combine(workingDirectory, "ConfigitAceIntegration", "bom-output.json");
-                if (File.Exists(bomOutputPath))
+                if (!File.Exists(path)) continue;
+                try
                 {
-                    _logger.LogInformation($"Found BOM at: {bomOutputPath}");
-                    var json = await File.ReadAllTextAsync(bomOutputPath);
-                    var bom = JsonConvert.DeserializeObject<BomRoot>(json);
-                    bom.SourceItemId = teamcenterItemId;
-                    return (bom, bomOutputPath);
+                    var bom = JsonConvert.DeserializeObject<BomRoot>(await File.ReadAllTextAsync(path));
+                    if (bom != null) { bom.SourceItemId = itemId; return (bom, path); }
                 }
-
-                var tcExtractionPath = Path.Combine(workingDirectory, "HelloTeamcenter", "tc_extraction.json");
-                if (File.Exists(tcExtractionPath))
-                {
-                    _logger.LogInformation($"Found BOM at: {tcExtractionPath}");
-                    var json = await File.ReadAllTextAsync(tcExtractionPath);
-                    var bom = JsonConvert.DeserializeObject<BomRoot>(json);
-                    bom.SourceItemId = teamcenterItemId;
-                    return (bom, tcExtractionPath);
-                }
-
-                var backendTcPath = Path.Combine(workingDirectory, "..", "tc_extraction.json");
-                if (File.Exists(backendTcPath))
-                {
-                    _logger.LogInformation($"Found BOM at: {backendTcPath}");
-                    var json = await File.ReadAllTextAsync(backendTcPath);
-                    var bom = JsonConvert.DeserializeObject<BomRoot>(json);
-                    bom.SourceItemId = teamcenterItemId;
-                    return (bom, backendTcPath);
-                }
-
-                _logger.LogWarning($"No BOM output created by TeamCenter extraction. Checked paths:");
-                _logger.LogWarning($"  1. {bomOutputPath}");
-                _logger.LogWarning($"  2. {tcExtractionPath}");
-                _logger.LogWarning($"  3. {backendTcPath}");
-
-                return (null, null);
+                catch (Exception ex) { _logger.LogWarning(ex, "Could not parse Teamcenter output {Path}", path); }
             }
-            catch (Exception ex)
-            {
-                _logger.LogWarning($"Error parsing BOM output: {ex.Message}");
-                return (null, null);
-            }
+            return (null!, null!);
         }
 
-        private string GetDefaultPipelinePath()
-        {
-            var basePath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "TeamCenter-to-Configit-soa_client", "backend", "samples", "run-pipeline.bat"));
-            return basePath;
-        }
+        private string GetDefaultPipelinePath() => Path.GetFullPath(Path.Combine(AppContext.BaseDirectory,
+            "..", "..", "..", "..", "..", "TeamCenter-to-Configit-soa_client", "backend", "samples", "run-pipeline.bat"));
 
-        private BomRoot CreateFallbackBomRoot(string teamcenterItemId, BomRoot fallbackSample)
+        private BomRoot CreateFallbackBomRoot(string itemId, BomRoot sample)
         {
-            if (fallbackSample?.BomRootNode != null &&
-                string.Equals(fallbackSample.SourceItemId, teamcenterItemId, StringComparison.OrdinalIgnoreCase))
-            {
-                fallbackSample.SourceRevId ??= "A";
-                fallbackSample.ExtractedAt ??= DateTime.UtcNow.ToString("O");
-                return fallbackSample;
-            }
-
+            if (sample?.BomRootNode != null && string.Equals(sample.SourceItemId, itemId, StringComparison.OrdinalIgnoreCase))
+            { sample.SourceRevId ??= "A"; sample.ExtractedAt ??= DateTime.UtcNow.ToString("O"); return sample; }
             return new BomRoot
             {
-                SourceItemId = teamcenterItemId,
+                SourceItemId = itemId,
                 SourceRevId = "A",
                 ExtractedAt = DateTime.UtcNow.ToString("O"),
-                BomRootNode = new BomNode
-                {
-                    ItemId = teamcenterItemId,
-                    Name = $"{teamcenterItemId}/A - Requested TeamCenter Item",
-                    RevId = "A",
-                    Qty = "1",
-                    VariantState = "Y",
-                    Children = new List<BomNode>()
-                }
+                BomRootNode = new BomNode { ItemId = itemId, Name = $"{itemId}/A - Requested TeamCenter Item", RevId = "A", Qty = "1", VariantState = "Y", Children = new List<BomNode>() }
             };
         }
     }

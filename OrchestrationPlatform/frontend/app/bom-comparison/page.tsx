@@ -22,7 +22,6 @@ import {
   IconPlugConnected,
   IconX,
 } from "@tabler/icons-react";
-
 import { AddComparisonSourceModal } from "@/components/AddComparisonSourceModal";
 import {
   getConfigitRoot,
@@ -35,12 +34,14 @@ import { ComparisonSummary } from "@/components/ComparisonSummary";
 import { ConfigitForm } from "@/components/ConfigitForm";
 import { PipelineForm } from "@/components/PipelineForm";
 import { QuickStartModal } from "@/components/QuickStartModal";
+import { RequirementContextBanner } from "@/components/RequirementContextBanner";
 import { SAPForm } from "@/components/SAPForm";
 import { SourceBomPanel } from "@/components/SourceBomPanel";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { WindchillForm } from "@/components/WindchillForm";
 import { subscribeToProgress, type PipelineProgress } from "@/lib/api";
 import { compareMultipleBoms } from "@/lib/bom-comparison";
+import { resolveRequirementContext } from "@/lib/requirement-context";
 import type {
   ComparisonFilter,
   ComparisonSelection,
@@ -80,7 +81,7 @@ const defs: SourceDefinition[] = [
     type: "sap",
     label: "SAP",
     category: "ERP",
-    description: "Prepare SAP material BOM extraction.",
+    description: "Extract an SAP material BOM.",
     icon: <IconDatabase className="h-6 w-6" />,
   },
   {
@@ -99,14 +100,69 @@ const labels: Record<SourceType, string> = {
 };
 const meta = (type: SourceType) => defs.find((item) => item.type === type)!;
 
+function record(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+function text(value: unknown) {
+  return typeof value === "string" ? value : undefined;
+}
+function scalar(value: unknown) {
+  return typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+    ? value
+    : undefined;
+}
+function sapNode(value: unknown, path: string): TreeNodeData {
+  const node = record(value) ?? {};
+  const material = text(node.itemId) || text(node.id) || path;
+  const name = text(node.name) || material;
+  const attributes: Record<string, string | number | boolean> = {
+    "Item ID": material,
+  };
+  const sequence = text(node.sequence);
+  const qty = scalar(node.qty);
+  const revision = text(node.revId);
+  if (sequence) attributes.Sequence = sequence;
+  if (qty !== undefined) attributes.Qty = qty;
+  if (revision) attributes["Rev ID"] = revision;
+  const children = Array.isArray(node.children) ? node.children : [];
+  return {
+    id: `${path}-${material}`,
+    name,
+    attributes,
+    children: children.map((child, index) =>
+      sapNode(child, `${path}-${index}`),
+    ),
+  };
+}
+function getSapRoot(payload: unknown): TreeNodeData | null {
+  const response = record(payload);
+  if (!response) return null;
+  const body = record(response.payload) ?? response;
+  const finalBom = record(body.finalBom) ?? record(response.finalBom) ?? body;
+  const root =
+    record(finalBom.bomRoot) ??
+    record(finalBom.bomRootNode) ??
+    record(body.bomRoot) ??
+    record(body.bomRootNode);
+  return root ? sapNode(root, "sap-root") : null;
+}
+
 export default function Page() {
   const [active, setActive] = useState<Active[]>([]);
   const [modal, setModal] = useState(false);
   const [view, setView] = useState<"categories" | "options">("categories");
   const [category, setCategory] = useState<Category | null>(null);
   const [job, setJob] = useState<string | null>(null);
+  const [teamcenterItemId, setTeamcenterItemId] = useState<string | null>(null);
   const [tcRun, setTcRun] = useState(false);
   const [progress, setProgress] = useState<PipelineProgress | null>(null);
+  const [sapJob, setSapJob] = useState<string | null>(null);
+  const [sapRun, setSapRun] = useState(false);
+  const [sapProgress, setSapProgress] = useState<PipelineProgress | null>(null);
   const [cfgActive, setCfgActive] = useState(false);
   const [cfgRun, setCfgRun] = useState(false);
   const [product, setProduct] = useState<string | null>(null);
@@ -169,21 +225,30 @@ export default function Page() {
     closeModal();
   };
   const onReady = useCallback(
-    (source: SourceType, root: TreeNodeData | null) => {
+    (source: SourceType, root: TreeNodeData | null) =>
       setRoots((current) => {
         const next = { ...current };
         if (root) next[source] = root;
         else delete next[source];
         return next;
-      });
+      }),
+    [],
+  );
+  const submitTc = useCallback(
+    (id: string, _payload?: unknown, submittedItemId?: string) => {
+      if (!id.trim()) return toast.error("No Teamcenter job ID returned");
+      setJob(id);
+      setTeamcenterItemId(submittedItemId?.trim() || null);
+      setTcRun(true);
+      setProgress(null);
     },
     [],
   );
-  const submitTc = useCallback((id: string) => {
-    if (!id.trim()) return toast.error("No Teamcenter job ID returned");
-    setJob(id);
-    setTcRun(true);
-    setProgress(null);
+  const submitSap = useCallback((id: string) => {
+    if (!id.trim()) return toast.error("No SAP job ID returned");
+    setSapJob(id);
+    setSapRun(true);
+    setSapProgress(null);
   }, []);
 
   useEffect(() => {
@@ -195,6 +260,15 @@ export default function Page() {
       () => undefined,
     );
   }, [job, tcRun]);
+  useEffect(() => {
+    if (!sapJob || !sapRun) return;
+    return subscribeToProgress(
+      sapJob,
+      setSapProgress,
+      (message) => toast.error(message),
+      () => undefined,
+    );
+  }, [sapJob, sapRun]);
 
   const start = (selection: ComparisonSelection) => {
     setPrimary(selection.leftSource);
@@ -234,7 +308,14 @@ export default function Page() {
     }
     if (type === "teamcenter") {
       setJob(null);
+      setTeamcenterItemId(null);
       setTcRun(false);
+      setProgress(null);
+    }
+    if (type === "sap") {
+      setSapJob(null);
+      setSapRun(false);
+      setSapProgress(null);
     }
     if (type === "configit") {
       setCfgActive(false);
@@ -272,6 +353,144 @@ export default function Page() {
       : primary
         ? labels[primary]
         : undefined;
+
+  const panelFor = (source: Active) => {
+    if (source.type === "teamcenter")
+      return (
+        <>
+          <PipelineForm onSubmit={submitTc} isLoading={tcRun} />
+          <div className="mt-4">
+            {roots.teamcenter ? (
+              <RequirementContextBanner
+                requirement={resolveRequirementContext(
+                  "teamcenter",
+                  teamcenterItemId,
+                )}
+              />
+            ) : null}
+            <SourceBomPanel
+              source="teamcenter"
+              title="PLM"
+              endpoint={
+                job ? `${API_BASE}/pipeline/bom/${encodeURIComponent(job)}` : ""
+              }
+              transformPayload={getTeamcenterRoot}
+              active={Boolean(job)}
+              onLoadComplete={() => setTcRun(false)}
+              onBomReady={onReady}
+              progress={progress}
+              comparisonMode={Boolean(comparing)}
+              comparison={mapFor("teamcenter")}
+              comparisonFilter={filter}
+              counterpartLabel={counterpart("teamcenter")}
+            />
+          </div>
+        </>
+      );
+    if (source.type === "windchill")
+      return (
+        <>
+          <WindchillForm
+            onSubmit={(id) => {
+              setWcActive(true);
+              setWcRun(true);
+              setPart(id);
+              setWcRefresh((value) => value + 1);
+            }}
+            isRunning={wcRun}
+          />
+          <div className="mt-4">
+            {roots.windchill ? (
+              <RequirementContextBanner
+                requirement={resolveRequirementContext("windchill", part)}
+              />
+            ) : null}
+            <SourceBomPanel
+              source="windchill"
+              title="PLM"
+              endpoint={
+                part
+                  ? `/api/bom-windchill?partId=${encodeURIComponent(part)}`
+                  : "/api/bom-windchill"
+              }
+              transformPayload={getWindchillRoot}
+              active={wcActive}
+              refreshSignal={wcRefresh}
+              onLoadComplete={() => setWcRun(false)}
+              onBomReady={onReady}
+              comparisonMode={Boolean(comparing)}
+              comparison={mapFor("windchill")}
+              comparisonFilter={filter}
+              counterpartLabel={counterpart("windchill")}
+            />
+          </div>
+        </>
+      );
+    if (source.type === "configit")
+      return (
+        <>
+          <ConfigitForm
+            onSubmit={(id) => {
+              setCfgActive(true);
+              setCfgRun(true);
+              setProduct(id);
+              setCfgRefresh((value) => value + 1);
+            }}
+            isRunning={cfgRun}
+          />
+          <div className="mt-4">
+            {roots.configit ? (
+              <RequirementContextBanner
+                requirement={resolveRequirementContext("configit", product)}
+              />
+            ) : null}
+            <SourceBomPanel
+              source="configit"
+              title="CPQ"
+              endpoint={
+                product
+                  ? `/api/bom-configit?productId=${encodeURIComponent(product)}`
+                  : "/api/bom-configit"
+              }
+              transformPayload={getConfigitRoot}
+              active={cfgActive || cfgRun}
+              refreshSignal={cfgRefresh}
+              onLoadComplete={() => setCfgRun(false)}
+              onBomReady={onReady}
+              comparisonMode={Boolean(comparing)}
+              comparison={mapFor("configit")}
+              comparisonFilter={filter}
+              counterpartLabel={counterpart("configit")}
+            />
+          </div>
+        </>
+      );
+    return (
+      <>
+        <SAPForm onSubmit={submitSap} isLoading={sapRun} />
+        <div className="mt-4">
+          <SourceBomPanel
+            source="sap"
+            title="ERP"
+            endpoint={
+              sapJob
+                ? `${API_BASE}/pipeline/bom/${encodeURIComponent(sapJob)}`
+                : ""
+            }
+            transformPayload={getSapRoot}
+            active={Boolean(sapJob)}
+            onLoadComplete={() => setSapRun(false)}
+            onBomReady={onReady}
+            progress={sapProgress}
+            comparisonMode={Boolean(comparing)}
+            comparison={mapFor("sap")}
+            comparisonFilter={filter}
+            counterpartLabel={counterpart("sap")}
+          />
+        </div>
+      </>
+    );
+  };
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900 dark:bg-[radial-gradient(circle_at_top,rgba(34,211,238,.10),transparent_42%),linear-gradient(135deg,#020617,#0f172a_48%,#111827)] dark:text-slate-50">
@@ -390,8 +609,7 @@ export default function Page() {
           </div>
           {ready.length < 2 && !comparing ? (
             <p className="mt-4 border-t border-slate-200 pt-3 text-xs text-slate-500 dark:border-slate-700">
-              Load at least two BOMs to enable comparison. SAP remains
-              frontend-only until backend integration is available.
+              Load at least two BOMs to enable comparison.
             </p>
           ) : null}
         </header>
@@ -467,99 +685,7 @@ export default function Page() {
                           </button>
                         </div>
                       </div>
-
-                      {source.type === "teamcenter" ? (
-                        <>
-                          <PipelineForm onSubmit={submitTc} isLoading={tcRun} />
-                          <div className="mt-4">
-                            <SourceBomPanel
-                              source="teamcenter"
-                              title="PLM"
-                              endpoint={
-                                job
-                                  ? `${API_BASE}/pipeline/bom/${encodeURIComponent(job)}`
-                                  : ""
-                              }
-                              transformPayload={getTeamcenterRoot}
-                              active={Boolean(job)}
-                              onLoadComplete={() => setTcRun(false)}
-                              onBomReady={onReady}
-                              progress={progress}
-                              comparisonMode={Boolean(comparing)}
-                              comparison={mapFor("teamcenter")}
-                              comparisonFilter={filter}
-                              counterpartLabel={counterpart("teamcenter")}
-                            />
-                          </div>
-                        </>
-                      ) : null}
-                      {source.type === "windchill" ? (
-                        <>
-                          <WindchillForm
-                            onSubmit={(id) => {
-                              setWcActive(true);
-                              setWcRun(true);
-                              setPart(id);
-                              setWcRefresh((value) => value + 1);
-                            }}
-                            isRunning={wcRun}
-                          />
-                          <div className="mt-4">
-                            <SourceBomPanel
-                              source="windchill"
-                              title="PLM"
-                              endpoint={
-                                part
-                                  ? `/api/bom-windchill?partId=${encodeURIComponent(part)}`
-                                  : "/api/bom-windchill"
-                              }
-                              transformPayload={getWindchillRoot}
-                              active={wcActive}
-                              refreshSignal={wcRefresh}
-                              onLoadComplete={() => setWcRun(false)}
-                              onBomReady={onReady}
-                              comparisonMode={Boolean(comparing)}
-                              comparison={mapFor("windchill")}
-                              comparisonFilter={filter}
-                              counterpartLabel={counterpart("windchill")}
-                            />
-                          </div>
-                        </>
-                      ) : null}
-                      {source.type === "sap" ? <SAPForm /> : null}
-                      {source.type === "configit" ? (
-                        <>
-                          <ConfigitForm
-                            onSubmit={(id) => {
-                              setCfgActive(true);
-                              setCfgRun(true);
-                              setProduct(id);
-                              setCfgRefresh((value) => value + 1);
-                            }}
-                            isRunning={cfgRun}
-                          />
-                          <div className="mt-4">
-                            <SourceBomPanel
-                              source="configit"
-                              title="CPQ"
-                              endpoint={
-                                product
-                                  ? `/api/bom-configit?productId=${encodeURIComponent(product)}`
-                                  : "/api/bom-configit"
-                              }
-                              transformPayload={getConfigitRoot}
-                              active={cfgActive || cfgRun}
-                              refreshSignal={cfgRefresh}
-                              onLoadComplete={() => setCfgRun(false)}
-                              onBomReady={onReady}
-                              comparisonMode={Boolean(comparing)}
-                              comparison={mapFor("configit")}
-                              comparisonFilter={filter}
-                              counterpartLabel={counterpart("configit")}
-                            />
-                          </div>
-                        </>
-                      ) : null}
+                      {panelFor(source)}
                     </article>
                   ))}
                 </div>

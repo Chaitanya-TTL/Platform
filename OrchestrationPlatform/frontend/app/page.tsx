@@ -10,9 +10,16 @@ import {
   IconCode,
   IconDatabase,
   IconPlugConnected,
+  IconSitemap,
 } from "@tabler/icons-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 const cards = [
+  {
+    title: "ALM",
+    text: "Requirements flows from here to different applications",
+    icon: IconSitemap,
+    badge: "Codebeamer",
+  },
   {
     title: "PLM",
     text: "Extract and inspect Teamcenter and Windchill BOM structures.",
@@ -158,27 +165,84 @@ export default function Home() {
               <span className="absolute bottom-[18%] right-[5%] h-1.5 w-1.5 rounded-full bg-indigo-500 shadow-[0_0_12px_rgba(99,102,241,0.75)] dark:bg-indigo-300" />
             </motion.div>
 
-            {/* Connection lines and animated data flow */}
+            {/* Source-to-platform connection network */}
             <svg
               viewBox="0 0 620 520"
-              className="pointer-events-none absolute inset-0 h-full w-full"
+              preserveAspectRatio="none"
+              className="pointer-events-none absolute inset-0 z-10 h-full w-full"
               aria-hidden="true"
             >
               <defs>
+                <linearGradient id="alm-connection" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#a78bfa" stopOpacity="0.3" />
+                  <stop offset="45%" stopColor="#a78bfa" stopOpacity="0.95" />
+                  <stop offset="100%" stopColor="#22d3ee" stopOpacity="0.8" />
+                </linearGradient>
+
                 <linearGradient
-                  id="product-connection"
+                  id="teamcenter-connection"
                   x1="0"
                   y1="0"
                   x2="1"
                   y2="1"
                 >
-                  <stop offset="0%" stopColor="#06b6d4" stopOpacity="0.12" />
-                  <stop offset="50%" stopColor="#06b6d4" stopOpacity="0.85" />
-                  <stop offset="100%" stopColor="#818cf8" stopOpacity="0.15" />
+                  <stop offset="0%" stopColor="#22d3ee" stopOpacity="0.3" />
+                  <stop offset="48%" stopColor="#22d3ee" stopOpacity="0.95" />
+                  <stop offset="100%" stopColor="#06b6d4" stopOpacity="0.75" />
                 </linearGradient>
 
-                <filter id="product-connection-glow">
+                <linearGradient
+                  id="windchill-connection"
+                  x1="1"
+                  y1="0"
+                  x2="0"
+                  y2="1"
+                >
+                  <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.3" />
+                  <stop offset="48%" stopColor="#f59e0b" stopOpacity="0.95" />
+                  <stop offset="100%" stopColor="#22d3ee" stopOpacity="0.75" />
+                </linearGradient>
+
+                <linearGradient
+                  id="configit-connection"
+                  x1="0"
+                  y1="1"
+                  x2="1"
+                  y2="0"
+                >
+                  <stop offset="0%" stopColor="#818cf8" stopOpacity="0.3" />
+                  <stop offset="48%" stopColor="#818cf8" stopOpacity="0.95" />
+                  <stop offset="100%" stopColor="#22d3ee" stopOpacity="0.75" />
+                </linearGradient>
+
+                <linearGradient id="sap-connection" x1="1" y1="1" x2="0" y2="0">
+                  <stop offset="0%" stopColor="#34d399" stopOpacity="0.3" />
+                  <stop offset="48%" stopColor="#34d399" stopOpacity="0.95" />
+                  <stop offset="100%" stopColor="#22d3ee" stopOpacity="0.75" />
+                </linearGradient>
+
+                <filter
+                  id="connection-glow"
+                  x="-30%"
+                  y="-30%"
+                  width="160%"
+                  height="160%"
+                >
                   <feGaussianBlur stdDeviation="2.2" result="blur" />
+                  <feMerge>
+                    <feMergeNode in="blur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+
+                <filter
+                  id="data-particle-glow"
+                  x="-300%"
+                  y="-300%"
+                  width="700%"
+                  height="700%"
+                >
+                  <feGaussianBlur stdDeviation="3.5" result="blur" />
                   <feMerge>
                     <feMergeNode in="blur" />
                     <feMergeNode in="SourceGraphic" />
@@ -186,110 +250,177 @@ export default function Home() {
                 </filter>
               </defs>
 
-              {/* Teamcenter to Product */}
+              {/*
+      Exact source badge centers in the 620 x 520 SVG coordinate system:
+
+      ALM        = 310, 66
+      Teamcenter = 75, 107
+      Windchill  = 545, 107
+      Configit   = 75, 413
+      SAP        = 545, 413
+
+      Central platform boundary connection points:
+
+      Top        = 310, 188
+      Upper-left = 247, 224
+      Upper-right= 373, 224
+      Lower-left = 247, 296
+      Lower-right= 373, 296
+    */}
+
+              {/* ALM to orchestration platform */}
+              <path
+                id="alm-path"
+                d="M310 86 C310 118 310 152 310 188"
+                fill="none"
+                stroke="url(#alm-connection)"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                filter="url(#connection-glow)"
+              />
+
+              {/* Teamcenter to orchestration platform */}
               <path
                 id="teamcenter-path"
-                d="M125 112 C175 155 225 215 310 260"
+                d="M96 107 C152 123 205 166 247 224"
                 fill="none"
-                stroke="url(#product-connection)"
-                strokeWidth="1.5"
+                stroke="url(#teamcenter-connection)"
+                strokeWidth="1.8"
                 strokeLinecap="round"
-                filter="url(#product-connection-glow)"
+                filter="url(#connection-glow)"
               />
 
-              {/* Windchill to Product */}
+              {/* Windchill to orchestration platform */}
               <path
                 id="windchill-path"
-                d="M495 112 C445 155 395 215 310 260"
+                d="M524 107 C468 123 415 166 373 224"
                 fill="none"
-                stroke="url(#product-connection)"
-                strokeWidth="1.5"
+                stroke="url(#windchill-connection)"
+                strokeWidth="1.8"
                 strokeLinecap="round"
-                filter="url(#product-connection-glow)"
+                filter="url(#connection-glow)"
               />
 
-              {/* Configit to Product */}
+              {/* Configit to orchestration platform */}
               <path
                 id="configit-path"
-                d="M125 408 C175 365 225 305 310 260"
+                d="M96 413 C152 397 205 354 247 296"
                 fill="none"
-                stroke="url(#product-connection)"
-                strokeWidth="1.5"
+                stroke="url(#configit-connection)"
+                strokeWidth="1.8"
                 strokeLinecap="round"
-                filter="url(#product-connection-glow)"
+                filter="url(#connection-glow)"
               />
 
-              {/* SAP to Product */}
+              {/* SAP to orchestration platform */}
               <path
                 id="sap-path"
-                d="M495 408 C445 365 395 305 310 260"
+                d="M524 413 C468 397 415 354 373 296"
                 fill="none"
-                stroke="url(#product-connection)"
-                strokeWidth="1.5"
+                stroke="url(#sap-connection)"
+                strokeWidth="1.8"
                 strokeLinecap="round"
-                filter="url(#product-connection-glow)"
+                filter="url(#connection-glow)"
               />
 
-              {/* Animated Teamcenter data */}
+              {/* Source connection anchors */}
+              <circle cx="310" cy="86" r="2.6" fill="#a78bfa" opacity="0.95" />
+              <circle cx="96" cy="107" r="2.6" fill="#22d3ee" opacity="0.95" />
+              <circle cx="524" cy="107" r="2.6" fill="#f59e0b" opacity="0.95" />
+              <circle cx="96" cy="413" r="2.6" fill="#818cf8" opacity="0.95" />
+              <circle cx="524" cy="413" r="2.6" fill="#34d399" opacity="0.95" />
+
+              {/* Platform connection anchors */}
               <circle
-                r="3.5"
+                cx="310"
+                cy="188"
+                r="3"
+                fill="#a78bfa"
+                filter="url(#data-particle-glow)"
+              />
+              <circle
+                cx="247"
+                cy="224"
+                r="3"
                 fill="#22d3ee"
-                filter="url(#product-connection-glow)"
-              >
+                filter="url(#data-particle-glow)"
+              />
+              <circle
+                cx="373"
+                cy="224"
+                r="3"
+                fill="#f59e0b"
+                filter="url(#data-particle-glow)"
+              />
+              <circle
+                cx="247"
+                cy="296"
+                r="3"
+                fill="#818cf8"
+                filter="url(#data-particle-glow)"
+              />
+              <circle
+                cx="373"
+                cy="296"
+                r="3"
+                fill="#34d399"
+                filter="url(#data-particle-glow)"
+              />
+
+              {/* Animated ALM data */}
+              <circle r="3.5" fill="#a78bfa" filter="url(#data-particle-glow)">
                 <animateMotion
                   dur="3.8s"
                   repeatCount="indefinite"
                   begin="0s"
-                  path="M125 112 C175 155 225 215 310 260"
+                  path="M310 86 C310 118 310 152 310 188"
+                />
+              </circle>
+
+              {/* Animated Teamcenter data */}
+              <circle r="3.5" fill="#22d3ee" filter="url(#data-particle-glow)">
+                <animateMotion
+                  dur="3.8s"
+                  repeatCount="indefinite"
+                  begin="0.65s"
+                  path="M96 107 C152 123 205 166 247 224"
                 />
               </circle>
 
               {/* Animated Windchill data */}
-              <circle
-                r="3.5"
-                fill="#f59e0b"
-                filter="url(#product-connection-glow)"
-              >
+              <circle r="3.5" fill="#f59e0b" filter="url(#data-particle-glow)">
                 <animateMotion
                   dur="3.8s"
                   repeatCount="indefinite"
-                  begin="0.8s"
-                  path="M495 112 C445 155 395 215 310 260"
+                  begin="1.3s"
+                  path="M524 107 C468 123 415 166 373 224"
                 />
               </circle>
 
               {/* Animated Configit data */}
-              <circle
-                r="3.5"
-                fill="#818cf8"
-                filter="url(#product-connection-glow)"
-              >
+              <circle r="3.5" fill="#818cf8" filter="url(#data-particle-glow)">
                 <animateMotion
                   dur="3.8s"
                   repeatCount="indefinite"
-                  begin="1.6s"
-                  path="M125 408 C175 365 225 305 310 260"
+                  begin="1.95s"
+                  path="M96 413 C152 397 205 354 247 296"
                 />
               </circle>
 
               {/* Animated SAP data */}
-              <circle
-                r="3.5"
-                fill="#34d399"
-                filter="url(#product-connection-glow)"
-              >
+              <circle r="3.5" fill="#34d399" filter="url(#data-particle-glow)">
                 <animateMotion
                   dur="3.8s"
                   repeatCount="indefinite"
-                  begin="2.4s"
-                  path="M495 408 C445 365 395 305 310 260"
+                  begin="2.6s"
+                  path="M524 413 C468 397 415 354 373 296"
                 />
               </circle>
             </svg>
 
-            {/* Teamcenter */}
+            {/* ALM */}
             <motion.div
-              initial={{ opacity: 0, y: 12, scale: 0.96 }}
+              initial={{ opacity: 0, y: -10, scale: 0.96 }}
               animate={{
                 opacity: 1,
                 y: [0, -4, 0],
@@ -305,157 +436,174 @@ export default function Home() {
                   duration: 0.35,
                 },
                 y: {
-                  delay: 0.6,
+                  delay: 0.5,
                   duration: 4.5,
                   repeat: Infinity,
                   ease: "easeInOut",
                 },
               }}
-              className="absolute left-4 top-12 z-20 sm:left-7"
+              className="absolute left-1/2 top-5 z-20 -translate-x-1/2"
             >
-              <div className="flex w-fit items-center gap-3 rounded-2xl border border-slate-200 bg-white/90 p-2 shadow-xl shadow-slate-900/10 backdrop-blur-xl dark:border-slate-700/75 dark:bg-slate-950/90 dark:shadow-black/30">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-cyan-200 bg-cyan-50 text-cyan-700 dark:border-cyan-400/20 dark:bg-cyan-400/[0.08] dark:text-cyan-300">
+              <div className="flex items-center rounded-2xl border border-violet-200 bg-white/90 p-2 shadow-xl shadow-violet-900/10 backdrop-blur-xl dark:border-violet-400/20 dark:bg-slate-950/90 dark:shadow-black/30">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-violet-200 bg-violet-50 text-xs font-bold text-violet-700 dark:border-violet-400/20 dark:bg-violet-400/[0.08] dark:text-violet-300">
+                  ALM
+                </span>
+              </div>
+            </motion.div>
+
+            {/* Teamcenter */}
+            <motion.div
+              initial={{ opacity: 0, x: -12, scale: 0.96 }}
+              animate={{
+                opacity: 1,
+                y: [0, -4, 0],
+                x: 0,
+                scale: 1,
+              }}
+              transition={{
+                opacity: {
+                  delay: 0.14,
+                  duration: 0.35,
+                },
+                x: {
+                  delay: 0.14,
+                  duration: 0.35,
+                },
+                scale: {
+                  delay: 0.14,
+                  duration: 0.35,
+                },
+                y: {
+                  delay: 0.7,
+                  duration: 4.5,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                },
+              }}
+              className="absolute left-4 top-[66px] z-20 sm:left-7"
+            >
+              <div className="flex items-center rounded-2xl border border-cyan-200 bg-white/90 p-2 shadow-xl shadow-cyan-900/10 backdrop-blur-xl dark:border-cyan-400/20 dark:bg-slate-950/90 dark:shadow-black/30">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-cyan-200 bg-cyan-50 text-xs font-bold text-cyan-700 dark:border-cyan-400/20 dark:bg-cyan-400/[0.08] dark:text-cyan-300">
                   PLM
                 </span>
-
-                {/* <span className="min-w-0">
-                  <span className="block truncate text-xs font-semibold text-slate-900 dark:text-white">
-                    Teamcenter
-                  </span>
-                  <span className="mt-0.5 block truncate text-[10px] text-slate-500">
-                    PLM structure
-                  </span>
-                </span> */}
               </div>
             </motion.div>
 
             {/* Windchill */}
             <motion.div
-              initial={{ opacity: 0, y: 12, scale: 0.96 }}
+              initial={{ opacity: 0, x: 12, scale: 0.96 }}
               animate={{
                 opacity: 1,
                 y: [0, -4, 0],
+                x: 0,
                 scale: 1,
               }}
               transition={{
                 opacity: {
-                  delay: 0.14,
+                  delay: 0.2,
+                  duration: 0.35,
+                },
+                x: {
+                  delay: 0.2,
                   duration: 0.35,
                 },
                 scale: {
-                  delay: 0.14,
+                  delay: 0.2,
                   duration: 0.35,
                 },
                 y: {
-                  delay: 0.8,
+                  delay: 0.9,
                   duration: 4.5,
                   repeat: Infinity,
                   ease: "easeInOut",
                 },
               }}
-              className="absolute right-4 top-12 z-20 sm:right-7"
+              className="absolute right-4 top-[66px] z-20 sm:right-7"
             >
-              <div className="flex w-fit items-center gap-3 rounded-2xl border border-slate-200 bg-white/90 p-2 shadow-xl shadow-slate-900/10 backdrop-blur-xl dark:border-slate-700/75 dark:bg-slate-950/90 dark:shadow-black/30">
+              <div className="flex items-center rounded-2xl border border-amber-200 bg-white/90 p-2 shadow-xl shadow-amber-900/10 backdrop-blur-xl dark:border-amber-400/20 dark:bg-slate-950/90 dark:shadow-black/30">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-amber-200 bg-amber-50 text-xs font-bold text-amber-700 dark:border-amber-400/20 dark:bg-amber-400/[0.08] dark:text-amber-300">
                   PLM
                 </span>
-
-                {/* <span className="min-w-0">
-                  <span className="block truncate text-xs font-semibold text-slate-900 dark:text-white">
-                    Windchill
-                  </span>
-                  <span className="mt-0.5 block truncate text-[10px] text-slate-500">
-                    Part hierarchy
-                  </span>
-                </span> */}
               </div>
             </motion.div>
 
             {/* Configit */}
             <motion.div
-              initial={{ opacity: 0, y: 12, scale: 0.96 }}
+              initial={{ opacity: 0, x: -12, scale: 0.96 }}
               animate={{
                 opacity: 1,
                 y: [0, -4, 0],
+                x: 0,
                 scale: 1,
               }}
               transition={{
                 opacity: {
-                  delay: 0.2,
+                  delay: 0.26,
+                  duration: 0.35,
+                },
+                x: {
+                  delay: 0.26,
                   duration: 0.35,
                 },
                 scale: {
-                  delay: 0.2,
+                  delay: 0.26,
                   duration: 0.35,
                 },
                 y: {
-                  delay: 1,
+                  delay: 1.1,
                   duration: 4.5,
                   repeat: Infinity,
                   ease: "easeInOut",
                 },
               }}
-              className="absolute bottom-12 left-4 z-20 sm:left-7"
+              className="absolute bottom-[66px] left-4 z-20 sm:left-7"
             >
-              <div className="flex w-fit items-center gap-3 rounded-2xl border border-slate-200 bg-white/90 p-2 shadow-xl shadow-slate-900/10 backdrop-blur-xl dark:border-slate-700/75 dark:bg-slate-950/90 dark:shadow-black/30">
+              <div className="flex items-center rounded-2xl border border-indigo-200 bg-white/90 p-2 shadow-xl shadow-indigo-900/10 backdrop-blur-xl dark:border-indigo-400/20 dark:bg-slate-950/90 dark:shadow-black/30">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-indigo-200 bg-indigo-50 text-xs font-bold text-indigo-700 dark:border-indigo-400/20 dark:bg-indigo-400/[0.08] dark:text-indigo-300">
                   CPQ
                 </span>
-
-                {/* <span className="min-w-0">
-                  <span className="block truncate text-xs font-semibold text-slate-900 dark:text-white">
-                    Configit
-                  </span>
-                  <span className="mt-0.5 block truncate text-[10px] text-slate-500">
-                    Product configuration
-                  </span>
-                </span> */}
               </div>
             </motion.div>
 
             {/* SAP */}
             <motion.div
-              initial={{ opacity: 0, y: 12, scale: 0.96 }}
+              initial={{ opacity: 0, x: 12, scale: 0.96 }}
               animate={{
                 opacity: 1,
                 y: [0, -4, 0],
+                x: 0,
                 scale: 1,
               }}
               transition={{
                 opacity: {
-                  delay: 0.26,
+                  delay: 0.32,
+                  duration: 0.35,
+                },
+                x: {
+                  delay: 0.32,
                   duration: 0.35,
                 },
                 scale: {
-                  delay: 0.26,
+                  delay: 0.32,
                   duration: 0.35,
                 },
                 y: {
-                  delay: 1.2,
+                  delay: 1.3,
                   duration: 4.5,
                   repeat: Infinity,
                   ease: "easeInOut",
                 },
               }}
-              className="absolute bottom-12 right-4 z-20 sm:right-7"
+              className="absolute bottom-[66px] right-4 z-20 sm:right-7"
             >
-              <div className="flex w-full items-center gap-3 rounded-2xl border border-slate-200 bg-white/90 p-2 shadow-xl shadow-slate-900/10 backdrop-blur-xl dark:border-slate-700/75 dark:bg-slate-950/90 dark:shadow-black/30">
+              <div className="flex items-center rounded-2xl border border-emerald-200 bg-white/90 p-2 shadow-xl shadow-emerald-900/10 backdrop-blur-xl dark:border-emerald-400/20 dark:bg-slate-950/90 dark:shadow-black/30">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 text-xs font-bold text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/[0.08] dark:text-emerald-300">
                   ERP
                 </span>
-
-                {/* <span className="min-w-0">
-                  <span className="block truncate text-xs font-semibold text-slate-900 dark:text-white">
-                    SAP
-                  </span>
-                  <span className="mt-0.5 block truncate text-[10px] text-slate-500">
-                    ERP operations
-                  </span>
-                </span> */}
               </div>
             </motion.div>
 
-            {/* Central Product/BOM core */}
+            {/* Central orchestration platform */}
             <motion.div
               animate={{
                 boxShadow: [
@@ -474,15 +622,17 @@ export default function Home() {
                 <IconDatabase className="h-5 w-5" />
               </span>
 
-              <span className="mt-3 text-[8px] text-center font-semibold uppercase tracking-[0.2em] text-cyan-700 dark:text-cyan-200">
-                Orchestration <br /> Platform
+              <span className="mt-3 text-center text-[8px] font-semibold uppercase tracking-[0.2em] text-cyan-700 dark:text-cyan-200">
+                Orchestration
+                <br />
+                Platform
               </span>
             </motion.div>
 
-            {/* Bottom status */}
-            <div className="absolute bottom-3 left-1/2 z-30 hidden -translate-x-1/2 items-center gap-2 rounded-full border border-slate-200 bg-white/85 px-3 py-1.5 text-[9px] font-medium text-slate-500 shadow-sm backdrop-blur dark:border-slate-700 dark:bg-slate-950/75 sm:flex">
+            {/* Bottom connected-systems status */}
+            <div className="absolute bottom-3 left-1/2 z-30 hidden -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-full border border-slate-200 bg-white/85 px-3 py-1.5 text-[9px] font-medium text-slate-500 shadow-sm backdrop-blur dark:border-slate-700 dark:bg-slate-950/75 sm:flex">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
-              Product data connected across PLM, CPQ, and ERP
+              Product data connected across ALM, PLM, CPQ, and ERP
             </div>
           </motion.div>
         </section>
@@ -493,7 +643,7 @@ export default function Home() {
           <h2 className="mt-3 text-4xl font-semibold">
             Bring every product system into focus
           </h2>
-          <div className="mt-9 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="mt-9 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
             {cards.map((card, index) => {
               const Icon = card.icon;
               return (

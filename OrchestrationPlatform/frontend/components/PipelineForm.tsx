@@ -4,8 +4,9 @@ import { motion } from "motion/react";
 import { useState } from "react";
 import { startPipeline } from "@/lib/api";
 import { StatefulButtonDemo } from "./StatefulButton";
+
 interface PipelineFormProps {
-  onSubmit: (jobId: string, payload?: unknown) => void;
+  onSubmit: (jobId: string, payload?: unknown, itemId?: string) => void;
   isLoading: boolean;
 }
 
@@ -16,17 +17,16 @@ export function PipelineForm({ onSubmit, isLoading }: PipelineFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    const submittedItemId = itemId.trim();
 
-    if (!itemId.trim()) {
+    if (!submittedItemId) {
       setError("TeamCenter Item ID is required");
       return;
     }
 
     try {
-      const result = await startPipeline({
-        teamcenterItemId: itemId.trim(),
-      });
-      onSubmit(result.jobId ?? "", result.payload ?? null);
+      const result = await startPipeline({ teamcenterItemId: submittedItemId });
+      onSubmit(result.jobId ?? "", result.payload ?? null, submittedItemId);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to start pipeline");
     }
@@ -61,22 +61,11 @@ export function PipelineForm({ onSubmit, isLoading }: PipelineFormProps) {
           <StatefulButtonDemo isLoading={isLoading} disabled={isLoading} />
         </div>
       </div>
-
       {error && (
         <div className="rounded-2xl border border-rose-500/40 bg-rose-500/10 px-3.5 py-3 text-sm text-rose-200">
           {error}
         </div>
       )}
-
-      {/* <motion.button
-        type="submit"
-        disabled={isLoading}
-        whileHover={{ y: -2, scale: 1.01 }}
-        whileTap={{ scale: 0.98 }}
-        className="cursor-pointer w-full rounded-2xl bg-gradient-to-r from-emerald-500 to-cyan-500 px-4 py-3.5 text-sm font-semibold text-slate-950 shadow-lg shadow-emerald-500/20 transition disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {isLoading ? "Extracting..." : "Extract BOM"}
-      </motion.button> */}
     </motion.form>
   );
 }

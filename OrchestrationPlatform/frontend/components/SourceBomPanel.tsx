@@ -397,14 +397,14 @@ export function SourceBomPanel({
       ].join(" ")}
     >
       <header className="flex items-center justify-between border-b border-slate-200 px-4 py-3.5 dark:border-slate-800">
-        <div>
+        {/* <div>
           <h3 className="text-sm font-semibold">{title}</h3>
           <p className="mt-1 text-xs text-slate-500">
             {comparisonMode
               ? `Compared with ${counterpartLabel}`
               : "Extracted BOM structure"}
           </p>
-        </div>
+        </div> */}
         <span className="rounded-full border border-slate-200 px-2.5 py-1 text-[10px] font-semibold uppercase dark:border-slate-700">
           {status}
         </span>

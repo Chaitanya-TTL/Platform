@@ -1,118 +1,125 @@
 {
   "bomRoot": {
-    "itemId": "000575",
+    "itemId": "002403",
     "sequence": "",
     "variantState": "Y",
     "children": [
       {
-        "itemId": "000577",
+        "itemId": "002404",
+        "sequence": "10",
+        "variantState": "Y",
+        "qty": "",
+        "revId": "A",
+        "name": "002404/A;1-Counter Sink",
+        "variantCondition": null
+      },
+      {
+        "itemId": "002405",
+        "sequence": "20",
+        "variantState": "Y",
+        "qty": "",
+        "revId": "A",
+        "name": "002405/A;1-Washer",
+        "variantCondition": null
+      },
+      {
+        "itemId": "002407",
         "sequence": "40",
         "variantState": "Y",
-        "children": [
-          {
-            "itemId": "000578",
-            "sequence": "50",
-            "variantState": "Y",
-            "qty": "1",
-            "revId": "A",
-            "name": "000578/A;1-Top x 1",
-            "variantCondition": null
-          },
-          {
-            "itemId": "000579",
-            "sequence": "60",
-            "variantState": "Y",
-            "qty": "1",
-            "revId": "A",
-            "name": "000579/A;1-Barrel x 1",
-            "variantCondition": null
-          },
-          {
-            "itemId": "000582",
-            "sequence": "70",
-            "variantState": "Y",
-            "qty": "1",
-            "revId": "A",
-            "name": "000582/A;1-Grip x 1",
-            "variantCondition": null
-          }
-        ],
-        "qty": "1",
+        "qty": "",
         "revId": "A",
-        "name": "000577/A;1-Body (View) x 1",
+        "name": "002407/A;1-Nut",
         "variantCondition": null
       },
       {
-        "itemId": "001908",
+        "itemId": "002408",
         "sequence": "50",
         "variantState": "Y",
-        "children": [
-          {
-            "itemId": "001909",
-            "sequence": "30",
-            "variantState": "Y",
-            "qty": "1",
-            "revId": "A",
-            "name": "001909/A;1-BLUE x 1",
-            "variantCondition": null
-          },
-          {
-            "itemId": "001910",
-            "sequence": "40",
-            "variantState": "Y",
-            "qty": "1",
-            "revId": "A",
-            "name": "001910/A;1-RED x 1",
-            "variantCondition": null
-          }
-        ],
-        "qty": "1",
+        "qty": "",
         "revId": "A",
-        "name": "001908/A;1-Color x 1",
+        "name": "002408/A;1-Tommy Bar",
         "variantCondition": null
       },
       {
-        "itemId": "001911",
+        "itemId": "002409",
         "sequence": "60",
         "variantState": "Y",
         "children": [
           {
-            "itemId": "001912",
-            "sequence": "30",
+            "itemId": "002414",
+            "sequence": "10",
             "variantState": "Y",
-            "qty": "1",
+            "qty": "",
             "revId": "A",
-            "name": "001912/A;1-THICK x 1",
+            "name": "002414/A;1-Normal Body",
             "variantCondition": null
           },
           {
-            "itemId": "001913",
-            "sequence": "40",
+            "itemId": "002413",
+            "sequence": "20",
             "variantState": "Y",
-            "qty": "1",
+            "qty": "",
             "revId": "A",
-            "name": "001913/A;1-THIN x 1",
+            "name": "002413/A;1-Slim Body",
             "variantCondition": null
           }
         ],
-        "qty": "1",
+        "qty": "",
         "revId": "A",
-        "name": "001911/A;1-Nib Type x 1",
+        "name": "002409/A;1-Body",
+        "variantCondition": null
+      },
+      {
+        "itemId": "002410",
+        "sequence": "70",
+        "variantState": "Y",
+        "qty": "",
+        "revId": "A",
+        "name": "002410/A;1-Screw Spindle",
+        "variantCondition": null
+      },
+      {
+        "itemId": "002412",
+        "sequence": "90",
+        "variantState": "Y",
+        "children": [
+          {
+            "itemId": "002406",
+            "sequence": "10",
+            "variantState": "Y",
+            "qty": "",
+            "revId": "A",
+            "name": "002406/A;1-Cup",
+            "variantCondition": null
+          },
+          {
+            "itemId": "002411",
+            "sequence": "20",
+            "variantState": "Y",
+            "qty": "",
+            "revId": "A",
+            "name": "002411/A;1-Cup 150",
+            "variantCondition": null
+          }
+        ],
+        "qty": "",
+        "revId": "A",
+        "name": "002412/A;1-Top Head",
         "variantCondition": null
       }
     ],
     "qty": "",
     "revId": "A",
-    "name": "000575/A;2-PEN (View)",
+    "name": "002403/A;1-Screwjack",
     "variantCondition": null
   },
   "sourceRevId": "A",
   "variantOptions": {
 
   },
-  "sourceItemId": "000575",
+  "sourceItemId": "002403",
   "variantRules": [
 
   ],
-  "extractedAt": "2026-07-20T10:45:58.769120100Z"
+  "extractedAt": "2026-07-21T10:48:52.510531600Z"
 }

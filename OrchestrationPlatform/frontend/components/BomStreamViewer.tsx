@@ -42,7 +42,7 @@ type FlattenedLevels = {
   ids: Set<string>;
 };
 
-const TEAMCENTER_MAX_FETCH_ATTEMPTS = 20;
+const TEAMCENTER_MAX_FETCH_ATTEMPTS = 2000;
 const TEAMCENTER_RETRY_DELAY_MS = 1500;
 
 function asRecord(
