@@ -19,6 +19,7 @@ import {
   IconRefresh,
   IconRotate,
   IconRotateClockwise,
+  IconX,
 } from "@tabler/icons-react";
 
 import {
@@ -72,6 +73,7 @@ export function BomConstellationView({
   search,
   selectedId,
   onSelect,
+  onClearSelection,
   onFullScreen,
 }: {
   root: TreeNodeData;
@@ -80,6 +82,7 @@ export function BomConstellationView({
   search: string;
   selectedId?: string;
   onSelect: (node: TreeNodeData) => void;
+  onClearSelection: () => void;
   onFullScreen: () => void;
 }) {
   const reducedMotion = useReducedMotion();
@@ -99,6 +102,7 @@ export function BomConstellationView({
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [transform, setTransform] = useState(DEFAULT_TRANSFORM);
   const [showLegend, setShowLegend] = useState(false);
+  const [tooltipDismissed, setTooltipDismissed] = useState(false);
 
   const graph = useMemo(
     () => buildVisualBomGraph(root, source, comparison),
@@ -122,7 +126,8 @@ export function BomConstellationView({
   );
   const breadcrumbs = ancestors(graph, focusId);
   const activeId = hoveredId ?? selectedId;
-  const activeNode = activeId ? graph.byId[activeId] : undefined;
+  const activeNode =
+    !tooltipDismissed && activeId ? graph.byId[activeId] : undefined;
 
   const toggleExpanded = (id: string) => {
     setExpandedIds((current) => {
@@ -421,7 +426,10 @@ export function BomConstellationView({
                 onHover={setHoveredId}
                 onSelect={(id) => {
                   const raw = findNode(root, id);
-                  if (raw) onSelect(raw);
+                  if (raw) {
+                    setTooltipDismissed(false);
+                    onSelect(raw);
+                  }
                 }}
                 onToggle={toggleExpanded}
                 onFocus={setFocusId}
@@ -446,13 +454,18 @@ export function BomConstellationView({
             }
             ancestors={ancestors(graph, activeNode.id)}
             descendants={descendants(graph, activeNode.id)}
+            onClose={() => {
+              setHoveredId(null);
+              setTooltipDismissed(true);
+              onClearSelection();
+            }}
           />
         ) : null}
 
-        <div className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-xl border border-slate-700 bg-slate-950/85 px-3 py-2 text-[10px] text-slate-500 backdrop-blur">
+        {/* <div className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-xl border border-slate-700 bg-slate-950/85 px-3 py-2 text-[10px] text-slate-500 backdrop-blur">
           Drag to pan · Wheel to zoom · Click to inspect · Double-click an
           assembly to isolate
-        </div>
+        </div> */}
       </div>
     </motion.div>
   );
@@ -628,6 +641,7 @@ function NodeTooltip({
   siblings,
   ancestors: ancestorNodes,
   descendants: descendantNodes,
+  onClose,
 }: {
   node: VisualBomNode;
   comparison?: NodeComparison;
@@ -635,6 +649,7 @@ function NodeTooltip({
   siblings: VisualBomNode[];
   ancestors: VisualBomNode[];
   descendants: VisualBomNode[];
+  onClose: () => void;
 }) {
   const classification = node.isRoot
     ? "Product root"
@@ -663,9 +678,25 @@ function NodeTooltip({
             {node.itemId ? `Item ID ${node.itemId}` : "No business identifier"}
           </p>
         </div>
-        <span className="rounded-lg border border-slate-700 px-2 py-1 text-[9px] text-slate-400">
-          {node.source}
-        </span>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <span className="rounded-lg border border-slate-700 px-2 py-1 text-[9px] text-slate-400">
+            {node.source}
+          </span>
+          <button
+            data-control="true"
+            type="button"
+            title="Close node information"
+            aria-label="Close node information"
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={(event) => {
+              event.stopPropagation();
+              onClose();
+            }}
+            className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-700 text-slate-400 transition hover:border-slate-500 hover:bg-slate-800 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+          >
+            <IconX className="h-3.5 w-3.5" />
+          </button>
+        </div>
       </div>
 
       <div className="mt-4 grid grid-cols-3 gap-2">

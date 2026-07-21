@@ -1,4 +1,4 @@
-export type SourceType = "teamcenter" | "windchill" | "configit";
+export type SourceType = "teamcenter" | "windchill" | "configit" | "sap";
 export type ComparisonStatus =
   | "matched"
   | "changed"

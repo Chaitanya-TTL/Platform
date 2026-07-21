@@ -34,6 +34,7 @@ import {
   IconEye,
   IconEyeOff,
   IconFocus2,
+  IconInfoCircle,
   IconRefresh,
   IconRotate3d,
   IconX,
@@ -104,7 +105,7 @@ export function BomThreeUniverseView({
   onFullScreen: () => void;
 }) {
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const [explosion, setExplosion] = useState(0.66);
+  const [explosion, setExplosion] = useState(0);
   const [labels, setLabels] = useState(true);
   const [mode, setMode] = useState<ThreeAnalysisMode>("structure");
   const [hoveredId, setHoveredId] = useState<string | null>(null);
@@ -258,7 +259,7 @@ export function BomThreeUniverseView({
         touchAction: "none",
       }}
     >
-      <div className="pointer-events-none absolute inset-x-3 top-3 z-30 flex items-start justify-between gap-3">
+      {/* <div className="pointer-events-none absolute inset-x-3 top-3 z-30 flex items-start justify-between gap-3">
         <div className="pointer-events-auto rounded-xl border border-slate-700 bg-slate-950/92 px-3 py-2 shadow-xl backdrop-blur">
           <p className="text-[9px] font-bold uppercase tracking-[.18em] text-cyan-400">
             3D BOM Intelligence Universe
@@ -304,9 +305,9 @@ export function BomThreeUniverseView({
             <IconArrowsMaximize />
           </Control>
         </div>
-      </div>
+      </div> */}
 
-      <div className="pointer-events-auto absolute left-3 top-[76px] z-30 flex flex-wrap gap-1 rounded-xl border border-slate-700 bg-slate-950/92 p-1.5 backdrop-blur">
+      {/* <div className="pointer-events-auto absolute left-3 top-[76px] z-30 flex flex-wrap gap-1 rounded-xl border border-slate-700 bg-slate-950/92 p-1.5 backdrop-blur">
         {analysisModes.map((item) => (
           <button
             key={item.value}
@@ -321,7 +322,7 @@ export function BomThreeUniverseView({
             {item.label}
           </button>
         ))}
-      </div>
+      </div> */}
 
       {isolatedId ? (
         <div className="absolute left-3 top-[122px] z-30 flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[10px] text-amber-200">
@@ -393,7 +394,7 @@ export function BomThreeUniverseView({
         </Canvas>
       </WebGLErrorBoundary>
 
-      <div className="absolute bottom-3 left-3 z-30 w-[250px] rounded-xl border border-slate-700 bg-slate-950/92 p-3 backdrop-blur">
+      {/* <div className="absolute bottom-3 left-3 z-30 w-[250px] rounded-xl border border-slate-700 bg-slate-950/92 p-3 backdrop-blur">
         <div className="flex items-center justify-between text-[10px] font-semibold text-slate-300">
           <span className="flex items-center gap-1.5">
             <IconRotate3d className="h-4 w-4 text-cyan-400" />
@@ -415,9 +416,9 @@ export function BomThreeUniverseView({
           <span>Compact</span>
           <span>Exploded</span>
         </div>
-      </div>
+      </div> */}
 
-      <div className="absolute bottom-3 left-[270px] z-30 flex rounded-xl border border-slate-700 bg-slate-950/92 p-1 backdrop-blur">
+      {/* <div className="absolute bottom-3 left-[270px] z-30 flex rounded-xl border border-slate-700 bg-slate-950/92 p-1 backdrop-blur">
         {(["front", "top", "side"] as CameraPreset[]).map((preset) => (
           <button
             key={preset}
@@ -428,7 +429,7 @@ export function BomThreeUniverseView({
             {preset}
           </button>
         ))}
-      </div>
+      </div> */}
 
       {showInsights ? (
         <IntelligenceRail
@@ -446,9 +447,9 @@ export function BomThreeUniverseView({
         <button
           type="button"
           onClick={() => setShowInsights(true)}
-          className="absolute bottom-3 right-3 z-30 rounded-xl border border-slate-700 bg-slate-950/92 px-3 py-2 text-[10px] text-cyan-300"
+          className="absolute top-3 right-3 z-30 rounded-xl border border-slate-700 bg-slate-950/92 px-3 py-2 text-[10px] text-cyan-300"
         >
-          Open intelligence
+          <IconInfoCircle stroke={2} />
         </button>
       )}
     </div>

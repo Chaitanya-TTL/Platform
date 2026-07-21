@@ -313,19 +313,19 @@ export default function Home() {
               }}
               className="absolute left-4 top-12 z-20 sm:left-7"
             >
-              <div className="flex min-w-[150px] items-center gap-3 rounded-2xl border border-slate-200 bg-white/90 p-3 shadow-xl shadow-slate-900/10 backdrop-blur-xl dark:border-slate-700/75 dark:bg-slate-950/90 dark:shadow-black/30">
+              <div className="flex w-fit items-center gap-3 rounded-2xl border border-slate-200 bg-white/90 p-2 shadow-xl shadow-slate-900/10 backdrop-blur-xl dark:border-slate-700/75 dark:bg-slate-950/90 dark:shadow-black/30">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-cyan-200 bg-cyan-50 text-cyan-700 dark:border-cyan-400/20 dark:bg-cyan-400/[0.08] dark:text-cyan-300">
                   PLM
                 </span>
 
-                <span className="min-w-0">
+                {/* <span className="min-w-0">
                   <span className="block truncate text-xs font-semibold text-slate-900 dark:text-white">
                     Teamcenter
                   </span>
                   <span className="mt-0.5 block truncate text-[10px] text-slate-500">
                     PLM structure
                   </span>
-                </span>
+                </span> */}
               </div>
             </motion.div>
 
@@ -355,19 +355,19 @@ export default function Home() {
               }}
               className="absolute right-4 top-12 z-20 sm:right-7"
             >
-              <div className="flex min-w-[150px] items-center gap-3 rounded-2xl border border-slate-200 bg-white/90 p-3 shadow-xl shadow-slate-900/10 backdrop-blur-xl dark:border-slate-700/75 dark:bg-slate-950/90 dark:shadow-black/30">
+              <div className="flex w-fit items-center gap-3 rounded-2xl border border-slate-200 bg-white/90 p-2 shadow-xl shadow-slate-900/10 backdrop-blur-xl dark:border-slate-700/75 dark:bg-slate-950/90 dark:shadow-black/30">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-amber-200 bg-amber-50 text-xs font-bold text-amber-700 dark:border-amber-400/20 dark:bg-amber-400/[0.08] dark:text-amber-300">
                   PLM
                 </span>
 
-                <span className="min-w-0">
+                {/* <span className="min-w-0">
                   <span className="block truncate text-xs font-semibold text-slate-900 dark:text-white">
                     Windchill
                   </span>
                   <span className="mt-0.5 block truncate text-[10px] text-slate-500">
                     Part hierarchy
                   </span>
-                </span>
+                </span> */}
               </div>
             </motion.div>
 
@@ -397,19 +397,19 @@ export default function Home() {
               }}
               className="absolute bottom-12 left-4 z-20 sm:left-7"
             >
-              <div className="flex min-w-[150px] items-center gap-3 rounded-2xl border border-slate-200 bg-white/90 p-3 shadow-xl shadow-slate-900/10 backdrop-blur-xl dark:border-slate-700/75 dark:bg-slate-950/90 dark:shadow-black/30">
+              <div className="flex w-fit items-center gap-3 rounded-2xl border border-slate-200 bg-white/90 p-2 shadow-xl shadow-slate-900/10 backdrop-blur-xl dark:border-slate-700/75 dark:bg-slate-950/90 dark:shadow-black/30">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-indigo-200 bg-indigo-50 text-xs font-bold text-indigo-700 dark:border-indigo-400/20 dark:bg-indigo-400/[0.08] dark:text-indigo-300">
                   CPQ
                 </span>
 
-                <span className="min-w-0">
+                {/* <span className="min-w-0">
                   <span className="block truncate text-xs font-semibold text-slate-900 dark:text-white">
                     Configit
                   </span>
                   <span className="mt-0.5 block truncate text-[10px] text-slate-500">
                     Product configuration
                   </span>
-                </span>
+                </span> */}
               </div>
             </motion.div>
 
@@ -439,19 +439,19 @@ export default function Home() {
               }}
               className="absolute bottom-12 right-4 z-20 sm:right-7"
             >
-              <div className="flex min-w-[150px] items-center gap-3 rounded-2xl border border-slate-200 bg-white/90 p-3 shadow-xl shadow-slate-900/10 backdrop-blur-xl dark:border-slate-700/75 dark:bg-slate-950/90 dark:shadow-black/30">
+              <div className="flex w-full items-center gap-3 rounded-2xl border border-slate-200 bg-white/90 p-2 shadow-xl shadow-slate-900/10 backdrop-blur-xl dark:border-slate-700/75 dark:bg-slate-950/90 dark:shadow-black/30">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 text-xs font-bold text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/[0.08] dark:text-emerald-300">
                   ERP
                 </span>
 
-                <span className="min-w-0">
+                {/* <span className="min-w-0">
                   <span className="block truncate text-xs font-semibold text-slate-900 dark:text-white">
                     SAP
                   </span>
                   <span className="mt-0.5 block truncate text-[10px] text-slate-500">
                     ERP operations
                   </span>
-                </span>
+                </span> */}
               </div>
             </motion.div>
 

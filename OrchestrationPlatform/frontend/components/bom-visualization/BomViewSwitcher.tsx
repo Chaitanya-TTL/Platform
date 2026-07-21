@@ -15,12 +15,12 @@ const items = [
     icon: IconCube,
     enabled: true,
   },
-  {
-    mode: "radial" as const,
-    label: "Radial BOM explorer",
-    icon: IconChartDonut,
-    enabled: false,
-  },
+  // {
+  //   mode: "radial" as const,
+  //   label: "Radial BOM explorer",
+  //   icon: IconChartDonut,
+  //   enabled: true,
+  // },
 ];
 export function BomViewSwitcher({
   mode,
@@ -30,7 +30,7 @@ export function BomViewSwitcher({
   onChange: (mode: BomViewMode) => void;
 }) {
   return (
-    <div className="inline-flex rounded-xl border border-slate-300 bg-white p-1 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+    <div className="inline-flex rounded-xl border border-slate-300 bg-white px-1 py-0.5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
       {items.map((item) => {
         const Icon = item.icon,
           active = mode === item.mode;
@@ -43,7 +43,7 @@ export function BomViewSwitcher({
               aria-pressed={active}
               onClick={() => onChange(active ? "tree" : item.mode)}
               className={[
-                "relative flex h-8 w-8 items-center justify-center rounded-lg disabled:cursor-not-allowed disabled:opacity-35",
+                "relative flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg disabled:cursor-not-allowed disabled:opacity-35",
                 active ? "text-white" : "text-slate-500 hover:text-cyan-600",
               ].join(" ")}
             >
@@ -58,7 +58,6 @@ export function BomViewSwitcher({
             </button>
             <span className="pointer-events-none absolute bottom-[calc(100%+8px)] left-1/2 z-50 hidden -translate-x-1/2 whitespace-nowrap rounded-lg bg-slate-950 px-2.5 py-1.5 text-[10px] text-white group-hover:block">
               {item.label}
-              {!item.enabled ? " · coming next" : ""}
             </span>
           </div>
         );

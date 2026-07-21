@@ -12,7 +12,7 @@ export function StatefulButtonDemo({
       type="submit"
       loading={isLoading}
       disabled={disabled}
-      className="min-w-[112px] rounded-none border-l border-cyan-300 bg-cyan-50 px-3 py-3 text-xs font-semibold text-cyan-900 dark:border-cyan-400/30 dark:bg-cyan-500/15 dark:text-cyan-50 sm:min-w-[146px] sm:px-4"
+      className="extract-bom-button min-w-[104px] shrink-0 rounded-none border-l border-cyan-300 bg-cyan-50 px-3 py-3 text-xs font-semibold text-cyan-900 dark:border-cyan-400/30 dark:bg-cyan-500/15 dark:text-cyan-50"
     >
       {isLoading ? "Running" : "Extract BOM"}
     </Button>

@@ -31,6 +31,9 @@ import type { PipelineProgress } from "@/lib/api";
 
 import { BomViewSwitcher } from "@/components/bom-visualization/BomViewSwitcher";
 import { BomConstellationView } from "@/components/bom-visualization/BomConstellationView";
+import { ImpactAnalysisWorkspace, ImpactModeToggle } from "@/components/bom-impact/ImpactAnalysisWorkspace";
+import { occurrencesForSource, registerImpactBom, runImpactSearch, useCrossBomImpact } from "@/lib/cross-bom-impact-store";
+import { BomRadialExplorerView } from "@/components/bom-visualization/BomRadialExplorerView";
 import { BomThreeUniverseView } from "@/components/bom-visualization/BomThreeUniverseView";
 import { SourceType, TreeNodeData, NodeComparison, ComparisonFilter } from "@/types/bom-comparison";
 import { BomViewMode } from "@/types/bom-visualization";
@@ -159,12 +162,14 @@ function TreeRow({
   comparisonMode,
   comparison,
   selected,
+  impactMatch,
   onSelect,
 }: NodeRendererProps<TreeNodeData> & {
   source: SourceType;
   comparisonMode: boolean;
   comparison?: NodeComparison;
   selected: boolean;
+  impactMatch: boolean;
   onSelect: (node: TreeNodeData) => void;
 }) {
   const presented = sourcePresentation(node.data, source);
@@ -195,9 +200,11 @@ function TreeRow({
         onDoubleClick={() => hasChildren && node.toggle()}
         className={[
           "flex w-full min-w-0 items-center gap-2 rounded-xl border px-2 py-2 outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 sm:gap-3 sm:px-3",
-          selected
-            ? "border-cyan-300 bg-cyan-50 dark:border-cyan-400/30 dark:bg-cyan-400/[.09]"
-            : visual
+          impactMatch
+            ? "border-emerald-400 bg-emerald-50 ring-2 ring-emerald-400/30 dark:border-emerald-400/50 dark:bg-emerald-400/[.12]"
+            : selected
+              ? "border-cyan-300 bg-cyan-50 dark:border-cyan-400/30 dark:bg-cyan-400/[.09]"
+              : visual
               ? visual.row
               : "border-transparent hover:bg-slate-100 dark:hover:bg-slate-800/60",
         ].join(" ")}
@@ -265,6 +272,13 @@ export function SourceBomPanel({
   const [fallback, setFallback] = useState(false);
   const [viewMode, setViewMode] = useState<BomViewMode>("tree");
   const tree = useRef<TreeApi<TreeNodeData> | null>(null);
+  const impact = useCrossBomImpact();
+  const impactOccurrences = occurrencesForSource(impact.result, source);
+  const impactMatchIds = useMemo(
+    () => new Set(impactOccurrences.map((item) => item.nodeId)),
+    [impactOccurrences],
+  );
+  const loadedImpactBomCount = Object.keys(impact.loadedBoms).length;
 
   useEffect(() => {
     if (!active) {
@@ -358,6 +372,16 @@ export function SourceBomPanel({
     transformPayload,
   ]);
 
+  useEffect(() => {
+    registerImpactBom(source, bom);
+    return () => registerImpactBom(source, null);
+  }, [source, bom]);
+
+  const handleNodeSelection = (node: TreeNodeData) => {
+    setSelected(node);
+    if (impact.enabled) runImpactSearch(source, node);
+  };
+
   const data = useMemo(() => (bom ? [bom] : []), [bom]);
   const summary = useMemo(() => (bom ? metrics(bom) : null), [bom]);
   const shown = selected ? sourcePresentation(selected, source) : null;
@@ -368,7 +392,7 @@ export function SourceBomPanel({
   const panel = (
     <section
       className={[
-        "relative flex min-h-0 flex-col overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-950/95",
+        "bom-panel relative flex min-h-0 flex-col overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-950/95",
         fullScreen ? "fixed inset-2 z-[100] shadow-2xl sm:inset-6" : "h-full",
       ].join(" ")}
     >
@@ -412,28 +436,22 @@ export function SourceBomPanel({
                 </button>
               ) : null}
             </div>
-            <div className="mt-2 flex items-center justify-between gap-2">
-              <div className="grid flex-1 grid-cols-3 gap-2">
-                <Tool
-                  disabled={viewMode !== "tree"}
-                  onClick={() => tree.current?.openAll()}
-                >
+            <div className="bom-toolbar mt-2">
+              <div className="space-x-2">
+                <Tool  disabled={viewMode !== "tree"} onClick={() => tree.current?.openAll()}>
                   <IconChevronsDown className="h-4 w-4" />
-                  Expand
                 </Tool>
-                <Tool
-                  disabled={viewMode !== "tree"}
-                  onClick={() => tree.current?.closeAll()}
-                >
+                <Tool disabled={viewMode !== "tree"} onClick={() => tree.current?.closeAll()}>
                   <IconChevronsUp className="h-4 w-4" />
-                  Collapse
                 </Tool>
                 <Tool onClick={() => setFullScreen((value) => !value)}>
                   <IconArrowsMaximize className="h-4 w-4" />
-                  {fullScreen ? "Close" : "Full screen"}
                 </Tool>
               </div>
-              <BomViewSwitcher mode={viewMode} onChange={setViewMode} />
+              <div className="flex items-center justify-end-safe space-x-2">
+                <ImpactModeToggle enabled={impact.enabled} result={impact.result} loadedCount={loadedImpactBomCount} />
+                <BomViewSwitcher mode={viewMode} onChange={setViewMode} />
+              </div>
             </div>
             <div className="mt-3 grid grid-cols-4 divide-x divide-slate-200 rounded-lg border border-slate-200 dark:divide-slate-800 dark:border-slate-800">
               {[
@@ -461,7 +479,8 @@ export function SourceBomPanel({
                   comparison={comparisonMode ? comparison : undefined}
                   search={search}
                   selectedId={selected?.id}
-                  onSelect={setSelected}
+                  onSelect={handleNodeSelection}
+                  onClearSelection={() => setSelected(null)}
                   onFullScreen={() => setFullScreen(true)}
                 />
               ) : viewMode === "three-dimensional" ? (
@@ -472,7 +491,18 @@ export function SourceBomPanel({
                   comparison={comparisonMode ? comparison : undefined}
                   search={search}
                   selectedId={selected?.id}
-                  onSelect={setSelected}
+                  onSelect={handleNodeSelection}
+                  onFullScreen={() => setFullScreen(true)}
+                />
+              ) : viewMode === "radial" ? (
+                <BomRadialExplorerView
+                  key="radial"
+                  root={bom}
+                  source={source}
+                  comparison={comparisonMode ? comparison : undefined}
+                  search={search}
+                  selectedId={selected?.id}
+                  onSelect={handleNodeSelection}
                   onFullScreen={() => setFullScreen(true)}
                 />
               ) : (
@@ -509,7 +539,8 @@ export function SourceBomPanel({
                         comparisonMode={comparisonMode}
                         comparison={comparison?.[props.node.data.id]}
                         selected={selected?.id === props.node.data.id}
-                        onSelect={setSelected}
+                        impactMatch={impactMatchIds.has(props.node.data.id)}
+                        onSelect={handleNodeSelection}
                       />
                     )}
                   </Tree>
@@ -551,6 +582,14 @@ export function SourceBomPanel({
         />
       ) : null}
       {panel}
+      {impact.enabled && !impact.result ? (
+        <div className="fixed bottom-4 left-1/2 z-[150] -translate-x-1/2 rounded-xl border border-cyan-400/30 bg-slate-950/95 px-4 py-2 text-xs text-cyan-200 shadow-2xl">
+          Impact Analysis is ON. Click any BOM line to search all loaded BOMs.
+        </div>
+      ) : null}
+      {impact.enabled && impact.result?.selectedSource === source ? (
+        <ImpactAnalysisWorkspace result={impact.result} />
+      ) : null}
     </>
   );
 }
@@ -628,11 +667,13 @@ function Tool({
   return (
     <button
       type="button"
+
       disabled={disabled}
       onClick={onClick}
-      className="inline-flex h-9 items-center justify-center gap-1 rounded-lg border border-slate-300 text-[11px] disabled:opacity-35 dark:border-slate-700"
+      className="bom-tool cursor-pointer inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 px-2 text-[11px] font-medium disabled:cursor-not-allowed disabled:opacity-35 dark:border-slate-700"
     >
       {children}
+      <span className="bom-tool__label truncate"></span>
     </button>
   );
 }
