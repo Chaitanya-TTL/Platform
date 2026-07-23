@@ -36,7 +36,6 @@ import { PipelineForm } from "@/components/PipelineForm";
 import { QuickStartModal } from "@/components/QuickStartModal";
 import { RequirementContextBanner } from "@/components/RequirementContextBanner";
 import { SAPForm } from "@/components/SAPForm";
-import { SourceBomPanel } from "@/components/SourceBomPanel";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { WindchillForm } from "@/components/WindchillForm";
 import { subscribeToProgress, type PipelineProgress } from "@/lib/api";
@@ -49,6 +48,7 @@ import type {
   SourceType,
   TreeNodeData,
 } from "@/types/bom-comparison";
+import { SourceBomPanel } from "@/components/SourceBomPanel";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5212/api";
 type Category = "PLM" | "ERP" | "CPQ";

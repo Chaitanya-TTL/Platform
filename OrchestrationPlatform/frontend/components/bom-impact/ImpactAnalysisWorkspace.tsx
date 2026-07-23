@@ -1,5 +1,4 @@
 "use client";
-
 import type { ReactNode } from "react";
 import {
   IconClipboard,
@@ -11,19 +10,18 @@ import {
   clearImpactResult,
   setImpactEnabled,
 } from "@/lib/cross-bom-impact-store";
+import { setRequirementTraceEnabled } from "@/lib/requirement-trace-store";
 import type {
   CrossBomImpactResult,
   ImpactOccurrence,
 } from "@/types/bom-impact";
 import type { SourceType } from "@/types/bom-comparison";
-
 const labels: Record<SourceType, string> = {
   teamcenter: "Teamcenter",
   windchill: "Windchill",
   sap: "SAP",
   configit: "Configit",
 };
-
 export function ImpactModeToggle({
   enabled,
   result,
@@ -36,7 +34,10 @@ export function ImpactModeToggle({
   return (
     <button
       type="button"
-      onClick={() => setImpactEnabled(!enabled)}
+      onClick={() => {
+        if (!enabled) setRequirementTraceEnabled(false);
+        setImpactEnabled(!enabled);
+      }}
       className={`inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-[10px] font-semibold ${enabled ? "border-cyan-400/40 bg-cyan-500/15 text-cyan-300" : "border-slate-300 text-slate-500 dark:border-slate-700"}`}
     >
       <IconSearch className="h-4 w-4" />
@@ -49,7 +50,6 @@ export function ImpactModeToggle({
     </button>
   );
 }
-
 export function ImpactAnalysisWorkspace({
   result,
 }: {
@@ -100,7 +100,6 @@ export function ImpactAnalysisWorkspace({
       "text/csv",
     );
   };
-
   return (
     <aside className="fixed inset-x-3 bottom-3 z-[160] mx-auto max-h-[78vh] max-w-6xl overflow-auto rounded-2xl border border-cyan-500/30 bg-slate-950/98 p-4 text-white shadow-2xl backdrop-blur sm:inset-x-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -210,7 +209,6 @@ export function ImpactAnalysisWorkspace({
     </aside>
   );
 }
-
 function Occurrence({ item }: { item: ImpactOccurrence }) {
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-2.5">

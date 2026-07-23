@@ -28,10 +28,10 @@ export function RequirementContextBanner({
             <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-violet-700 dark:text-violet-300">
               ALM Requirement
             </p>
-            <span className="inline-flex items-center gap-1 rounded-full border border-violet-200 bg-white/70 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-violet-600 dark:border-violet-400/20 dark:bg-slate-950/30 dark:text-violet-300">
+            {/* <span className="inline-flex items-center gap-1 rounded-full border border-violet-200 bg-white/70 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-violet-600 dark:border-violet-400/20 dark:bg-slate-950/30 dark:text-violet-300">
               <IconSparkles className="h-3 w-3" />
               {requirement.mode === "simulated" ? "Simulated" : "Live"}
-            </span>
+            </span> */}
           </div>
           <p className="mt-1.5 text-sm font-semibold leading-6 text-slate-900 dark:text-slate-100">
             Requirement: {requirement.title}
