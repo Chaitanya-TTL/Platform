@@ -37,15 +37,15 @@ export function ConfigitForm({ onSubmit, isRunning }: ConfigitFormProps) {
           <label className="text-xs font-semibold text-slate-100">
             Product ID
           </label>
-          <span className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-2.5 py-1 text-xs font-medium uppercase tracking-[0.24em] text-cyan-300">
+          {/* <span className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-2.5 py-1 text-xs font-medium uppercase tracking-[0.24em] text-cyan-300">
             Configit
-          </span>
+          </span> */}
         </div>
         <div className="flex items-stretch overflow-hidden rounded-xl border border-slate-700/80 bg-slate-950/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
           <input
             value={productId}
             onChange={(event) => setProductId(event.target.value)}
-            placeholder="Enter the Configit product ID"
+            placeholder="002403"
             disabled={isRunning}
             className="min-w-0 flex-1 border-0 bg-transparent px-4 py-3 text-xs text-slate-100 placeholder-slate-500 transition-all duration-200 focus:border-0 focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:opacity-60"
           />

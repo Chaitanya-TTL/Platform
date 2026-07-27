@@ -1455,11 +1455,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "c:\\Users\\skk932045\\OneDrive - Tata Technologies\\Desktop\\Platform\\OrchestrationPlatform\\Orchestration.API.Tests\\Orchestration.API.Tests.csproj",
+      "projectUniqueName": "C:\\Users\\skk932045\\OneDrive - Tata Technologies\\Desktop\\Platform\\OrchestrationPlatform\\Orchestration.API.Tests\\Orchestration.API.Tests.csproj",
       "projectName": "Orchestration.API.Tests",
-      "projectPath": "c:\\Users\\skk932045\\OneDrive - Tata Technologies\\Desktop\\Platform\\OrchestrationPlatform\\Orchestration.API.Tests\\Orchestration.API.Tests.csproj",
+      "projectPath": "C:\\Users\\skk932045\\OneDrive - Tata Technologies\\Desktop\\Platform\\OrchestrationPlatform\\Orchestration.API.Tests\\Orchestration.API.Tests.csproj",
       "packagesPath": "C:\\Users\\skk932045\\.nuget\\packages\\",
-      "outputPath": "c:\\Users\\skk932045\\OneDrive - Tata Technologies\\Desktop\\Platform\\OrchestrationPlatform\\Orchestration.API.Tests\\obj\\",
+      "outputPath": "C:\\Users\\skk932045\\OneDrive - Tata Technologies\\Desktop\\Platform\\OrchestrationPlatform\\Orchestration.API.Tests\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\skk932045\\AppData\\Roaming\\NuGet\\NuGet.Config"
@@ -1532,7 +1532,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.301/PortableRuntimeIdentifierGraph.json",
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.302/PortableRuntimeIdentifierGraph.json",
         "packagesToPrune": {
           "Microsoft.CSharp": "(,4.7.32767]",
           "Microsoft.VisualBasic": "(,10.4.32767]",

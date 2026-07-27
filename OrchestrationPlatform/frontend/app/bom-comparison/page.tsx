@@ -34,7 +34,6 @@ import { ComparisonSummary } from "@/components/ComparisonSummary";
 import { ConfigitForm } from "@/components/ConfigitForm";
 import { PipelineForm } from "@/components/PipelineForm";
 import { QuickStartModal } from "@/components/QuickStartModal";
-import { RequirementContextBanner } from "@/components/RequirementContextBanner";
 import { SAPForm } from "@/components/SAPForm";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { WindchillForm } from "@/components/WindchillForm";
@@ -360,14 +359,14 @@ export default function Page() {
         <>
           <PipelineForm onSubmit={submitTc} isLoading={tcRun} />
           <div className="mt-4">
-            {roots.teamcenter ? (
+            {/* {roots.teamcenter ? (
               <RequirementContextBanner
                 requirement={resolveRequirementContext(
                   "teamcenter",
                   teamcenterItemId,
                 )}
               />
-            ) : null}
+            ) : null} */}
             <SourceBomPanel
               source="teamcenter"
               title="PLM"
@@ -400,11 +399,11 @@ export default function Page() {
             isRunning={wcRun}
           />
           <div className="mt-4">
-            {roots.windchill ? (
+            {/* {roots.windchill ? (
               <RequirementContextBanner
                 requirement={resolveRequirementContext("windchill", part)}
               />
-            ) : null}
+            ) : null} */}
             <SourceBomPanel
               source="windchill"
               title="PLM"
@@ -439,11 +438,11 @@ export default function Page() {
             isRunning={cfgRun}
           />
           <div className="mt-4">
-            {roots.configit ? (
-              <RequirementContextBanner
-                requirement={resolveRequirementContext("configit", product)}
-              />
-            ) : null}
+            {/* {roots.configit ? (
+                <RequirementContextBanner
+                  requirement={resolveRequirementContext("configit", product)}
+                />
+              ) : null} */}
             <SourceBomPanel
               source="configit"
               title="CPQ"
@@ -563,13 +562,13 @@ export default function Page() {
         <header className="rounded-[28px] border border-slate-200 bg-white/90 p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900/80 sm:p-7">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <h1 className="mt-3 text-3xl font-semibold sm:text-4xl">
+              <h1 className=" text-3xl font-semibold sm:text-4xl">
                 Digital Thread Orchestration Platform
               </h1>
-              <p className="mt-3 text-sm text-slate-500">
+              {/* <p className="mt-3 text-sm text-slate-500">
                 Extract and inspect BOMs independently. Start comparison only
                 when needed.
-              </p>
+              </p> */}
             </div>
             <div className="flex flex-wrap gap-2">
               <ThemeToggle compact />
@@ -607,11 +606,11 @@ export default function Page() {
               )}
             </div>
           </div>
-          {ready.length < 2 && !comparing ? (
+          {/* {ready.length < 2 && !comparing ? (
             <p className="mt-4 border-t border-slate-200 pt-3 text-xs text-slate-500 dark:border-slate-700">
               Load at least two BOMs to enable comparison.
             </p>
-          ) : null}
+          ) : null} */}
         </header>
 
         {result ? (
@@ -625,12 +624,12 @@ export default function Page() {
           />
         ) : null}
         {!active.length ? (
-          <section className="flex min-h-[55vh] items-center justify-center rounded-[28px] border border-dashed border-slate-300 bg-white/60 text-center dark:border-slate-700 dark:bg-slate-900/60">
+          <section className="flex min-h-[82vh] items-center justify-center rounded-[28px] border border-dashed border-slate-300 bg-white/60 text-center dark:border-slate-700 dark:bg-slate-900/60">
             <button
               onClick={() => setModal(true)}
-              className="rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white"
+              className="rounded-full transition-all hover:scale-110 duration-300 cursor-pointer bg-cyan-600 p-4 text-sm font-semibold text-white"
             >
-              Add your first source
+              <IconPlus className="h-4 w-4" />
             </button>
           </section>
         ) : (

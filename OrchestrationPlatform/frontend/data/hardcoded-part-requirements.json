@@ -50,14 +50,7 @@
           "status": "implemented",
           "createdAt": "2026-01-18",
           "author": "Mechanical Design",
-          "changeReason": "Simulated Codebeamer history",
-          "changedFields": [
-            {
-              "field": "Diameter",
-              "before": "10 mm",
-              "after": "12 mm"
-            }
-          ]
+          "changeReason": "Simulated Codebeamer history"
         },
         {
           "id": "TEAMCENTER-002404-R2",
@@ -67,14 +60,7 @@
           "status": "superseded",
           "createdAt": "2026-03-04",
           "author": "Mechanical Design",
-          "changeReason": "Simulated Codebeamer history",
-          "changedFields": [
-            {
-              "field": "Angle",
-              "before": "82\u00b0",
-              "after": "90\u00b0"
-            }
-          ]
+          "changeReason": "Simulated Codebeamer history"
         },
         {
           "id": "TEAMCENTER-002404-R3",
@@ -84,14 +70,7 @@
           "status": "approved",
           "createdAt": "2026-05-20",
           "author": "Mechanical Design",
-          "changeReason": "Simulated Codebeamer history",
-          "changedFields": [
-            {
-              "field": "Radius tolerance",
-              "before": "\u00b10.4 mm",
-              "after": "\u00b10.3 mm"
-            }
-          ]
+          "changeReason": "Simulated Codebeamer history"
         }
       ]
     },

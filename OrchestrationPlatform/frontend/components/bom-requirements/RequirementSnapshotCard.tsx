@@ -1,16 +1,1 @@
-"use client";
-import { motion } from "motion/react";
-import { IconArrowUpRight, IconGitBranch } from "@tabler/icons-react";
-import { openRequirementModal } from "@/lib/requirement-trace-store";
-import type { RequirementTraceResult } from "@/types/requirement-trace";
-export function RequirementSnapshotCard({ result, className = "" }: { result: RequirementTraceResult; className?: string }) {
-  const local = result.sources.find((source) => source.source === result.selectedSource);
-  const latest = [...(local?.revisions ?? [])].sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
-  return <motion.button data-control="true" layoutId="requirement-trace-card" type="button" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); openRequirementModal(); }} initial={{ opacity: 0, scale: 0.94 }} animate={{ opacity: 1, scale: 1 }} className={`w-[270px] rounded-2xl border border-violet-400/40 bg-slate-950/95 p-3 text-left text-white shadow-2xl backdrop-blur ${className}`}>
-    <p className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-[.16em] text-violet-300"><IconGitBranch className="h-4 w-4" />Requirement snapshot</p>
-    <h4 className="mt-2 text-sm font-semibold">{result.selectedPartName}</h4><p className="text-[10px] text-slate-500">{result.selectedPartId ?? "No business ID"} · {result.selectedSource}</p>
-    <p className="mt-3 text-xs text-slate-300">{local?.revisions.length ?? 0} revisions{latest ? ` · Latest ${latest.revision}` : ""}</p>
-    <p className="mt-1 truncate text-[10px] text-slate-400">{latest?.title ?? "No linked requirements"}</p>
-    <span className="mt-3 flex items-center gap-1 text-[10px] font-semibold text-violet-300">View evolution <IconArrowUpRight className="h-3 w-3" /></span>
-  </motion.button>;
-}
+"use client";import{motion}from"motion/react";import{IconArrowUpRight,IconGitBranch}from"@tabler/icons-react";import{openRequirementModal}from"@/lib/requirement-trace-store";import type{RequirementTraceResult}from"@/types/requirement-trace";export function RequirementSnapshotCard({result,className=""}:{result:RequirementTraceResult;className?:string}){const local=result.sources.find(s=>s.source===result.selectedSource),latest=[...(local?.revisions??[])].sort((a,b)=>b.createdAt.localeCompare(a.createdAt))[0];return <motion.button data-control="true" type="button" onClick={openRequirementModal} initial={{opacity:0,scale:.94}} animate={{opacity:1,scale:1}} className={`w-[270px] rounded-2xl border border-violet-400/40 bg-slate-950/95 p-3 text-left text-white shadow-2xl ${className}`}><p className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-[.16em] text-violet-300"><IconGitBranch className="h-4 w-4"/>Requirement snapshot</p><h4 className="mt-2 text-sm font-semibold">{result.selectedPartName}</h4><p className="text-[10px] text-slate-500">{result.selectedPartId??"No business ID"} · {result.selectedSource}</p><p className="mt-3 text-xs text-slate-300">{local?.revisions.length??0} revisions{latest?` · Latest ${latest.revision}`:""}</p><p className="mt-1 truncate text-[10px] text-slate-400">{latest?.title??"No linked requirements"}</p><span className="mt-3 flex items-center gap-1 text-[10px] text-violet-300">View evolution <IconArrowUpRight className="h-3 w-3"/></span></motion.button>}

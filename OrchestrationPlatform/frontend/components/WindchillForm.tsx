@@ -36,17 +36,17 @@ export function WindchillForm({ onSubmit, isRunning }: WindchillFormProps) {
       <div className="rounded-[24px] border border-slate-700/70 bg-slate-900/80 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
         <div className="mb-3 flex items-center justify-between gap-3">
           <label className="text-sm font-semibold text-slate-100">
-            Part ID
+            Product ID
           </label>
-          <span className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.24em] text-cyan-300">
+          {/* <span className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.24em] text-cyan-300">
             Windchill
-          </span>
+          </span> */}
         </div>
         <div className="flex items-stretch overflow-hidden rounded-xl border border-slate-700/80 bg-slate-950/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
           <input
             value={partId}
             onChange={(event) => setPartId(event.target.value)}
-            placeholder="Enter the Windchill part ID (e.g., 576218)"
+            placeholder="576218"
             disabled={isRunning}
             className="min-w-0 flex-1 border-0 bg-transparent px-4 py-3 text-sm text-slate-100 placeholder-slate-500 transition-all duration-200 focus:border-0 focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:opacity-60"
           />
