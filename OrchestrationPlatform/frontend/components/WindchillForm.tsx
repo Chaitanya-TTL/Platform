@@ -46,7 +46,7 @@ export function WindchillForm({ onSubmit, isRunning }: WindchillFormProps) {
           <input
             value={partId}
             onChange={(event) => setPartId(event.target.value)}
-            placeholder="576218"
+            placeholder="628915"
             disabled={isRunning}
             className="min-w-0 flex-1 border-0 bg-transparent px-4 py-3 text-sm text-slate-100 placeholder-slate-500 transition-all duration-200 focus:border-0 focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:opacity-60"
           />

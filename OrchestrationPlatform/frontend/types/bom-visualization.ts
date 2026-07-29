@@ -4,6 +4,8 @@ export type BomViewMode = "tree" | "constellation" | "three-dimensional" | "radi
 
 export type VisualBomNode = {
   id: string;
+  sourceNodeId: string;
+  occurrencePath: number[];
   source: SourceType;
   name: string;
   itemId?: string;
@@ -35,6 +37,7 @@ export type VisualBomGraph = {
   nodes: VisualBomNode[];
   edges: VisualBomEdge[];
   byId: Record<string, VisualBomNode>;
+  bySourceNodeId: Record<string, string[]>;
   maxLevel: number;
 };
 
@@ -45,9 +48,4 @@ export type PositionedVisualNode = VisualBomNode & {
   nodeRadius: number;
 };
 
-export type GraphTransform = {
-  x: number;
-  y: number;
-  scale: number;
-  rotation: number;
-};
+export type GraphTransform = { x: number; y: number; scale: number; rotation: number };

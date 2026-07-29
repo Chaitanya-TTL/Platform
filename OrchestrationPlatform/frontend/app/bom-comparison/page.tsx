@@ -21,6 +21,7 @@ import {
   IconPlus,
   IconPlugConnected,
   IconX,
+  IconCancel,
 } from "@tabler/icons-react";
 import { AddComparisonSourceModal } from "@/components/AddComparisonSourceModal";
 import {
@@ -514,6 +515,12 @@ export default function Page() {
             value: "CPQ",
             description: "Configit",
             icon: <IconBox className="h-6 w-6" />,
+          },
+          {
+            label: "ALM",
+            value: "ALM",
+            description: "Codebeamaer",
+            icon: <IconCancel className="h-6 w-" />,
           },
         ]}
         options={options}
