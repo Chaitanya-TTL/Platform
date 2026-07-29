@@ -1,0 +1,4 @@
+import { normalizeName, sourcePresentation } from "@/lib/bom-comparison";
+import type { SourceType,TreeNodeData } from "@/types/bom-comparison";
+export function partIdentity(node:TreeNodeData,source:SourceType){const p=sourcePresentation(node,source);return{partId:p.itemId?.toUpperCase(),name:p.name,normalizedName:normalizeName(p.name)}}
+export function findMatchingPart(root:TreeNodeData,source:SourceType,partId:string|undefined,name:string){let exact:TreeNodeData|null=null,normalized:TreeNodeData|null=null;const target=normalizeName(name);const visit=(node:TreeNodeData)=>{const x=partIdentity(node,source);if(partId&&x.partId===partId.toUpperCase())exact=node;if(!normalized&&x.normalizedName===target)normalized=node;for(const child of node.children??[])visit(child)};visit(root);if(exact)return{node:exact,confidence:1,reason:"exact-item-id" as const};if(normalized)return{node:normalized,confidence:.82,reason:"normalized-name" as const};return null}

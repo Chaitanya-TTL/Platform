@@ -1,0 +1,624 @@
+{
+  "records": [
+    {
+      "source": "teamcenter",
+      "bomId": "002403",
+      "partId": "002403",
+      "partName": "Screwjack",
+      "revisions": [
+        {
+          "id": "TEAMCENTER-002403-R1",
+          "revision": "R1",
+          "title": "Define Screwjack engineering intent",
+          "description": "Establish the initial engineering requirement for Screwjack.",
+          "status": "approved",
+          "createdAt": "2026-02-14",
+          "author": "Mechanical Design",
+          "changeReason": "Simulated Codebeamer history"
+        }
+      ]
+    },
+    {
+      "source": "configit",
+      "bomId": "Screwjack_002403",
+      "partId": "002403",
+      "partName": "Screwjack",
+      "revisions": [
+        {
+          "id": "CONFIGIT-002403-R1",
+          "revision": "R1",
+          "title": "Configure Screwjack selection",
+          "description": "Model Screwjack and its product-rule constraints in Configit.",
+          "status": "approved",
+          "createdAt": "2026-03-12",
+          "author": "Configuration Engineering",
+          "changeReason": "Simulated Codebeamer history"
+        }
+      ]
+    },
+    {
+      "source": "teamcenter",
+      "bomId": "002403",
+      "partId": "002404",
+      "partName": "Counter Sink",
+      "revisions": [
+        {
+          "id": "TEAMCENTER-002404-R1",
+          "revision": "R1",
+          "title": "Increase countersink diameter",
+          "description": "Increase the diameter to support the revised top-head interface.",
+          "status": "implemented",
+          "createdAt": "2026-01-18",
+          "author": "Mechanical Design",
+          "changeReason": "Simulated Codebeamer history"
+        },
+        {
+          "id": "TEAMCENTER-002404-R2",
+          "revision": "R2",
+          "title": "Adjust countersink angle",
+          "description": "Change the countersink angle from 82 degrees to 90 degrees.",
+          "status": "superseded",
+          "createdAt": "2026-03-04",
+          "author": "Mechanical Design",
+          "changeReason": "Simulated Codebeamer history"
+        },
+        {
+          "id": "TEAMCENTER-002404-R3",
+          "revision": "R3",
+          "title": "Tighten radius tolerance",
+          "description": "Reduce radius tolerance to improve machining repeatability.",
+          "status": "approved",
+          "createdAt": "2026-05-20",
+          "author": "Mechanical Design",
+          "changeReason": "Simulated Codebeamer history"
+        }
+      ]
+    },
+    {
+      "source": "configit",
+      "bomId": "Screwjack_002403",
+      "partId": "002404",
+      "partName": "Counter Sink",
+      "revisions": [
+        {
+          "id": "CONFIGIT-002404-R1",
+          "revision": "R1",
+          "title": "Expose countersink option",
+          "description": "Add the countersink as a selectable feature.",
+          "status": "implemented",
+          "createdAt": "2026-02-08",
+          "author": "Configuration Engineering",
+          "changeReason": "Simulated Codebeamer history"
+        },
+        {
+          "id": "CONFIGIT-002404-R2",
+          "revision": "R2",
+          "title": "Restrict radius by top-head selection",
+          "description": "Restrict selectable radius using the chosen top-head.",
+          "status": "superseded",
+          "createdAt": "2026-04-15",
+          "author": "Configuration Engineering",
+          "changeReason": "Simulated Codebeamer history"
+        },
+        {
+          "id": "CONFIGIT-002404-R3",
+          "revision": "R3",
+          "title": "Require countersink for dual heads",
+          "description": "Make the countersink mandatory when two top heads are selected.",
+          "status": "approved",
+          "createdAt": "2026-06-01",
+          "author": "Configuration Engineering",
+          "changeReason": "Simulated Codebeamer history"
+        }
+      ]
+    },
+    {
+      "source": "teamcenter",
+      "bomId": "002403",
+      "partId": "002405",
+      "partName": "Washer",
+      "revisions": [
+        {
+          "id": "TEAMCENTER-002405-R1",
+          "revision": "R1",
+          "title": "Define Washer engineering intent",
+          "description": "Establish the initial engineering requirement for Washer.",
+          "status": "approved",
+          "createdAt": "2026-02-14",
+          "author": "Mechanical Design",
+          "changeReason": "Simulated Codebeamer history"
+        }
+      ]
+    },
+    {
+      "source": "configit",
+      "bomId": "Screwjack_002403",
+      "partId": "002405",
+      "partName": "Washer",
+      "revisions": [
+        {
+          "id": "CONFIGIT-002405-R1",
+          "revision": "R1",
+          "title": "Configure Washer selection",
+          "description": "Model Washer and its product-rule constraints in Configit.",
+          "status": "approved",
+          "createdAt": "2026-03-12",
+          "author": "Configuration Engineering",
+          "changeReason": "Simulated Codebeamer history"
+        }
+      ]
+    },
+    {
+      "source": "teamcenter",
+      "bomId": "002403",
+      "partId": "002407",
+      "partName": "Nut",
+      "revisions": [
+        {
+          "id": "TEAMCENTER-002407-R1",
+          "revision": "R1",
+          "title": "Define Nut engineering intent",
+          "description": "Establish the initial engineering requirement for Nut.",
+          "status": "approved",
+          "createdAt": "2026-02-14",
+          "author": "Mechanical Design",
+          "changeReason": "Simulated Codebeamer history"
+        }
+      ]
+    },
+    {
+      "source": "configit",
+      "bomId": "Screwjack_002403",
+      "partId": "002407",
+      "partName": "Nut",
+      "revisions": [
+        {
+          "id": "CONFIGIT-002407-R1",
+          "revision": "R1",
+          "title": "Configure Nut selection",
+          "description": "Model Nut and its product-rule constraints in Configit.",
+          "status": "approved",
+          "createdAt": "2026-03-12",
+          "author": "Configuration Engineering",
+          "changeReason": "Simulated Codebeamer history"
+        }
+      ]
+    },
+    {
+      "source": "teamcenter",
+      "bomId": "002403",
+      "partId": "002408",
+      "partName": "Tommy Bar",
+      "revisions": [
+        {
+          "id": "TEAMCENTER-002408-R1",
+          "revision": "R1",
+          "title": "Define Tommy Bar engineering intent",
+          "description": "Establish the initial engineering requirement for Tommy Bar.",
+          "status": "approved",
+          "createdAt": "2026-02-14",
+          "author": "Mechanical Design",
+          "changeReason": "Simulated Codebeamer history"
+        }
+      ]
+    },
+    {
+      "source": "configit",
+      "bomId": "Screwjack_002403",
+      "partId": "002408",
+      "partName": "Tommy Bar",
+      "revisions": [
+        {
+          "id": "CONFIGIT-002408-R1",
+          "revision": "R1",
+          "title": "Configure Tommy Bar selection",
+          "description": "Model Tommy Bar and its product-rule constraints in Configit.",
+          "status": "approved",
+          "createdAt": "2026-03-12",
+          "author": "Configuration Engineering",
+          "changeReason": "Simulated Codebeamer history"
+        }
+      ]
+    },
+    {
+      "source": "teamcenter",
+      "bomId": "002403",
+      "partId": "002409",
+      "partName": "Body",
+      "revisions": [
+        {
+          "id": "TEAMCENTER-002409-R1",
+          "revision": "R1",
+          "title": "Define Body engineering intent",
+          "description": "Establish the initial engineering requirement for Body.",
+          "status": "approved",
+          "createdAt": "2026-02-14",
+          "author": "Mechanical Design",
+          "changeReason": "Simulated Codebeamer history"
+        }
+      ]
+    },
+    {
+      "source": "configit",
+      "bomId": "Screwjack_002403",
+      "partId": "002409",
+      "partName": "Body",
+      "revisions": [
+        {
+          "id": "CONFIGIT-002409-R1",
+          "revision": "R1",
+          "title": "Configure Body selection",
+          "description": "Model Body and its product-rule constraints in Configit.",
+          "status": "approved",
+          "createdAt": "2026-03-12",
+          "author": "Configuration Engineering",
+          "changeReason": "Simulated Codebeamer history"
+        }
+      ]
+    },
+    {
+      "source": "teamcenter",
+      "bomId": "002403",
+      "partId": "002410",
+      "partName": "Screw Spindle",
+      "revisions": [
+        {
+          "id": "TEAMCENTER-002410-R1",
+          "revision": "R1",
+          "title": "Define Screw Spindle engineering intent",
+          "description": "Establish the initial engineering requirement for Screw Spindle.",
+          "status": "approved",
+          "createdAt": "2026-02-14",
+          "author": "Mechanical Design",
+          "changeReason": "Simulated Codebeamer history"
+        }
+      ]
+    },
+    {
+      "source": "configit",
+      "bomId": "Screwjack_002403",
+      "partId": "002410",
+      "partName": "Screw Spindle",
+      "revisions": [
+        {
+          "id": "CONFIGIT-002410-R1",
+          "revision": "R1",
+          "title": "Configure Screw Spindle selection",
+          "description": "Model Screw Spindle and its product-rule constraints in Configit.",
+          "status": "approved",
+          "createdAt": "2026-03-12",
+          "author": "Configuration Engineering",
+          "changeReason": "Simulated Codebeamer history"
+        }
+      ]
+    },
+    {
+      "source": "teamcenter",
+      "bomId": "002403",
+      "partId": "002412",
+      "partName": "Top Head",
+      "revisions": [
+        {
+          "id": "TEAMCENTER-002412-R1",
+          "revision": "R1",
+          "title": "Define Top Head engineering intent",
+          "description": "Establish the initial engineering requirement for Top Head.",
+          "status": "approved",
+          "createdAt": "2026-02-14",
+          "author": "Mechanical Design",
+          "changeReason": "Simulated Codebeamer history"
+        }
+      ]
+    },
+    {
+      "source": "configit",
+      "bomId": "Screwjack_002403",
+      "partId": "002412",
+      "partName": "Top Head",
+      "revisions": [
+        {
+          "id": "CONFIGIT-002412-R1",
+          "revision": "R1",
+          "title": "Configure Top Head selection",
+          "description": "Model Top Head and its product-rule constraints in Configit.",
+          "status": "approved",
+          "createdAt": "2026-03-12",
+          "author": "Configuration Engineering",
+          "changeReason": "Simulated Codebeamer history"
+        }
+      ]
+    },
+    {
+      "source": "teamcenter",
+      "bomId": "002403",
+      "partId": "002414",
+      "partName": "Normal Body",
+      "revisions": [
+        {
+          "id": "TEAMCENTER-002414-R1",
+          "revision": "R1",
+          "title": "Define Normal Body engineering intent",
+          "description": "Establish the initial engineering requirement for Normal Body.",
+          "status": "approved",
+          "createdAt": "2026-02-14",
+          "author": "Mechanical Design",
+          "changeReason": "Simulated Codebeamer history"
+        }
+      ]
+    },
+    {
+      "source": "configit",
+      "bomId": "Screwjack_002403",
+      "partId": "002414",
+      "partName": "Normal Body",
+      "revisions": [
+        {
+          "id": "CONFIGIT-002414-R1",
+          "revision": "R1",
+          "title": "Configure Normal Body selection",
+          "description": "Model Normal Body and its product-rule constraints in Configit.",
+          "status": "approved",
+          "createdAt": "2026-03-12",
+          "author": "Configuration Engineering",
+          "changeReason": "Simulated Codebeamer history"
+        }
+      ]
+    },
+    {
+      "source": "teamcenter",
+      "bomId": "002403",
+      "partId": "002413",
+      "partName": "Slim Body",
+      "revisions": [
+        {
+          "id": "TEAMCENTER-002413-R1",
+          "revision": "R1",
+          "title": "Define Slim Body engineering intent",
+          "description": "Establish the initial engineering requirement for Slim Body.",
+          "status": "approved",
+          "createdAt": "2026-02-14",
+          "author": "Mechanical Design",
+          "changeReason": "Simulated Codebeamer history"
+        }
+      ]
+    },
+    {
+      "source": "configit",
+      "bomId": "Screwjack_002403",
+      "partId": "002413",
+      "partName": "Slim Body",
+      "revisions": [
+        {
+          "id": "CONFIGIT-002413-R1",
+          "revision": "R1",
+          "title": "Configure Slim Body selection",
+          "description": "Model Slim Body and its product-rule constraints in Configit.",
+          "status": "approved",
+          "createdAt": "2026-03-12",
+          "author": "Configuration Engineering",
+          "changeReason": "Simulated Codebeamer history"
+        }
+      ]
+    },
+    {
+      "source": "teamcenter",
+      "bomId": "002403",
+      "partId": "002406",
+      "partName": "Cup",
+      "revisions": [
+        {
+          "id": "TEAMCENTER-002406-R1",
+          "revision": "R1",
+          "title": "Define Cup engineering intent",
+          "description": "Establish the initial engineering requirement for Cup.",
+          "status": "approved",
+          "createdAt": "2026-02-14",
+          "author": "Mechanical Design",
+          "changeReason": "Simulated Codebeamer history"
+        }
+      ]
+    },
+    {
+      "source": "configit",
+      "bomId": "Screwjack_002403",
+      "partId": "002406",
+      "partName": "Cup",
+      "revisions": [
+        {
+          "id": "CONFIGIT-002406-R1",
+          "revision": "R1",
+          "title": "Configure Cup selection",
+          "description": "Model Cup and its product-rule constraints in Configit.",
+          "status": "approved",
+          "createdAt": "2026-03-12",
+          "author": "Configuration Engineering",
+          "changeReason": "Simulated Codebeamer history"
+        }
+      ]
+    },
+    {
+      "source": "teamcenter",
+      "bomId": "002403",
+      "partId": "002411",
+      "partName": "Cup 150",
+      "revisions": [
+        {
+          "id": "TEAMCENTER-002411-R1",
+          "revision": "R1",
+          "title": "Define Cup 150 engineering intent",
+          "description": "Establish the initial engineering requirement for Cup 150.",
+          "status": "approved",
+          "createdAt": "2026-02-14",
+          "author": "Mechanical Design",
+          "changeReason": "Simulated Codebeamer history"
+        }
+      ]
+    },
+    {
+      "source": "configit",
+      "bomId": "Screwjack_002403",
+      "partId": "002411",
+      "partName": "Cup 150",
+      "revisions": [
+        {
+          "id": "CONFIGIT-002411-R1",
+          "revision": "R1",
+          "title": "Configure Cup 150 selection",
+          "description": "Model Cup 150 and its product-rule constraints in Configit.",
+          "status": "approved",
+          "createdAt": "2026-03-12",
+          "author": "Configuration Engineering",
+          "changeReason": "Simulated Codebeamer history"
+        }
+      ]
+    },
+    {
+      "source": "windchill",
+      "bomId": "576218",
+      "partId": "572081",
+      "partName": "Bike Assembly",
+      "aliases": [
+        "bike-572081"
+      ],
+      "revisions": [
+        {
+          "id": "WINDCHILL-572081-R1",
+          "revision": "R1",
+          "title": "Define Bike Assembly requirement",
+          "description": "Establish the initial requirement for Bike Assembly.",
+          "status": "approved",
+          "createdAt": "2026-02-05",
+          "author": "Product Engineering",
+          "changeReason": "Simulated Codebeamer history"
+        }
+      ]
+    },
+    {
+      "source": "windchill",
+      "bomId": "576218",
+      "partId": "1001",
+      "partName": "Frame",
+      "aliases": [
+        "frame-1001"
+      ],
+      "revisions": [
+        {
+          "id": "WINDCHILL-1001-R1",
+          "revision": "R1",
+          "title": "Define Frame requirement",
+          "description": "Establish the initial requirement for Frame.",
+          "status": "approved",
+          "createdAt": "2026-02-05",
+          "author": "Product Engineering",
+          "changeReason": "Simulated Codebeamer history"
+        },
+        {
+          "id": "WINDCHILL-1001-R2",
+          "revision": "R2",
+          "title": "Reduce frame mass",
+          "description": "Reduce local wall thickness while maintaining stiffness.",
+          "status": "approved",
+          "createdAt": "2026-05-11",
+          "author": "Product Engineering",
+          "changeReason": "Simulated Codebeamer history"
+        }
+      ]
+    },
+    {
+      "source": "windchill",
+      "bomId": "576218",
+      "partId": "1002",
+      "partName": "Wheel Assembly",
+      "aliases": [
+        "wheel-1002"
+      ],
+      "revisions": [
+        {
+          "id": "WINDCHILL-1002-R1",
+          "revision": "R1",
+          "title": "Define Wheel Assembly requirement",
+          "description": "Establish the initial requirement for Wheel Assembly.",
+          "status": "approved",
+          "createdAt": "2026-02-05",
+          "author": "Product Engineering",
+          "changeReason": "Simulated Codebeamer history"
+        }
+      ]
+    },
+    {
+      "source": "windchill",
+      "bomId": "576218",
+      "partId": "1003",
+      "partName": "Tire",
+      "aliases": [
+        "tire-1003"
+      ],
+      "revisions": [
+        {
+          "id": "WINDCHILL-1003-R1",
+          "revision": "R1",
+          "title": "Define Tire requirement",
+          "description": "Establish the initial requirement for Tire.",
+          "status": "approved",
+          "createdAt": "2026-02-05",
+          "author": "Product Engineering",
+          "changeReason": "Simulated Codebeamer history"
+        }
+      ]
+    },
+    {
+      "source": "sap",
+      "bomId": "PLM001007",
+      "partId": "PLM001007",
+      "partName": "PLM001007",
+      "revisions": [
+        {
+          "id": "SAP-PLM001007-R1",
+          "revision": "R1",
+          "title": "Approve PLM001007 manufacturing requirement",
+          "description": "Validate quantity, release, and plant readiness for PLM001007.",
+          "status": "approved",
+          "createdAt": "2026-07-13",
+          "author": "Manufacturing Engineering",
+          "changeReason": "Simulated Codebeamer history"
+        }
+      ]
+    },
+    {
+      "source": "sap",
+      "bomId": "PLM001007",
+      "partId": "PLM001008",
+      "partName": "Child1",
+      "revisions": [
+        {
+          "id": "SAP-PLM001008-R1",
+          "revision": "R1",
+          "title": "Approve Child1 manufacturing requirement",
+          "description": "Validate quantity, release, and plant readiness for Child1.",
+          "status": "approved",
+          "createdAt": "2026-07-13",
+          "author": "Manufacturing Engineering",
+          "changeReason": "Simulated Codebeamer history"
+        }
+      ]
+    },
+    {
+      "source": "sap",
+      "bomId": "PLM001007",
+      "partId": "PLM001009",
+      "partName": "Child2",
+      "revisions": [
+        {
+          "id": "SAP-PLM001009-R1",
+          "revision": "R1",
+          "title": "Approve Child2 manufacturing requirement",
+          "description": "Validate quantity, release, and plant readiness for Child2.",
+          "status": "approved",
+          "createdAt": "2026-07-13",
+          "author": "Manufacturing Engineering",
+          "changeReason": "Simulated Codebeamer history"
+        }
+      ]
+    }
+  ]
+}

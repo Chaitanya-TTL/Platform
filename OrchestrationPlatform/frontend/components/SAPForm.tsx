@@ -53,16 +53,16 @@ export function SAPForm({ onSubmit, isLoading }: SAPFormProps) {
           >
             Material ID
           </label>
-          <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.24em] text-amber-300">
+          {/* <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.24em] text-amber-300">
             SAP
-          </span>
+          </span> */}
         </div>
         <div className="flex items-stretch overflow-hidden rounded-xl border border-slate-700/80 bg-slate-950/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
           <input
             id="sap-material-id"
             value={materialId}
             onChange={(event) => setMaterialId(event.target.value)}
-            placeholder="Enter an SAP material ID"
+            placeholder="PLM001007"
             disabled={isLoading}
             className="min-w-0 flex-1 border-0 bg-transparent px-4 py-3 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:opacity-60"
           />
