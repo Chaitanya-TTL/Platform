@@ -445,29 +445,33 @@ export function getConfigitRoot(
 /*
  * Windchill transformation logic remains unchanged.
  */
-export function getWindchillRoot(
-  payload: unknown
-): TreeNodeData | null {
+function transformWindchillNode(node: unknown, path: string): TreeNodeData | null {
+  const obj = asRecord(node);
+  if (!obj) return null;
+  const rawAttributes = asRecord(obj.attributes) ?? {};
+  const itemId = getString(rawAttributes["Item ID"]) ?? getString(obj.partNumber) ?? getString(obj.PartNumber);
+  const partId = getString(rawAttributes["Part ID"]) ?? getString(obj.id) ?? getString(obj.PartId);
+  const occurrenceId = getString(rawAttributes["Occurrence ID"]) ?? getString(obj.id) ?? `${path}-${itemId ?? "node"}`;
+  const name = getString(obj.name) ?? getString(obj.PartName) ?? itemId ?? partId ?? "Windchill node";
+  const attributes: Record<string, string | number | boolean> = {};
+  for (const [key, value] of Object.entries(rawAttributes)) {
+    const scalarValue = getNumberOrString(value);
+    if (scalarValue !== undefined) attributes[key] = scalarValue;
+  }
+  if (itemId) attributes["Item ID"] = itemId;
+  if (partId) attributes["Part ID"] = partId;
+  const quantity = getNumberOrString(obj.quantity);
+  if (quantity !== undefined) attributes.Quantity = quantity;
+  const children = (getArray(obj.children) ?? getArray(obj.Components) ?? []).map((child, index) => transformWindchillNode(child, `${path}-${index}`)).filter((child): child is TreeNodeData => Boolean(child));
+  return { id: occurrenceId, name, attributes, children };
+}
+
+export function getWindchillRoot(payload: unknown): TreeNodeData | null {
   const obj = asRecord(payload);
-
-  if (!obj) {
-    return null;
-  }
-
+  if (!obj) return null;
   const bom = getArray(obj.bom);
-
-  if (!bom || bom.length === 0) {
-    return null;
-  }
-
-  const roots = bom.flatMap((node, index) =>
-    transformConfigitNodes(
-      node,
-      `windchill-node-${index}`
-    )
-  );
-
-  return roots.length > 0 ? roots[0] : null;
+  if (!bom?.length) return null;
+  return transformWindchillNode(bom[0], "windchill-root");
 }
 
 function flattenLevels(

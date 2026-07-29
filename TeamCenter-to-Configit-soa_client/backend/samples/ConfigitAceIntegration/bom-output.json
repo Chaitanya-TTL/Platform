@@ -1,0 +1,123 @@
+{
+  "PartId": "002403",
+  "PartName": "Screwjack",
+  "PartNumber": "002403",
+  "Components": [
+    {
+      "PartId": "002404",
+      "PartName": "Counter Sink",
+      "PartNumber": "002404",
+      "Components": null,
+      "Expressions": null,
+      "PartUse": {
+        "Quantity": 1
+      }
+    },
+    {
+      "PartId": "002405",
+      "PartName": "Washer",
+      "PartNumber": "002405",
+      "Components": null,
+      "Expressions": null,
+      "PartUse": {
+        "Quantity": 1
+      }
+    },
+    {
+      "PartId": "002407",
+      "PartName": "Nut",
+      "PartNumber": "002407",
+      "Components": null,
+      "Expressions": null,
+      "PartUse": {
+        "Quantity": 1
+      }
+    },
+    {
+      "PartId": "002408",
+      "PartName": "Tommy Bar",
+      "PartNumber": "002408",
+      "Components": null,
+      "Expressions": null,
+      "PartUse": {
+        "Quantity": 1
+      }
+    },
+    {
+      "PartId": "002409",
+      "PartName": "Body",
+      "PartNumber": "002409",
+      "Components": [
+        {
+          "PartId": "002414",
+          "PartName": "Normal Body",
+          "PartNumber": "002414",
+          "Components": null,
+          "Expressions": null,
+          "PartUse": {
+            "Quantity": 1
+          }
+        },
+        {
+          "PartId": "002413",
+          "PartName": "Slim Body",
+          "PartNumber": "002413",
+          "Components": null,
+          "Expressions": null,
+          "PartUse": {
+            "Quantity": 1
+          }
+        }
+      ],
+      "Expressions": null,
+      "PartUse": {
+        "Quantity": 1
+      }
+    },
+    {
+      "PartId": "002410",
+      "PartName": "Screw Spindle",
+      "PartNumber": "002410",
+      "Components": null,
+      "Expressions": null,
+      "PartUse": {
+        "Quantity": 1
+      }
+    },
+    {
+      "PartId": "002412",
+      "PartName": "Top Head",
+      "PartNumber": "002412",
+      "Components": [
+        {
+          "PartId": "002406",
+          "PartName": "Cup",
+          "PartNumber": "002406",
+          "Components": null,
+          "Expressions": null,
+          "PartUse": {
+            "Quantity": 1
+          }
+        },
+        {
+          "PartId": "002411",
+          "PartName": "Cup 150",
+          "PartNumber": "002411",
+          "Components": null,
+          "Expressions": null,
+          "PartUse": {
+            "Quantity": 1
+          }
+        }
+      ],
+      "Expressions": null,
+      "PartUse": {
+        "Quantity": 1
+      }
+    }
+  ],
+  "Expressions": null,
+  "PartUse": {
+    "Quantity": 1
+  }
+}
