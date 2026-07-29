@@ -1,0 +1,16 @@
+import type { ComparisonStatus } from "@/types/bom-comparison";
+import type { PositionedVisualNode, VisualBomGraph, VisualBomNode } from "@/types/bom-visualization";
+export type ConstellationLayoutMode="radial-clusters"|"orbit-rings"|"horizontal"|"vertical";
+export type ConstellationSpacing="compact"|"balanced"|"expanded";
+export type ConstellationLabelMode="smart"|"branch"|"assemblies"|"all"|"none";
+export type ConstellationFocusMode="full"|"branch"|"descendants"|"root-path"|"neighbourhood";
+export type ConstellationLens="structure"|"comparison"|"requirements"|"impact"|"complexity"|"data-quality";
+export type ConstellationColorMode="role"|"level"|"comparison"|"requirements"|"impact"|"complexity"|"data-quality";
+export type ConstellationSizeMode="role"|"uniform"|"children"|"descendants"|"complexity";
+export type VisibilityMode="show"|"ghost"|"hide";
+export type ConstellationTransform={x:number;y:number;scale:number;rotation:number};
+export type ConstellationNode=PositionedVisualNode&{targetX:number;targetY:number;complexity:number};
+export type ConstellationLayout={graph:VisualBomGraph;nodes:ConstellationNode[];byId:Record<string,ConstellationNode>;width:number;height:number;bounds:{minX:number;minY:number;maxX:number;maxY:number}};
+export type ConstellationBranchSummary={node:VisualBomNode;branchShare:number;comparisonHealth:number;counts:Record<ComparisonStatus,number>;complexity:number;qualityFindings:number;requirementCoverage:number;summary:string[]};
+export type ConstellationSearchResult={nodeId:string;score:number;matchedBy:string[]};
+export type ConstellationFinding={id:string;nodeId:string;severity:"critical"|"warning"|"info";category:"comparison"|"quality"|"complexity";title:string;detail:string};
