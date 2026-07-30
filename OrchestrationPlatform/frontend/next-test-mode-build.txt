@@ -1,0 +1,138 @@
+﻿
+> frontend@0.1.0 build
+> next build
+
+Γû▓ Next.js 16.2.9 (Turbopack)
+
+  Creating an optimized production build ...
+Turbopack build encountered 1 warnings:
+./next.config.ts
+Encountered unexpected file in NFT list
+A file was traced that indicates that the whole project was traced unintentionally. Somewhere in the import trace below, there are:
+- filesystem operations (like path.join, path.resolve or fs.readFile), or
+- very dynamic requires (like require('./' + foo)).
+To resolve this, you can
+- remove them if possible, or
+- only use them in development, or
+- make sure they are statically scoped to some subfolder: path.join(process.cwd(), 'data', bar), or
+- add ignore comments: path.join(/*turbopackIgnore: true*/ process.cwd(), bar)
+System.Management.Automation.RemoteException
+Import trace:
+  App Route:
+    ./next.config.ts
+    ./app/api/bom/route.ts
+System.Management.Automation.RemoteException
+System.Management.Automation.RemoteException
+Γ£ô Compiled successfully in 5.1s
+  Running TypeScript ...
+System.Management.Automation.RemoteException
+System.Management.Automation.RemoteException
+===== TS errors =====
+System.Management.Automation.RemoteException
+[Test Mode] ./components/bom-visualization/BomConstellationView.tsx:40:108
+Type error: 'n' is possibly 'undefined'.
+System.Management.Automation.RemoteException
+  38 | ...oolean;views:ConstellationSavedView[];onClose:()=>void;onLoad:(v:ConstellationSavedView...
+  39 | ...rison?:NodeComparison;quality:number}){return <div className="pointer-events-none absol...
+> 40 | ...eData|undefined=root;for(const i of path)n=n.children?.[i];return n??null}function shor...
+     |                                               ^
+  41 | ...
+System.Management.Automation.RemoteException
+[Test Mode] ./components/bom-visualization/BomThreeUniverseView.tsx:118:231
+Type error: Argument of type 'ThreeEvent<MouseEvent>' is not assignable to parameter of type 'ThreeEvent<PointerEvent>'.
+  Type 'ThreeEvent<MouseEvent>' is not assignable to type 'IntersectionEvent<PointerEvent>'.
+    Types of property 'nativeEvent' are incompatible.
+      Type 'MouseEvent' is missing the following properties from type 'PointerEvent': altitudeAngle, azimuthAngle, height, isPrimary, and 10 more.
+System.Management.Automation.RemoteException
+  116 | ...e.lerp(new THREE.Vector3(scale, scale, scale), Math.min(1, delta * 10)); group.current...
+  117 | ...
+> 118 | ...Hover(null); }} onClick={(event) => { stop(event); props.onSelect(props.node.id); }} o...
+      |                                               ^
+  119 | ...
+  120 | ...s.sizeBy === "descendants") return 1 + Math.min(.9, Math.sqrt(props.node.descendantCou...
+  121 | ...569"; if (props.colorBy === "level") return levelColors[props.node.level % levelColors...
+System.Management.Automation.RemoteException
+[Test Mode] ./components/bom-visualization/BomThreeUniverseView.tsx:118:306
+Type error: Argument of type 'ThreeEvent<MouseEvent>' is not assignable to parameter of type 'ThreeEvent<PointerEvent>'.
+  Type 'ThreeEvent<MouseEvent>' is not assignable to type 'IntersectionEvent<PointerEvent>'.
+    Types of property 'nativeEvent' are incompatible.
+      Type 'MouseEvent' is missing the following properties from type 'PointerEvent': altitudeAngle, azimuthAngle, height, isPrimary, and 10 more.
+System.Management.Automation.RemoteException
+  116 | ...oup.current.position.lerp(new THREE.Vector3(...props.node.position), Math.min(1, delta...
+  117 | ...
+> 118 | ...e.id); }} onDoubleClick={(event) => { stop(event); if (props.node.isAssembly) props.on...
+      |                                               ^
+  119 | ...
+  120 | ...scendantCount) / 8); if (props.sizeBy === "complexity") return .85 + props.analysis.co...
+  121 | ...levelColors.length]; if (props.colorBy === "requirements") return props.requirementLin...
+System.Management.Automation.RemoteException
+[Test Mode] ./components/bom-visualization/BomThreeUniverseView.tsx:124:135
+Type error: 'node' is possibly 'undefined'.
+System.Management.Automation.RemoteException
+  122 | ...urn "#f97316"; if (value >= 25) return "#facc15"; return "#10b981"; }
+  123 | ...failed: false }; static getDerivedStateFromError() { return { failed: true }; } render...
+> 124 | ...d = root; for (const index of path) node = node.children?.[index]; return node ?? null; }
+      |                                               ^
+  125 | ...ce(0, length - 1)}ΓÇª` : value; }
+  126 | ...
+System.Management.Automation.RemoteException
+[Test Mode] ./components/SourceBomPanel.tsx:665:34
+Type error: Type '{ focus: ReverseRequirementTraceResult; }' is not assignable to type 'IntrinsicAttributes'.
+  Property 'focus' does not exist on type 'IntrinsicAttributes'.
+System.Management.Automation.RemoteException
+  663 |       ) : null}
+  664 |       {trace.focus && overlayOwner ? (
+> 665 |         <RequirementFocusSummary focus={trace.focus} />
+      |                                  ^
+  666 |       ) : null}
+  667 |       <ComparisonReasoningModal
+  668 |         open={comparisonModalOpen}
+System.Management.Automation.RemoteException
+[Test Mode] ./lib/bom-constellation-interaction.ts:7:50
+Type error: Type 'VisualBomNode | undefined' is not assignable to type 'VisualBomNode'.
+  Type 'undefined' is not assignable to type 'VisualBomNode'.
+System.Management.Automation.RemoteException
+   5 | ...nst nodes = [] as string[];
+   6 | ...t current = graph.byId[id];
+>  7 | ...ile (current) { nodes.unshift(current.id); current = current.parentId ? graph.byId[curr...
+     |                                               ^
+   8 | ...turn nodes;
+   9 | ...
+  10 | ...common: string | null = null;
+System.Management.Automation.RemoteException
+[Test Mode] ./lib/requirement-trace-data.ts:40:28
+Type error: Property 'id' does not exist on type 'never'.
+System.Management.Automation.RemoteException
+  38 |         ...record,
+  39 |         loaded: true,
+> 40 |         nodeId: match.node.id,
+     |                            ^
+  41 |         confidence: match.confidence,
+  42 |         matchReason: match.reason,
+  43 |       });
+System.Management.Automation.RemoteException
+[Test Mode] ./lib/requirement-trace-data.ts:80:26
+Type error: Property 'id' does not exist on type 'never'.
+System.Management.Automation.RemoteException
+  78 |     occurrences.push({
+  79 |       source,
+> 80 |       nodeId: match.node.id,
+     |                          ^
+  81 |       name: identity.name,
+  82 |       itemId: identity.partId,
+  83 |       relationship: source === entry.record.source ? "direct" : "corresponding",
+System.Management.Automation.RemoteException
+===== TS errors =====
+System.Management.Automation.RemoteException
+System.Management.Automation.RemoteException
+Failed to type check.
+System.Management.Automation.RemoteException
+./components/bom-visualization/BomConstellationView.tsx:40:108
+Type error: 'n' is possibly 'undefined'.
+System.Management.Automation.RemoteException
+  38 | ...oolean;views:ConstellationSavedView[];onClose:()=>void;onLoad:(v:ConstellationSavedView...
+  39 | ...rison?:NodeComparison;quality:number}){return <div className="pointer-events-none absol...
+> 40 | ...eData|undefined=root;for(const i of path)n=n.children?.[i];return n??null}function shor...
+     |                                               ^
+  41 | ...
+Next.js build worker exited with code: 1 and signal: null
