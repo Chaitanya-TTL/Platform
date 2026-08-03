@@ -1,0 +1,419 @@
+﻿{
+    "success":  true,
+    "report":  {
+                   "materialId":  "PLM001008",
+                   "plant":  "1001",
+                   "systemId":  "S4H",
+                   "client":  "800",
+                   "generatedAt":  "2026-07-31T09:28:59.703Z",
+                   "executions":  [
+                                      {
+                                          "function":  "BAPI_MATERIAL_GET_DETAIL",
+                                          "available":  true,
+                                          "executed":  true,
+                                          "durationMs":  1505,
+                                          "message":  "Execution completed",
+                                          "exports":  {
+                                                          "MATERIALVALUATIONDATA":  {
+                                                                                        "MOVING_PR":  "0.0000",
+                                                                                        "STD_PRICE":  "0.0000",
+                                                                                        "PRICE_UNIT":  "0"
+                                                                                    },
+                                                          "MATERIAL_GENERAL_DATA":  {
+                                                                                        "MATL_DESC":  "Child1",
+                                                                                        "MATL_TYPE":  "ROH",
+                                                                                        "IND_SECTOR":  "M",
+                                                                                        "BASE_UOM":  "EA",
+                                                                                        "GROSS_WT":  "0.000",
+                                                                                        "NET_WEIGHT":  "0.000",
+                                                                                        "VOLUME":  "0.000",
+                                                                                        "LENGTH":  "0.000",
+                                                                                        "WIDTH":  "0.000",
+                                                                                        "HEIGHT":  "0.000",
+                                                                                        "BASE_UOM_ISO":  "EA",
+                                                                                        "CREATED_ON":  "2026-07-13",
+                                                                                        "CREATED_BY":  "T4SUSER",
+                                                                                        "LAST_CHNGE":  "2026-07-13",
+                                                                                        "CHANGED_BY":  "T4SUSER"
+                                                                                    },
+                                                          "RETURN":  {
+                                                                         "TYPE":  "S",
+                                                                         "LOG_MSG_NO":  "000000"
+                                                                     }
+                                                      },
+                                          "tables":  {
+
+                                                     }
+                                      },
+                                      {
+                                          "function":  "BAPI_MATERIAL_GET_ALL",
+                                          "available":  true,
+                                          "executed":  true,
+                                          "durationMs":  4469,
+                                          "message":  "Execution completed",
+                                          "exports":  {
+                                                          "CLIENTDATA":  {
+                                                                             "MATERIAL":  "PLM001008",
+                                                                             "IND_SECTOR":  "M",
+                                                                             "MATL_TYPE":  "ROH",
+                                                                             "CREATED_ON":  "2026-07-13",
+                                                                             "CREATED_BY":  "T4SUSER",
+                                                                             "LAST_CHNGE":  "2026-07-13",
+                                                                             "CHANGED_BY":  "T4SUSER",
+                                                                             "MAT_STATUS":  "KD",
+                                                                             "MAINT_STAT":  "KD",
+                                                                             "BASE_UOM":  "EA",
+                                                                             "BASE_UOM_ISO":  "EA",
+                                                                             "NO_SHEETS":  "000",
+                                                                             "NET_WEIGHT":  "0.000",
+                                                                             "QTY_GR_GI":  "0.000",
+                                                                             "ALLOWED_WT":  "0.000",
+                                                                             "ALLWD_VOL":  "0.000",
+                                                                             "WT_TOL_LT":  "0.0",
+                                                                             "VOL_TOL_LT":  "0.0",
+                                                                             "FILL_LEVEL":  "0",
+                                                                             "STACK_FACT":  "0",
+                                                                             "MINREMLIFE":  "0",
+                                                                             "SHELF_LIFE":  "0",
+                                                                             "STOR_PCT":  "0",
+                                                                             "PVALIDFROM":  "0000-00-00",
+                                                                             "SVALIDFROM":  "0000-00-00",
+                                                                             "MATCMPLLVL":  "00",
+                                                                             "MAX_ALLOWED_CAPACITY":  "0.000",
+                                                                             "OVERCAPACITY_TOLERANCE":  "0.0",
+                                                                             "MAX_ALLOWED_LENGTH":  "0.000",
+                                                                             "MAX_ALLOWED_WIDTH":  "0.000",
+                                                                             "MAX_ALLOWED_HEIGTH":  "0.000",
+                                                                             "QUARANTINE_PERIOD":  "0",
+                                                                             "ANP":  "000000000",
+                                                                             "MATERIAL_LONG":  "PLM001008",
+                                                                             "MATURITY_DUR":  "0",
+                                                                             "SHELF_LIFE_REQ_MIN":  "0",
+                                                                             "SHELF_LIFE_REQ_MAX":  "0"
+                                                                         },
+                                                          "FORECASTPARAMETERS":  {
+                                                                                     "ALPHA_FACT":  "0.00",
+                                                                                     "BETA_FACT":  "0.00",
+                                                                                     "GAMMA_FACT":  "0.00",
+                                                                                     "DELTA_FACT":  "0.00",
+                                                                                     "TRACKLIMIT":  "0.000",
+                                                                                     "FORE_DATE":  "0000-00-00",
+                                                                                     "HIST_VALS":  "0",
+                                                                                     "INIT_PDS":  "0",
+                                                                                     "SEASON_PDS":  "0",
+                                                                                     "EXPOST_PDS":  "0",
+                                                                                     "FORE_PDS":  "0",
+                                                                                     "FIXED_PDS":  "0",
+                                                                                     "BASIC_VALUE":  "0.000",
+                                                                                     "BASIC_VALUE1":  "0.000",
+                                                                                     "BASIC_VALUE2":  "0.000",
+                                                                                     "BASIC_VALUE_PP":  "0.000",
+                                                                                     "BASIC_VALUE_PP1":  "0.000",
+                                                                                     "BASIC_VALUE_PP2":  "0.000",
+                                                                                     "TREND_VALUE":  "0.000",
+                                                                                     "TREND_VALUE_PP":  "0.000",
+                                                                                     "MEAN_ABSOL_DEV":  "0.000",
+                                                                                     "MEAN_ABSOL_DEV_PP":  "0.000",
+                                                                                     "ERROR_TOTAL":  "0.000",
+                                                                                     "ERROR_TOTAL_PP":  "0.000",
+                                                                                     "COEFF_THEIL":  "0.00"
+                                                                                 },
+                                                          "IS_MP_CLIENTDATA":  {
+                                                                                   "CABLEDIAMETER":  "0.00",
+                                                                                   "ALLOWANCECD":  "0.00",
+                                                                                   "BENDINGFACTOR":  "0",
+                                                                                   "INNERWIDTH":  "0.00",
+                                                                                   "OUTERDIAM":  "0.00",
+                                                                                   "COREDIAM":  "0.00",
+                                                                                   "LOADCAP":  "0.000",
+                                                                                   "ROFTHICKN":  "0.00",
+                                                                                   "ROFHEIGHT":  "0.00",
+                                                                                   "VERTLAYERS":  "000",
+                                                                                   "MINCLEARANCE":  "0.00"
+                                                                               },
+                                                          "MARC_APS_EXTDATA":  {
+                                                                                   "PLANT":  "1001",
+                                                                                   "MAX_DAYSOFSUPPLY_PENALTYAMOUNT":  "0.000",
+                                                                                   "AUTO_DET_SFTYSTK_METH":  "X",
+                                                                                   "PERIOD_FACTOR_VALUE":  "0.000",
+                                                                                   "PERIOD_FACTOR_TDS":  "0.000",
+                                                                                   "CONVH":  "0"
+                                                                               },
+                                                          "PLANTDATA":  {
+                                                                            "PLANT":  "1001",
+                                                                            "MAINT_STAT":  "D",
+                                                                            "MRP_TYPE":  "M0",
+                                                                            "MRP_CTRLER":  "B01",
+                                                                            "PLND_DELRY":  "0",
+                                                                            "GR_PR_TIME":  "0",
+                                                                            "PERIOD_IND":  "M",
+                                                                            "ASSY_SCRAP":  "0.00",
+                                                                            "LOTSIZEKEY":  "EX",
+                                                                            "PROC_TYPE":  "F",
+                                                                            "REORDER_PT":  "1.000",
+                                                                            "SAFETY_STK":  "0.000",
+                                                                            "MINLOTSIZE":  "0.000",
+                                                                            "MAXLOTSIZE":  "0.000",
+                                                                            "FIXED_LOT":  "0.000",
+                                                                            "ROUND_VAL":  "0.000",
+                                                                            "MAX_STOCK":  "0.000",
+                                                                            "ORD_COSTS":  "0.0000",
+                                                                            "EFF_O_DAY":  "0000-00-00",
+                                                                            "PROC_TIME":  "0.00",
+                                                                            "SETUPTIME":  "0.00",
+                                                                            "INTEROP":  "0.00",
+                                                                            "BASE_QTY":  "0.000",
+                                                                            "INHSEPRODT":  "0",
+                                                                            "STGEPERIOD":  "0",
+                                                                            "OVER_TOL":  "0.0",
+                                                                            "UNDER_TOL":  "0.0",
+                                                                            "REPLENTIME":  "0",
+                                                                            "SERV_LEVEL":  "0.0",
+                                                                            "AVAILCHECK":  "01",
+                                                                            "SETUP_TIME":  "0.00",
+                                                                            "BASE_QTY_PLAN":  "0.000",
+                                                                            "SHIP_PROC_TIME":  "0.00",
+                                                                            "PL_TI_FNCE":  "003",
+                                                                            "BWD_CONS":  "000",
+                                                                            "FWD_CONS":  "000",
+                                                                            "LOT_SIZE":  "0.000",
+                                                                            "COMP_SCRAP":  "0.00",
+                                                                            "CYCLE_TIME":  "0",
+                                                                            "D_TO_REF_M":  "0000-00-00",
+                                                                            "MULT_REF_M":  "0.00",
+                                                                            "EX_CERT_DT":  "0000-00-00",
+                                                                            "INSP_INT":  "0",
+                                                                            "SAFETYTIME":  "00",
+                                                                            "PVALIDFROM":  "0000-00-00",
+                                                                            "DEPLOY_HORIZ":  "0",
+                                                                            "MIN_LOT_SIZE":  "0.000",
+                                                                            "MAX_LOT_SIZE":  "0.000",
+                                                                            "FIX_LOT_SIZE":  "0.000",
+                                                                            "LOT_INCREMENT":  "0.000",
+                                                                            "MIN_SAFETY_STK":  "0.000",
+                                                                            "GR_PROC_TIME":  "0",
+                                                                            "GI_PROC_TIME":  "0",
+                                                                            "STORAGE_COST":  "0.000",
+                                                                            "REPLENISHMENT_LEAD_TIME":  "0",
+                                                                            "PENALTY_COSTS":  "0.000",
+                                                                            "CONS_HANDL_CAP":  "0.000",
+                                                                            "HANDL_CAP_OUT":  "0.000",
+                                                                            "SHELF_LIFE":  "0",
+                                                                            "MATURATION_TIME":  "0",
+                                                                            "REQ_MIN_SHELF_LIFE":  "0",
+                                                                            "REQ_MAX_SHELF_LIFE":  "0",
+                                                                            "REORDER_DURATION":  "0",
+                                                                            "TARGET_DAYS_SUPPLY":  "0",
+                                                                            "PEGGING_PAST_ALERT":  "0",
+                                                                            "PEGGING_FUTURE_ALERT":  "0",
+                                                                            "PEGGING_STRATEGY":  "00",
+                                                                            "PRODUCT_PRIORITY":  "0",
+                                                                            "MINIMUM_PASSING_AMOUNT":  "0.000",
+                                                                            "LEAD_TIME":  "0",
+                                                                            "VCP_SFTY_STK":  "0.000",
+                                                                            "PARENT_SFTY_STK":  "0.000",
+                                                                            "VCP_PARENT_SFTY_STK":  "0.000",
+                                                                            "REPAIR_SAFETY_STOCK":  "0.000",
+                                                                            "REPAIR_SAFETY_STOCK_VCL":  "0.000",
+                                                                            "VCL_REORDER_POINT":  "0.000",
+                                                                            "VCL_MAX_STK_LEVEL":  "0.000",
+                                                                            "STOCKHOLDING_COSTS":  "0.00",
+                                                                            "PROCUREMENT_COSTS":  "0.000",
+                                                                            "NDCOSTWE":  "0.000",
+                                                                            "NDCOSTWA":  "0.000"
+                                                                        },
+                                                          "PRTDATA":  {
+                                                                          "START_OFFSET":  "0",
+                                                                          "END_OFFSET":  "0"
+                                                                      },
+                                                          "SALESDATA":  {
+                                                                            "VALID_FROM":  "0000-00-00",
+                                                                            "MIN_ORDER":  "0.000",
+                                                                            "MIN_DELY":  "0.000",
+                                                                            "MIN_MTO":  "0.000",
+                                                                            "DELY_UNIT":  "0.000"
+                                                                        },
+                                                          "STORAGELOCATIONDATA":  {
+                                                                                      "FISC_YEAR":  "0000",
+                                                                                      "CURR_PERIOD":  "00",
+                                                                                      "REORDER_PT":  "0.000",
+                                                                                      "REPL_QTY":  "0.000",
+                                                                                      "INV_CORR_FAC":  "0.0"
+                                                                                  },
+                                                          "STORAGETYPEDATA":  {
+                                                                                  "MAX_SB_QTY":  "0.000",
+                                                                                  "MIN_SB_QTY":  "0.000",
+                                                                                  "CTRL_QTY":  "0.000",
+                                                                                  "REPLEN_QTY":  "0.000",
+                                                                                  "ROUND_QTY":  "0.000"
+                                                                              },
+                                                          "VALUATIONDATA":  {
+                                                                                "MOVING_PR":  "0.0000",
+                                                                                "STD_PRICE":  "0.0000",
+                                                                                "PRICE_UNIT":  "0",
+                                                                                "MOV_PR_PP":  "0.0000",
+                                                                                "STD_PR_PP":  "0.0000",
+                                                                                "PR_UNIT_PP":  "0",
+                                                                                "MOV_PR_PY":  "0.0000",
+                                                                                "STD_PR_PY":  "0.0000",
+                                                                                "PR_UNIT_PY":  "0",
+                                                                                "FISC_YEAR":  "0000",
+                                                                                "CURR_PERIOD":  "00",
+                                                                                "FUTURE_PR":  "0.0000",
+                                                                                "VALID_FROM":  "0000-00-00",
+                                                                                "TAXPRICE_1":  "0.0000",
+                                                                                "COMMPRICE1":  "0.0000",
+                                                                                "TAXPRICE_3":  "0.0000",
+                                                                                "COMMPRICE3":  "0.0000",
+                                                                                "PLND_PRICE":  "0.0000",
+                                                                                "PLNDPRICE1":  "0.0000",
+                                                                                "PLNDPRICE2":  "0.0000",
+                                                                                "PLNDPRICE3":  "0.0000",
+                                                                                "PLNDPRDATE1":  "0000-00-00",
+                                                                                "PLNDPRDATE2":  "0000-00-00",
+                                                                                "PLNDPRDATE3":  "0000-00-00",
+                                                                                "TAXPRICE_2":  "0.0000",
+                                                                                "COMMPRICE2":  "0.0000",
+                                                                                "DEVAL_IND":  "00",
+                                                                                "PER_FUT_COST_EST":  "000",
+                                                                                "PER_CUR_COST_EST":  "000",
+                                                                                "PER_PRE_COST_EST":  "000",
+                                                                                "FIJ_FUT_COST_EST":  "0000",
+                                                                                "FIJ_CUR_COST_EST":  "0000",
+                                                                                "FIJ_PRE_COST_EST":  "0000",
+                                                                                "PREV_PLAN_PRICE":  "0.0000",
+                                                                                "CURR_PLAN_PRICE":  "0.0000",
+                                                                                "TAX_CML_UN":  "0"
+                                                                            },
+                                                          "WAREHOUSENUMBERDATA":  {
+                                                                                      "L_EQUIP_1":  "0.000",
+                                                                                      "L_EQUIP_2":  "0.000",
+                                                                                      "L_EQUIP_3":  "0.000",
+                                                                                      "CAPY_USAGE":  "0.000"
+                                                                                  }
+                                                      },
+                                          "tables":  {
+                                                         "DEMAND_PENALTYDATA":  {
+                                                                                    "rowCount":  0,
+                                                                                    "sampleRows":  [
+
+                                                                                                   ]
+                                                                                },
+                                                         "EXTENSIONOUT":  {
+                                                                              "rowCount":  0,
+                                                                              "sampleRows":  [
+
+                                                                                             ]
+                                                                          },
+                                                         "INTERNATIONALARTNOS":  {
+                                                                                     "rowCount":  0,
+                                                                                     "sampleRows":  [
+
+                                                                                                    ]
+                                                                                 },
+                                                         "MATERIALDESCRIPTION":  {
+                                                                                     "rowCount":  1,
+                                                                                     "sampleRows":  [
+                                                                                                        {
+                                                                                                            "LANGU":  "E",
+                                                                                                            "LANGU_ISO":  "EN",
+                                                                                                            "MATL_DESC":  "Child1"
+                                                                                                        }
+                                                                                                    ]
+                                                                                 },
+                                                         "MATERIALLONGTEXT":  {
+                                                                                  "rowCount":  0,
+                                                                                  "sampleRows":  [
+
+                                                                                                 ]
+                                                                              },
+                                                         "NFMCHARGEWEIGHTS":  {
+                                                                                  "rowCount":  0,
+                                                                                  "sampleRows":  [
+
+                                                                                                 ]
+                                                                              },
+                                                         "NFMSTRUCTURALWEIGHTS":  {
+                                                                                      "rowCount":  0,
+                                                                                      "sampleRows":  [
+
+                                                                                                     ]
+                                                                                  },
+                                                         "RETURN":  {
+                                                                        "rowCount":  1,
+                                                                        "sampleRows":  [
+                                                                                           {
+                                                                                               "TYPE":  "W",
+                                                                                               "CODE":  "MM376",
+                                                                                               "MESSAGE":  "No planning data exists in plant 1001",
+                                                                                               "LOG_MSG_NO":  "000000",
+                                                                                               "MESSAGE_V1":  "1001"
+                                                                                           }
+                                                                                       ]
+                                                                    },
+                                                         "TAXCLASSIFICATIONS":  {
+                                                                                    "rowCount":  0,
+                                                                                    "sampleRows":  [
+
+                                                                                                   ]
+                                                                                },
+                                                         "UNITSOFMEASURE":  {
+                                                                                "rowCount":  1,
+                                                                                "sampleRows":  [
+                                                                                                   {
+                                                                                                       "ALT_UNIT":  "EA",
+                                                                                                       "ALT_UNIT_ISO":  "EA",
+                                                                                                       "NUMERATOR":  "1",
+                                                                                                       "DENOMINATR":  "1",
+                                                                                                       "LENGTH":  "0.000",
+                                                                                                       "WIDTH":  "0.000",
+                                                                                                       "HEIGHT":  "0.000",
+                                                                                                       "VOLUME":  "0.000",
+                                                                                                       "GROSS_WT":  "0.000",
+                                                                                                       "INTERNAL_CHAR":  "0000000000",
+                                                                                                       "UOMSORTNUMBER":  "00",
+                                                                                                       "NET_WEIGHT":  "0.000",
+                                                                                                       "ME_ANZ_SUB":  "0.000"
+                                                                                                   }
+                                                                                               ]
+                                                                            }
+                                                     }
+                                      },
+                                      {
+                                          "function":  "BAPI_MATERIAL_AVAILABILITY",
+                                          "available":  true,
+                                          "executed":  true,
+                                          "durationMs":  802,
+                                          "message":  "Execution completed",
+                                          "exports":  {
+                                                          "AV_QTY_PLT":  "0.000",
+                                                          "RETURN":  {
+                                                                         "TYPE":  "W",
+                                                                         "CODE":  "BM305",
+                                                                         "MESSAGE":  "Unit  is not created in language E.",
+                                                                         "LOG_MSG_NO":  "000000"
+                                                                     }
+                                                      },
+                                          "tables":  {
+                                                         "WMDVEX":  {
+                                                                        "rowCount":  0,
+                                                                        "sampleRows":  [
+
+                                                                                       ]
+                                                                    },
+                                                         "WMDVSX":  {
+                                                                        "rowCount":  0,
+                                                                        "sampleRows":  [
+
+                                                                                       ]
+                                                                    }
+                                                     }
+                                      }
+                                  ],
+                   "notes":  [
+                                 "Only standard read-oriented BAPIs were executed. Internal MARD/MBEW functions and RFC_READ_TABLE were not executed by this validation probe.",
+                                 "ATP availability is not automatically treated as physical unrestricted stock."
+                             ]
+               },
+    "outputFilePath":  "C:\\Users\\skk932045\\OneDrive - Tata Technologies\\Desktop\\Platform\\SAP-BOM-Extractor\\runtime\\validation\\validation_20260731_092849_a6fed49a08cf439f8110e42700e249bb\\sap_material_impact_execution.json"
+}

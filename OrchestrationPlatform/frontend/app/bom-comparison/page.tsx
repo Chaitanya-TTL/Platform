@@ -36,6 +36,7 @@ import { ConfigitForm } from "@/components/ConfigitForm";
 import { PipelineForm } from "@/components/PipelineForm";
 import { QuickStartModal } from "@/components/QuickStartModal";
 import { SAPForm } from "@/components/SAPForm";
+import { SapBusinessImpactPanel } from "@/components/SapBusinessImpactPanel";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { WindchillForm } from "@/components/WindchillForm";
 import { subscribeToProgress, type PipelineProgress } from "@/lib/api";
@@ -487,6 +488,7 @@ export default function Page() {
             comparisonFilter={filter}
             counterpartLabel={counterpart("sap")}
           />
+          <SapBusinessImpactPanel jobId={sapJob} active={Boolean(sapJob)} />
         </div>
       </>
     );
