@@ -224,9 +224,9 @@ function TreeRow({
           "relative flex w-full min-w-0 items-center gap-2 overflow-hidden rounded-xl border px-2 py-2 outline-none transition sm:gap-3 sm:px-3",
           focusClass ||
             (changeDirect
-              ? "border-orange-400 bg-orange-50 ring-1 ring-orange-400/25 dark:bg-orange-400/[.12]"
+              ? "border-amber-500 bg-amber-50 ring-2 ring-amber-400/25 dark:bg-amber-400/[.12]"
               : changeIndirect
-                ? "border-amber-300 bg-amber-50 dark:bg-amber-400/[.07]"
+                ? "border-orange-300 bg-orange-50 dark:bg-orange-400/[.07]"
                 : impactMatch
               ? "border-emerald-400 bg-emerald-50 dark:bg-emerald-400/[.12]"
               : selected
@@ -279,14 +279,14 @@ function TreeRow({
           >
             {focusRelationship}
           </span>
-        ) : changeDirect ? (
-          <span className="shrink-0 text-[10px] font-semibold uppercase text-orange-500">Affected{changeImpact?.notices?.length ? ` · ${changeImpact.notices.length}` : ""}</span>
-        ) : changeIndirect ? (
-          <span className="shrink-0 text-[10px] font-semibold uppercase text-amber-500">Impacted</span>
         ) : result && visual ? (
           <span className="shrink-0 rounded-full border border-current/20 px-2 py-1 text-[12px] font-semibold uppercase">
             {visual.label}
           </span>
+        ) : changeDirect ? (
+          <span className="shrink-0 rounded-full border border-amber-500/30 bg-amber-500/15 px-2 py-1 text-[12px] font-semibold uppercase text-amber-600 dark:text-amber-300">Affected{changeImpact?.notices?.length ? ` -+ ${changeImpact.notices.length}` : ""}</span>
+        ) : changeIndirect ? (
+          <span className="shrink-0 rounded-full border border-orange-400/25 bg-orange-400/10 px-2 py-1 text-[12px] font-semibold uppercase text-orange-600 dark:text-orange-300">Impacted</span>
         ) : null}
       </div>
     </motion.div>
@@ -589,6 +589,8 @@ export function SourceBomPanel({
                         : null
                     }
                     requirementFocus={trace.focus}
+                    changeImpact={source === "windchill" ? changeImpact : null}
+                    changeImpactFilter={changeImpactFilter}
                   />
                 ) : viewMode === "radial" ? (
                   <BomRadialExplorerView
@@ -727,13 +729,9 @@ function Details({
         </button>
       </div>
       {changeImpact ? (
-        <div className="mt-4 border-t border-slate-200 pt-3 dark:border-slate-800">
-          <p className={`text-[10px] font-semibold uppercase ${changeImpact.impact === "direct" ? "text-orange-500" : "text-amber-500"}`}>
-            {changeImpact.impact === "direct" ? "Directly affected" : "Impacted assembly"}
-          </p>
-          {changeImpact.notices?.map((notice, index) => (
-            <p key={`${notice.number}-${index}`} className="mt-1 text-xs text-slate-500">CN {notice.number ?? "Unknown"} · {notice.name ?? "Unnamed change"}{notice.changeIntent ? ` · ${notice.changeIntent}` : ""}{notice.affectedVersion ? ` · ${notice.affectedVersion}` : ""}</p>
-          ))}
+        <div className="mt-4 rounded-xl border border-amber-400/25 bg-amber-400/[.08] p-3">
+          <p className="text-[11px] font-bold uppercase text-amber-500">{changeImpact.impact === "direct" ? "Directly affected" : "Impacted assembly"}</p>
+          {changeImpact.notices?.map((notice, index) => <p key={`${notice.number}-${index}`} className="mt-1 text-xs text-slate-600 dark:text-slate-300">CN {notice.number ?? "Unknown"} -+ {notice.name ?? "Unnamed change"}{notice.changeIntent ? ` -+ ${notice.changeIntent}` : ""}{notice.affectedVersion ? ` -+ ${notice.affectedVersion}` : ""}</p>)}
         </div>
       ) : null}
       <p className="mt-4 text-xs text-slate-500">
