@@ -445,29 +445,45 @@ export function getConfigitRoot(
 /*
  * Windchill transformation logic remains unchanged.
  */
-export function getWindchillRoot(
-  payload: unknown
-): TreeNodeData | null {
+function transformWindchillNode(node: unknown, fallbackPath: string): TreeNodeData {
+  const obj = asRecord(node) ?? {};
+  const rawAttributes = asRecord(obj.attributes) ?? {};
+  const attributes: Record<string, string | number | boolean> = {};
+
+  for (const [key, value] of Object.entries(rawAttributes)) {
+    const normalized = getNumberOrString(value);
+    if (normalized !== undefined) attributes[key] = normalized;
+  }
+
+  const itemId = getString(rawAttributes["Item ID"]) ?? getString(obj.PartNumber) ?? getString(obj.partNumber);
+  const partId = getString(rawAttributes["Part ID"]) ?? getString(obj.PartId) ?? getString(obj.partId);
+  const occurrenceId = getString(rawAttributes["Occurrence ID"]) ?? getString(obj.OccurrenceId) ?? getString(obj.id);
+  const treePath = getString(rawAttributes["Tree Path"]) ?? fallbackPath;
+  const quantity = getNumberOrString(obj.quantity ?? rawAttributes.Quantity);
+  if (itemId) attributes["Item ID"] = itemId;
+  if (partId) attributes["Part ID"] = partId;
+  if (occurrenceId) attributes["Occurrence ID"] = occurrenceId;
+  attributes["Tree Path"] = treePath;
+  if (quantity !== undefined) attributes.Quantity = quantity;
+
+  const children = getArray(obj.children) ?? getArray(obj.Components) ?? getArray(obj.components) ?? [];
+  const id = occurrenceId || getString(obj.id) || `${fallbackPath}:${itemId || "node"}`;
+  const name = getString(obj.name) ?? getString(obj.PartName) ?? itemId ?? id;
+
+  return {
+    id,
+    name,
+    attributes,
+    children: children.map((child, index) => transformWindchillNode(child, `${treePath}/${index}`)),
+  };
+}
+
+export function getWindchillRoot(payload: unknown): TreeNodeData | null {
   const obj = asRecord(payload);
-
-  if (!obj) {
-    return null;
-  }
-
+  if (!obj) return null;
   const bom = getArray(obj.bom);
-
-  if (!bom || bom.length === 0) {
-    return null;
-  }
-
-  const roots = bom.flatMap((node, index) =>
-    transformConfigitNodes(
-      node,
-      `windchill-node-${index}`
-    )
-  );
-
-  return roots.length > 0 ? roots[0] : null;
+  if (!bom?.length) return null;
+  return transformWindchillNode(bom[0], String(obj.productId ?? "windchill-root"));
 }
 
 function flattenLevels(

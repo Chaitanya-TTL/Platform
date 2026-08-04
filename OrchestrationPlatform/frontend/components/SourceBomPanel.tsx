@@ -59,6 +59,7 @@ import type {
   TreeNodeData,
 } from "@/types/bom-comparison";
 import type { BomViewMode } from "@/types/bom-visualization";
+import type { WindchillChangeImpactFilter, WindchillChangeImpactResult, WindchillNodeImpact } from "@/types/windchill-change-impact";
 type Props = {
   source: SourceType;
   title: string;
@@ -75,6 +76,8 @@ type Props = {
   comparison?: Record<string, NodeComparison>;
   comparisonFilter?: ComparisonFilter;
   counterpartLabel?: string;
+  changeImpact?: WindchillChangeImpactResult | null;
+  changeImpactFilter?: WindchillChangeImpactFilter;
 };
 type Status = "idle" | "loading" | "ready" | "error";
 type FocusRelationship = "direct" | "corresponding";
@@ -169,6 +172,7 @@ function TreeRow({
   comparison,
   selected,
   impactMatch,
+  changeImpact,
   focusRelationship,
   onSelect,
 }: NodeRendererProps<TreeNodeData> & {
@@ -177,6 +181,7 @@ function TreeRow({
   comparison?: NodeComparison;
   selected: boolean;
   impactMatch: boolean;
+  changeImpact?: WindchillNodeImpact;
   focusRelationship?: FocusRelationship;
   onSelect: (node: TreeNodeData) => void;
 }) {
@@ -184,7 +189,9 @@ function TreeRow({
     hasChildren = !node.isLeaf,
     result = comparisonMode ? comparison : undefined,
     visual = result ? visuals[result.status] : null,
-    focused = Boolean(focusRelationship);
+    focused = Boolean(focusRelationship),
+    changeDirect = changeImpact?.impact === "direct",
+    changeIndirect = changeImpact?.impact === "indirect";
   const keyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
@@ -216,7 +223,11 @@ function TreeRow({
         className={[
           "relative flex w-full min-w-0 items-center gap-2 overflow-hidden rounded-xl border px-2 py-2 outline-none transition sm:gap-3 sm:px-3",
           focusClass ||
-            (impactMatch
+            (changeDirect
+              ? "border-orange-400 bg-orange-50 ring-1 ring-orange-400/25 dark:bg-orange-400/[.12]"
+              : changeIndirect
+                ? "border-amber-300 bg-amber-50 dark:bg-amber-400/[.07]"
+                : impactMatch
               ? "border-emerald-400 bg-emerald-50 dark:bg-emerald-400/[.12]"
               : selected
                 ? "border-cyan-300 bg-cyan-50 dark:bg-cyan-400/[.09]"
@@ -268,6 +279,10 @@ function TreeRow({
           >
             {focusRelationship}
           </span>
+        ) : changeDirect ? (
+          <span className="shrink-0 text-[10px] font-semibold uppercase text-orange-500">Affected{changeImpact?.notices?.length ? ` · ${changeImpact.notices.length}` : ""}</span>
+        ) : changeIndirect ? (
+          <span className="shrink-0 text-[10px] font-semibold uppercase text-amber-500">Impacted</span>
         ) : result && visual ? (
           <span className="shrink-0 rounded-full border border-current/20 px-2 py-1 text-[12px] font-semibold uppercase">
             {visual.label}
@@ -292,6 +307,8 @@ export function SourceBomPanel({
   comparison,
   comparisonFilter = "all",
   counterpartLabel,
+  changeImpact = null,
+  changeImpactFilter = "all",
 }: Props) {
   const [bom, setBom] = useState<TreeNodeData | null>(null),
     [status, setStatus] = useState<Status>("idle"),
@@ -442,7 +459,7 @@ export function SourceBomPanel({
     shown = selected ? sourcePresentation(selected, source) : null,
     selectedComparison =
       selected && comparisonMode ? comparison?.[selected.id] : undefined,
-    term = `${search.toLowerCase()}|${comparisonMode ? comparisonFilter : "all"}`,
+    term = `${search.toLowerCase()}|${comparisonMode ? comparisonFilter : "all"}|${changeImpactFilter}`,
     catalog = getLoadedRequirementCatalog(),
     overlayOwner = Object.keys(trace.loadedBoms)[0] === source,
     treeHeight = isFullscreen ? Math.max(520, viewportHeight - 285) : 510;
@@ -602,11 +619,12 @@ export function SourceBomPanel({
                       overscanCount={8}
                       searchTerm={term}
                       searchMatch={(node, value) => {
-                        const [q, f] = value.split("|");
+                        const [q, f, changeFilter] = value.split("|");
+                        const nodeImpact = changeImpact?.impactMap[node.data.id];
                         return (
                           (!q || searchText(node.data, source).includes(q)) &&
-                          (f === "all" ||
-                            comparison?.[node.data.id]?.status === f)
+                          (f === "all" || comparison?.[node.data.id]?.status === f) &&
+                          (changeFilter === "all" || nodeImpact?.impact === changeFilter)
                         );
                       }}
                     >
@@ -618,6 +636,7 @@ export function SourceBomPanel({
                           comparison={comparison?.[props.node.data.id]}
                           selected={selected?.id === props.node.data.id}
                           impactMatch={impactIds.has(props.node.data.id)}
+                          changeImpact={changeImpact?.impactMap[props.node.data.id]}
                           focusRelationship={focusById[props.node.data.id]}
                           onSelect={select}
                         />
@@ -637,6 +656,7 @@ export function SourceBomPanel({
                     shown={shown}
                     onClose={() => setSelected(null)}
                     fullScreen={isFullscreen}
+                    changeImpact={changeImpact?.impactMap[selected.id]}
                   />
                 ) : null}
               </AnimatePresence>
@@ -681,11 +701,13 @@ function Details({
   shown,
   onClose,
   fullScreen,
+  changeImpact,
 }: {
   node: TreeNodeData;
   shown: ReturnType<typeof sourcePresentation> | null;
   onClose: () => void;
   fullScreen: boolean;
+  changeImpact?: WindchillNodeImpact;
 }) {
   return (
     <motion.aside
@@ -704,6 +726,16 @@ function Details({
           <IconX className="h-4 w-4" />
         </button>
       </div>
+      {changeImpact ? (
+        <div className="mt-4 border-t border-slate-200 pt-3 dark:border-slate-800">
+          <p className={`text-[10px] font-semibold uppercase ${changeImpact.impact === "direct" ? "text-orange-500" : "text-amber-500"}`}>
+            {changeImpact.impact === "direct" ? "Directly affected" : "Impacted assembly"}
+          </p>
+          {changeImpact.notices?.map((notice, index) => (
+            <p key={`${notice.number}-${index}`} className="mt-1 text-xs text-slate-500">CN {notice.number ?? "Unknown"} · {notice.name ?? "Unnamed change"}{notice.changeIntent ? ` · ${notice.changeIntent}` : ""}{notice.affectedVersion ? ` · ${notice.affectedVersion}` : ""}</p>
+          ))}
+        </div>
+      ) : null}
       <p className="mt-4 text-xs text-slate-500">
         <IconHierarchy className="mr-2 inline h-4 w-4" />
         {node.children?.length

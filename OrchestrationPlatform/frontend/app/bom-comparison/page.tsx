@@ -50,6 +50,11 @@ import type {
   TreeNodeData,
 } from "@/types/bom-comparison";
 import { SourceBomPanel } from "@/components/SourceBomPanel";
+import { WindchillRevisionWorkspace } from "@/components/windchill/WindchillRevisionWorkspace";
+import { WindchillRevisionComparison } from "@/components/windchill/WindchillRevisionComparison";
+import { WindchillChangeWorkspace } from "@/components/windchill/WindchillChangeWorkspace";
+import type { WindchillRevisionComparisonResult, WindchillVersion, WindchillVersionList } from "@/types/windchill-revision";
+import type { WindchillChangeImpactFilter, WindchillChangeImpactResult } from "@/types/windchill-change-impact";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5212/api";
 type Category = "PLM" | "ERP" | "CPQ";
@@ -172,6 +177,18 @@ export default function Page() {
   const [wcRun, setWcRun] = useState(false);
   const [part, setPart] = useState<string | null>(null);
   const [wcRefresh, setWcRefresh] = useState(0);
+  const [wcRevisionPart, setWcRevisionPart] = useState<string | null>(null);
+  const [wcVersions, setWcVersions] = useState<WindchillVersion[]>([]);
+  const [wcFromVersion, setWcFromVersion] = useState("");
+  const [wcToVersion, setWcToVersion] = useState("");
+  const [wcVersionLoading, setWcVersionLoading] = useState(false);
+  const [wcRevisionLoading, setWcRevisionLoading] = useState(false);
+  const [wcRevisionError, setWcRevisionError] = useState<string | null>(null);
+  const [wcRevisionResult, setWcRevisionResult] = useState<WindchillRevisionComparisonResult | null>(null);
+  const [wcChangeLoading, setWcChangeLoading] = useState(false);
+  const [wcChangeError, setWcChangeError] = useState<string | null>(null);
+  const [wcChangeImpact, setWcChangeImpact] = useState<WindchillChangeImpactResult | null>(null);
+  const [wcChangeFilter, setWcChangeFilter] = useState<WindchillChangeImpactFilter>("all");
   const [dragged, setDragged] = useState<SourceType | null>(null);
   const [roots, setRoots] = useState<Partial<Record<SourceType, TreeNodeData>>>(
     {},
@@ -271,6 +288,63 @@ export default function Page() {
     );
   }, [sapJob, sapRun]);
 
+  const loadWindchillVersions = async (partId: string) => {
+    setWcRevisionPart(partId);
+    setWcVersionLoading(true);
+    setWcRevisionError(null);
+    setWcRevisionResult(null);
+    try {
+      const response = await fetch(`/api/bom-windchill?operation=versions&partId=${encodeURIComponent(partId)}`, { cache: "no-store" });
+      const payload = (await response.json()) as WindchillVersionList | { error?: string };
+      if (!response.ok || !("versions" in payload)) throw new Error("error" in payload ? payload.error || "Unable to load revisions" : "Unable to load revisions");
+      setWcVersions(payload.versions);
+      setWcFromVersion(payload.versions[0]?.label ?? "");
+      setWcToVersion(payload.versions.at(-1)?.label ?? "");
+    } catch (cause) {
+      setWcVersions([]);
+      setWcRevisionError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setWcVersionLoading(false);
+    }
+  };
+
+  const compareWindchillVersions = async () => {
+    if (!wcRevisionPart || !wcFromVersion || !wcToVersion || wcFromVersion === wcToVersion) return;
+    setWcRevisionLoading(true);
+    setWcRevisionError(null);
+    try {
+      const response = await fetch(`/api/bom-windchill?operation=compare&partId=${encodeURIComponent(wcRevisionPart)}&from=${encodeURIComponent(wcFromVersion)}&to=${encodeURIComponent(wcToVersion)}`, { cache: "no-store" });
+      const payload = (await response.json()) as WindchillRevisionComparisonResult | { error?: string };
+      if (!response.ok || !("summary" in payload)) throw new Error("error" in payload ? payload.error || "Unable to compare revisions" : "Unable to compare revisions");
+      setWcRevisionResult(payload);
+    } catch (cause) {
+      setWcRevisionError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setWcRevisionLoading(false);
+    }
+  };
+
+  const findWindchillChanges = async (partId: string) => {
+    if (!roots.windchill) return;
+    setWcChangeLoading(true);
+    setWcChangeError(null);
+    try {
+      const response = await fetch(`/api/bom-windchill?operation=change-impact&partId=${encodeURIComponent(partId)}`, { cache: "no-store" });
+      const payload = (await response.json()) as WindchillChangeImpactResult | { error?: string };
+      if (!response.ok || !("impactMap" in payload)) throw new Error("error" in payload ? payload.error || "Unable to find associated changes" : "Unable to find associated changes");
+      setWcChangeImpact(payload);
+      setWcChangeFilter("all");
+      if (!payload.summary.changeNotices) toast.info("No associated Change Notices found.");
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : String(cause);
+      setWcChangeImpact(null);
+      setWcChangeError(message);
+      toast.error(message);
+    } finally {
+      setWcChangeLoading(false);
+    }
+  };
+
   const start = (selection: ComparisonSelection) => {
     setPrimary(selection.leftSource);
     setCompared([selection.rightSource]);
@@ -327,6 +401,13 @@ export default function Page() {
       setWcActive(false);
       setWcRun(false);
       setPart(null);
+      setWcRevisionPart(null);
+      setWcVersions([]);
+      setWcRevisionResult(null);
+      setWcRevisionError(null);
+      setWcChangeImpact(null);
+      setWcChangeError(null);
+      setWcChangeFilter("all");
     }
   };
   const drop = (target: SourceType, event: DragEvent<HTMLElement>) => {
@@ -392,6 +473,11 @@ export default function Page() {
       return (
         <>
           <WindchillForm
+            onLoadVersions={loadWindchillVersions}
+            onFindChanges={findWindchillChanges}
+            isVersionLoading={wcVersionLoading}
+            isChangeLoading={wcChangeLoading}
+            changeDisabled={!roots.windchill}
             onSubmit={(id) => {
               setWcActive(true);
               setWcRun(true);
@@ -400,6 +486,22 @@ export default function Page() {
             }}
             isRunning={wcRun}
           />
+          <WindchillRevisionWorkspace
+            versions={wcVersions}
+            from={wcFromVersion}
+            to={wcToVersion}
+            loading={wcRevisionLoading}
+            error={wcRevisionError}
+            onFromChange={setWcFromVersion}
+            onToChange={setWcToVersion}
+            onCompare={compareWindchillVersions}
+          />
+          {wcRevisionResult ? <WindchillRevisionComparison result={wcRevisionResult} onClose={() => setWcRevisionResult(null)} /> : null}
+          {wcChangeImpact ? (
+            <WindchillChangeWorkspace result={wcChangeImpact} filter={wcChangeFilter} onFilterChange={setWcChangeFilter} onClose={() => { setWcChangeImpact(null); setWcChangeFilter("all"); }} />
+          ) : wcChangeError ? (
+            <div className="mt-3 rounded-xl border border-rose-500/25 bg-rose-500/[.08] px-3 py-2 text-xs text-rose-300">{wcChangeError}</div>
+          ) : null}
           <div className="mt-4">
             {/* {roots.windchill ? (
               <RequirementContextBanner
@@ -423,6 +525,8 @@ export default function Page() {
               comparison={mapFor("windchill")}
               comparisonFilter={filter}
               counterpartLabel={counterpart("windchill")}
+              changeImpact={wcChangeImpact}
+              changeImpactFilter={wcChangeFilter}
             />
           </div>
         </>
