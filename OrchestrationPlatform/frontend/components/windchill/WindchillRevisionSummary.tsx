@@ -1,5 +1,4 @@
-import { WindchillRevisionComparisonResult } from "@/types/windchill-revision";
-
+import type { WindchillRevisionComparisonResult } from "@/types/windchill-revision";
 
 const cards = [
   ["added", "Added", "text-emerald-500"],

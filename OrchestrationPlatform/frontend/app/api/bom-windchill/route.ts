@@ -10,7 +10,7 @@ export const revalidate = 0;
 
 const execFileAsync = promisify(execFile);
 
-type Operation = "extract" | "versions" | "structure" | "compare";
+type Operation = "extract" | "versions" | "structure" | "compare" | "change-impact" | "search";
 
 async function fileExists(candidate: string) {
   try {
@@ -56,7 +56,7 @@ async function findScriptDir(startDir: string) {
 
 function operationOf(request: NextRequest): Operation {
   const value = request.nextUrl.searchParams.get("operation");
-  return value === "versions" || value === "structure" || value === "compare"
+  return value === "versions" || value === "structure" || value === "compare" || value === "change-impact" || value === "search"
     ? value
     : "extract";
 }
@@ -64,8 +64,12 @@ function operationOf(request: NextRequest): Operation {
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
   const partId = params.get("partId")?.trim();
+  const query = params.get("query")?.trim();
   const operation = operationOf(request);
-  if (!partId) {
+  if (operation === "search" && !query) {
+    return NextResponse.json({ error: "query is required." }, { status: 400 });
+  }
+  if (operation !== "search" && !partId) {
     return NextResponse.json({ error: "partId is required." }, { status: 400 });
   }
 
@@ -108,10 +112,11 @@ export async function GET(request: NextRequest) {
     "--operation",
     operation,
     "--part-id",
-    partId,
+    partId ?? "",
     "--output",
     outputPath,
   ];
+  if (query) args.push("--query", query);
   if (version) args.push("--version", version);
   if (fromVersion) args.push("--from-version", fromVersion);
   if (toVersion) args.push("--to-version", toVersion);
@@ -119,7 +124,7 @@ export async function GET(request: NextRequest) {
   try {
     await execFileAsync(python, args, {
       cwd: scriptDir,
-      timeout: operation === "compare" ? 10 * 60 * 1000 : 5 * 60 * 1000,
+      timeout: operation === "compare" || operation === "change-impact" ? 10 * 60 * 1000 : 5 * 60 * 1000,
       maxBuffer: 10 * 1024 * 1024,
       env: process.env,
     });
@@ -141,4 +146,3 @@ export async function GET(request: NextRequest) {
     await fs.rm(tempDir, { recursive: true, force: true });
   }
 }
-  

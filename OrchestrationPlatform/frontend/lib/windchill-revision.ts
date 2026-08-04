@@ -1,7 +1,10 @@
 import type { TreeNodeData } from "@/types/bom-comparison";
-
+import type {
+  WindchillRevisionChange,
+  WindchillRevisionComparisonResult,
+  WindchillRevisionTrees,
+} from "@/types/windchill-revision";
 import { getWindchillRoot } from "@/components/BomStreamViewer";
-import { WindchillRevisionComparisonResult, WindchillRevisionTrees, WindchillRevisionChange } from "@/types/windchill-revision";
 
 export function revisionTrees(
   result: WindchillRevisionComparisonResult,

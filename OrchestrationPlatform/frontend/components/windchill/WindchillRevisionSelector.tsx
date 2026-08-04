@@ -1,8 +1,6 @@
 "use client";
 
-import { WindchillVersion } from "@/types/windchill-revision";
-
-
+import type { WindchillVersion } from "@/types/windchill-revision";
 
 export function WindchillRevisionSelector({
   versions,
@@ -45,9 +43,9 @@ export function WindchillRevisionSelector({
               {versions.map((version) => <option key={version.partId} value={version.label}>{version.display}</option>)}
             </select>
           </label>
-          {/* <button type="button" disabled={loading || !from || !to || from === to} onClick={onCompare} className="h-10 rounded-xl bg-cyan-600 px-4 text-sm font-semibold text-white disabled:opacity-45">
+          <button type="button" disabled={loading || !from || !to || from === to} onClick={onCompare} className="h-10 rounded-xl bg-cyan-600 px-4 text-sm font-semibold text-white disabled:opacity-45">
             {loading ? "Comparing..." : "Compare versions"}
-          </button> */}
+          </button>
         </div>
       ) : null}
     </section>

@@ -51,8 +51,9 @@ import type {
 import { SourceBomPanel } from "@/components/SourceBomPanel";
 import { WindchillRevisionSelector } from "@/components/windchill/WindchillRevisionSelector";
 import { WindchillRevisionComparison } from "@/components/windchill/WindchillRevisionComparison";
-import { WindchillRevisionComparisonResult, WindchillVersion, WindchillVersionList } from "@/types/windchill-revision";
-
+import { WindchillChangeImpactSummary } from "@/components/windchill/WindchillChangeImpactSummary";
+import type { WindchillRevisionComparisonResult, WindchillVersion, WindchillVersionList } from "@/types/windchill-revision";
+import type { WindchillChangeImpactFilter, WindchillChangeImpactResult } from "@/types/windchill-change-impact";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5212/api";
 type Category = "PLM" | "ERP" | "CPQ";
@@ -183,6 +184,10 @@ export default function Page() {
   const [wcRevisionLoading, setWcRevisionLoading] = useState(false);
   const [wcRevisionError, setWcRevisionError] = useState<string | null>(null);
   const [wcRevisionResult, setWcRevisionResult] = useState<WindchillRevisionComparisonResult | null>(null);
+  const [wcChangeLoading, setWcChangeLoading] = useState(false);
+  const [wcChangeError, setWcChangeError] = useState<string | null>(null);
+  const [wcChangeImpact, setWcChangeImpact] = useState<WindchillChangeImpactResult | null>(null);
+  const [wcChangeFilter, setWcChangeFilter] = useState<WindchillChangeImpactFilter>("all");
   const [dragged, setDragged] = useState<SourceType | null>(null);
   const [roots, setRoots] = useState<Partial<Record<SourceType, TreeNodeData>>>(
     {},
@@ -302,6 +307,27 @@ export default function Page() {
     }
   };
 
+  const findWindchillChanges = async (partId: string) => {
+    if (!roots.windchill) return;
+    setWcChangeLoading(true);
+    setWcChangeError(null);
+    try {
+      const response = await fetch(`/api/bom-windchill?operation=change-impact&partId=${encodeURIComponent(partId)}`, { cache: "no-store" });
+      const payload = (await response.json()) as WindchillChangeImpactResult | { error?: string };
+      if (!response.ok || !("impactMap" in payload)) throw new Error("error" in payload ? payload.error || "Unable to find associated changes" : "Unable to find associated changes");
+      setWcChangeImpact(payload);
+      setWcChangeFilter("all");
+      if (!payload.summary.changeNotices) toast.info("No associated Change Notices were found for the current BOM versions.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setWcChangeImpact(null);
+      setWcChangeError(message);
+      toast.error(message);
+    } finally {
+      setWcChangeLoading(false);
+    }
+  };
+
   const compareWindchillVersions = async () => {
     if (!wcRevisionPart || !wcFromVersion || !wcToVersion || wcFromVersion === wcToVersion) return;
     setWcRevisionLoading(true);
@@ -379,6 +405,9 @@ export default function Page() {
       setWcVersions([]);
       setWcRevisionResult(null);
       setWcRevisionError(null);
+      setWcChangeImpact(null);
+      setWcChangeError(null);
+      setWcChangeFilter("all");
     }
   };
   const drop = (target: SourceType, event: DragEvent<HTMLElement>) => {
@@ -445,7 +474,10 @@ export default function Page() {
         <>
           <WindchillForm
             onLoadVersions={loadWindchillVersions}
+            onFindChanges={findWindchillChanges}
             isVersionLoading={wcVersionLoading}
+            isChangeLoading={wcChangeLoading}
+            changeDisabled={!roots.windchill}
             onSubmit={(id) => {
               setWcActive(true);
               setWcRun(true);
@@ -466,6 +498,11 @@ export default function Page() {
           />
           {wcRevisionResult ? (
             <WindchillRevisionComparison result={wcRevisionResult} onClose={() => setWcRevisionResult(null)} />
+          ) : null}
+          {wcChangeImpact ? (
+            <WindchillChangeImpactSummary result={wcChangeImpact} filter={wcChangeFilter} onFilterChange={setWcChangeFilter} onClose={() => { setWcChangeImpact(null); setWcChangeFilter("all"); }} />
+          ) : wcChangeError ? (
+            <div className="mt-4 rounded-xl border border-rose-400/30 bg-rose-400/10 p-3 text-sm text-rose-500">{wcChangeError}</div>
           ) : null}
           <div className="mt-4">
             {/* {roots.windchill ? (
@@ -490,6 +527,8 @@ export default function Page() {
               comparison={mapFor("windchill")}
               comparisonFilter={filter}
               counterpartLabel={counterpart("windchill")}
+              changeImpact={wcChangeImpact}
+              changeImpactFilter={wcChangeFilter}
             />
           </div>
         </>
