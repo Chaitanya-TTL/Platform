@@ -95,7 +95,7 @@ export function SAPForm({ onSubmit, isLoading }: SAPFormProps) {
                 icon={<IconHierarchy3 className="h-3.5 w-3.5" />}
                 onClick={() => setIncludeImpact(false)}
               >
-                BOM only
+                BOM
               </ScopeButton>
               <ScopeButton
                 active={includeImpact}
@@ -103,7 +103,7 @@ export function SAPForm({ onSubmit, isLoading }: SAPFormProps) {
                 icon={<IconChartDots3 className="h-3.5 w-3.5" />}
                 onClick={() => setIncludeImpact(true)}
               >
-                BOM + SAP impact
+                Attributes
               </ScopeButton>
             </div>
           </div>
