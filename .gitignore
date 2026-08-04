@@ -8,3 +8,10 @@
 
 # Visual Studio
 .vs/
+
+# Windchill local configuration and generated files
+windchill_extractor/config.py
+windchill_extractor/__pycache__/
+windchill_extractor/*.pyc
+windchill_extractor/windchill_extraction.json
+windchill_extractor/windchill_extraction_raw.json

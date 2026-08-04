@@ -1,5 +1,6 @@
 import { execFile } from "node:child_process";
 import { promises as fs } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { NextRequest, NextResponse } from "next/server";
@@ -8,6 +9,8 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 const execFileAsync = promisify(execFile);
+
+type Operation = "extract" | "versions" | "structure" | "compare" | "change-impact" | "search";
 
 async function fileExists(candidate: string) {
   try {
@@ -25,7 +28,6 @@ async function findPythonExecutable(scriptDir: string) {
     "python",
     "python3",
   ];
-
   for (const candidate of candidates) {
     if (candidate === "python" || candidate === "python3") {
       try {
@@ -35,85 +37,112 @@ async function findPythonExecutable(scriptDir: string) {
         continue;
       }
     }
-
-    if (await fileExists(candidate)) {
-      return candidate;
-    }
+    if (await fileExists(candidate)) return candidate;
   }
-
   return null;
 }
 
-export async function GET(request: NextRequest) {
-  const partId = request.nextUrl.searchParams.get("partId");
-  const debug = request.nextUrl.searchParams.get("debug");
+async function findScriptDir(startDir: string) {
+  let current = path.resolve(startDir);
+  for (let index = 0; index < 6; index += 1) {
+    const candidate = path.resolve(current, "windchill_extractor");
+    if (await fileExists(candidate)) return candidate;
+    const parent = path.dirname(current);
+    if (parent === current) break;
+    current = parent;
+  }
+  return null;
+}
 
-  if (!partId) {
+function operationOf(request: NextRequest): Operation {
+  const value = request.nextUrl.searchParams.get("operation");
+  return value === "versions" || value === "structure" || value === "compare" || value === "change-impact" || value === "search"
+    ? value
+    : "extract";
+}
+
+export async function GET(request: NextRequest) {
+  const params = request.nextUrl.searchParams;
+  const partId = params.get("partId")?.trim();
+  const query = params.get("query")?.trim();
+  const operation = operationOf(request);
+  if (operation === "search" && !query) {
+    return NextResponse.json({ error: "query is required." }, { status: 400 });
+  }
+  if (operation !== "search" && !partId) {
     return NextResponse.json({ error: "partId is required." }, { status: 400 });
   }
 
-  async function findScriptDir(startDir: string) {
-    let current = path.resolve(startDir);
-    for (let i = 0; i < 6; i += 1) {
-      const candidate = path.resolve(current, "windchill_extractor");
-      if (await fileExists(candidate)) {
-        return candidate;
-      }
-      const parent = path.dirname(current);
-      if (parent === current) break;
-      current = parent;
-    }
-    return null;
+  const fromVersion = params.get("from")?.trim();
+  const toVersion = params.get("to")?.trim();
+  const version = params.get("version")?.trim();
+  if (operation === "compare" && (!fromVersion || !toVersion)) {
+    return NextResponse.json(
+      { error: "from and to versions are required." },
+      { status: 400 },
+    );
+  }
+  if (operation === "compare" && fromVersion === toVersion) {
+    return NextResponse.json(
+      { error: "from and to versions must be different." },
+      { status: 400 },
+    );
   }
 
   const scriptDir = await findScriptDir(process.cwd());
   if (!scriptDir) {
-    return NextResponse.json({ error: "Unable to locate windchill_extractor directory from the frontend runtime." }, { status: 500 });
+    return NextResponse.json(
+      { error: "Unable to locate windchill_extractor directory." },
+      { status: 500 },
+    );
   }
-
   const scriptPath = path.resolve(scriptDir, "extractor.py");
-  const outputPath = path.resolve(scriptDir, "windchill_extraction.json");
-
-  if (!(await fileExists(scriptPath))) {
-    return NextResponse.json({ error: "Windchill extractor script not found." }, { status: 500 });
-  }
-
   const python = await findPythonExecutable(scriptDir);
-  if (!python) {
-    return NextResponse.json({ error: "Unable to find Python executable for Windchill extraction." }, { status: 500 });
+  if (!(await fileExists(scriptPath)) || !python) {
+    return NextResponse.json(
+      { error: "Windchill extractor runtime is unavailable." },
+      { status: 500 },
+    );
   }
+
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "windchill-"));
+  const outputPath = path.join(tempDir, "result.json");
+  const args = [
+    scriptPath,
+    "--operation",
+    operation,
+    "--part-id",
+    partId ?? "",
+    "--output",
+    outputPath,
+  ];
+  if (query) args.push("--query", query);
+  if (version) args.push("--version", version);
+  if (fromVersion) args.push("--from-version", fromVersion);
+  if (toVersion) args.push("--to-version", toVersion);
 
   try {
-    await execFileAsync(python, [
-      scriptPath,
-      "--part-id",
-      partId,
-      "--output",
-      outputPath,
-    ], {
+    await execFileAsync(python, args, {
       cwd: scriptDir,
-      timeout: 5 * 60 * 1000,
+      timeout: operation === "compare" || operation === "change-impact" ? 10 * 60 * 1000 : 5 * 60 * 1000,
+      maxBuffer: 10 * 1024 * 1024,
+      env: process.env,
     });
-
-    const content = await fs.readFile(outputPath, "utf8");
-    const parsed = JSON.parse(content);
-
-    if (debug === "1") {
-      const rawPath = path.resolve(scriptDir, "windchill_extraction_raw.json");
-      let raw: unknown = null;
-      if (await fileExists(rawPath)) {
-        try {
-          raw = JSON.parse(await fs.readFile(rawPath, "utf8"));
-        } catch {
-          raw = null;
-        }
-      }
-      return NextResponse.json({ python, script: scriptPath, raw, normalized: parsed });
-    }
-
+    const parsed: unknown = JSON.parse(await fs.readFile(outputPath, "utf8"));
     return NextResponse.json(parsed);
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Unable to run extraction.";
-    return NextResponse.json({ error: `Windchill extraction failed: ${message}` }, { status: 500 });
+    const detail =
+      error && typeof error === "object" && "stderr" in error
+        ? String((error as { stderr?: unknown }).stderr ?? "")
+        : error instanceof Error
+          ? error.message
+          : "Unable to run extraction.";
+    const safeMessage = detail.split("\n").filter(Boolean).slice(-1)[0] ?? detail;
+    return NextResponse.json(
+      { error: `Windchill ${operation} failed: ${safeMessage}` },
+      { status: 502 },
+    );
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true });
   }
 }
