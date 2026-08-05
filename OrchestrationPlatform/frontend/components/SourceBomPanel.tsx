@@ -224,9 +224,9 @@ function TreeRow({
           "relative flex w-full min-w-0 items-center gap-2 overflow-hidden rounded-xl border px-2 py-2 outline-none transition sm:gap-3 sm:px-3",
           focusClass ||
             (changeDirect
-              ? "border-amber-500 bg-amber-50 ring-2 ring-amber-400/25 dark:bg-amber-400/[.12]"
+              ? "border-slate-700 bg-slate-950 before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full before:bg-orange-400"
               : changeIndirect
-                ? "border-orange-300 bg-orange-50 dark:bg-orange-400/[.07]"
+                ? "border-slate-800 bg-slate-950/50 before:absolute before:inset-y-3 before:left-0 before:w-px before:bg-slate-500"
                 : impactMatch
               ? "border-emerald-400 bg-emerald-50 dark:bg-emerald-400/[.12]"
               : selected
@@ -270,7 +270,7 @@ function TreeRow({
           <span
             className={`text-[14px] ${focusRelationship === "direct" ? "text-violet-200/80" : focusRelationship === "corresponding" ? "text-indigo-200/80" : "text-slate-500"}`}
           >
-            {shown.itemId ? `Item ID: ${shown.itemId}` : "No business Item ID"}
+            {shown.itemId ? `Item ID: ${shown.itemId}` : node.data.attributes?.["Part ID"] ? `Part ID: ${String(node.data.attributes["Part ID"])}` : node.data.attributes?.["Tree Path"] ? `Path: ${String(node.data.attributes["Tree Path"])}` : "Structural occurrence"}
           </span>
         </span>
         {focusRelationship ? (
@@ -284,9 +284,9 @@ function TreeRow({
             {visual.label}
           </span>
         ) : changeDirect ? (
-          <span className="shrink-0 rounded-full border border-amber-500/30 bg-amber-500/15 px-2 py-1 text-[12px] font-semibold uppercase text-amber-600 dark:text-amber-300">Affected{changeImpact?.notices?.length ? ` -+ ${changeImpact.notices.length}` : ""}</span>
+          <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-orange-400">Affected{changeImpact?.notices?.length ? ` -+ ${changeImpact.notices.length}` : ""}</span>
         ) : changeIndirect ? (
-          <span className="shrink-0 rounded-full border border-orange-400/25 bg-orange-400/10 px-2 py-1 text-[12px] font-semibold uppercase text-orange-600 dark:text-orange-300">Impacted</span>
+          <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Impacted parent</span>
         ) : null}
       </div>
     </motion.div>

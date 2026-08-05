@@ -4,8 +4,6 @@ import { useMemo, useState } from "react";
 import { motion } from "motion/react";
 import {
   IconArrowRight,
-  IconGitCompare,
-  IconHistory,
   IconSearch,
   IconX,
 } from "@tabler/icons-react";
@@ -35,6 +33,8 @@ type Props = {
   isVersionLoading: boolean;
   isChangeLoading: boolean;
   changeDisabled: boolean;
+  loaded?: boolean;
+  onOpenReview?: () => void;
 };
 
 function directPartId(value: string) {
@@ -58,6 +58,8 @@ export function WindchillForm({
   isVersionLoading,
   isChangeLoading,
   changeDisabled,
+  loaded = false,
+  onOpenReview,
 }: Props) {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<WindchillPartSearchResult | null>(null);
@@ -65,12 +67,28 @@ export function WindchillForm({
   const [searching, setSearching] = useState(false);
   const [searched, setSearched] = useState(false);
   const [error, setError] = useState("");
+  const [editing, setEditing] = useState(false);
 
   const authoritativeId = useMemo(
     () => selected?.numericPartId || directPartId(query),
     [selected, query],
   );
   const busy = isRunning || isVersionLoading || isChangeLoading || searching;
+  if (loaded && !editing) {
+    return (
+      <div className="flex flex-col gap-3 border-y border-slate-800 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-[10px] font-semibold uppercase tracking-[.16em] text-slate-600">Current Windchill product</p>
+          <p className="mt-1 truncate text-sm font-semibold text-slate-100">{selected?.name || selected?.number || query || "Loaded product"}</p>
+          <p className="mt-1 text-[11px] text-slate-500">{selected ? metadata(selected) : `ID ${query}`}</p>
+        </div>
+        <div className="flex gap-2">
+          <button type="button" onClick={() => { setEditing(true); setQuery(""); setSelected(null); setResults([]); setSearched(false); }} className="h-9 rounded-lg border border-slate-700 px-3 text-xs font-semibold text-slate-400 hover:bg-slate-800 hover:text-white">Change product</button>
+          <button type="button" onClick={onOpenReview} className="h-9 rounded-lg bg-slate-100 px-4 text-xs font-semibold text-slate-950 hover:bg-white">Open Change Review</button>
+        </div>
+      </div>
+    );
+  }
 
   const performSearch = async () => {
     const value = query.trim();
@@ -105,6 +123,7 @@ export function WindchillForm({
   const extract = () => {
     const id = authoritativeId;
     if (id) {
+      setEditing(false);
       onSubmit(id);
       return;
     }
@@ -201,26 +220,7 @@ export function WindchillForm({
           <p className="mt-3 text-xs text-slate-500">No matching products.</p>
         ) : null}
 
-        <div className="mt-3 flex items-center gap-2 border-t border-slate-800 pt-3">
-          <button
-            type="button"
-            disabled={busy || !authoritativeId}
-            onClick={() => authoritativeId && onLoadVersions(authoritativeId)}
-            className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[11px] font-semibold text-slate-400 transition hover:bg-slate-800 hover:text-slate-100 disabled:opacity-35"
-          >
-            <IconHistory className="h-3.5 w-3.5" />
-            {isVersionLoading ? "Loading" : "Revisions"}
-          </button>
-          <button
-            type="button"
-            disabled={busy || changeDisabled || !authoritativeId}
-            onClick={() => authoritativeId && onFindChanges(authoritativeId)}
-            className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[11px] font-semibold text-slate-400 transition hover:bg-slate-800 hover:text-slate-100 disabled:opacity-35"
-          >
-            <IconGitCompare className="h-3.5 w-3.5" />
-            {isChangeLoading ? "Scanning" : "Changes"}
-          </button>
-        </div>
+
       </div>
 
       {error ? (

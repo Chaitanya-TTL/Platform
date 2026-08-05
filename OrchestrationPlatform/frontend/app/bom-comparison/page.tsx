@@ -50,9 +50,7 @@ import type {
   TreeNodeData,
 } from "@/types/bom-comparison";
 import { SourceBomPanel } from "@/components/SourceBomPanel";
-import { WindchillRevisionWorkspace } from "@/components/windchill/WindchillRevisionWorkspace";
-import { WindchillRevisionComparison } from "@/components/windchill/WindchillRevisionComparison";
-import { WindchillChangeWorkspace } from "@/components/windchill/WindchillChangeWorkspace";
+import { WindchillChangeReviewWorkspace } from "@/components/windchill/WindchillChangeReviewWorkspace";
 import type { WindchillRevisionComparisonResult, WindchillVersion, WindchillVersionList } from "@/types/windchill-revision";
 import type { WindchillChangeImpactFilter, WindchillChangeImpactResult } from "@/types/windchill-change-impact";
 
@@ -189,6 +187,7 @@ export default function Page() {
   const [wcChangeError, setWcChangeError] = useState<string | null>(null);
   const [wcChangeImpact, setWcChangeImpact] = useState<WindchillChangeImpactResult | null>(null);
   const [wcChangeFilter, setWcChangeFilter] = useState<WindchillChangeImpactFilter>("all");
+  const [wcReviewOpen, setWcReviewOpen] = useState(false);
   const [dragged, setDragged] = useState<SourceType | null>(null);
   const [roots, setRoots] = useState<Partial<Record<SourceType, TreeNodeData>>>(
     {},
@@ -408,6 +407,7 @@ export default function Page() {
       setWcChangeImpact(null);
       setWcChangeError(null);
       setWcChangeFilter("all");
+      setWcReviewOpen(false);
     }
   };
   const drop = (target: SourceType, event: DragEvent<HTMLElement>) => {
@@ -478,29 +478,42 @@ export default function Page() {
             isVersionLoading={wcVersionLoading}
             isChangeLoading={wcChangeLoading}
             changeDisabled={!roots.windchill}
+            loaded={Boolean(roots.windchill)}
+            onOpenReview={() => setWcReviewOpen(true)}
             onSubmit={(id) => {
               setWcActive(true);
               setWcRun(true);
               setPart(id);
+              setWcRevisionPart(id);
+              setWcVersions([]);
+              setWcRevisionResult(null);
+              setWcChangeImpact(null);
+              setWcChangeError(null);
+              setWcReviewOpen(false);
               setWcRefresh((value) => value + 1);
             }}
             isRunning={wcRun}
           />
-          <WindchillRevisionWorkspace
-            versions={wcVersions}
-            from={wcFromVersion}
-            to={wcToVersion}
-            loading={wcRevisionLoading}
-            error={wcRevisionError}
-            onFromChange={setWcFromVersion}
-            onToChange={setWcToVersion}
-            onCompare={compareWindchillVersions}
-          />
-          {wcRevisionResult ? <WindchillRevisionComparison result={wcRevisionResult} onClose={() => setWcRevisionResult(null)} /> : null}
-          {wcChangeImpact ? (
-            <WindchillChangeWorkspace result={wcChangeImpact} filter={wcChangeFilter} onFilterChange={setWcChangeFilter} onClose={() => { setWcChangeImpact(null); setWcChangeFilter("all"); }} />
-          ) : wcChangeError ? (
-            <div className="mt-3 rounded-xl border border-rose-500/25 bg-rose-500/[.08] px-3 py-2 text-xs text-rose-300">{wcChangeError}</div>
+          {wcReviewOpen && part ? (
+            <WindchillChangeReviewWorkspace
+              productId={part}
+              root={roots.windchill ?? null}
+              versions={wcVersions}
+              from={wcFromVersion}
+              to={wcToVersion}
+              revisionLoading={wcRevisionLoading || wcVersionLoading}
+              revisionError={wcRevisionError}
+              revisionResult={wcRevisionResult}
+              changeLoading={wcChangeLoading}
+              changeError={wcChangeError}
+              changeImpact={wcChangeImpact}
+              onFromChange={setWcFromVersion}
+              onToChange={setWcToVersion}
+              onCompare={compareWindchillVersions}
+              onLoadVersions={() => loadWindchillVersions(part)}
+              onLoadChanges={() => findWindchillChanges(part)}
+              onClose={() => setWcReviewOpen(false)}
+            />
           ) : null}
           <div className="mt-4">
             {/* {roots.windchill ? (
