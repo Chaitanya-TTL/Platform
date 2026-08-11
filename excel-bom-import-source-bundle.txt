@@ -1,0 +1,4869 @@
+
+===== FILE: OrchestrationPlatform\frontend\app\bom-comparison\page.tsx =====
+
+"use client";
+
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type DragEvent,
+  type ReactNode,
+} from "react";
+import Link from "next/link";
+import { AnimatePresence } from "motion/react";
+import { toast } from "sonner";
+import {
+  IconArrowLeft,
+  IconArrowsExchange,
+  IconBox,
+  IconBuildingFactory,
+  IconDatabase,
+  IconGripVertical,
+  IconPlus,
+  IconPlugConnected,
+  IconX,
+  IconCancel,
+} from "@tabler/icons-react";
+import { AddComparisonSourceModal } from "@/components/AddComparisonSourceModal";
+import {
+  getConfigitRoot,
+  getTeamcenterRoot,
+  getWindchillRoot,
+} from "@/components/BomStreamViewer";
+import { ComparisonLoader } from "@/components/ComparisonLoader";
+import { ComparisonSetupModal } from "@/components/ComparisonSetupModal";
+import { ComparisonSummary } from "@/components/ComparisonSummary";
+import { ConfigitForm } from "@/components/ConfigitForm";
+import { PipelineForm } from "@/components/PipelineForm";
+import { QuickStartModal } from "@/components/QuickStartModal";
+import { SAPForm } from "@/components/SAPForm";
+import { SapBusinessImpactPanel } from "@/components/SapBusinessImpactPanel";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { WindchillForm } from "@/components/WindchillForm";
+import { subscribeToProgress, type PipelineProgress } from "@/lib/api";
+import { compareMultipleBoms } from "@/lib/bom-comparison";
+import { resolveRequirementContext } from "@/lib/requirement-context";
+import type {
+  ComparisonFilter,
+  ComparisonSelection,
+  ComparisonSessionState,
+  SourceType,
+  TreeNodeData,
+} from "@/types/bom-comparison";
+import { SourceBomPanel } from "@/components/SourceBomPanel";
+import { WindchillChangeReviewWorkspace } from "@/components/windchill/WindchillChangeReviewWorkspace";
+import type { WindchillRevisionComparisonResult, WindchillVersion, WindchillVersionList } from "@/types/windchill-revision";
+import type { WindchillChangeImpactFilter, WindchillChangeImpactResult } from "@/types/windchill-change-impact";
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5212/api";
+type Category = "PLM" | "ERP" | "CPQ";
+type Active = { type: SourceType; category: Category };
+type Transition = "enter" | "exit" | "add" | null;
+type SourceDefinition = {
+  type: SourceType;
+  label: string;
+  category: Category;
+  description: string;
+  icon: ReactNode;
+};
+
+const defs: SourceDefinition[] = [
+  {
+    type: "teamcenter",
+    label: "Teamcenter",
+    category: "PLM",
+    description: "Run Teamcenter extraction.",
+    icon: <IconPlugConnected className="h-6 w-6" />,
+  },
+  {
+    type: "windchill",
+    label: "Windchill",
+    category: "PLM",
+    description: "Extract a Windchill hierarchy.",
+    icon: <IconBuildingFactory className="h-6 w-6" />,
+  },
+  {
+    type: "sap",
+    label: "SAP",
+    category: "ERP",
+    description: "Extract an SAP material BOM.",
+    icon: <IconDatabase className="h-6 w-6" />,
+  },
+  {
+    type: "configit",
+    label: "Configit",
+    category: "CPQ",
+    description: "Resolve a Configit product model.",
+    icon: <IconBox className="h-6 w-6" />,
+  },
+];
+const labels: Record<SourceType, string> = {
+  teamcenter: "Teamcenter",
+  windchill: "Windchill",
+  sap: "SAP",
+  configit: "Configit",
+};
+const meta = (type: SourceType) => defs.find((item) => item.type === type)!;
+
+function record(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+function text(value: unknown) {
+  return typeof value === "string" ? value : undefined;
+}
+function scalar(value: unknown) {
+  return typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+    ? value
+    : undefined;
+}
+function sapNode(value: unknown, path: string): TreeNodeData {
+  const node = record(value) ?? {};
+  const material = text(node.itemId) || text(node.id) || path;
+  const name = text(node.name) || material;
+  const attributes: Record<string, string | number | boolean> = {
+    "Item ID": material,
+  };
+  const sequence = text(node.sequence);
+  const qty = scalar(node.qty);
+  const revision = text(node.revId);
+  if (sequence) attributes.Sequence = sequence;
+  if (qty !== undefined) attributes.Qty = qty;
+  if (revision) attributes["Rev ID"] = revision;
+  const children = Array.isArray(node.children) ? node.children : [];
+  return {
+    id: `${path}-${material}`,
+    name,
+    attributes,
+    children: children.map((child, index) =>
+      sapNode(child, `${path}-${index}`),
+    ),
+  };
+}
+function getSapRoot(payload: unknown): TreeNodeData | null {
+  const response = record(payload);
+  if (!response) return null;
+  const body = record(response.payload) ?? response;
+  const finalBom = record(body.finalBom) ?? record(response.finalBom) ?? body;
+  const root =
+    record(finalBom.bomRoot) ??
+    record(finalBom.bomRootNode) ??
+    record(body.bomRoot) ??
+    record(body.bomRootNode);
+  return root ? sapNode(root, "sap-root") : null;
+}
+
+export default function Page() {
+  const [active, setActive] = useState<Active[]>([]);
+  const [modal, setModal] = useState(false);
+  const [view, setView] = useState<"categories" | "options">("categories");
+  const [category, setCategory] = useState<Category | null>(null);
+  const [job, setJob] = useState<string | null>(null);
+  const [teamcenterItemId, setTeamcenterItemId] = useState<string | null>(null);
+  const [tcRun, setTcRun] = useState(false);
+  const [progress, setProgress] = useState<PipelineProgress | null>(null);
+  const [sapJob, setSapJob] = useState<string | null>(null);
+  const [sapRun, setSapRun] = useState(false);
+  const [sapProgress, setSapProgress] = useState<PipelineProgress | null>(null);
+  const [cfgActive, setCfgActive] = useState(false);
+  const [cfgRun, setCfgRun] = useState(false);
+  const [product, setProduct] = useState<string | null>(null);
+  const [cfgRefresh, setCfgRefresh] = useState(0);
+  const [wcActive, setWcActive] = useState(false);
+  const [wcRun, setWcRun] = useState(false);
+  const [part, setPart] = useState<string | null>(null);
+  const [wcRefresh, setWcRefresh] = useState(0);
+  const [wcRevisionPart, setWcRevisionPart] = useState<string | null>(null);
+  const [wcVersions, setWcVersions] = useState<WindchillVersion[]>([]);
+  const [wcFromVersion, setWcFromVersion] = useState("");
+  const [wcToVersion, setWcToVersion] = useState("");
+  const [wcVersionLoading, setWcVersionLoading] = useState(false);
+  const [wcRevisionLoading, setWcRevisionLoading] = useState(false);
+  const [wcRevisionError, setWcRevisionError] = useState<string | null>(null);
+  const [wcRevisionResult, setWcRevisionResult] = useState<WindchillRevisionComparisonResult | null>(null);
+  const [wcChangeLoading, setWcChangeLoading] = useState(false);
+  const [wcChangeError, setWcChangeError] = useState<string | null>(null);
+  const [wcChangeImpact, setWcChangeImpact] = useState<WindchillChangeImpactResult | null>(null);
+  const [wcChangeFilter, setWcChangeFilter] = useState<WindchillChangeImpactFilter>("all");
+  const [wcReviewOpen, setWcReviewOpen] = useState(false);
+  const [dragged, setDragged] = useState<SourceType | null>(null);
+  const [roots, setRoots] = useState<Partial<Record<SourceType, TreeNodeData>>>(
+    {},
+  );
+  const [session, setSession] = useState<ComparisonSessionState>("idle");
+  const [primary, setPrimary] = useState<SourceType | null>(null);
+  const [compared, setCompared] = useState<SourceType[]>([]);
+  const [filter, setFilter] = useState<ComparisonFilter>("all");
+  const [transition, setTransition] = useState<Transition>(null);
+  const [addModal, setAddModal] = useState(false);
+  const [pendingAdd, setPendingAdd] = useState<SourceType | null>(null);
+
+  const ready = useMemo(
+    () =>
+      active.map((item) => item.type).filter((type) => Boolean(roots[type])),
+    [active, roots],
+  );
+  const result = useMemo(
+    () =>
+      session === "active" && primary
+        ? compareMultipleBoms(primary, compared, roots, labels)
+        : null,
+    [session, primary, compared, roots],
+  );
+  const comparing = session === "active" && Boolean(result);
+  const included = primary ? [primary, ...compared] : [];
+  const remaining = ready.filter((source) => !included.includes(source));
+  const visible = comparing
+    ? active.filter((item) => included.includes(item.type))
+    : active;
+  const groups = (["PLM", "ERP", "CPQ"] as Category[])
+    .map((groupCategory) => ({
+      category: groupCategory,
+      sources: visible.filter((item) => item.category === groupCategory),
+    }))
+    .filter((group) => group.sources.length);
+  const options = defs
+    .filter((def) => !active.some((item) => item.type === def.type))
+    .map((def) => ({ ...def, value: def.type, disabled: false }));
+
+  const closeModal = () => {
+    setModal(false);
+    setView("categories");
+    setCategory(null);
+  };
+  const addSource = (type: SourceType) => {
+    setActive((current) =>
+      current.some((item) => item.type === type)
+        ? current
+        : [...current, { type, category: meta(type).category }],
+    );
+    closeModal();
+  };
+  const onReady = useCallback(
+    (source: SourceType, root: TreeNodeData | null) =>
+      setRoots((current) => {
+        const next = { ...current };
+        if (root) next[source] = root;
+        else delete next[source];
+        return next;
+      }),
+    [],
+  );
+  const submitTc = useCallback(
+    (id: string, _payload?: unknown, submittedItemId?: string) => {
+      if (!id.trim()) return toast.error("No Teamcenter job ID returned");
+      setJob(id);
+      setTeamcenterItemId(submittedItemId?.trim() || null);
+      setTcRun(true);
+      setProgress(null);
+    },
+    [],
+  );
+  const submitSap = useCallback((id: string) => {
+    if (!id.trim()) return toast.error("No SAP job ID returned");
+    setSapJob(id);
+    setSapRun(true);
+    setSapProgress(null);
+  }, []);
+
+  useEffect(() => {
+    if (!job || !tcRun) return;
+    return subscribeToProgress(
+      job,
+      setProgress,
+      (message) => toast.error(message),
+      () => undefined,
+    );
+  }, [job, tcRun]);
+  useEffect(() => {
+    if (!sapJob || !sapRun) return;
+    return subscribeToProgress(
+      sapJob,
+      setSapProgress,
+      (message) => toast.error(message),
+      () => undefined,
+    );
+  }, [sapJob, sapRun]);
+
+  const loadWindchillVersions = async (partId: string) => {
+    setWcRevisionPart(partId);
+    setWcVersionLoading(true);
+    setWcRevisionError(null);
+    setWcRevisionResult(null);
+    try {
+      const response = await fetch(`/api/bom-windchill?operation=versions&partId=${encodeURIComponent(partId)}`, { cache: "no-store" });
+      const payload = (await response.json()) as WindchillVersionList | { error?: string };
+      if (!response.ok || !("versions" in payload)) throw new Error("error" in payload ? payload.error || "Unable to load revisions" : "Unable to load revisions");
+      setWcVersions(payload.versions);
+      setWcFromVersion(payload.versions[0]?.label ?? "");
+      setWcToVersion(payload.versions.at(-1)?.label ?? "");
+    } catch (cause) {
+      setWcVersions([]);
+      setWcRevisionError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setWcVersionLoading(false);
+    }
+  };
+
+  const compareWindchillVersions = async () => {
+    if (!wcRevisionPart || !wcFromVersion || !wcToVersion || wcFromVersion === wcToVersion) return;
+    setWcRevisionLoading(true);
+    setWcRevisionError(null);
+    try {
+      const response = await fetch(`/api/bom-windchill?operation=compare&partId=${encodeURIComponent(wcRevisionPart)}&from=${encodeURIComponent(wcFromVersion)}&to=${encodeURIComponent(wcToVersion)}`, { cache: "no-store" });
+      const payload = (await response.json()) as WindchillRevisionComparisonResult | { error?: string };
+      if (!response.ok || !("summary" in payload)) throw new Error("error" in payload ? payload.error || "Unable to compare revisions" : "Unable to compare revisions");
+      setWcRevisionResult(payload);
+    } catch (cause) {
+      setWcRevisionError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setWcRevisionLoading(false);
+    }
+  };
+
+  const findWindchillChanges = async (partId: string) => {
+    if (!roots.windchill) return;
+    setWcChangeLoading(true);
+    setWcChangeError(null);
+    try {
+      const response = await fetch(`/api/bom-windchill?operation=change-impact&partId=${encodeURIComponent(partId)}`, { cache: "no-store" });
+      const payload = (await response.json()) as WindchillChangeImpactResult | { error?: string };
+      if (!response.ok || !("impactMap" in payload)) throw new Error("error" in payload ? payload.error || "Unable to find associated changes" : "Unable to find associated changes");
+      setWcChangeImpact(payload);
+      setWcChangeFilter("all");
+      if (!payload.summary.changeNotices) toast.info("No associated Change Notices found.");
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : String(cause);
+      setWcChangeImpact(null);
+      setWcChangeError(message);
+      toast.error(message);
+    } finally {
+      setWcChangeLoading(false);
+    }
+  };
+
+  const start = (selection: ComparisonSelection) => {
+    setPrimary(selection.leftSource);
+    setCompared([selection.rightSource]);
+    setSession("preparing");
+    setTransition("enter");
+  };
+  const addComparisonSource = (source: SourceType) => {
+    setAddModal(false);
+    setPendingAdd(source);
+    setTransition("add");
+  };
+  const complete = useCallback(() => {
+    if (transition === "enter") setSession("active");
+    if (transition === "add" && pendingAdd) {
+      setCompared((current) =>
+        current.includes(pendingAdd) ? current : [...current, pendingAdd],
+      );
+      setPendingAdd(null);
+    }
+    if (transition === "exit") {
+      setSession("idle");
+      setPrimary(null);
+      setCompared([]);
+      setFilter("all");
+    }
+    setTransition(null);
+  }, [transition, pendingAdd]);
+
+  const remove = (type: SourceType) => {
+    setActive((current) => current.filter((item) => item.type !== type));
+    onReady(type, null);
+    if (included.includes(type)) {
+      setSession("idle");
+      setPrimary(null);
+      setCompared([]);
+    }
+    if (type === "teamcenter") {
+      setJob(null);
+      setTeamcenterItemId(null);
+      setTcRun(false);
+      setProgress(null);
+    }
+    if (type === "sap") {
+      setSapJob(null);
+      setSapRun(false);
+      setSapProgress(null);
+    }
+    if (type === "configit") {
+      setCfgActive(false);
+      setCfgRun(false);
+      setProduct(null);
+    }
+    if (type === "windchill") {
+      setWcActive(false);
+      setWcRun(false);
+      setPart(null);
+      setWcRevisionPart(null);
+      setWcVersions([]);
+      setWcRevisionResult(null);
+      setWcRevisionError(null);
+      setWcChangeImpact(null);
+      setWcChangeError(null);
+      setWcChangeFilter("all");
+      setWcReviewOpen(false);
+    }
+  };
+  const drop = (target: SourceType, event: DragEvent<HTMLElement>) => {
+    event.preventDefault();
+    if (
+      !dragged ||
+      dragged === target ||
+      meta(dragged).category !== meta(target).category
+    )
+      return setDragged(null);
+    setActive((current) => {
+      const next = [...current];
+      const from = next.findIndex((item) => item.type === dragged);
+      const to = next.findIndex((item) => item.type === target);
+      const [moved] = next.splice(from, 1);
+      next.splice(from < to ? to - 1 : to, 0, moved);
+      return next;
+    });
+    setDragged(null);
+  };
+  const mapFor = (source: SourceType) => result?.maps[source];
+  const counterpart = (source: SourceType) =>
+    source === primary
+      ? compared.map((item) => labels[item]).join(" + ")
+      : primary
+        ? labels[primary]
+        : undefined;
+
+  const panelFor = (source: Active) => {
+    if (source.type === "teamcenter")
+      return (
+        <>
+          <PipelineForm onSubmit={submitTc} isLoading={tcRun} />
+          <div className="mt-4">
+            {/* {roots.teamcenter ? (
+              <RequirementContextBanner
+                requirement={resolveRequirementContext(
+                  "teamcenter",
+                  teamcenterItemId,
+                )}
+              />
+            ) : null} */}
+            <SourceBomPanel
+              source="teamcenter"
+              title="PLM"
+              endpoint={
+                job ? `${API_BASE}/pipeline/bom/${encodeURIComponent(job)}` : ""
+              }
+              transformPayload={getTeamcenterRoot}
+              active={Boolean(job)}
+              onLoadComplete={() => setTcRun(false)}
+              onBomReady={onReady}
+              progress={progress}
+              comparisonMode={Boolean(comparing)}
+              comparison={mapFor("teamcenter")}
+              comparisonFilter={filter}
+              counterpartLabel={counterpart("teamcenter")}
+            />
+          </div>
+        </>
+      );
+    if (source.type === "windchill")
+      return (
+        <>
+          <WindchillForm
+            onLoadVersions={loadWindchillVersions}
+            onFindChanges={findWindchillChanges}
+            isVersionLoading={wcVersionLoading}
+            isChangeLoading={wcChangeLoading}
+            changeDisabled={!roots.windchill}
+            loaded={Boolean(roots.windchill)}
+            onOpenReview={() => setWcReviewOpen(true)}
+            onSubmit={(id) => {
+              setWcActive(true);
+              setWcRun(true);
+              setPart(id);
+              setWcRevisionPart(id);
+              setWcVersions([]);
+              setWcRevisionResult(null);
+              setWcChangeImpact(null);
+              setWcChangeError(null);
+              setWcReviewOpen(false);
+              setWcRefresh((value) => value + 1);
+            }}
+            isRunning={wcRun}
+          />
+          {wcReviewOpen && part ? (
+            <WindchillChangeReviewWorkspace
+              productId={part}
+              root={roots.windchill ?? null}
+              versions={wcVersions}
+              from={wcFromVersion}
+              to={wcToVersion}
+              revisionLoading={wcRevisionLoading || wcVersionLoading}
+              revisionError={wcRevisionError}
+              revisionResult={wcRevisionResult}
+              changeLoading={wcChangeLoading}
+              changeError={wcChangeError}
+              changeImpact={wcChangeImpact}
+              onFromChange={setWcFromVersion}
+              onToChange={setWcToVersion}
+              onCompare={compareWindchillVersions}
+              onLoadVersions={() => loadWindchillVersions(part)}
+              onLoadChanges={() => findWindchillChanges(part)}
+              onClose={() => setWcReviewOpen(false)}
+            />
+          ) : null}
+          <div className="mt-4">
+            {/* {roots.windchill ? (
+              <RequirementContextBanner
+                requirement={resolveRequirementContext("windchill", part)}
+              />
+            ) : null} */}
+            <SourceBomPanel
+              source="windchill"
+              title="PLM"
+              endpoint={
+                part
+                  ? `/api/bom-windchill?partId=${encodeURIComponent(part)}`
+                  : "/api/bom-windchill"
+              }
+              transformPayload={getWindchillRoot}
+              active={wcActive}
+              refreshSignal={wcRefresh}
+              onLoadComplete={() => setWcRun(false)}
+              onBomReady={onReady}
+              comparisonMode={Boolean(comparing)}
+              comparison={mapFor("windchill")}
+              comparisonFilter={filter}
+              counterpartLabel={counterpart("windchill")}
+              changeImpact={wcChangeImpact}
+              changeImpactFilter={wcChangeFilter}
+            />
+          </div>
+        </>
+      );
+    if (source.type === "configit")
+      return (
+        <>
+          <ConfigitForm
+            onSubmit={(id) => {
+              setCfgActive(true);
+              setCfgRun(true);
+              setProduct(id);
+              setCfgRefresh((value) => value + 1);
+            }}
+            isRunning={cfgRun}
+          />
+          <div className="mt-4">
+            {/* {roots.configit ? (
+                <RequirementContextBanner
+                  requirement={resolveRequirementContext("configit", product)}
+                />
+              ) : null} */}
+            <SourceBomPanel
+              source="configit"
+              title="CPQ"
+              endpoint={
+                product
+                  ? `/api/bom-configit?productId=${encodeURIComponent(product)}`
+                  : "/api/bom-configit"
+              }
+              transformPayload={getConfigitRoot}
+              active={cfgActive || cfgRun}
+              refreshSignal={cfgRefresh}
+              onLoadComplete={() => setCfgRun(false)}
+              onBomReady={onReady}
+              comparisonMode={Boolean(comparing)}
+              comparison={mapFor("configit")}
+              comparisonFilter={filter}
+              counterpartLabel={counterpart("configit")}
+            />
+          </div>
+        </>
+      );
+    return (
+      <>
+        <SAPForm onSubmit={submitSap} isLoading={sapRun} />
+        <div className="mt-4">
+          <SourceBomPanel
+            source="sap"
+            title="ERP"
+            endpoint={
+              sapJob
+                ? `${API_BASE}/pipeline/bom/${encodeURIComponent(sapJob)}`
+                : ""
+            }
+            transformPayload={getSapRoot}
+            active={Boolean(sapJob)}
+            onLoadComplete={() => setSapRun(false)}
+            onBomReady={onReady}
+            progress={sapProgress}
+            comparisonMode={Boolean(comparing)}
+            comparison={mapFor("sap")}
+            comparisonFilter={filter}
+            counterpartLabel={counterpart("sap")}
+          />
+          <SapBusinessImpactPanel jobId={sapJob} active={Boolean(sapJob)} />
+        </div>
+      </>
+    );
+  };
+
+  return (
+    <main className="min-h-screen bg-slate-50 text-slate-900 dark:bg-[radial-gradient(circle_at_top,rgba(34,211,238,.10),transparent_42%),linear-gradient(135deg,#020617,#0f172a_48%,#111827)] dark:text-slate-50">
+      <QuickStartModal
+        open={modal}
+        onClose={closeModal}
+        categories={[
+          {
+            label: "PLM",
+            value: "PLM",
+            description: "Teamcenter and Windchill",
+            icon: <IconPlugConnected className="h-6 w-6" />,
+          },
+          {
+            label: "ERP",
+            value: "ERP",
+            description: "SAP enterprise resource planning",
+            icon: <IconDatabase className="h-6 w-6" />,
+          },
+          {
+            label: "CPQ",
+            value: "CPQ",
+            description: "Configit",
+            icon: <IconBox className="h-6 w-6" />,
+          },
+          {
+            label: "ALM",
+            value: "ALM",
+            description: "Codebeamaer",
+            icon: <IconCancel className="h-6 w-" />,
+          },
+        ]}
+        options={options}
+        currentView={view}
+        selectedCategory={category}
+        onOpenCategory={(value) => {
+          setCategory(value as Category);
+          setView("options");
+        }}
+        onBack={() => setView("categories")}
+        onSelect={(value) => addSource(value as SourceType)}
+      />
+      <ComparisonSetupModal
+        open={session === "selecting"}
+        readySources={ready}
+        labels={labels}
+        initialSelection={
+          primary && compared[0]
+            ? { leftSource: primary, rightSource: compared[0] }
+            : null
+        }
+        onClose={() => setSession(comparing ? "active" : "idle")}
+        onStart={start}
+      />
+      <AddComparisonSourceModal
+        open={addModal}
+        availableSources={remaining}
+        labels={labels}
+        onClose={() => setAddModal(false)}
+        onAdd={addComparisonSource}
+      />
+      <AnimatePresence>
+        {transition ? (
+          <ComparisonLoader
+            mode={transition}
+            left={primary ?? undefined}
+            right={compared[0]}
+            addedSource={pendingAdd ?? undefined}
+            labels={labels}
+            onComplete={complete}
+          />
+        ) : null}
+      </AnimatePresence>
+
+      <div className="mx-auto flex min-h-screen max-w-[1920px] flex-col gap-5 px-4 py-5 sm:px-6 lg:px-8">
+        <header className="rounded-[28px] border border-slate-200 bg-white/90 p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900/80 sm:p-7">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <h1 className=" text-3xl font-semibold sm:text-4xl">
+                Digital Thread Orchestration Platform
+              </h1>
+              {/* <p className="mt-3 text-sm text-slate-500">
+                Extract and inspect BOMs independently. Start comparison only
+                when needed.
+              </p> */}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <ThemeToggle compact />
+              <Link
+                href="/"
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-300 px-3 text-sm font-semibold dark:border-slate-700"
+              >
+                <IconArrowLeft className="h-4 w-4" />
+                Overview
+              </Link>
+              <button
+                onClick={() => setModal(true)}
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-300 px-4 text-sm font-semibold dark:border-slate-700"
+              >
+                <IconPlus className="h-4 w-4" />
+                Add source
+              </button>
+              {comparing ? (
+                <button
+                  onClick={() => setTransition("exit")}
+                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-cyan-600 px-4 text-sm font-semibold text-white"
+                >
+                  <IconArrowLeft className="h-4 w-4" />
+                  Back to workspace
+                </button>
+              ) : (
+                <button
+                  disabled={ready.length < 2}
+                  onClick={() => setSession("selecting")}
+                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-cyan-600 px-4 text-sm font-semibold text-white disabled:opacity-45"
+                >
+                  <IconArrowsExchange className="h-4 w-4" />
+                  Compare BOMs
+                </button>
+              )}
+            </div>
+          </div>
+          {/* {ready.length < 2 && !comparing ? (
+            <p className="mt-4 border-t border-slate-200 pt-3 text-xs text-slate-500 dark:border-slate-700">
+              Load at least two BOMs to enable comparison.
+            </p>
+          ) : null} */}
+        </header>
+
+        {result ? (
+          <ComparisonSummary
+            result={result}
+            filter={filter}
+            onFilterChange={setFilter}
+            sourceLabels={labels}
+            canAddSource={remaining.length > 0}
+            onAddSource={() => setAddModal(true)}
+          />
+        ) : null}
+        {!active.length ? (
+          <section className="flex min-h-[82vh] items-center justify-center rounded-[28px] border border-dashed border-slate-300 bg-white/60 text-center dark:border-slate-700 dark:bg-slate-900/60">
+            <button
+              onClick={() => setModal(true)}
+              className="rounded-full transition-all hover:scale-110 duration-300 cursor-pointer bg-cyan-600 p-4 text-sm font-semibold text-white"
+            >
+              <IconPlus className="h-4 w-4" />
+            </button>
+          </section>
+        ) : (
+          <div className="bom-groups flex gap-5 overflow-x-auto pb-4 snap-x snap-mandatory">
+            {groups.map((group) => (
+              <section
+                key={group.category}
+                className="bom-source-group flex-none snap-start rounded-[26px] border border-slate-200 bg-white/70 p-3 dark:border-slate-700 dark:bg-slate-900/70 sm:p-4 lg:min-w-0 lg:basis-0"
+                style={{ flexGrow: group.sources.length }}
+              >
+                <div className="mb-4 flex justify-between">
+                  <b className="text-xs uppercase tracking-wider text-cyan-600 dark:text-cyan-400">
+                    {group.category}
+                  </b>
+                  <span className="text-xs text-slate-500">
+                    {group.sources.length} visible
+                  </span>
+                </div>
+                <div
+                  className="bom-source-grid grid gap-4"
+                  style={{
+                    gridTemplateColumns: `repeat(${group.sources.length}, minmax(0, 1fr))`,
+                  }}
+                >
+                  {group.sources.map((source) => (
+                    <article
+                      key={source.type}
+                      draggable={!comparing}
+                      onDragStart={() => setDragged(source.type)}
+                      onDragOver={(event) => event.preventDefault()}
+                      onDrop={(event) => drop(source.type, event)}
+                      className="bom-source-card min-w-0 rounded-[22px] border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-950/80 sm:p-4"
+                    >
+                      <div className="mb-5 flex justify-between gap-3">
+                        <h2 className="min-w-0 truncate text-xl font-semibold">
+                          {labels[source.type]}
+                          {source.type === primary && comparing ? (
+                            <span className="ml-2 rounded-full bg-cyan-50 px-2 py-1 text-[9px] uppercase text-cyan-700 dark:bg-cyan-400/[.08] dark:text-cyan-300">
+                              Primary
+                            </span>
+                          ) : null}
+                        </h2>
+                        <div className="flex shrink-0 gap-2">
+                          {!comparing ? (
+                            <IconGripVertical className="h-5 w-5 text-slate-400" />
+                          ) : null}
+                          <button
+                            onClick={() => remove(source.type)}
+                            aria-label={`Remove ${labels[source.type]}`}
+                          >
+                            <IconX className="h-5 w-5" />
+                          </button>
+                        </div>
+                      </div>
+                      {panelFor(source)}
+                    </article>
+                  ))}
+                </div>
+              </section>
+            ))}
+          </div>
+        )}
+      </div>
+    </main>
+  );
+}
+
+
+===== FILE: OrchestrationPlatform\frontend\app\page.tsx =====
+
+"use client";
+
+import Link from "next/link";
+import Image from "next/image";
+import { motion } from "motion/react";
+import {
+  IconArrowRight,
+  IconArrowsExchange,
+  IconBox,
+  IconBuildingFactory,
+  IconReportSearch,
+  IconDatabase,
+  IconPlugConnected,
+  IconSitemap,
+  type Icon,
+} from "@tabler/icons-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
+
+type Capability = {
+  title: string;
+  text: string;
+  icon: Icon;
+  badge: string;
+  tone: string;
+};
+
+const capabilities: Capability[] = [
+  {
+    title: "ALM",
+    text: "Connect requirements with product structures.",
+    icon: IconSitemap,
+    badge: "Codebeamer",
+    tone: "violet",
+  },
+  {
+    title: "PLM",
+    text: "Extract and inspect engineering BOMs.",
+    icon: IconPlugConnected,
+    badge: "Teamcenter · Windchill",
+    tone: "cyan",
+  },
+  {
+    title: "CPQ",
+    text: "Resolve configurable product models.",
+    icon: IconBox,
+    badge: "Configit",
+    tone: "indigo",
+  },
+  {
+    title: "ERP",
+    text: "Connect manufacturing and enterprise BOMs.",
+    icon: IconBuildingFactory,
+    badge: "SAP · Oracle",
+    tone: "emerald",
+  },
+  {
+    title: "Service",
+    text: "Service supply chain optimization",
+    icon: IconReportSearch,
+    badge: "Servigistics",
+    tone: "sky",
+  },
+];
+
+const toneClasses: Record<string, { icon: string; hover: string }> = {
+  violet: {
+    icon: "border-violet-400/20 bg-violet-400/10 text-violet-300",
+    hover: "hover:border-violet-400/35 hover:bg-violet-400/[.05]",
+  },
+  cyan: {
+    icon: "border-cyan-400/20 bg-cyan-400/10 text-cyan-300",
+    hover: "hover:border-cyan-400/35 hover:bg-cyan-400/[.05]",
+  },
+  indigo: {
+    icon: "border-indigo-400/20 bg-indigo-400/10 text-indigo-300",
+    hover: "hover:border-indigo-400/35 hover:bg-indigo-400/[.05]",
+  },
+  emerald: {
+    icon: "border-emerald-400/20 bg-emerald-400/10 text-emerald-300",
+    hover: "hover:border-emerald-400/35 hover:bg-emerald-400/[.05]",
+  },
+  sky: {
+    icon: "border-sky-400/20 bg-sky-400/10 text-sky-300",
+    hover: "hover:border-sky-400/35 hover:bg-sky-400/[.05]",
+  },
+};
+
+export default function Home() {
+  return (
+    <main className="relative h-[100svh] min-h-[680px] overflow-hidden bg-slate-50 text-slate-900 dark:bg-[#050b18] dark:text-slate-50">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_70%_35%,rgba(34,211,238,.11),transparent_32%),radial-gradient(circle_at_20%_90%,rgba(99,102,241,.07),transparent_30%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(148,163,184,.025)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,.025)_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:linear-gradient(to_bottom,black,transparent_92%)]" />
+
+      <div className="relative mx-auto grid h-full w-full grid-rows-[auto_minmax(0,1fr)] gap-4 px-5 py-5 sm:px-8 lg:px-10 lg:py-6">
+        <header className="flex h-[68px] w-full items-center justify-between rounded-2xl  px-4 shadow-sm backdrop-blur-xl sm:px-5">
+          <div className="flex items-center gap-3">
+            <div>
+              <Image
+                src="/images/TTL_Logo.png"
+                width={230}
+                height={150}
+                alt="Tata Technologies"
+                priority
+                className="h-12 w-auto object-contain dark:brightness-0 dark:invert"
+              />{" "}
+            </div>
+          </div>
+
+          <div className="flex mr-22  items-center gap-2">
+            <ThemeToggle compact />
+            <Link
+              href="/bom-comparison"
+              className="inline-flex h-10 items-center gap-2 rounded-xl bg-cyan-600 px-4 text-xs font-semibold text-white shadow-lg shadow-cyan-500/15 transition hover:bg-cyan-500"
+            >
+              Open workspace
+              <IconArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+        </header>
+
+        <section className="grid min-h-0 items-center gap-8 lg:grid-cols-[minmax(0,1.08fr)_minmax(430px,.92fr)] xl:gap-12">
+          <motion.div
+            initial={{ opacity: 0, y: 18 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+            className="flex min-h-0 flex-col justify-center py-3 lg:py-5"
+          >
+            <div className="max-w-[900px]">
+              {/* <p className="inline-flex items-center rounded-full border border-cyan-400/20 bg-cyan-400/[.06] px-3 py-1.5 text-[9px] font-semibold uppercase tracking-[.22em] text-cyan-600 dark:text-cyan-300">
+                Connected enterprise product intelligence
+              </p> */}
+
+              <h1 className="mt-5 text-7xl font-semibold leading-[.98] tracking-[-.055em]">
+                Orchestration Platform
+                <span className="mt-1 block bg-gradient-to-r from-cyan-500 via-sky-500 to-indigo-500 bg-clip-text text-transparent">
+                  for products across enterprise applications
+                </span>
+              </h1>
+
+              <p className="mt-5 max-w-3xl text-xl leading-6 text-slate-600 dark:text-slate-400 xl:leading-7">
+                Connect requirements, engineering, configuration, manufacturing,
+                and design data in one source-aware digital thread.
+              </p>
+            </div>
+
+            <div className="mt-7 grid grid-cols-5 gap-2.5 xl:gap-3">
+              {capabilities.map((card, index) => {
+                const CardIcon = card.icon;
+                const tone = toneClasses[card.tone];
+                return (
+                  <motion.article
+                    key={card.title}
+                    initial={{ opacity: 0, y: 14 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.12 + index * 0.045 }}
+                    className={`group flex min-h-[176px] min-w-0 flex-col rounded-2xl border border-slate-200 bg-white/75 p-3.5 shadow-sm backdrop-blur transition dark:border-slate-800 dark:bg-slate-900/55 xl:min-h-[188px] xl:p-4 ${tone.hover}`}
+                  >
+                    <span
+                      className={`flex h-9 w-9 items-center justify-center rounded-xl border ${tone.icon}`}
+                    >
+                      <CardIcon className="h-4 w-4" />
+                    </span>
+                    <h2 className="mt-3 text-xl font-semibold tracking-tight">
+                      {card.title}
+                    </h2>
+                    <p className="mt-1.5 text-[11px] leading-[1.55] text-slate-500 dark:text-slate-400">
+                      {card.text}
+                    </p>
+                    <span className="mt-auto block truncate pt-3 text-[9px] font-semibold uppercase tracking-[.12em] text-slate-500">
+                      {card.badge}
+                    </span>
+                  </motion.article>
+                );
+              })}
+            </div>
+          </motion.div>
+
+          <PlatformVisual />
+        </section>
+      </div>
+    </main>
+  );
+}
+
+function PlatformVisual() {
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.97, y: 16 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      transition={{ duration: 0.55, delay: 0.08, ease: "easeOut" }}
+      className="relative mx-auto aspect-square w-full max-w-[610px] overflow-hidden rounded-[34px] border border-slate-200 bg-white/70 shadow-[0_40px_120px_-55px_rgba(8,145,178,.4)] backdrop-blur-xl dark:border-slate-800 dark:bg-slate-900/45"
+    >
+      <div className="pointer-events-none absolute inset-px rounded-[33px] bg-[radial-gradient(circle_at_center,rgba(34,211,238,.13),transparent_38%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(148,163,184,.035)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,.035)_1px,transparent_1px)] bg-[size:32px_32px] [mask-image:radial-gradient(circle_at_center,black,transparent_80%)]" />
+
+      <motion.div
+        animate={{ rotate: 360 }}
+        transition={{ duration: 48, repeat: Infinity, ease: "linear" }}
+        className="absolute left-1/2 top-1/2 h-[42%] w-[42%] -translate-x-1/2 -translate-y-1/2 rounded-full border border-cyan-400/15"
+      />
+      <motion.div
+        animate={{ rotate: -360 }}
+        transition={{ duration: 68, repeat: Infinity, ease: "linear" }}
+        className="absolute left-1/2 top-1/2 h-[64%] w-[64%] -translate-x-1/2 -translate-y-1/2 rounded-full border border-slate-400/20"
+      />
+
+      <svg
+        viewBox="0 0 620 620"
+        className="absolute inset-0 h-full w-full"
+        aria-hidden="true"
+      >
+        <defs>
+          <filter id="glow">
+            <feGaussianBlur stdDeviation="2.4" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
+        <Connection
+          path="M105 150 C200 175 235 235 275 276"
+          color="#22d3ee"
+          delay="0s"
+        />
+        <Connection
+          path="M515 150 C420 175 385 235 345 276"
+          color="#a78bfa"
+          delay=".65s"
+        />
+        <Connection
+          path="M105 470 C200 445 235 385 275 344"
+          color="#818cf8"
+          delay="1.3s"
+        />
+        <Connection
+          path="M515 470 C420 445 385 385 345 344"
+          color="#34d399"
+          delay="1.95s"
+        />
+      </svg>
+
+      <SystemBadge label="PLM" className="left-[5%] top-[18%]" tone="cyan" />
+      <SystemBadge label="ALM" className="right-[5%] top-[18%]" tone="violet" />
+      <SystemBadge
+        label="CPQ"
+        className="bottom-[18%] left-[5%]"
+        tone="indigo"
+      />
+      <SystemBadge
+        label="ERP"
+        className="bottom-[18%] right-[5%]"
+        tone="emerald"
+      />
+
+      <motion.div
+        animate={{
+          boxShadow: [
+            "0 0 0 0 rgba(34,211,238,.15)",
+            "0 0 0 22px rgba(34,211,238,0)",
+          ],
+        }}
+        transition={{ duration: 2.6, repeat: Infinity, ease: "easeOut" }}
+        className="absolute left-1/2 top-1/2 flex h-[26%] w-[26%] -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-[30px] border border-cyan-400/30 bg-white/95 shadow-[0_20px_60px_-20px_rgba(8,145,178,.5)] dark:bg-slate-950/95"
+      >
+        <span className="flex h-12 w-12 items-center justify-center rounded-2xl border border-cyan-400/20 bg-cyan-400/[.09] text-cyan-600 dark:text-cyan-300">
+          <IconDatabase className="h-5 w-5" />
+        </span>
+        <span className="mt-3 text-center text-[11px] font-semibold uppercase tracking-[.2em] text-cyan-700 dark:text-cyan-200">
+          Orchestration
+          <br />
+          Platform
+        </span>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+function Connection({
+  path,
+  color,
+  delay,
+}: {
+  path: string;
+  color: string;
+  delay: string;
+}) {
+  return (
+    <>
+      <path
+        d={path}
+        fill="none"
+        stroke={color}
+        strokeOpacity=".7"
+        strokeWidth="2"
+        strokeLinecap="round"
+        filter="url(#glow)"
+      />
+      <circle r="4" fill={color} filter="url(#glow)">
+        <animateMotion
+          dur="4s"
+          repeatCount="indefinite"
+          begin={delay}
+          path={path}
+        />
+      </circle>
+    </>
+  );
+}
+
+function SystemBadge({
+  label,
+  className,
+  tone,
+}: {
+  label: string;
+  className: string;
+  tone: "cyan" | "violet" | "indigo" | "emerald";
+}) {
+  const styles = {
+    cyan: "border-cyan-400/25 bg-cyan-400/[.08] text-cyan-300",
+    violet: "border-violet-400/25 bg-violet-400/[.08] text-violet-300",
+    indigo: "border-indigo-400/25 bg-indigo-400/[.08] text-indigo-300",
+    emerald: "border-emerald-400/25 bg-emerald-400/[.08] text-emerald-300",
+  };
+  return (
+    <motion.div
+      animate={{ y: [0, -5, 0] }}
+      transition={{ duration: 4.4, repeat: Infinity, ease: "easeInOut" }}
+      className={`absolute z-20 rounded-2xl border bg-slate-950/85 p-2 shadow-xl backdrop-blur ${className}`}
+    >
+      <span
+        className={`flex h-11 w-11 items-center justify-center rounded-xl border text-[15px] font-bold ${styles[tone]}`}
+      >
+        {label}
+      </span>
+    </motion.div>
+  );
+}
+
+
+===== FILE: OrchestrationPlatform\frontend\package.json =====
+
+{
+  "name": "frontend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.6.1",
+    "@tabler/icons-react": "^3.44.0",
+    "clsx": "^2.1.1",
+    "framer-motion": "^12.41.0",
+    "motion": "^12.42.2",
+    "next": "16.2.9",
+    "react": "19.2.4",
+    "react-arborist": "^3.10.5",
+    "react-d3-tree": "^3.6.6",
+    "react-dom": "19.2.4",
+    "sonner": "^2.0.7",
+    "tailwind-merge": "^3.6.0",
+    "three": "^0.185.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@types/three": "^0.185.1",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.9",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
+
+
+===== FILE: OrchestrationPlatform\frontend\tsconfig.json =====
+
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": ["./*"]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts",
+    "**/*.mts"
+  ],
+  "exclude": ["node_modules"]
+}
+
+
+===== FILE: OrchestrationPlatform\frontend\components\QuickStartModal.tsx =====
+
+"use client";
+import { useEffect, useRef, type ReactNode } from "react";
+import { AnimatePresence, motion } from "motion/react";
+import { IconArrowLeft, IconArrowRight, IconX } from "@tabler/icons-react";
+interface CategoryOption {
+  label: string;
+  description: string;
+  value: string;
+  icon: ReactNode;
+}
+interface SourceOption extends CategoryOption {
+  disabled?: boolean;
+  category: string;
+}
+interface Props {
+  open: boolean;
+  onClose: () => void;
+  categories: CategoryOption[];
+  options: SourceOption[];
+  currentView: "categories" | "options";
+  selectedCategory: string | null;
+  onOpenCategory: (c: string) => void;
+  onBack: () => void;
+  onSelect: (v: string) => void;
+}
+export function QuickStartModal({
+  open,
+  onClose,
+  categories,
+  options,
+  currentView,
+  selectedCategory,
+  onOpenCategory,
+  onBack,
+  onSelect,
+}: Props) {
+  const dialog = useRef<HTMLDivElement>(null),
+    previous = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    previous.current = document.activeElement as HTMLElement;
+    const old = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    requestAnimationFrame(() =>
+      dialog.current?.querySelector<HTMLElement>("button")?.focus(),
+    );
+    const key = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      if (e.key === "Tab" && dialog.current) {
+        const list = [
+          ...dialog.current.querySelectorAll<HTMLElement>(
+            "button:not([disabled]),a[href]",
+          ),
+        ];
+        if (!list.length) return;
+        const first = list[0],
+          last = list[list.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    addEventListener("keydown", key);
+    return () => {
+      document.body.style.overflow = old;
+      removeEventListener("keydown", key);
+      previous.current?.focus();
+    };
+  }, [open, onClose]);
+  const visible = selectedCategory
+    ? options.filter((o) => o.category === selectedCategory)
+    : [];
+  return (
+    <AnimatePresence>
+      {open ? (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/70 p-0 backdrop-blur-sm sm:items-center sm:p-6"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) onClose();
+          }}
+        >
+          <motion.div
+            ref={dialog}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="source-dialog-title"
+            initial={{ opacity: 0, y: 28, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="max-h-[92dvh] w-full overflow-auto rounded-t-[28px] border border-slate-200 bg-white p-5 shadow-2xl dark:border-slate-700 dark:bg-slate-900 sm:max-w-2xl sm:rounded-[30px] sm:p-8"
+          >
+            <header className="mb-6 flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-cyan-600 dark:text-cyan-400">
+                  Select extraction source
+                </p>
+                <h2
+                  id="source-dialog-title"
+                  className="mt-2 text-2xl font-semibold sm:text-3xl"
+                >
+                  {currentView === "categories"
+                    ? "Choose a workspace"
+                    : `${selectedCategory} sources`}
+                </h2>
+              </div>
+              <div className="flex gap-2">
+                {currentView === "options" ? (
+                  <button
+                    type="button"
+                    onClick={onBack}
+                    className="flex h-10 items-center gap-2 rounded-xl border border-slate-300 px-3 text-sm dark:border-slate-700"
+                  >
+                    <IconArrowLeft className="h-4 w-4" />
+                    <span className="hidden sm:inline">Back</span>
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={onClose}
+                  aria-label="Close dialog"
+                  className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-300 dark:border-slate-700"
+                >
+                  <IconX className="h-4 w-4" />
+                </button>
+              </div>
+            </header>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {(currentView === "categories" ? categories : visible).map(
+                (item) => (
+                  <motion.button
+                    key={`${item.value}-${item.label}`}
+                    type="button"
+                    disabled={"disabled" in item ? Boolean(item.disabled) : false}
+                    onClick={() =>
+                      currentView === "categories"
+                        ? onOpenCategory(item.value)
+                        : onSelect(item.value)
+                    }
+                    whileHover={{ y: -3 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="group rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left transition hover:border-cyan-400 dark:border-slate-700 dark:bg-slate-950/70"
+                  >
+                    <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-cyan-50 text-cyan-700 dark:bg-cyan-400/[0.08] dark:text-cyan-300">
+                      {item.icon}
+                    </span>
+                    <span className="mt-4 block text-lg font-semibold">
+                      {item.label}
+                    </span>
+                    <span className="mt-2 block text-sm leading-6 text-slate-500">
+                      {item.description}
+                    </span>
+                    <span className="mt-5 flex items-center gap-2 text-sm font-semibold text-cyan-700 dark:text-cyan-300">
+                      {currentView === "categories"
+                        ? "Continue"
+                        : "disabled" in item && item.disabled
+                          ? "Already added"
+                          : "Add source"}
+                      <IconArrowRight className="h-4 w-4 transition group-hover:translate-x-1" />
+                    </span>
+                  </motion.button>
+                ),
+              )}
+            </div>
+          </motion.div>
+        </div>
+      ) : null}
+    </AnimatePresence>
+  );
+}
+
+
+===== FILE: OrchestrationPlatform\frontend\components\SourceBomPanel.tsx =====
+
+/* eslint-disable react-hooks/set-state-in-effect */
+"use client";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type MouseEvent,
+  type ReactNode,
+} from "react";
+import { Tree, type NodeRendererProps, type TreeApi } from "react-arborist";
+import { AnimatePresence, motion } from "motion/react";
+import {
+  IconChevronRight,
+  IconChevronsDown,
+  IconChevronsUp,
+  IconCircleDashed,
+  IconHierarchy,
+  IconPackage,
+  IconRefresh,
+  IconSearch,
+  IconX,
+} from "@tabler/icons-react";
+import type { PipelineProgress } from "@/lib/api";
+import { ComparisonReasoningModal } from "@/components/ComparisonReasoningModal";
+import { BomFullscreenButton } from "@/components/BomFullscreenButton";
+import { useBomNativeFullscreen } from "@/components/useBomNativeFullscreen";
+import { BomViewSwitcher } from "@/components/bom-visualization/BomViewSwitcher";
+import { BomConstellationView } from "@/components/bom-visualization/BomConstellationView";
+import { BomRadialExplorerView } from "@/components/bom-visualization/BomRadialExplorerView";
+import { BomThreeUniverseView } from "@/components/bom-visualization/BomThreeUniverseView";
+import {
+  ImpactAnalysisWorkspace,
+  ImpactModeToggle,
+} from "@/components/bom-impact/ImpactAnalysisWorkspace";
+import { RequirementEvolutionModal } from "@/components/bom-requirements/RequirementEvolutionModal";
+import { RequirementFocusSummary } from "@/components/bom-requirements/RequirementFocusSummary";
+import { RequirementTraceToggle } from "@/components/bom-requirements/RequirementTraceToggle";
+import { RequirementsExplorerButton } from "@/components/bom-requirements/RequirementsExplorerButton";
+import { RequirementsExplorerModal } from "@/components/bom-requirements/RequirementsExplorerModal";
+import {
+  occurrencesForSource,
+  registerImpactBom,
+  runImpactSearch,
+  useCrossBomImpact,
+} from "@/lib/cross-bom-impact-store";
+import {
+  getLoadedRequirementCatalog,
+  registerRequirementBom,
+  runRequirementTrace,
+  useRequirementTrace,
+} from "@/lib/requirement-trace-store";
+import { sourcePresentation } from "@/lib/bom-comparison";
+import type {
+  ComparisonFilter,
+  NodeComparison,
+  SourceType,
+  TreeNodeData,
+} from "@/types/bom-comparison";
+import type { BomViewMode } from "@/types/bom-visualization";
+import type { WindchillChangeImpactFilter, WindchillChangeImpactResult, WindchillNodeImpact } from "@/types/windchill-change-impact";
+type Props = {
+  source: SourceType;
+  title: string;
+  endpoint: string;
+  transformPayload: (payload: unknown) => TreeNodeData | null;
+  active: boolean;
+  payloadOverride?: unknown;
+  refreshSignal?: number;
+  loadingLabel?: string;
+  onLoadComplete?: (status: "ready" | "error") => void;
+  onBomReady?: (source: SourceType, root: TreeNodeData | null) => void;
+  progress?: PipelineProgress | null;
+  comparisonMode?: boolean;
+  comparison?: Record<string, NodeComparison>;
+  comparisonFilter?: ComparisonFilter;
+  counterpartLabel?: string;
+  changeImpact?: WindchillChangeImpactResult | null;
+  changeImpactFilter?: WindchillChangeImpactFilter;
+};
+type Status = "idle" | "loading" | "ready" | "error";
+type FocusRelationship = "direct" | "corresponding";
+const POLL_INTERVAL = 2000;
+const visuals = {
+  matched: {
+    label: "Matched",
+    row: "border-emerald-300 bg-emerald-50 dark:border-emerald-400/25 dark:bg-emerald-400/[.08]",
+  },
+  changed: {
+    label: "Changed",
+    row: "border-amber-300 bg-amber-50 dark:border-amber-400/25 dark:bg-amber-400/[.08]",
+  },
+  missing: {
+    label: "Missing",
+    row: "border-rose-300 bg-rose-50 dark:border-rose-400/25 dark:bg-rose-400/[.08]",
+  },
+  "source-only": {
+    label: "Source-only",
+    row: "border-sky-300 bg-sky-50 dark:border-sky-400/25 dark:bg-sky-400/[.08]",
+  },
+  probable: {
+    label: "Review match",
+    row: "border-violet-300 bg-violet-50 dark:border-violet-400/25 dark:bg-violet-400/[.08]",
+  },
+} as const;
+function record(v: unknown) {
+  return v && typeof v === "object" && !Array.isArray(v)
+    ? (v as Record<string, unknown>)
+    : null;
+}
+function backendStatus(v: unknown) {
+  const x = record(v);
+  return typeof x?.status === "string" ? x.status.toLowerCase() : "";
+}
+function backendMessage(v: unknown) {
+  if (typeof v === "string" && v.trim()) return v;
+  const x = record(v);
+  return typeof x?.error === "string"
+    ? x.error
+    : typeof x?.message === "string"
+      ? x.message
+      : "Failed to load BOM";
+}
+function isPending(v: unknown) {
+  return [
+    "in_progress",
+    "in progress",
+    "processing",
+    "pending",
+    "accepted",
+    "running",
+  ].includes(backendStatus(v));
+}
+function searchText(n: TreeNodeData, s: SourceType) {
+  const p = sourcePresentation(n, s);
+  return [
+    p.name,
+    p.itemId,
+    p.quantity,
+    n.name,
+    ...Object.values(n.attributes ?? {}),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+function metrics(root: TreeNodeData) {
+  let total = 0,
+    assemblies = 0,
+    leaves = 0,
+    depth = 0;
+  const queue: Array<[TreeNodeData, number]> = [[root, 1]];
+  while (queue.length) {
+    const [n, l] = queue.shift()!;
+    total++;
+    depth = Math.max(depth, l);
+    const children = n.children ?? [];
+    if (children.length) {
+      assemblies++;
+      queue.push(...children.map((x) => [x, l + 1] as [TreeNodeData, number]));
+    } else leaves++;
+  }
+  return { total, assemblies, leaves, depth };
+}
+function TreeRow({
+  node,
+  style,
+  dragHandle,
+  source,
+  comparisonMode,
+  comparison,
+  selected,
+  impactMatch,
+  changeImpact,
+  focusRelationship,
+  onSelect,
+}: NodeRendererProps<TreeNodeData> & {
+  source: SourceType;
+  comparisonMode: boolean;
+  comparison?: NodeComparison;
+  selected: boolean;
+  impactMatch: boolean;
+  changeImpact?: WindchillNodeImpact;
+  focusRelationship?: FocusRelationship;
+  onSelect: (node: TreeNodeData) => void;
+}) {
+  const shown = sourcePresentation(node.data, source),
+    hasChildren = !node.isLeaf,
+    result = comparisonMode ? comparison : undefined,
+    visual = result ? visuals[result.status] : null,
+    focused = Boolean(focusRelationship),
+    changeDirect = changeImpact?.impact === "direct",
+    changeIndirect = changeImpact?.impact === "indirect";
+  const keyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      onSelect(node.data);
+    }
+  };
+  const toggle = (event: MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    if (hasChildren) node.toggle();
+  };
+  const focusClass =
+    focusRelationship === "direct"
+      ? "border-violet-400 bg-[#201538] ring-2 ring-violet-400/50"
+      : focusRelationship === "corresponding"
+        ? "border-indigo-400 bg-[#151c3b] ring-2 ring-indigo-400/35"
+        : "";
+  return (
+    <motion.div
+      style={style}
+      ref={dragHandle}
+      className="flex items-center pr-2"
+    >
+      <div
+        role="button"
+        tabIndex={0}
+        onKeyDown={keyDown}
+        onClick={() => onSelect(node.data)}
+        onDoubleClick={() => hasChildren && node.toggle()}
+        className={[
+          "relative flex w-full min-w-0 items-center gap-2 overflow-hidden rounded-xl border px-2 py-2 outline-none transition sm:gap-3 sm:px-3",
+          focusClass ||
+            (changeDirect
+              ? "border-slate-700 bg-slate-950 before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full before:bg-orange-400"
+              : changeIndirect
+                ? "border-slate-800 bg-slate-950/50 before:absolute before:inset-y-3 before:left-0 before:w-px before:bg-slate-500"
+                : impactMatch
+              ? "border-emerald-400 bg-emerald-50 dark:bg-emerald-400/[.12]"
+              : selected
+                ? "border-cyan-300 bg-cyan-50 dark:bg-cyan-400/[.09]"
+                : visual
+                  ? visual.row
+                  : "border-transparent hover:bg-slate-100 dark:hover:bg-slate-800/60"),
+        ].join(" ")}
+      >
+        {focused ? (
+          <motion.span
+            className={`absolute bottom-0 left-0 top-0 w-1 ${focusRelationship === "direct" ? "bg-violet-400" : "bg-indigo-400"}`}
+            animate={{ opacity: [0.45, 1, 0.45] }}
+            transition={{ duration: 1.4, repeat: Infinity }}
+          />
+        ) : null}
+        <button
+          type="button"
+          onClick={toggle}
+          className={`flex h-8 w-8 shrink-0 items-center justify-center ${focused ? "text-slate-200" : "text-slate-500"}`}
+        >
+          {hasChildren ? (
+            <motion.span animate={{ rotate: node.isOpen ? 90 : 0 }}>
+              <IconChevronRight className="h-4 w-4" />
+            </motion.span>
+          ) : (
+            <IconCircleDashed className="h-3.5 w-3.5" />
+          )}
+        </button>
+        <span
+          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border ${focusRelationship === "direct" ? "border-violet-400/40 bg-violet-400/15 text-violet-200" : focusRelationship === "corresponding" ? "border-indigo-400/40 bg-indigo-400/15 text-indigo-200" : "border-transparent bg-cyan-50 text-cyan-700 dark:bg-cyan-400/[.07] dark:text-cyan-300"}`}
+        >
+          <IconPackage className="h-4 w-4" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span
+            className={`block truncate text-base font-semibold ${focused ? "text-white" : "text-slate-900 dark:text-slate-100"}`}
+          >
+            {shown.name}
+          </span>
+          <span
+            className={`text-[14px] ${focusRelationship === "direct" ? "text-violet-200/80" : focusRelationship === "corresponding" ? "text-indigo-200/80" : "text-slate-500"}`}
+          >
+            {shown.itemId ? `Item ID: ${shown.itemId}` : node.data.attributes?.["Part ID"] ? `Part ID: ${String(node.data.attributes["Part ID"])}` : node.data.attributes?.["Tree Path"] ? `Path: ${String(node.data.attributes["Tree Path"])}` : "Structural occurrence"}
+          </span>
+        </span>
+        {focusRelationship ? (
+          <span
+            className={`shrink-0 rounded-full border px-2 py-1 text-[12px] font-bold uppercase ${focusRelationship === "direct" ? "border-violet-300/35 bg-violet-400/15 text-violet-200" : "border-indigo-300/35 bg-indigo-400/15 text-indigo-200"}`}
+          >
+            {focusRelationship}
+          </span>
+        ) : result && visual ? (
+          <span className="shrink-0 rounded-full border border-current/20 px-2 py-1 text-[12px] font-semibold uppercase">
+            {visual.label}
+          </span>
+        ) : changeDirect ? (
+          <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-orange-400">Affected{changeImpact?.notices?.length ? ` -+ ${changeImpact.notices.length}` : ""}</span>
+        ) : changeIndirect ? (
+          <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Impacted parent</span>
+        ) : null}
+      </div>
+    </motion.div>
+  );
+}
+export function SourceBomPanel({
+  source,
+  endpoint,
+  transformPayload,
+  active,
+  payloadOverride,
+  refreshSignal,
+  loadingLabel = "Fetching BOM structure...",
+  onLoadComplete,
+  onBomReady,
+  progress,
+  comparisonMode = false,
+  comparison,
+  comparisonFilter = "all",
+  counterpartLabel,
+  changeImpact = null,
+  changeImpactFilter = "all",
+}: Props) {
+  const [bom, setBom] = useState<TreeNodeData | null>(null),
+    [status, setStatus] = useState<Status>("idle"),
+    [error, setError] = useState<string | null>(null),
+    [search, setSearch] = useState(""),
+    [selected, setSelected] = useState<TreeNodeData | null>(null),
+    [comparisonModalOpen, setComparisonModalOpen] = useState(false),
+    [retry, setRetry] = useState(0),
+    [viewMode, setViewMode] = useState<BomViewMode>("tree"),
+    [viewportHeight, setViewportHeight] = useState(900);
+  const tree = useRef<TreeApi<TreeNodeData> | null>(null),
+    panelRef = useRef<HTMLElement | null>(null),
+    impact = useCrossBomImpact(),
+    trace = useRequirementTrace();
+  const { isFullscreen, toggleFullscreen } = useBomNativeFullscreen(panelRef);
+  const impactIds = useMemo(
+      () =>
+        new Set(
+          occurrencesForSource(impact.result, source).map((x) => x.nodeId),
+        ),
+      [impact.result, source],
+    ),
+    focusById = useMemo(
+      () =>
+        Object.fromEntries(
+          (
+            trace.focus?.occurrences.filter((x) => x.source === source) ?? []
+          ).map((x) => [x.nodeId, x.relationship]),
+        ) as Record<string, FocusRelationship>,
+      [trace.focus, source],
+    );
+  useEffect(() => {
+    const update = () => setViewportHeight(window.innerHeight);
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+  useEffect(() => {
+    if (!active) {
+      const id = window.setTimeout(() => {
+        setBom(null);
+        onBomReady?.(source, null);
+        setStatus("idle");
+        setSelected(null);
+      }, 0);
+      return () => window.clearTimeout(id);
+    }
+    if (payloadOverride != null) {
+      const id = window.setTimeout(() => {
+        try {
+          const root = transformPayload(payloadOverride);
+          if (!root) throw new Error("Malformed extraction payload.");
+          setBom(root);
+          onBomReady?.(source, root);
+          setStatus("ready");
+          onLoadComplete?.("ready");
+        } catch (c) {
+          setStatus("error");
+          setError(c instanceof Error ? c.message : String(c));
+          onLoadComplete?.("error");
+        }
+      }, 0);
+      return () => window.clearTimeout(id);
+    }
+    if (!endpoint) return;
+    let cancelled = false,
+      timer: number | undefined;
+    const again = () => {
+      if (!cancelled)
+        timer = window.setTimeout(() => void load(), POLL_INTERVAL);
+    };
+    const load = async () => {
+      setStatus("loading");
+      setError(null);
+      try {
+        const response = await fetch(endpoint, { cache: "no-store" }),
+          raw = await response.text();
+        let payload: unknown = null;
+        if (raw) {
+          try {
+            payload = JSON.parse(raw);
+          } catch {
+            payload = raw;
+          }
+        }
+        if (!response.ok && isPending(payload)) {
+          again();
+          return;
+        }
+        if (!response.ok) throw new Error(backendMessage(payload));
+        const root = transformPayload(payload);
+        if (!root) {
+          again();
+          return;
+        }
+        if (cancelled) return;
+        setBom(root);
+        onBomReady?.(source, root);
+        setSelected(null);
+        setStatus("ready");
+        onLoadComplete?.("ready");
+      } catch (c) {
+        if (cancelled) return;
+        setBom(null);
+        onBomReady?.(source, null);
+        setStatus("error");
+        setError(c instanceof Error ? c.message : String(c));
+        onLoadComplete?.("error");
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+      if (timer) window.clearTimeout(timer);
+    };
+  }, [
+    active,
+    endpoint,
+    payloadOverride,
+    refreshSignal,
+    retry,
+    source,
+    transformPayload,
+  ]);
+  useEffect(() => {
+    registerImpactBom(source, bom);
+    registerRequirementBom(source, bom);
+    return () => {
+      registerImpactBom(source, null);
+      registerRequirementBom(source, null);
+    };
+  }, [source, bom]);
+  useEffect(() => {
+    if (trace.focus) tree.current?.openAll();
+  }, [trace.focus]);
+  useEffect(() => {
+    if (!comparisonMode) setComparisonModalOpen(false);
+  }, [comparisonMode]);
+  const select = (node: TreeNodeData) => {
+    setSelected(node);
+    const nodeComparison = comparisonMode ? comparison?.[node.id] : undefined;
+    if (comparisonMode && nodeComparison) setComparisonModalOpen(true);
+    if (impact.enabled) runImpactSearch(source, node);
+    if (trace.enabled) runRequirementTrace(source, node, viewMode === "tree");
+  };
+  const data = useMemo(() => (bom ? [bom] : []), [bom]),
+    summary = useMemo(() => (bom ? metrics(bom) : null), [bom]),
+    shown = selected ? sourcePresentation(selected, source) : null,
+    selectedComparison =
+      selected && comparisonMode ? comparison?.[selected.id] : undefined,
+    term = `${search.toLowerCase()}|${comparisonMode ? comparisonFilter : "all"}|${changeImpactFilter}`,
+    catalog = getLoadedRequirementCatalog(),
+    overlayOwner = Object.keys(trace.loadedBoms)[0] === source,
+    treeHeight = isFullscreen ? Math.max(520, viewportHeight - 285) : 510;
+  return (
+    <>
+      <motion.section
+        ref={panelRef}
+        layout
+        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+        className="relative flex min-h-0 flex-col overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-950/95 fullscreen:h-screen fullscreen:w-screen fullscreen:rounded-none fullscreen:border-0 fullscreen:bg-white dark:fullscreen:bg-[#020617]"
+      >
+        <header className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-slate-800">
+          <span className="rounded-full border border-slate-200 px-2.5 py-1 text-[13px] font-semibold uppercase dark:border-slate-700">
+            {status}
+          </span>
+          {isFullscreen ? (
+            <span className="text-[10px] font-semibold uppercase tracking-[.16em] text-cyan-400">
+              Fullscreen BOM workspace
+            </span>
+          ) : null}
+        </header>
+        {status === "ready" && bom && summary ? (
+          <>
+            <div className="shrink-0 border-b border-slate-200 bg-slate-50/70 p-3 dark:border-slate-800 dark:bg-slate-950/60">
+              <div className="relative">
+                <IconSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search this BOM"
+                  className="h-10 w-full rounded-xl border border-slate-300 bg-white pl-9 pr-9 text-sm dark:border-slate-700 dark:bg-slate-900"
+                />
+                {search ? (
+                  <button
+                    type="button"
+                    onClick={() => setSearch("")}
+                    className="absolute right-2 top-1/2 -translate-y-1/2"
+                  >
+                    <IconX className="h-4 w-4" />
+                  </button>
+                ) : null}
+              </div>
+              <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                <div className="flex gap-2">
+                  <Tool
+                    disabled={viewMode !== "tree"}
+                    onClick={() => tree.current?.openAll()}
+                  >
+                    <IconChevronsDown className="h-4 w-4" />
+                  </Tool>
+                  <Tool
+                    disabled={viewMode !== "tree"}
+                    onClick={() => tree.current?.closeAll()}
+                  >
+                    <IconChevronsUp className="h-4 w-4" />
+                  </Tool>
+                  <BomFullscreenButton
+                    isFullscreen={isFullscreen}
+                    onToggle={toggleFullscreen}
+                  />
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <ImpactModeToggle
+                    enabled={impact.enabled}
+                    result={impact.result}
+                    loadedCount={Object.keys(impact.loadedBoms).length}
+                  />
+                  <RequirementTraceToggle
+                    enabled={trace.enabled}
+                    count={trace.result?.totalRevisions ?? 0}
+                  />
+                  <RequirementsExplorerButton count={catalog.length} />
+                  <BomViewSwitcher mode={viewMode} onChange={setViewMode} />
+                </div>
+              </div>
+              <div className="mt-3 grid grid-cols-4 divide-x divide-slate-200 rounded-lg border dark:divide-slate-800 dark:border-slate-800">
+                {[
+                  [summary.total, "Items"],
+                  [summary.assemblies, "Assemblies"],
+                  [summary.leaves, "Leaf"],
+                  [summary.depth, "Levels"],
+                ].map(([v, l]) => (
+                  <div key={String(l)} className="p-2 text-center">
+                    <b className="block text-xs">{v}</b>
+                    <span className="text-[12px] uppercase text-slate-500">
+                      {l}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="relative min-h-0 flex-1 overflow-hidden p-2 sm:p-3">
+              <AnimatePresence mode="wait">
+                {viewMode === "constellation" ? (
+                  <BomConstellationView
+                    key="constellation"
+                    root={bom}
+                    source={source}
+                    comparison={comparisonMode ? comparison : undefined}
+                    search={search}
+                    selectedId={selected?.id}
+                    onSelect={select}
+                    onClearSelection={() => setSelected(null)}
+                    onFullScreen={toggleFullscreen}
+                    requirementTraceEnabled={trace.enabled}
+                    requirementResult={
+                      trace.result?.selectedSource === source
+                        ? trace.result
+                        : null
+                    }
+                    requirementFocus={trace.focus}
+                    changeImpact={source === "windchill" ? changeImpact : null}
+                  />
+                ) : viewMode === "three-dimensional" ? (
+                  <BomThreeUniverseView
+                    key="three-dimensional"
+                    root={bom}
+                    source={source}
+                    comparison={comparisonMode ? comparison : undefined}
+                    search={search}
+                    selectedId={selected?.id}
+                    onSelect={select}
+                    onFullScreen={toggleFullscreen}
+                    requirementTraceEnabled={trace.enabled}
+                    requirementResult={
+                      trace.result?.selectedSource === source
+                        ? trace.result
+                        : null
+                    }
+                    requirementFocus={trace.focus}
+                    changeImpact={source === "windchill" ? changeImpact : null}
+                    changeImpactFilter={changeImpactFilter}
+                  />
+                ) : viewMode === "radial" ? (
+                  <BomRadialExplorerView
+                    key="radial"
+                    root={bom}
+                    source={source}
+                    comparison={comparisonMode ? comparison : undefined}
+                    search={search}
+                    selectedId={selected?.id}
+                    onSelect={select}
+                    onFullScreen={toggleFullscreen}
+                  />
+                ) : (
+                  <motion.div
+                    key="tree"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="h-full overflow-hidden"
+                  >
+                    <Tree
+                      ref={tree}
+                      data={data}
+                      openByDefault={Boolean(trace.focus)}
+                      width="100%"
+                      height={treeHeight}
+                      rowHeight={68}
+                      indent={22}
+                      overscanCount={8}
+                      searchTerm={term}
+                      searchMatch={(node, value) => {
+                        const [q, f, changeFilter] = value.split("|");
+                        const nodeImpact = changeImpact?.impactMap[node.data.id];
+                        return (
+                          (!q || searchText(node.data, source).includes(q)) &&
+                          (f === "all" || comparison?.[node.data.id]?.status === f) &&
+                          (changeFilter === "all" || nodeImpact?.impact === changeFilter)
+                        );
+                      }}
+                    >
+                      {(props) => (
+                        <TreeRow
+                          {...props}
+                          source={source}
+                          comparisonMode={comparisonMode}
+                          comparison={comparison?.[props.node.data.id]}
+                          selected={selected?.id === props.node.data.id}
+                          impactMatch={impactIds.has(props.node.data.id)}
+                          changeImpact={changeImpact?.impactMap[props.node.data.id]}
+                          focusRelationship={focusById[props.node.data.id]}
+                          onSelect={select}
+                        />
+                      )}
+                    </Tree>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+              <AnimatePresence>
+                {selected &&
+                viewMode === "tree" &&
+                !comparisonMode &&
+                !trace.enabled &&
+                !trace.focus ? (
+                  <Details
+                    node={selected}
+                    shown={shown}
+                    onClose={() => setSelected(null)}
+                    fullScreen={isFullscreen}
+                    changeImpact={changeImpact?.impactMap[selected.id]}
+                  />
+                ) : null}
+              </AnimatePresence>
+            </div>
+          </>
+        ) : (
+          <Empty
+            status={status}
+            error={error}
+            progress={progress}
+            label={loadingLabel}
+            retry={() => setRetry((v) => v + 1)}
+          />
+        )}
+      </motion.section>
+      {impact.enabled && impact.result?.selectedSource === source ? (
+        <ImpactAnalysisWorkspace result={impact.result} />
+      ) : null}
+      {trace.modalOpen && trace.result?.selectedSource === source ? (
+        <RequirementEvolutionModal result={trace.result} />
+      ) : null}
+      {trace.explorerOpen && overlayOwner ? (
+        <RequirementsExplorerModal catalog={catalog} />
+      ) : null}
+      {trace.focus && overlayOwner ? (
+        <RequirementFocusSummary focus={trace.focus} />
+      ) : null}
+      <ComparisonReasoningModal
+        open={comparisonModalOpen}
+        nodeName={shown?.name ?? selected?.name ?? "Selected BOM line"}
+        itemId={shown?.itemId}
+        source={source}
+        counterpartLabel={counterpartLabel}
+        comparison={selectedComparison}
+        onClose={() => setComparisonModalOpen(false)}
+      />
+    </>
+  );
+}
+function Details({
+  node,
+  shown,
+  onClose,
+  fullScreen,
+  changeImpact,
+}: {
+  node: TreeNodeData;
+  shown: ReturnType<typeof sourcePresentation> | null;
+  onClose: () => void;
+  fullScreen: boolean;
+  changeImpact?: WindchillNodeImpact;
+}) {
+  return (
+    <motion.aside
+      initial={{ opacity: 0, y: 15 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={`absolute z-40 rounded-2xl border bg-white/95 p-4 shadow-2xl dark:bg-slate-900/95 ${fullScreen ? "bottom-3 right-3 top-3 w-[390px]" : "bottom-3 left-3 right-3"}`}
+    >
+      <div className="flex justify-between">
+        <div>
+          <p className="text-[14px] uppercase text-cyan-600">
+            BOM line details
+          </p>
+          <h4 className="mt-1 text-sm font-semibold">{shown?.name}</h4>
+        </div>
+        <button type="button" onClick={onClose}>
+          <IconX className="h-4 w-4" />
+        </button>
+      </div>
+      {changeImpact ? (
+        <div className="mt-4 rounded-xl border border-amber-400/25 bg-amber-400/[.08] p-3">
+          <p className="text-[11px] font-bold uppercase text-amber-500">{changeImpact.impact === "direct" ? "Directly affected" : "Impacted assembly"}</p>
+          {changeImpact.notices?.map((notice, index) => <p key={`${notice.number}-${index}`} className="mt-1 text-xs text-slate-600 dark:text-slate-300">CN {notice.number ?? "Unknown"} -+ {notice.name ?? "Unnamed change"}{notice.changeIntent ? ` -+ ${notice.changeIntent}` : ""}{notice.affectedVersion ? ` -+ ${notice.affectedVersion}` : ""}</p>)}
+        </div>
+      ) : null}
+      <p className="mt-4 text-xs text-slate-500">
+        <IconHierarchy className="mr-2 inline h-4 w-4" />
+        {node.children?.length
+          ? `${node.children.length} direct children`
+          : "Leaf component"}
+      </p>
+    </motion.aside>
+  );
+}
+function Tool({
+  children,
+  onClick,
+  disabled = false,
+}: {
+  children: ReactNode;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 disabled:opacity-35 dark:border-slate-700"
+    >
+      {children}
+    </button>
+  );
+}
+function Empty({
+  status,
+  error,
+  progress,
+  label,
+  retry,
+}: {
+  status: Status;
+  error: string | null;
+  progress?: PipelineProgress | null;
+  label: string;
+  retry: () => void;
+}) {
+  return (
+    <div className="flex min-h-[380px] items-center justify-center p-8 text-center">
+      <div>
+        <IconPackage className="mx-auto h-8 w-8 text-slate-400" />
+        <p className="mt-4 text-sm font-semibold">
+          {status === "loading"
+            ? progress?.phase || "Preparing BOM preview"
+            : status === "error"
+              ? "BOM preview unavailable"
+              : "Waiting for extraction"}
+        </p>
+        <p className="mt-2 text-xs text-slate-500">
+          {status === "loading"
+            ? progress?.message || label
+            : status === "error"
+              ? error
+              : "Submit an identifier to begin."}
+        </p>
+        {status === "error" ? (
+          <button
+            type="button"
+            onClick={retry}
+            className="mt-5 rounded-xl bg-cyan-600 px-4 py-2 text-white"
+          >
+            <IconRefresh className="mr-2 inline h-4 w-4" />
+            Retry
+          </button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+
+===== FILE: OrchestrationPlatform\frontend\components\WindchillForm.tsx =====
+
+"use client";
+
+import { useMemo, useState } from "react";
+import { motion } from "motion/react";
+import {
+  IconArrowRight,
+  IconSearch,
+  IconX,
+} from "@tabler/icons-react";
+
+type WindchillPartSearchResult = {
+  partId: string;
+  numericPartId: string;
+  number?: string | null;
+  name?: string | null;
+  revision?: string | null;
+  version?: string | null;
+  state?: string | null;
+  view?: string | null;
+  latest: boolean;
+};
+
+type SearchResponse = {
+  query: string;
+  results: WindchillPartSearchResult[];
+};
+
+type Props = {
+  onSubmit: (partId: string) => void;
+  onLoadVersions: (partId: string) => void;
+  onFindChanges: (partId: string) => void;
+  isRunning: boolean;
+  isVersionLoading: boolean;
+  isChangeLoading: boolean;
+  changeDisabled: boolean;
+  loaded?: boolean;
+  onOpenReview?: () => void;
+};
+
+function directPartId(value: string) {
+  const input = value.trim();
+  if (/^OR:wt\.part\.WTPart:\d+$/i.test(input)) return input;
+  if (/^\d+$/.test(input)) return input;
+  return null;
+}
+
+function metadata(item: WindchillPartSearchResult) {
+  return [item.number, item.version || item.revision, item.state, item.view]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+export function WindchillForm({
+  onSubmit,
+  onLoadVersions,
+  onFindChanges,
+  isRunning,
+  isVersionLoading,
+  isChangeLoading,
+  changeDisabled,
+  loaded = false,
+  onOpenReview,
+}: Props) {
+  const [query, setQuery] = useState("");
+  const [selected, setSelected] = useState<WindchillPartSearchResult | null>(null);
+  const [results, setResults] = useState<WindchillPartSearchResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [searched, setSearched] = useState(false);
+  const [error, setError] = useState("");
+  const [editing, setEditing] = useState(false);
+
+  const authoritativeId = useMemo(
+    () => selected?.numericPartId || directPartId(query),
+    [selected, query],
+  );
+  const busy = isRunning || isVersionLoading || isChangeLoading || searching;
+  if (loaded && !editing) {
+    return (
+      <div className="flex flex-col gap-3 border-y border-slate-800 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-[10px] font-semibold uppercase tracking-[.16em] text-slate-600">Current Windchill product</p>
+          <p className="mt-1 truncate text-sm font-semibold text-slate-100">{selected?.name || selected?.number || query || "Loaded product"}</p>
+          <p className="mt-1 text-[11px] text-slate-500">{selected ? metadata(selected) : `ID ${query}`}</p>
+        </div>
+        <div className="flex gap-2">
+          <button type="button" onClick={() => { setEditing(true); setQuery(""); setSelected(null); setResults([]); setSearched(false); }} className="h-9 rounded-lg border border-slate-700 px-3 text-xs font-semibold text-slate-400 hover:bg-slate-800 hover:text-white">Change product</button>
+          <button type="button" onClick={onOpenReview} className="h-9 rounded-lg bg-slate-100 px-4 text-xs font-semibold text-slate-950 hover:bg-white">Open Change Review</button>
+        </div>
+      </div>
+    );
+  }
+
+  const performSearch = async () => {
+    const value = query.trim();
+    if (!value) {
+      setError("Enter a product name, number, or Windchill ID");
+      return;
+    }
+    setSearching(true);
+    setSearched(false);
+    setSelected(null);
+    setResults([]);
+    setError("");
+    try {
+      const response = await fetch(
+        `/api/bom-windchill?operation=search&query=${encodeURIComponent(value)}`,
+        { cache: "no-store" },
+      );
+      const payload = (await response.json()) as SearchResponse | { error?: string };
+      if (!response.ok || !("results" in payload)) {
+        throw new Error("error" in payload ? payload.error || "Product search failed" : "Product search failed");
+      }
+      setResults(payload.results);
+      setSearched(true);
+      if (payload.results.length === 1) setSelected(payload.results[0]);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const extract = () => {
+    const id = authoritativeId;
+    if (id) {
+      setEditing(false);
+      onSubmit(id);
+      return;
+    }
+    void performSearch();
+  };
+
+  return (
+    <motion.form
+      onSubmit={(event) => {
+        event.preventDefault();
+        extract();
+      }}
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2, ease: "easeOut" }}
+      className="space-y-3"
+    >
+      <div className="rounded-[22px] border border-slate-700/80 bg-slate-900/70 p-4">
+        <label htmlFor="windchill-product" className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+          Product
+        </label>
+        <div className="flex min-w-0 items-stretch overflow-hidden rounded-xl border border-slate-700 bg-slate-950/80 focus-within:border-cyan-500/70">
+          <input
+            id="windchill-product"
+            value={query}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setSelected(null);
+              setResults([]);
+              setSearched(false);
+              setError("");
+            }}
+            placeholder="Name, number, or ID"
+            disabled={busy}
+            className="h-11 min-w-0 flex-1 border-0 bg-transparent px-3.5 text-sm font-medium text-slate-100 outline-none placeholder:text-slate-600 disabled:opacity-60"
+          />
+          {!directPartId(query) ? (
+            <button
+              type="button"
+              onClick={() => void performSearch()}
+              disabled={busy || !query.trim()}
+              className="inline-flex h-11 items-center gap-2 border-l border-slate-700 px-3.5 text-xs font-semibold text-slate-300 transition hover:bg-slate-800 hover:text-white disabled:opacity-40"
+            >
+              <IconSearch className="h-4 w-4" />
+              {searching ? "Searching" : "Search"}
+            </button>
+          ) : null}
+          <button
+            type="submit"
+            disabled={busy || !authoritativeId}
+            className="inline-flex h-11 items-center gap-2 border-l border-slate-700 bg-cyan-600 px-4 text-xs font-semibold text-white transition hover:bg-cyan-500 disabled:bg-slate-800 disabled:text-slate-500"
+          >
+            {isRunning ? "Extracting" : "Extract"}
+            <IconArrowRight className="h-4 w-4" />
+          </button>
+        </div>
+
+        {selected ? (
+          <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-slate-700 bg-slate-950/55 px-3.5 py-3">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-slate-100">
+                {selected.name || selected.number || selected.numericPartId}
+              </p>
+              <p className="mt-1 truncate text-[11px] text-slate-500">{metadata(selected)}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSelected(null)}
+              aria-label="Clear selected product"
+              className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-800 hover:text-slate-200"
+            >
+              <IconX className="h-4 w-4" />
+            </button>
+          </div>
+        ) : null}
+
+        {!selected && results.length ? (
+          <div className="mt-3 max-h-64 overflow-y-auto rounded-xl border border-slate-800 bg-slate-950/55 p-1.5">
+            {results.map((result) => (
+              <button
+                key={result.partId}
+                type="button"
+                onClick={() => setSelected(result)}
+                className="block w-full rounded-lg px-3 py-2.5 text-left transition hover:bg-slate-800/80"
+              >
+                <span className="block truncate text-sm font-semibold text-slate-200">
+                  {result.name || result.number || result.numericPartId}
+                </span>
+                <span className="mt-0.5 block truncate text-[11px] text-slate-500">{metadata(result)}</span>
+              </button>
+            ))}
+          </div>
+        ) : searched && !results.length ? (
+          <p className="mt-3 text-xs text-slate-500">No matching products.</p>
+        ) : null}
+
+
+      </div>
+
+      {error ? (
+        <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3.5 py-2.5 text-sm text-rose-200">{error}</div>
+      ) : null}
+    </motion.form>
+  );
+}
+
+
+===== FILE: OrchestrationPlatform\frontend\components\SAPForm.tsx =====
+
+"use client";
+
+import { useState } from "react";
+import { motion } from "motion/react";
+import { IconChartDots3, IconHierarchy3 } from "@tabler/icons-react";
+import { startSapExtraction } from "@/lib/api";
+import { StatefulButtonDemo } from "./StatefulButton";
+
+interface SAPFormProps {
+  onSubmit: (jobId: string) => void;
+  isLoading: boolean;
+}
+
+export function SAPForm({ onSubmit, isLoading }: SAPFormProps) {
+  const [materialId, setMaterialId] = useState("");
+  const [plant, setPlant] = useState("1001");
+  const [includeImpact, setIncludeImpact] = useState(true);
+  const [error, setError] = useState("");
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError("");
+
+    const value = materialId.trim();
+    if (!value) {
+      setError("SAP Material ID is required");
+      return;
+    }
+
+    try {
+      const result = await startSapExtraction({
+        materialId: value,
+        plant: plant.trim() || "1001",
+        includeSapBusinessImpact: includeImpact,
+      });
+
+      if (!result.jobId) throw new Error("No SAP job ID was returned");
+      onSubmit(result.jobId);
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Failed to start SAP extraction",
+      );
+    }
+  };
+
+  return (
+    <motion.form
+      onSubmit={handleSubmit}
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2, ease: "easeOut" }}
+      className="space-y-3"
+      aria-label="SAP extraction setup"
+    >
+      <div className="rounded-[22px] border border-slate-700/80 bg-slate-900/70 p-4">
+        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_112px]">
+          <label className="block">
+            <span className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+              Material ID
+            </span>
+            <input
+              value={materialId}
+              onChange={(event) => setMaterialId(event.target.value)}
+              placeholder="PLM001007"
+              disabled={isLoading}
+              className="h-11 w-full rounded-xl border border-slate-700 bg-slate-950/80 px-3.5 text-sm font-medium text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-cyan-500/70 disabled:cursor-not-allowed disabled:opacity-60"
+            />
+          </label>
+
+          <label className="block">
+            <span className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+              Plant
+            </span>
+            <input
+              value={plant}
+              onChange={(event) => setPlant(event.target.value)}
+              placeholder="1001"
+              disabled={isLoading}
+              className="h-11 w-full rounded-xl border border-slate-700 bg-slate-950/80 px-3.5 text-sm font-medium text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-cyan-500/70 disabled:cursor-not-allowed disabled:opacity-60"
+            />
+          </label>
+        </div>
+
+        <div className="mt-3 flex flex-col gap-3 border-t border-slate-800 pt-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <span className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+              Extraction scope
+            </span>
+            <div className="inline-flex rounded-xl border border-slate-700 bg-slate-950/80 p-1">
+              <ScopeButton
+                active={!includeImpact}
+                disabled={isLoading}
+                icon={<IconHierarchy3 className="h-3.5 w-3.5" />}
+                onClick={() => setIncludeImpact(false)}
+              >
+                BOM
+              </ScopeButton>
+              <ScopeButton
+                active={includeImpact}
+                disabled={isLoading}
+                icon={<IconChartDots3 className="h-3.5 w-3.5" />}
+                onClick={() => setIncludeImpact(true)}
+              >
+                Attributes
+              </ScopeButton>
+            </div>
+          </div>
+
+          <StatefulButtonDemo isLoading={isLoading} disabled={isLoading} />
+        </div>
+      </div>
+
+      {error ? (
+        <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3.5 py-2.5 text-sm text-rose-200">
+          {error}
+        </div>
+      ) : null}
+    </motion.form>
+  );
+}
+
+function ScopeButton({
+  active,
+  disabled,
+  icon,
+  children,
+  onClick,
+}: {
+  active: boolean;
+  disabled: boolean;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      aria-pressed={active}
+      onClick={onClick}
+      className={`inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-[11px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${
+        active
+          ? "bg-slate-800 text-slate-100 shadow-sm"
+          : "text-slate-500 hover:text-slate-300"
+      }`}
+    >
+      {icon}
+      {children}
+    </button>
+  );
+}
+
+
+===== FILE: OrchestrationPlatform\frontend\components\StatefulButton.tsx =====
+
+"use client";
+import { Button } from "./ui/stateful-button";
+export function StatefulButtonDemo({
+  isLoading = false,
+  disabled = false,
+}: {
+  isLoading?: boolean;
+  disabled?: boolean;
+}) {
+  return (
+    <Button
+      type="submit"
+      loading={isLoading}
+      disabled={disabled}
+      className="extract-bom-button min-w-[104px] shrink-0 rounded-none border-l border-cyan-300 bg-cyan-50 px-3 py-3 text-xs font-semibold text-cyan-900 dark:border-cyan-400/30 dark:bg-cyan-500/15 dark:text-cyan-50"
+    >
+      {isLoading ? "Running" : "Extract BOM"}
+    </Button>
+  );
+}
+
+
+===== FILE: OrchestrationPlatform\frontend\components\BomStreamViewer.tsx =====
+
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Tree, type NodeRendererProps } from "react-arborist";
+import { AnimatePresence, motion } from "motion/react";
+import {
+  IconBuildingFactory,
+  IconBox,
+  IconChevronRight,
+  IconCircleCheck,
+  IconCircleDashed,
+  IconHierarchy,
+  IconLayoutKanban,
+  IconPlugConnected,
+} from "@tabler/icons-react";
+
+type TreeNodeData = {
+  id: string;
+  name: string;
+  attributes?: Record<string, string | number | boolean>;
+  children?: TreeNodeData[];
+};
+
+type BomSource = "teamcenter" | "configit" | "windchill";
+
+type UnknownJson = Record<string, unknown>;
+
+type BomViewerPayloadTransformer = (
+  payload: UnknownJson
+) => TreeNodeData | null;
+
+export type BomViewerKind = {
+  kind: BomSource;
+  title: string;
+  endpoint: string;
+  transformPayload: BomViewerPayloadTransformer;
+  emptyMessage: string;
+};
+
+type FlattenedLevels = {
+  levels: TreeNodeData[][];
+  ids: Set<string>;
+};
+
+const TEAMCENTER_MAX_FETCH_ATTEMPTS = 2000;
+const TEAMCENTER_RETRY_DELAY_MS = 1500;
+
+function asRecord(
+  value: unknown
+): Record<string, unknown> | null {
+  if (
+    value !== null &&
+    typeof value === "object" &&
+    !Array.isArray(value)
+  ) {
+    return value as Record<string, unknown>;
+  }
+
+  return null;
+}
+
+function getString(value: unknown): string | undefined {
+  return typeof value === "string" ? value : undefined;
+}
+
+function getNumberOrString(
+  value: unknown
+): string | number | boolean | undefined {
+  if (
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+  ) {
+    return value;
+  }
+
+  return undefined;
+}
+
+function getArray(value: unknown): unknown[] | null {
+  return Array.isArray(value) ? value : null;
+}
+
+function isTeamcenterNode(
+  value: Record<string, unknown> | null
+): value is Record<string, unknown> {
+  if (!value) {
+    return false;
+  }
+
+  return Boolean(
+    value.itemId ||
+      value.name ||
+      value.id ||
+      Array.isArray(value.children)
+  );
+}
+
+function transformTeamcenterNode(
+  node: unknown,
+  fallbackId: string
+): TreeNodeData {
+  const obj = asRecord(node);
+
+  const attributes: Record<
+    string,
+    string | number | boolean
+  > = {};
+
+  const itemId = getString(obj?.itemId);
+  const sequence = getString(obj?.sequence);
+  const variantState = getString(obj?.variantState);
+  const revId = getString(obj?.revId);
+  const quantity = getNumberOrString(obj?.qty);
+  const variantCondition = getString(
+    obj?.variantCondition
+  );
+
+  if (itemId) {
+    attributes["Item ID"] = itemId;
+  }
+
+  if (sequence) {
+    attributes["Sequence"] = sequence;
+  }
+
+  if (variantState) {
+    attributes["Variant State"] = variantState;
+  }
+
+  if (revId) {
+    attributes["Rev ID"] = revId;
+  }
+
+  if (quantity !== undefined) {
+    attributes["Qty"] = quantity;
+  }
+
+  if (variantCondition) {
+    attributes["Variant Condition"] = variantCondition;
+  }
+
+  /*
+   * The fallback ID contains the node's structural path.
+   * This guarantees unique IDs even if the same Teamcenter item
+   * appears more than once in the BOM.
+   */
+  const id = fallbackId;
+
+  const explicitId = getString(obj?.id);
+
+  const name =
+    getString(obj?.name) ??
+    itemId ??
+    explicitId ??
+    "Unnamed node";
+
+  const children = getArray(obj?.children) ?? [];
+
+  return {
+    id,
+    name,
+    attributes,
+    children: children.map((child, index) =>
+      transformTeamcenterNode(
+        child,
+        `${fallbackId}-${index}`
+      )
+    ),
+  };
+}
+
+export function getTeamcenterRoot(
+  payload: unknown
+): TreeNodeData | null {
+  if (!payload) {
+    return null;
+  }
+
+  const response = asRecord(payload);
+
+  if (!response) {
+    return null;
+  }
+
+  /*
+   * Support both:
+   *
+   * {
+   *   payload: {
+   *     finalBom: { ... }
+   *   }
+   * }
+   *
+   * and:
+   *
+   * {
+   *   finalBom: { ... }
+   * }
+   */
+  const payloadBody =
+    asRecord(response.payload) ?? response;
+
+  const finalBom =
+    asRecord(payloadBody.finalBom) ??
+    asRecord(response.finalBom);
+
+  const bomStructure =
+    asRecord(finalBom?.bomStructure) ??
+    asRecord(payloadBody.bomStructure);
+
+  /*
+   * Supported Teamcenter payload shapes:
+   *
+   * finalBom.bomRootNode
+   * finalBom.bomRoot
+   * finalBom.bomStructure.bomRootNode
+   * finalBom.bomStructure.bomRoot
+   * payload.bomRootNode
+   * payload.bomRoot
+   * finalBom itself as the root
+   * direct payload as the root
+   */
+  const bomRoot =
+    asRecord(finalBom?.bomRootNode) ??
+    asRecord(finalBom?.bomRoot) ??
+    asRecord(bomStructure?.bomRootNode) ??
+    asRecord(bomStructure?.bomRoot) ??
+    asRecord(payloadBody.bomRootNode) ??
+    asRecord(payloadBody.bomRoot) ??
+    (isTeamcenterNode(finalBom) ? finalBom : null) ??
+    (isTeamcenterNode(payloadBody)
+      ? payloadBody
+      : null);
+
+  if (!bomRoot) {
+    console.warn(
+      "[BomStreamViewer] Teamcenter response did not contain a valid BOM root",
+      payload
+    );
+
+    return null;
+  }
+
+  return transformTeamcenterNode(
+    bomRoot,
+    "teamcenter-root"
+  );
+}
+
+/*
+ * Configit transformation logic remains unchanged.
+ */
+function transformConfigitNodes(
+  node: unknown,
+  fallbackId: string
+): TreeNodeData[] {
+  const obj = asRecord(node);
+
+  if (!obj) {
+    return [];
+  }
+
+  const rawQty =
+    obj.quantity ??
+    obj.qty ??
+    obj.amount ??
+    obj.count;
+
+  const quantity =
+    typeof rawQty === "object" &&
+    rawQty !== null &&
+    "value" in rawQty
+      ? `${String(
+          (rawQty as Record<string, unknown>).value ?? ""
+        )} ${String(
+          (
+            rawQty as Record<string, unknown>
+          ).unit ?? ""
+        )}`.trim()
+      : getNumberOrString(rawQty);
+
+  const childValues =
+    getArray(obj.children) ??
+    getArray(obj.nodes) ??
+    getArray(obj.items) ??
+    getArray(obj.bom) ??
+    getArray(obj.bomItems) ??
+    getArray(obj.boms) ??
+    [];
+
+  const children = childValues.flatMap(
+    (child, index) =>
+      transformConfigitNodes(
+        child,
+        `${fallbackId}-${index}`
+      )
+  );
+
+  const productId = getString(obj.productId);
+  const bomItemId = getString(obj.bomItemId);
+  const bomId = getString(obj.bomId);
+  const nodeId = getString(obj.nodeId);
+  const nameValue = getString(obj.name);
+
+  const bomItemsLength =
+    getArray(obj.bomItems)?.length ?? 0;
+
+  const bomsLength =
+    getArray(obj.boms)?.length ?? 0;
+
+  const isBomWrapper =
+    !productId &&
+    !bomItemId &&
+    !nameValue &&
+    (bomItemsLength > 0 || bomsLength > 0);
+
+  const isNodeIdOnlyWrapper =
+    !productId &&
+    !bomItemId &&
+    !nameValue &&
+    Boolean(nodeId) &&
+    children.length > 0;
+
+  if (
+    (isBomWrapper || isNodeIdOnlyWrapper) &&
+    children.length > 0
+  ) {
+    return children;
+  }
+
+  const id =
+    productId ??
+    bomItemId ??
+    bomId ??
+    nodeId ??
+    getString(obj.id) ??
+    fallbackId;
+
+  const name =
+    productId ??
+    bomItemId ??
+    bomId ??
+    nameValue ??
+    nodeId ??
+    getString(obj.id) ??
+    "Configit node";
+
+  const attributes: Record<
+    string,
+    string | number | boolean
+  > = {};
+
+  if (quantity !== undefined && quantity !== null) {
+    attributes.Quantity = quantity;
+  }
+
+  return [
+    {
+      id: String(id),
+      name: String(name),
+      attributes,
+      children,
+    },
+  ];
+}
+
+export function getConfigitRoot(
+  payload: unknown
+): TreeNodeData | null {
+  const obj = asRecord(payload);
+
+  if (!obj) {
+    return null;
+  }
+
+  const bom =
+    getArray(obj.bom) ??
+    getArray(obj.nodes) ??
+    getArray(obj.children) ??
+    getArray(obj.items);
+
+  if (!bom || bom.length === 0) {
+    const roots = transformConfigitNodes(
+      payload,
+      "configit-root"
+    );
+
+    if (roots.length === 0) {
+      return null;
+    }
+
+    if (roots.length === 1) {
+      return {
+        ...roots[0],
+        id: "configit-root",
+      };
+    }
+
+    return {
+      id: "configit-root",
+      name: "Configit BOM",
+      attributes: {},
+      children: roots,
+    };
+  }
+
+  const productId =
+    getString(obj.productId) ??
+    getString(obj.productModel) ??
+    getString(obj.productID);
+
+  const packagePath = getString(obj.packagePath);
+
+  const attributes: Record<
+    string,
+    string | number | boolean
+  > = {};
+
+  if (productId) {
+    attributes["Product ID"] = productId;
+  }
+
+  if (packagePath) {
+    attributes["Package Path"] = packagePath;
+  }
+
+  return {
+    id: productId
+      ? `configit-${productId}`
+      : "configit-root",
+    name: productId
+      ? `Product ${productId}`
+      : "Configit BOM",
+    attributes,
+    children: bom.flatMap((node, index) =>
+      transformConfigitNodes(
+        node,
+        `configit-node-${index}`
+      )
+    ),
+  };
+}
+
+/*
+ * Windchill transformation logic remains unchanged.
+ */
+function transformWindchillNode(node: unknown, fallbackPath: string): TreeNodeData {
+  const obj = asRecord(node) ?? {};
+  const rawAttributes = asRecord(obj.attributes) ?? {};
+  const attributes: Record<string, string | number | boolean> = {};
+
+  for (const [key, value] of Object.entries(rawAttributes)) {
+    const normalized = getNumberOrString(value);
+    if (normalized !== undefined) attributes[key] = normalized;
+  }
+
+  const itemId = getString(rawAttributes["Item ID"]) ?? getString(obj.PartNumber) ?? getString(obj.partNumber);
+  const partId = getString(rawAttributes["Part ID"]) ?? getString(obj.PartId) ?? getString(obj.partId);
+  const occurrenceId = getString(rawAttributes["Occurrence ID"]) ?? getString(obj.OccurrenceId) ?? getString(obj.id);
+  const treePath = getString(rawAttributes["Tree Path"]) ?? fallbackPath;
+  const quantity = getNumberOrString(obj.quantity ?? rawAttributes.Quantity);
+  if (itemId) attributes["Item ID"] = itemId;
+  if (partId) attributes["Part ID"] = partId;
+  if (occurrenceId) attributes["Occurrence ID"] = occurrenceId;
+  attributes["Tree Path"] = treePath;
+  if (quantity !== undefined) attributes.Quantity = quantity;
+
+  const children = getArray(obj.children) ?? getArray(obj.Components) ?? getArray(obj.components) ?? [];
+  const id = occurrenceId || getString(obj.id) || `${fallbackPath}:${itemId || "node"}`;
+  const name = getString(obj.name) ?? getString(obj.PartName) ?? itemId ?? id;
+
+  return {
+    id,
+    name,
+    attributes,
+    children: children.map((child, index) => transformWindchillNode(child, `${treePath}/${index}`)),
+  };
+}
+
+export function getWindchillRoot(payload: unknown): TreeNodeData | null {
+  const obj = asRecord(payload);
+  if (!obj) return null;
+  const bom = getArray(obj.bom);
+  if (!bom?.length) return null;
+  return transformWindchillNode(bom[0], String(obj.productId ?? "windchill-root"));
+}
+
+function flattenLevels(
+  root: TreeNodeData
+): FlattenedLevels {
+  const levels: TreeNodeData[][] = [];
+  const ids = new Set<string>();
+
+  let currentLevel: TreeNodeData[] = [root];
+  let levelIndex = 0;
+
+  while (currentLevel.length > 0) {
+    levels[levelIndex] = currentLevel;
+
+    const nextLevel: TreeNodeData[] = [];
+
+    for (const node of currentLevel) {
+      ids.add(node.id);
+
+      if (
+        Array.isArray(node.children) &&
+        node.children.length > 0
+      ) {
+        nextLevel.push(...node.children);
+      }
+    }
+
+    currentLevel = nextLevel;
+    levelIndex += 1;
+  }
+
+  return {
+    levels,
+    ids,
+  };
+}
+
+function computeVisibleIds(
+  animation: FlattenedLevels | null,
+  levelLimit: number
+): Set<string> {
+  if (!animation) {
+    return new Set<string>();
+  }
+
+  const ids = new Set<string>();
+
+  for (
+    let level = 0;
+    level <= levelLimit;
+    level += 1
+  ) {
+    for (
+      const node of animation.levels[level] ?? []
+    ) {
+      ids.add(node.id);
+    }
+  }
+
+  return ids;
+}
+
+function IconForSource({
+  source,
+}: {
+  source: BomSource;
+}) {
+  if (source === "teamcenter") {
+    return (
+      <IconPlugConnected className="h-4 w-4 text-emerald-300" />
+    );
+  }
+
+  if (source === "windchill") {
+    return (
+      <IconBuildingFactory className="h-4 w-4 text-amber-300" />
+    );
+  }
+
+  return (
+    <IconBox className="h-4 w-4 text-indigo-300" />
+  );
+}
+
+function TreeRow({
+  node,
+  style,
+  dragHandle,
+  isVisible,
+}: NodeRendererProps<TreeNodeData> & {
+  isVisible: boolean;
+}) {
+  const hasChildren = !node.isLeaf;
+
+  return (
+    <motion.div
+      style={style}
+      ref={dragHandle}
+      initial={{
+        opacity: 0,
+        y: 6,
+      }}
+      animate={
+        isVisible
+          ? {
+              opacity: 1,
+              y: 0,
+            }
+          : {
+              opacity: 0,
+              y: 6,
+            }
+      }
+      transition={{
+        duration: 0.28,
+        ease: "easeOut",
+      }}
+      className="flex items-center"
+    >
+      <div className="group flex w-full items-center gap-3 rounded-lg border border-slate-700/60 bg-slate-800/40 px-4 py-2 shadow-sm shadow-slate-950/10">
+        <button
+          type="button"
+          aria-label={
+            hasChildren
+              ? "Toggle children"
+              : "Leaf node"
+          }
+          onClick={() => {
+            if (hasChildren) {
+              node.toggle();
+            }
+          }}
+          className="flex h-7 w-7 items-center justify-center rounded-md border border-slate-700/70 bg-slate-900/20 text-slate-200 transition hover:bg-slate-900/40 hover:text-white"
+        >
+          {hasChildren ? (
+            <motion.span
+              initial={false}
+              animate={{
+                rotate: node.isOpen ? 90 : 0,
+              }}
+              transition={{
+                duration: 0.18,
+                ease: "easeOut",
+              }}
+            >
+              <IconChevronRight className="h-4 w-4" />
+            </motion.span>
+          ) : (
+            <IconCircleDashed className="h-4 w-4 text-slate-500" />
+          )}
+        </button>
+
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-[13px] font-medium text-slate-100 group-hover:text-white">
+            {node.data.name}
+          </div>
+
+          {node.data.attributes &&
+            Object.keys(node.data.attributes).length >
+              0 && (
+              <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-slate-400">
+                {Object.entries(
+                  node.data.attributes
+                )
+                  .slice(0, 3)
+                  .map(([key, value]) => (
+                    <span
+                      key={key}
+                      className="whitespace-nowrap"
+                    >
+                      <span className="text-slate-500">
+                        {key}:
+                      </span>{" "}
+                      {String(value)}
+                    </span>
+                  ))}
+              </div>
+            )}
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+function wait(delayMs: number): Promise<void> {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, delayMs);
+  });
+}
+
+export function BomStreamViewer({
+  sources,
+  showBoth,
+}: {
+  sources: {
+    teamcenter: BomViewerKind;
+    configit: BomViewerKind;
+    windchill?: BomViewerKind;
+  };
+  showBoth: boolean;
+}) {
+  const [teamPayload, setTeamPayload] =
+    useState<TreeNodeData | null>(null);
+
+  const [configPayload, setConfigPayload] =
+    useState<TreeNodeData | null>(null);
+
+  const [windchillPayload, setWindchillPayload] =
+    useState<TreeNodeData | null>(null);
+
+  const [loading, setLoading] = useState(true);
+
+  const [error, setError] =
+    useState<string | null>(null);
+
+  const [animLevelBySource, setAnimLevelBySource] =
+    useState<Record<BomSource, number>>({
+      teamcenter: 0,
+      configit: 0,
+      windchill: 0,
+    });
+
+  const startedAtRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    startedAtRef.current = Date.now();
+
+    let isMounted = true;
+
+    const fetchOnce = async (
+      source: "configit" | "windchill"
+    ): Promise<TreeNodeData | null> => {
+      const config =
+        source === "windchill"
+          ? sources.windchill
+          : sources.configit;
+
+      if (!config) {
+        return null;
+      }
+
+      const response = await fetch(config.endpoint, {
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        throw new Error(config.emptyMessage);
+      }
+
+      const json: unknown = await response.json();
+
+      const jsonRecord = asRecord(json);
+
+      if (!jsonRecord) {
+        return null;
+      }
+
+      return config.transformPayload(jsonRecord);
+    };
+
+    const fetchTeamcenterWithRetry =
+      async (): Promise<TreeNodeData | null> => {
+        const config = sources.teamcenter;
+
+        for (
+          let attempt = 0;
+          attempt < TEAMCENTER_MAX_FETCH_ATTEMPTS;
+          attempt += 1
+        ) {
+          if (!isMounted) {
+            return null;
+          }
+
+          try {
+            console.info(
+              "[BomStreamViewer] Fetching Teamcenter BOM",
+              {
+                endpoint: config.endpoint,
+                attempt,
+              }
+            );
+
+            const response = await fetch(
+              config.endpoint,
+              {
+                cache: "no-store",
+              }
+            );
+
+            const bodyText = await response.text();
+
+            let json: unknown = null;
+
+            if (bodyText) {
+              try {
+                json = JSON.parse(bodyText);
+              } catch {
+                json = bodyText;
+              }
+            }
+
+            console.info(
+              "[BomStreamViewer] Teamcenter BOM response",
+              {
+                endpoint: config.endpoint,
+                attempt,
+                status: response.status,
+                ok: response.ok,
+                json,
+              }
+            );
+
+            if (response.ok) {
+              const jsonRecord = asRecord(json);
+
+              if (jsonRecord) {
+                const root =
+                  config.transformPayload(jsonRecord);
+
+                if (root) {
+                  console.info(
+                    "[BomStreamViewer] Teamcenter BOM transformed successfully",
+                    {
+                      endpoint: config.endpoint,
+                      attempt,
+                      root,
+                    }
+                  );
+
+                  return root;
+                }
+              }
+
+              console.info(
+                "[BomStreamViewer] Teamcenter response is successful but finalBom is not ready",
+                {
+                  endpoint: config.endpoint,
+                  attempt,
+                  json,
+                }
+              );
+            }
+          } catch (teamcenterError) {
+            console.warn(
+              "[BomStreamViewer] Teamcenter BOM request failed",
+              {
+                endpoint: config.endpoint,
+                attempt,
+                teamcenterError,
+              }
+            );
+          }
+
+          const hasMoreAttempts =
+            attempt <
+            TEAMCENTER_MAX_FETCH_ATTEMPTS - 1;
+
+          if (hasMoreAttempts) {
+            await wait(
+              TEAMCENTER_RETRY_DELAY_MS
+            );
+          }
+        }
+
+        return null;
+      };
+
+    const run = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        setTeamPayload(null);
+
+        const promises: Array<
+          Promise<TreeNodeData | null>
+        > = [fetchTeamcenterWithRetry()];
+
+        if (showBoth && sources.windchill) {
+          promises.push(
+            fetchOnce("windchill").catch(
+              (windchillError) => {
+                console.error(
+                  "[BomStreamViewer] Windchill load failed",
+                  windchillError
+                );
+
+                return null;
+              }
+            )
+          );
+        } else if (showBoth) {
+          promises.push(
+            fetchOnce("configit").catch(
+              (configitError) => {
+                console.error(
+                  "[BomStreamViewer] Configit load failed",
+                  configitError
+                );
+
+                return null;
+              }
+            )
+          );
+        }
+
+        const results =
+          await Promise.all(promises);
+
+        if (!isMounted) {
+          return;
+        }
+
+        const teamcenterResult =
+          results[0] ?? null;
+
+        setTeamPayload(teamcenterResult);
+
+        if (!teamcenterResult) {
+          setError(
+            sources.teamcenter.emptyMessage
+          );
+        }
+
+        if (
+          showBoth &&
+          sources.windchill
+        ) {
+          setWindchillPayload(
+            results[1] ?? null
+          );
+          setConfigPayload(null);
+        } else if (showBoth) {
+          setConfigPayload(
+            results[1] ?? null
+          );
+          setWindchillPayload(null);
+        } else {
+          setConfigPayload(null);
+          setWindchillPayload(null);
+        }
+      } catch (runError) {
+        if (!isMounted) {
+          return;
+        }
+
+        setError(
+          runError instanceof Error
+            ? runError.message
+            : "Failed to load BOM"
+        );
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void run();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [sources, showBoth]);
+
+  const teamAnimation = useMemo(
+    () =>
+      teamPayload
+        ? flattenLevels(teamPayload)
+        : null,
+    [teamPayload]
+  );
+
+  const configAnimation = useMemo(
+    () =>
+      configPayload
+        ? flattenLevels(configPayload)
+        : null,
+    [configPayload]
+  );
+
+  const windchillAnimation = useMemo(
+    () =>
+      windchillPayload
+        ? flattenLevels(windchillPayload)
+        : null,
+    [windchillPayload]
+  );
+
+  useEffect(() => {
+    if (
+      !teamAnimation &&
+      !configAnimation &&
+      !windchillAnimation
+    ) {
+      return;
+    }
+
+    const startTime =
+      startedAtRef.current ?? Date.now();
+
+    let cancelled = false;
+    let frameId: number | null = null;
+
+    const tick = () => {
+      if (cancelled) {
+        return;
+      }
+
+      const elapsed =
+        Date.now() - startTime;
+
+      const revealLevel = (
+        levelCount: number
+      ): number => {
+        return Math.min(
+          levelCount - 1,
+          Math.floor(elapsed / 260)
+        );
+      };
+
+      let animationComplete = true;
+
+      setAnimLevelBySource((previous) => {
+        const next = {
+          ...previous,
+        };
+
+        if (teamAnimation) {
+          next.teamcenter = revealLevel(
+            teamAnimation.levels.length
+          );
+
+          if (
+            next.teamcenter <
+            teamAnimation.levels.length - 1
+          ) {
+            animationComplete = false;
+          }
+        }
+
+        if (configAnimation) {
+          next.configit = revealLevel(
+            configAnimation.levels.length
+          );
+
+          if (
+            next.configit <
+            configAnimation.levels.length - 1
+          ) {
+            animationComplete = false;
+          }
+        }
+
+        if (windchillAnimation) {
+          next.windchill = revealLevel(
+            windchillAnimation.levels.length
+          );
+
+          if (
+            next.windchill <
+            windchillAnimation.levels.length - 1
+          ) {
+            animationComplete = false;
+          }
+        }
+
+        return next;
+      });
+
+      if (!animationComplete) {
+        frameId =
+          window.requestAnimationFrame(tick);
+      }
+    };
+
+    frameId =
+      window.requestAnimationFrame(tick);
+
+    return () => {
+      cancelled = true;
+
+      if (frameId !== null) {
+        window.cancelAnimationFrame(frameId);
+      }
+    };
+  }, [
+    teamAnimation,
+    configAnimation,
+    windchillAnimation,
+  ]);
+
+  const renderOne = (source: BomSource) => {
+    const config =
+      source === "teamcenter"
+        ? sources.teamcenter
+        : source === "windchill"
+          ? sources.windchill ??
+            sources.configit
+          : sources.configit;
+
+    const payload =
+      source === "teamcenter"
+        ? teamPayload
+        : source === "windchill"
+          ? windchillPayload
+          : configPayload;
+
+    const animation =
+      source === "teamcenter"
+        ? teamAnimation
+        : source === "windchill"
+          ? windchillAnimation
+          : configAnimation;
+
+    const levelLimit = animation
+      ? animLevelBySource[source]
+      : 0;
+
+    const treeData: TreeNodeData[] = payload
+      ? [payload]
+      : [];
+
+    const visibleIds = computeVisibleIds(
+      animation,
+      levelLimit
+    );
+
+    return (
+      <div className="rounded-xl border border-slate-700/50 bg-slate-950/40 p-4">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <IconForSource source={source} />
+
+            <div>
+              <div className="text-sm font-semibold text-white">
+                {config.title}
+              </div>
+
+              <div className="text-xs text-slate-400">
+                {config.kind === "teamcenter"
+                  ? "Teamcenter Structure Manager"
+                  : config.kind === "windchill"
+                    ? "Windchill BOM"
+                    : "Configit Family → Features"}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 text-xs text-slate-300">
+            {payload ? (
+              <>
+                <IconCircleCheck className="h-4 w-4 text-emerald-300" />
+                <span>Streamed</span>
+              </>
+            ) : (
+              <>
+                <IconCircleDashed className="h-4 w-4" />
+                <span>Pending</span>
+              </>
+            )}
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-slate-800/70 bg-slate-900/60 p-2">
+          {payload && animation ? (
+            <div className="h-[54vh] min-h-[380px] overflow-auto">
+              <Tree<TreeNodeData>
+                data={treeData}
+                openByDefault={false}
+                width="100%"
+                height={420}
+                rowHeight={54}
+                indent={20}
+                overscanCount={3}
+                paddingTop={10}
+                paddingBottom={10}
+              >
+                {(nodeProps) => {
+                  const isVisible =
+                    visibleIds.has(
+                      nodeProps.node.data.id
+                    ) ||
+                    nodeProps.node.isRoot;
+
+                  return (
+                    <TreeRow
+                      {...nodeProps}
+                      isVisible={isVisible}
+                    />
+                  );
+                }}
+              </Tree>
+            </div>
+          ) : (
+            <div className="flex h-[54vh] min-h-[380px] items-center justify-center rounded-lg border border-dashed border-slate-700/70">
+              <div className="text-center">
+                <IconHierarchy className="mx-auto h-8 w-8 text-slate-500" />
+
+                <div className="mt-3 text-sm font-medium text-slate-200">
+                  {config.emptyMessage}
+                </div>
+
+                <div className="mt-1 text-xs text-slate-400">
+                  Waiting for extracted JSON.
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-4">
+      {error && (
+        <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
+          {error}
+        </div>
+      )}
+
+      {showBoth ? (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          {renderOne("teamcenter")}
+
+          {sources.windchill
+            ? renderOne("windchill")
+            : renderOne("configit")}
+        </div>
+      ) : (
+        renderOne("teamcenter")
+      )}
+
+      {(loading ||
+        Boolean(
+          teamPayload && teamAnimation
+        ) ||
+        Boolean(
+          configPayload && configAnimation
+        ) ||
+        Boolean(
+          windchillPayload &&
+            windchillAnimation
+        )) && (
+        <div className="flex items-start gap-3 rounded-lg border border-slate-700/60 bg-slate-950/30 p-4">
+          <IconLayoutKanban className="mt-0.5 h-5 w-5 text-slate-400" />
+
+          <div>
+            <div className="text-sm font-medium text-white">
+              Live BOM stream
+            </div>
+
+            <div className="text-xs text-slate-400">
+              The backend JSON is already generated;
+              the UI reveals it progressively to match
+              an enterprise PLM experience.
+            </div>
+          </div>
+        </div>
+      )}
+
+      <AnimatePresence />
+    </div>
+  );
+}
+
+
+===== FILE: OrchestrationPlatform\frontend\types\bom-comparison.ts =====
+
+export type SourceType = "teamcenter" | "windchill" | "configit" | "sap";
+export type ComparisonStatus = "matched" | "changed" | "missing" | "source-only" | "probable";
+export type ComparisonFilter = "all" | ComparisonStatus;
+export type ComparisonSessionState = "idle" | "selecting" | "preparing" | "active";
+export type ComparisonSelection = { leftSource: SourceType; rightSource: SourceType };
+export type MultiComparisonSelection = { primarySource: SourceType; comparedSources: SourceType[] };
+export type MatchReason = "item-id" | "name-context" | "name" | "none";
+export type ComparisonField = "itemId" | "name" | "quantity" | "revision" | "parent" | "level" | "nodeType";
+export type TreeNodeData = { id: string; name: string; attributes?: Record<string, string | number | boolean>; children?: TreeNodeData[] };
+export type NormalizedBomNode = { source: SourceType; nodeId: string; itemId?: string; name: string; normalizedName: string; quantity?: string; revision?: string; parentName?: string; normalizedParentName?: string; level: number; childCount: number };
+export type FieldDifference = { field: "name" | "quantity" | "revision" | "parent"; left?: string; right?: string };
+export type ComparisonReasoning = { summary: string; details: string[]; matchedFields: ComparisonField[]; differentFields: ComparisonField[] };
+export type NodeComparison = { status: ComparisonStatus; nodeId: string; counterpartNodeId?: string; counterpartSource?: SourceType; confidence: number; matchReason: MatchReason; differences: FieldDifference[]; reasoning: ComparisonReasoning };
+export type ComparisonSummary = { matched: number; changed: number; missing: number; sourceOnly: number; probable: number; total: number };
+export type BomComparisonResult = { leftSource: SourceType; rightSource: SourceType; left: Record<string, NodeComparison>; right: Record<string, NodeComparison>; summary: ComparisonSummary; generatedAt: string };
+export type MultiBomComparisonResult = { primarySource: SourceType; comparedSources: SourceType[]; pairResults: BomComparisonResult[]; maps: Partial<Record<SourceType, Record<string, NodeComparison>>>; summary: ComparisonSummary; generatedAt: string };
+
+
+===== FILE: OrchestrationPlatform\frontend\lib\bom-comparison.ts =====
+
+import type {
+  BomComparisonResult,
+  ComparisonField,
+  ComparisonReasoning,
+  ComparisonSummary,
+  FieldDifference,
+  MatchReason,
+  MultiBomComparisonResult,
+  NodeComparison,
+  NormalizedBomNode,
+  SourceType,
+  TreeNodeData,
+} from "@/types/bom-comparison";
+const STOP = new Set(["view", "assembly", "assy", "product", "bom"]);
+function primitive(v: unknown) {
+  return typeof v === "string" && v.trim()
+    ? v.trim()
+    : typeof v === "number" || typeof v === "boolean"
+      ? String(v)
+      : undefined;
+}
+function attr(n: TreeNodeData, keys: string[]) {
+  for (const k of keys) {
+    const v = primitive(n.attributes?.[k]);
+    if (v) return v;
+  }
+  return undefined;
+}
+export function sourcePresentation(n: TreeNodeData, s: SourceType) {
+  const quantity = attr(n, ["Qty", "Quantity"]),
+    revision = attr(n, ["Rev ID", "Revision"]);
+  if (s === "teamcenter") {
+    const itemId = attr(n, ["Item ID"]),
+      m = n.name.trim().match(/^[^;]+;\d+-(.*?)(?:\s+x\s+[\d.]+)?$/i);
+    return {
+      name: m?.[1]?.trim() || n.name.trim(),
+      itemId,
+      quantity,
+      revision,
+    };
+  }
+  if (s === "configit") {
+    const productId = attr(n, ["Product ID"]),
+      raw = productId || n.name.trim().replace(/^Product\s+/i, ""),
+      m = raw.match(/^(.*)_([A-Za-z0-9]+)$/);
+    return {
+      name: m?.[1]?.trim() || raw.trim(),
+      itemId: m?.[2] || productId,
+      quantity,
+      revision,
+    };
+  }
+  return {
+    name: n.name.trim(),
+    itemId: n.id.trim().match(/-([A-Za-z0-9]+)$/)?.[1],
+    quantity,
+    revision,
+  };
+}
+export function normalizeName(v: string) {
+  return v
+    .toLowerCase()
+    .replace(/\([^)]*view[^)]*\)/gi, " ")
+    .replace(/[_/;:,.()[\]{}-]+/g, " ")
+    .replace(/\b(rev(?:ision)?|version)\s*[a-z0-9.]+\b/gi, " ")
+    .replace(/\bx\s*\d+(?:\.\d+)?\b/gi, " ")
+    .split(/\s+/)
+    .filter((x) => x && !STOP.has(x))
+    .join(" ")
+    .trim();
+}
+function qty(v?: string) {
+  if (!v) return undefined;
+  const m = v.replace(/,/g, ".").match(/-?\d+(?:\.\d+)?/);
+  return m ? String(Number(m[0])) : v.trim().toLowerCase();
+}
+function flatten(root: TreeNodeData, source: SourceType) {
+  const out: NormalizedBomNode[] = [];
+  const walk = (n: TreeNodeData, level: number, parent?: NormalizedBomNode) => {
+    const p = sourcePresentation(n, source),
+      x: NormalizedBomNode = {
+        source,
+        nodeId: n.id,
+        itemId: p.itemId?.toLowerCase(),
+        name: p.name,
+        normalizedName: normalizeName(p.name),
+        quantity: qty(p.quantity),
+        revision: p.revision?.toLowerCase(),
+        parentName: parent?.name,
+        normalizedParentName: parent?.normalizedName,
+        level,
+        childCount: n.children?.length ?? 0,
+      };
+    out.push(x);
+    for (const c of n.children ?? []) walk(c, level + 1, x);
+  };
+  walk(root, 0);
+  return out;
+}
+function similarity(a: string, b: string) {
+  if (!a || !b) return 0;
+  if (a === b) return 1;
+  const x = new Set(a.split(" ")),
+    y = new Set(b.split(" ")),
+    i = [...x].filter((t) => y.has(t)).length,
+    u = new Set([...x, ...y]).size;
+  return u ? i / u : 0;
+}
+function score(a: NormalizedBomNode, b: NormalizedBomNode) {
+  let s = similarity(a.normalizedName, b.normalizedName) * 0.72;
+  if (a.normalizedParentName && b.normalizedParentName)
+    s += similarity(a.normalizedParentName, b.normalizedParentName) * 0.15;
+  if (a.level === b.level) s += 0.07;
+  if (a.childCount > 0 === b.childCount > 0) s += 0.06;
+  return Math.min(1, s);
+}
+function differences(a: NormalizedBomNode, b: NormalizedBomNode) {
+  const d: FieldDifference[] = [];
+  if (a.normalizedName !== b.normalizedName)
+    d.push({ field: "name", left: a.name, right: b.name });
+  if (a.quantity && b.quantity && a.quantity !== b.quantity)
+    d.push({ field: "quantity", left: a.quantity, right: b.quantity });
+  if (a.revision && b.revision && a.revision !== b.revision)
+    d.push({ field: "revision", left: a.revision, right: b.revision });
+  if (
+    a.normalizedParentName &&
+    b.normalizedParentName &&
+    a.normalizedParentName !== b.normalizedParentName
+  )
+    d.push({ field: "parent", left: a.parentName, right: b.parentName });
+  return d;
+}
+function explain(
+  a: NormalizedBomNode,
+  b: NormalizedBomNode | undefined,
+  reason: MatchReason,
+  confidence: number,
+  d: FieldDifference[],
+  only = false,
+): ComparisonReasoning {
+  if (!b)
+    return {
+      summary: only
+        ? "This item exists only in this source."
+        : "No counterpart was found in the compared source.",
+      details: [
+        a.itemId
+          ? `No unused node with Item ID ${a.itemId} was found.`
+          : "No comparable business Item ID was available.",
+        `No name-and-structure candidate reached the 62% matching threshold for “${a.name}”.`,
+      ],
+      matchedFields: [],
+      differentFields: [],
+    };
+  const details: string[] = [],
+    matched: ComparisonField[] = [],
+    different = d.map((x) => x.field) as ComparisonField[];
+  if (reason === "item-id") {
+    details.push(`Exact Item ID match: ${a.itemId}.`);
+    matched.push("itemId");
+  } else
+    details.push(
+      "Item IDs differ; name and hierarchy context selected the counterpart.",
+    );
+  if (a.normalizedName === b.normalizedName) {
+    details.push(`Normalized name matches: “${a.normalizedName || a.name}”.`);
+    matched.push("name");
+  } else details.push(`Names differ: “${a.name}” versus “${b.name}”.`);
+  if (a.normalizedParentName && b.normalizedParentName) {
+    if (a.normalizedParentName === b.normalizedParentName) {
+      details.push(`Parent assembly matches: “${a.parentName}”.`);
+      matched.push("parent");
+    } else
+      details.push(
+        `Parent assembly differs: “${a.parentName}” versus “${b.parentName}”.`,
+      );
+  } else
+    details.push(
+      "Parent context was unavailable on one side and was not treated as a mismatch.",
+    );
+  if (a.level === b.level) {
+    details.push(`Hierarchy level matches: level ${a.level + 1}.`);
+    matched.push("level");
+  } else {
+    details.push(
+      `Hierarchy level differs: ${a.level + 1} versus ${b.level + 1}.`,
+    );
+    different.push("level");
+  }
+  if (a.childCount > 0 === b.childCount > 0) {
+    details.push(
+      a.childCount > 0
+        ? "Both lines are assemblies."
+        : "Both lines are leaf components.",
+    );
+    matched.push("nodeType");
+  } else {
+    details.push("One line is an assembly and the other is a leaf component.");
+    different.push("nodeType");
+  }
+  if (a.quantity && b.quantity) {
+    if (a.quantity === b.quantity) {
+      details.push(`Quantity matches: ${a.quantity}.`);
+      matched.push("quantity");
+    } else
+      details.push(`Quantity differs: ${a.quantity} versus ${b.quantity}.`);
+  } else
+    details.push(
+      "Quantity was missing on one side and was not treated as a mismatch.",
+    );
+  const pct = Math.round(confidence * 100),
+    summary = d.length
+      ? `Counterpart found with ${pct}% confidence, but ${d.length} comparable field${d.length === 1 ? "" : "s"} differ.`
+      : reason === "name"
+        ? `Probable counterpart found with ${pct}% confidence; manual review is recommended.`
+        : `Counterpart matched with ${pct}% confidence and no comparable values differ.`;
+  return {
+    summary,
+    details,
+    matchedFields: matched,
+    differentFields: [...new Set(different)],
+  };
+}
+export function isValidComparisonPair(
+  a: SourceType,
+  b: SourceType,
+  roots: Partial<Record<SourceType, TreeNodeData>>,
+) {
+  return a !== b && Boolean(roots[a]) && Boolean(roots[b]);
+}
+export function compareBoms(
+  leftRoot: TreeNodeData,
+  leftSource: SourceType,
+  rightRoot: TreeNodeData,
+  rightSource: SourceType,
+): BomComparisonResult {
+  const A = flatten(leftRoot, leftSource),
+    B = flatten(rightRoot, rightSource),
+    left: Record<string, NodeComparison> = {},
+    right: Record<string, NodeComparison> = {},
+    used = new Set<string>(),
+    byId = new Map<string, NormalizedBomNode[]>();
+  for (const n of B)
+    if (n.itemId) byId.set(n.itemId, [...(byId.get(n.itemId) ?? []), n]);
+  for (const a of A) {
+    let b: NormalizedBomNode | undefined,
+      confidence = 0,
+      reason: MatchReason = "none";
+    if (a.itemId) {
+      b = byId.get(a.itemId)?.find((x) => !used.has(x.nodeId));
+      if (b) {
+        confidence = 1;
+        reason = "item-id";
+      }
+    }
+    if (!b) {
+      const ranked = B.filter((x) => !used.has(x.nodeId))
+        .map((node) => ({ node, score: score(a, node) }))
+        .sort((x, y) => y.score - x.score);
+      if (ranked[0]?.score >= 0.62) {
+        b = ranked[0].node;
+        confidence = ranked[0].score;
+        reason = confidence >= 0.86 ? "name-context" : "name";
+      }
+    }
+    if (!b) {
+      left[a.nodeId] = {
+        status: "missing",
+        nodeId: a.nodeId,
+        confidence: 0,
+        matchReason: "none",
+        differences: [],
+        reasoning: explain(a, undefined, "none", 0, []),
+      };
+      continue;
+    }
+    used.add(b.nodeId);
+    const d = differences(a, b),
+      status =
+        reason === "name" || confidence < 0.78
+          ? "probable"
+          : d.length
+            ? "changed"
+            : "matched",
+      reasoning = explain(a, b, reason, confidence, d);
+    left[a.nodeId] = {
+      status,
+      nodeId: a.nodeId,
+      counterpartNodeId: b.nodeId,
+      counterpartSource: rightSource,
+      confidence,
+      matchReason: reason,
+      differences: d,
+      reasoning,
+    };
+    right[b.nodeId] = {
+      status,
+      nodeId: b.nodeId,
+      counterpartNodeId: a.nodeId,
+      counterpartSource: leftSource,
+      confidence,
+      matchReason: reason,
+      differences: d.map((x) => ({ ...x, left: x.right, right: x.left })),
+      reasoning,
+    };
+  }
+  for (const b of B)
+    if (!right[b.nodeId])
+      right[b.nodeId] = {
+        status: "source-only",
+        nodeId: b.nodeId,
+        confidence: 0,
+        matchReason: "none",
+        differences: [],
+        reasoning: explain(b, undefined, "none", 0, [], true),
+      };
+  const summary: ComparisonSummary = {
+    matched: 0,
+    changed: 0,
+    missing: 0,
+    sourceOnly: 0,
+    probable: 0,
+    total: A.length,
+  };
+  for (const x of Object.values(left)) {
+    if (x.status === "matched") summary.matched++;
+    if (x.status === "changed") summary.changed++;
+    if (x.status === "missing") summary.missing++;
+    if (x.status === "probable") summary.probable++;
+  }
+  summary.sourceOnly = Object.values(right).filter(
+    (x) => x.status === "source-only",
+  ).length;
+  return {
+    leftSource,
+    rightSource,
+    left,
+    right,
+    summary,
+    generatedAt: new Date().toISOString(),
+  };
+}
+const rank: Record<NodeComparison["status"], number> = {
+  matched: 0,
+  probable: 1,
+  changed: 2,
+  missing: 3,
+  "source-only": 3,
+};
+function aggregatePrimary(
+  primary: SourceType,
+  pairs: BomComparisonResult[],
+  labels: Record<SourceType, string>,
+) {
+  const ids = new Set(pairs.flatMap((p) => Object.keys(p.left))),
+    out: Record<string, NodeComparison> = {};
+  for (const id of ids) {
+    const entries = pairs
+      .map((p) => ({ source: p.rightSource, value: p.left[id] }))
+      .filter((x) => x.value);
+    if (!entries.length) continue;
+    const worst = [...entries].sort(
+      (a, b) => rank[b.value.status] - rank[a.value.status],
+    )[0].value;
+    const details = entries.flatMap(({ source, value }) => [
+      `Against ${labels[source]}: ${value.reasoning.summary}`,
+      ...value.reasoning.details.slice(0, 2).map((x) => `• ${x}`),
+    ]);
+    out[id] = {
+      ...worst,
+      nodeId: id,
+      counterpartSource: undefined,
+      counterpartNodeId: undefined,
+      reasoning: {
+        summary: entries.every((x) => x.value.status === "matched")
+          ? `Matched across all ${entries.length} compared sources.`
+          : `Combined result across ${entries.length} compared sources. The most significant status is ${worst.status}.`,
+        details,
+        matchedFields: [
+          ...new Set(entries.flatMap((x) => x.value.reasoning.matchedFields)),
+        ],
+        differentFields: [
+          ...new Set(entries.flatMap((x) => x.value.reasoning.differentFields)),
+        ],
+      },
+    };
+  }
+  return out;
+}
+export function compareMultipleBoms(
+  primarySource: SourceType,
+  comparedSources: SourceType[],
+  roots: Partial<Record<SourceType, TreeNodeData>>,
+  labels: Record<SourceType, string>,
+): MultiBomComparisonResult | null {
+  const primary = roots[primarySource];
+  if (!primary || !comparedSources.length) return null;
+  const pairs = comparedSources
+    .filter((s) => roots[s])
+    .map((s) => compareBoms(primary, primarySource, roots[s]!, s));
+  if (!pairs.length) return null;
+  const maps: Partial<Record<SourceType, Record<string, NodeComparison>>> = {
+    [primarySource]: aggregatePrimary(primarySource, pairs, labels),
+  };
+  for (const pair of pairs) maps[pair.rightSource] = pair.right;
+  const summary: ComparisonSummary = {
+    matched: 0,
+    changed: 0,
+    missing: 0,
+    sourceOnly: 0,
+    probable: 0,
+    total: 0,
+  };
+  for (const pair of pairs) {
+    summary.matched += pair.summary.matched;
+    summary.changed += pair.summary.changed;
+    summary.missing += pair.summary.missing;
+    summary.sourceOnly += pair.summary.sourceOnly;
+    summary.probable += pair.summary.probable;
+    summary.total += pair.summary.total;
+  }
+  return {
+    primarySource,
+    comparedSources: pairs.map((p) => p.rightSource),
+    pairResults: pairs,
+    maps,
+    summary,
+    generatedAt: new Date().toISOString(),
+  };
+}
+export function downloadMultiComparison(
+  result: MultiBomComparisonResult,
+  format: "json" | "csv",
+) {
+  let content: string, mime: string, ext: string;
+  if (format === "json") {
+    content = JSON.stringify(result, null, 2);
+    mime = "application/json";
+    ext = "json";
+  } else {
+    const rows = [
+      [
+        "comparison",
+        "source",
+        "nodeId",
+        "status",
+        "counterpartNodeId",
+        "confidence",
+        "summary",
+        "details",
+      ],
+    ];
+    for (const pair of result.pairResults)
+      for (const [source, values] of [
+        [pair.leftSource, pair.left],
+        [pair.rightSource, pair.right],
+      ] as Array<[SourceType, Record<string, NodeComparison>]>)
+        for (const x of Object.values(values))
+          rows.push([
+            `${pair.leftSource}-vs-${pair.rightSource}`,
+            source,
+            x.nodeId,
+            x.status,
+            x.counterpartNodeId ?? "",
+            x.confidence.toFixed(2),
+            x.reasoning.summary,
+            x.reasoning.details.join(" | "),
+          ]);
+    content = rows
+      .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+    mime = "text/csv";
+    ext = "csv";
+  }
+  const url = URL.createObjectURL(new Blob([content], { type: mime })),
+    a = document.createElement("a");
+  a.href = url;
+  a.download = `multi-bom-comparison-${result.primarySource}.${ext}`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+
+===== FILE: OrchestrationPlatform\frontend\lib\api.ts =====
+
+export const API_BASE=process.env.NEXT_PUBLIC_API_URL||"http://localhost:5212/api";
+async function readError(response:Response){const text=await response.text();try{const body=JSON.parse(text) as{message?:string;error?:string};return body.message||body.error||response.statusText;}catch{return text||response.statusText;}}
+async function postPipeline(body:Record<string,unknown>){const response=await fetch(`${API_BASE}/pipeline/start`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});if(!response.ok)throw new Error(`Pipeline error: ${await readError(response)}`);return response.json();}
+export function startPipeline(request:{teamcenterItemId:string}){return postPipeline({kind:"teamcenter",...request});}
+export function startConfigitExtraction(request:{workItemId:string;productModelCode:string}){return postPipeline({kind:"configit",...request});}
+export function startSapExtraction(request:{materialId:string;plant?:string;bomUsage?:string;alternative?:string;includeSapBusinessImpact?:boolean}){return postPipeline({kind:"sap",...request});}
+export interface BomNode{itemId:string;sequence?:string;variantState?:string;revId?:string;name?:string;qty?:string;variantCondition?:string;children?:BomNode[];}
+export interface PipelineProgress{jobId:string;phase:string;status:string;progressPercent:number;message:string;timestamp:string;bomStructure?:BomNode;error?:string;}
+export interface SapStorageLocation{storageLocation:string;unrestricted:number|null;qualityInspection:number|null;blocked:number|null;inTransfer:number|null;}
+export interface SapMaterialImpact{materialId:string;description:string;materialType:string;plant:string;baseUnit:string;status:string;stock:{unrestricted:number|null;qualityInspection:number|null;blocked:number|null;inTransfer:number|null;totalPhysical:number|null;atpAvailable:number|null};inventory:{valuatedQuantity:number|null;totalStockValue:number|null;valuationArea:string;valuationType:string};cost:{priceControl:string;standardPrice:number|null;movingAveragePrice:number|null;priceUnit:number|null;effectiveUnitCost:number|null};storageLocations:SapStorageLocation[];warnings:string[];extractedAt:string;}
+export interface SapBusinessImpact{sourceMaterialId:string;plant:string;status:string;materials:SapMaterialImpact[];warnings:string[];extractedAt:string;}
+export function subscribeToProgress(jobId:string,onProgress:(p:PipelineProgress)=>void,onError:(e:string)=>void,onComplete:()=>void){const es=new EventSource(`${API_BASE}/pipeline/progress/${encodeURIComponent(jobId)}`);let done=false;const complete=()=>{if(!done){done=true;es.close();onComplete();}};es.onmessage=e=>{try{const p=JSON.parse(e.data) as PipelineProgress;if(p.status==="error"||p.error){onError(p.error||p.message||"Pipeline error");complete();return;}onProgress(p);if(p.status==="complete"||p.progressPercent===100)complete();}catch{onError("Failed to parse progress data");complete();}};es.onerror=()=>es.close();return()=>es.close();}
+export async function getPipelineBom(jobId:string){const r=await fetch(`${API_BASE}/pipeline/bom/${encodeURIComponent(jobId)}`);if(!r.ok)throw new Error((await readError(r))||"Failed to fetch BOM");return r.json();}
+export async function getSapBusinessImpact(jobId:string):Promise<SapBusinessImpact>{const r=await fetch(`${API_BASE}/pipeline/sap-impact/${encodeURIComponent(jobId)}`,{cache:"no-store"});if(!r.ok)throw new Error(await readError(r));const body=await r.json();return body.sapImpact as SapBusinessImpact;}
+export async function getLogs(){const r=await fetch(`${API_BASE}/pipeline/logs`);if(!r.ok)throw new Error("Failed to fetch logs");return r.json();}
+export async function getLogByJobId(jobId:string){try{const r=await fetch(`${API_BASE}/pipeline/logs/${encodeURIComponent(jobId)}`);return r.ok?r.json():null;}catch{return null;}}
+export async function getBomStructure(jobId:string):Promise<BomNode|null>{try{const result=await getPipelineBom(jobId);return result?.finalBom?.bomRoot??result?.finalBom?.bomRootNode??null;}catch{return null;}}
+export async function healthCheck(){const r=await fetch(`${API_BASE}/pipeline/health`);if(!r.ok)throw new Error("Health check failed");return r.json();}
+
+
+===== FILE: OrchestrationPlatform\frontend\app\api\bom-windchill\route.ts =====
+
+import { execFile } from "node:child_process";
+import { promises as fs } from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { promisify } from "node:util";
+import { NextRequest, NextResponse } from "next/server";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+const execFileAsync = promisify(execFile);
+
+type Operation = "extract" | "versions" | "structure" | "compare" | "change-impact" | "search";
+
+async function fileExists(candidate: string) {
+  try {
+    await fs.access(candidate);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function findPythonExecutable(scriptDir: string) {
+  const candidates = [
+    path.resolve(scriptDir, ".venv", "Scripts", "python.exe"),
+    path.resolve(scriptDir, ".venv", "bin", "python"),
+    "python",
+    "python3",
+  ];
+  for (const candidate of candidates) {
+    if (candidate === "python" || candidate === "python3") {
+      try {
+        await execFileAsync(candidate, ["--version"]);
+        return candidate;
+      } catch {
+        continue;
+      }
+    }
+    if (await fileExists(candidate)) return candidate;
+  }
+  return null;
+}
+
+async function findScriptDir(startDir: string) {
+  let current = path.resolve(startDir);
+  for (let index = 0; index < 6; index += 1) {
+    const candidate = path.resolve(current, "windchill_extractor");
+    if (await fileExists(candidate)) return candidate;
+    const parent = path.dirname(current);
+    if (parent === current) break;
+    current = parent;
+  }
+  return null;
+}
+
+function operationOf(request: NextRequest): Operation {
+  const value = request.nextUrl.searchParams.get("operation");
+  return value === "versions" || value === "structure" || value === "compare" || value === "change-impact" || value === "search"
+    ? value
+    : "extract";
+}
+
+export async function GET(request: NextRequest) {
+  const params = request.nextUrl.searchParams;
+  const partId = params.get("partId")?.trim();
+  const query = params.get("query")?.trim();
+  const operation = operationOf(request);
+  if (operation === "search" && !query) {
+    return NextResponse.json({ error: "query is required." }, { status: 400 });
+  }
+  if (operation !== "search" && !partId) {
+    return NextResponse.json({ error: "partId is required." }, { status: 400 });
+  }
+
+  const fromVersion = params.get("from")?.trim();
+  const toVersion = params.get("to")?.trim();
+  const version = params.get("version")?.trim();
+  if (operation === "compare" && (!fromVersion || !toVersion)) {
+    return NextResponse.json(
+      { error: "from and to versions are required." },
+      { status: 400 },
+    );
+  }
+  if (operation === "compare" && fromVersion === toVersion) {
+    return NextResponse.json(
+      { error: "from and to versions must be different." },
+      { status: 400 },
+    );
+  }
+
+  const scriptDir = await findScriptDir(process.cwd());
+  if (!scriptDir) {
+    return NextResponse.json(
+      { error: "Unable to locate windchill_extractor directory." },
+      { status: 500 },
+    );
+  }
+  const scriptPath = path.resolve(scriptDir, "extractor.py");
+  const python = await findPythonExecutable(scriptDir);
+  if (!(await fileExists(scriptPath)) || !python) {
+    return NextResponse.json(
+      { error: "Windchill extractor runtime is unavailable." },
+      { status: 500 },
+    );
+  }
+
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "windchill-"));
+  const outputPath = path.join(tempDir, "result.json");
+  const args = [
+    scriptPath,
+    "--operation",
+    operation,
+    "--part-id",
+    partId ?? "",
+    "--output",
+    outputPath,
+  ];
+  if (query) args.push("--query", query);
+  if (version) args.push("--version", version);
+  if (fromVersion) args.push("--from-version", fromVersion);
+  if (toVersion) args.push("--to-version", toVersion);
+
+  try {
+    await execFileAsync(python, args, {
+      cwd: scriptDir,
+      timeout: operation === "compare" || operation === "change-impact" ? 10 * 60 * 1000 : 5 * 60 * 1000,
+      maxBuffer: 10 * 1024 * 1024,
+      env: process.env,
+    });
+    const parsed: unknown = JSON.parse(await fs.readFile(outputPath, "utf8"));
+    return NextResponse.json(parsed);
+  } catch (error: unknown) {
+    const detail =
+      error && typeof error === "object" && "stderr" in error
+        ? String((error as { stderr?: unknown }).stderr ?? "")
+        : error instanceof Error
+          ? error.message
+          : "Unable to run extraction.";
+    const safeMessage = detail.split("\n").filter(Boolean).slice(-1)[0] ?? detail;
+    return NextResponse.json(
+      { error: `Windchill ${operation} failed: ${safeMessage}` },
+      { status: 502 },
+    );
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
+}
+
+
+===== FILE: OrchestrationPlatform\frontend\app\api\bom-configit\route.ts =====
+
+import { execFile } from "node:child_process";
+import { promises as fs } from "node:fs";
+import path from "node:path";
+import { promisify } from "node:util";
+import { NextRequest, NextResponse } from "next/server";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+const execFileAsync = promisify(execFile);
+
+async function fileExists(candidate: string) {
+  try {
+    await fs.access(candidate);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function findPythonExecutable(scriptDir: string) {
+  const candidates = [
+    path.resolve(scriptDir, ".venv", "Scripts", "python.exe"),
+    path.resolve(scriptDir, ".venv", "bin", "python"),
+    "python",
+    "python3",
+  ];
+
+  for (const candidate of candidates) {
+    if (candidate === "python" || candidate === "python3") {
+      try {
+        await execFileAsync(candidate, ["--version"]);
+        return candidate;
+      } catch {
+        continue;
+      }
+    }
+
+    if (await fileExists(candidate)) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
+export async function GET(request: NextRequest) {
+  const productId = request.nextUrl.searchParams.get("productId");
+  const date = request.nextUrl.searchParams.get("date");
+  const debug = request.nextUrl.searchParams.get("debug");
+
+  if (!productId) {
+    return NextResponse.json({ error: "productId is required." }, { status: 400 });
+  }
+
+  async function findScriptDir(startDir: string) {
+    let current = path.resolve(startDir);
+    for (let i = 0; i < 6; i += 1) {
+      const candidate = path.resolve(current, "configit_extractor");
+      if (await fileExists(candidate)) {
+        return candidate;
+      }
+      const parent = path.dirname(current);
+      if (parent === current) break;
+      current = parent;
+    }
+    return null;
+  }
+
+  const scriptDir = await findScriptDir(process.cwd());
+  if (!scriptDir) {
+    return NextResponse.json({ error: "Unable to locate configit_extractor directory from the frontend runtime." }, { status: 500 });
+  }
+
+  const scriptPath = path.resolve(scriptDir, "extractor.py");
+  const outputPath = path.resolve(scriptDir, "configit_extraction.json");
+
+  if (!(await fileExists(scriptPath))) {
+    return NextResponse.json({ error: "Configit extractor script not found." }, { status: 500 });
+  }
+
+  const python = await findPythonExecutable(scriptDir);
+  if (!python) {
+    return NextResponse.json({ error: "Unable to find Python executable for Configit extraction." }, { status: 500 });
+  }
+
+  try {
+    await execFileAsync(python, [
+      scriptPath,
+      "--product-id",
+      productId,
+      "--output",
+      outputPath,
+      ...(date ? ["--date", date] : []),
+    ], {
+      cwd: scriptDir,
+      timeout: 5 * 60 * 1000,
+    });
+
+    const content = await fs.readFile(outputPath, "utf8");
+    const parsed = JSON.parse(content);
+
+    if (debug === "1") {
+      const rawPath = path.resolve(scriptDir, "configit_raw_response.json");
+      let raw: unknown = null;
+      if (await fileExists(rawPath)) {
+        try {
+          raw = JSON.parse(await fs.readFile(rawPath, "utf8"));
+        } catch {
+          raw = null;
+        }
+      }
+      return NextResponse.json({ python, script: scriptPath, raw, normalized: parsed });
+    }
+
+    return NextResponse.json(parsed);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Unable to run extraction.";
+    return NextResponse.json({ error: `Configit extraction failed: ${message}` }, { status: 500 });
+  }
+}
+
+
+===== FILE: OrchestrationPlatform\Orchestration.API\Program.cs =====
+
+using Orchestration.API.Models;
+using Orchestration.API.Services;
+using System.Text.Json.Serialization;
+var builder=WebApplication.CreateBuilder(args);
+builder.Services.AddControllers().AddJsonOptions(options=>
+{
+    options.JsonSerializerOptions.DefaultIgnoreCondition=JsonIgnoreCondition.WhenWritingNull;
+    options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+});
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+builder.Services.Configure<ExtractorOptions>(builder.Configuration.GetSection("Extractors"));
+builder.Services.AddSingleton<IJobStore,InMemoryJobStore>();
+builder.Services.AddSingleton<IAuditLogger,FileAuditLogger>();
+builder.Services.AddSingleton<IProcessRunner,ProcessRunner>();
+builder.Services.AddSingleton<ISapCapabilityProbeService,SapCapabilityProbeService>();
+builder.Services.AddSingleton<ISapExecutionValidationService,SapExecutionValidationService>();
+builder.Services.AddSingleton<ISapMaterialCatalogService,SapMaterialCatalogService>();
+builder.Services.AddSingleton<ISubprocessExecutor,SubprocessExecutor>();
+builder.Services.AddSingleton<IPipelineOrchestrator,PipelineOrchestrator>();
+builder.Services.AddCors(options=>options.AddPolicy("AllowAll",policy=>policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader()));
+var app=builder.Build();
+if(app.Environment.IsDevelopment()){app.UseSwagger();app.UseSwaggerUI();}
+app.UseCors("AllowAll");
+app.UseHttpsRedirection();
+app.MapControllers();
+app.Run();
+
+
+===== FILE: OrchestrationPlatform\Orchestration.API\Orchestration.API.csproj =====
+
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RollForward>Major</RollForward>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.0" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
+    <PackageReference Include="System.Reactive" Version="6.1.0" />
+  </ItemGroup>
+
+</Project>
+
+
+===== FILE: OrchestrationPlatform\Orchestration.API\Controllers\PipelineController.cs =====
+
+using Microsoft.AspNetCore.Mvc;
+using Orchestration.API.Models;
+using Orchestration.API.Services;
+namespace Orchestration.API.Controllers;
+[ApiController][Route("api/[controller]")]
+public class PipelineController:ControllerBase
+{
+    private readonly IPipelineOrchestrator _orchestrator;private readonly IAuditLogger _auditLogger;private readonly IJobStore _jobStore;private readonly ILogger<PipelineController> _logger;
+    public PipelineController(IPipelineOrchestrator orchestrator,IAuditLogger auditLogger,IJobStore jobStore,ILogger<PipelineController> logger){_orchestrator=orchestrator;_auditLogger=auditLogger;_jobStore=jobStore;_logger=logger;}
+    [HttpPost("start")]
+    public async Task<IActionResult> StartPipeline([FromBody]ExtractionRequest request)
+    {
+        if(request.Kind==ExtractionKind.Teamcenter&&string.IsNullOrWhiteSpace(request.TeamcenterItemId))return BadRequest(new{success=false,message="TeamcenterItemId is required"});
+        if(request.Kind==ExtractionKind.Configit&&(string.IsNullOrWhiteSpace(request.WorkItemId)||string.IsNullOrWhiteSpace(request.ProductModelCode)))return BadRequest(new{success=false,message="WorkItemId and ProductModelCode are required"});
+        if(request.Kind==ExtractionKind.Sap&&string.IsNullOrWhiteSpace(request.MaterialId))return BadRequest(new{success=false,message="MaterialId is required"});
+        var jobId=_jobStore.CreateJob(request.GetIdentifier()??"unknown");request.JobId=jobId;
+        try{await _orchestrator.InitializeProgressChannelAsync(jobId);_=Task.Run(()=>ExecutePipelineInBackground(jobId,request));return Ok(new{success=true,jobId,kind=request.Kind.ToString().ToLowerInvariant(),message="Extraction started successfully"});}
+        catch(Exception ex){_jobStore.FailJob(jobId,ex.Message);_logger.LogError(ex,"Pipeline start failed for job {JobId}",jobId);return StatusCode(500,new{success=false,jobId,message=ex.Message});}
+    }
+    [HttpGet("progress/{jobId}")]
+    public async Task StartProgressStream(string jobId){Response.ContentType="text/event-stream";Response.Headers["Cache-Control"]="no-cache";Response.Headers["X-Accel-Buffering"]="no";if(!_jobStore.JobExists(jobId)){await Response.WriteAsync($"data: {System.Text.Json.JsonSerializer.Serialize(new{jobId,error="Job not found",timestamp=DateTime.UtcNow.ToString("O")})}\n\n");await Response.Body.FlushAsync();return;}await _orchestrator.SubscribeToProgressAsync(jobId,async p=>{await Response.WriteAsync($"data: {System.Text.Json.JsonSerializer.Serialize(p)}\n\n");await Response.Body.FlushAsync();});}
+    [HttpGet("logs")]public async Task<IActionResult> GetAllLogs()=>Ok(await _auditLogger.GetAllLogsAsync());
+    [HttpGet("logs/{jobId}")]public async Task<IActionResult> GetLogByJobId(string jobId){var log=await _auditLogger.GetLogByJobIdAsync(jobId);return log==null?NotFound(new{error=$"No log found for job {jobId}",jobId}):Ok(log);}
+    [HttpGet("bom/{jobId}")]public async Task<IActionResult> GetBomByJobId(string jobId){var log=await _auditLogger.GetLogByJobIdAsync(jobId);if(log==null)return NotFound(new{error=$"No log found for job {jobId}",jobId});if(log.FinalBom==null)return NotFound(new{error=$"No final BOM available for job {jobId}",jobId,status=log.Status});return Ok(new{success=true,jobId,status=log.Status,finalBom=log.FinalBom});}
+    [HttpGet("sap-impact/{jobId}")]public async Task<IActionResult> GetSapImpact(string jobId){var log=await _auditLogger.GetLogByJobIdAsync(jobId);if(log==null)return NotFound(new{error=$"No log found for job {jobId}",jobId});if(log.SapBusinessImpact==null)return NotFound(new{error=$"SAP impact is not available for job {jobId}",jobId,status=log.Status});return Ok(new{success=true,jobId,status=log.Status,sapImpact=log.SapBusinessImpact});}
+    [HttpGet("health")]public IActionResult Health()=>Ok(new{status="healthy",timestamp=DateTime.UtcNow});
+    private async Task ExecutePipelineInBackground(string jobId,ExtractionRequest request){try{var result=await _orchestrator.ExecutePipelineAsync(jobId,request,_=>Task.CompletedTask);if(result.success)_jobStore.CompleteJob(jobId);else _jobStore.FailJob(jobId,$"{request.Kind} extraction failed");}catch(Exception ex){_logger.LogError(ex,"Pipeline execution failed for job {JobId}",jobId);_jobStore.FailJob(jobId,ex.Message);}}
+}
+
+
+===== FILE: OrchestrationPlatform\Orchestration.API\Models\PipelineRequest.cs =====
+
+using Newtonsoft.Json;
+using System.Text.Json.Serialization;
+namespace Orchestration.API.Models;
+public enum ExtractionKind { Teamcenter, Configit, Sap }
+public class ExtractionRequest
+{
+    [JsonProperty("kind")][JsonPropertyName("kind")] public ExtractionKind Kind { get; set; } = ExtractionKind.Teamcenter;
+    [JsonProperty("jobId")][JsonPropertyName("jobId")] public string? JobId { get; set; }
+    [JsonProperty("teamcenterItemId")][JsonPropertyName("teamcenterItemId")] public string? TeamcenterItemId { get; set; }
+    [JsonProperty("workItemId")][JsonPropertyName("workItemId")] public string? WorkItemId { get; set; }
+    [JsonProperty("productModelCode")][JsonPropertyName("productModelCode")] public string? ProductModelCode { get; set; }
+    [JsonProperty("materialId")][JsonPropertyName("materialId")] public string? MaterialId { get; set; }
+    [JsonProperty("plant")][JsonPropertyName("plant")] public string? Plant { get; set; }
+    [JsonProperty("bomUsage")][JsonPropertyName("bomUsage")] public string? BomUsage { get; set; }
+    [JsonProperty("alternative")][JsonPropertyName("alternative")] public string? Alternative { get; set; }
+    [JsonProperty("includeSapBusinessImpact")][JsonPropertyName("includeSapBusinessImpact")] public bool IncludeSapBusinessImpact { get; set; } = true;
+    [JsonProperty("pipelinePath")][JsonPropertyName("pipelinePath")] public string? PipelinePath { get; set; }
+    public string? GetIdentifier()=>!string.IsNullOrWhiteSpace(TeamcenterItemId)?TeamcenterItemId:!string.IsNullOrWhiteSpace(MaterialId)?MaterialId:!string.IsNullOrWhiteSpace(WorkItemId)?WorkItemId:null;
+}
+
+
+===== FILE: OrchestrationPlatform\Orchestration.API\Services\PipelineOrchestrator.cs =====
+
+using System.Collections.Concurrent;
+using System.Threading.Channels;
+using Orchestration.API.Models;
+namespace Orchestration.API.Services;
+public interface IPipelineOrchestrator
+{
+    Task InitializeProgressChannelAsync(string jobId);
+    Task<(bool success,BomRoot finalBom,string outputFilePath,string outputKind)> ExecutePipelineAsync(string jobId,ExtractionRequest request,Func<PipelineProgress,Task> progressCallback);
+    Task SubscribeToProgressAsync(string jobId,Func<PipelineProgress,Task> callback);
+}
+public sealed class PipelineOrchestrator:IPipelineOrchestrator
+{
+    private readonly ISubprocessExecutor _subprocessExecutor;private readonly IAuditLogger _auditLogger;private readonly ILogger<PipelineOrchestrator> _logger;
+    private readonly ConcurrentDictionary<string,Channel<PipelineProgress>> _progressChannels=new();
+    public PipelineOrchestrator(ISubprocessExecutor subprocessExecutor,IAuditLogger auditLogger,ILogger<PipelineOrchestrator> logger){_subprocessExecutor=subprocessExecutor;_auditLogger=auditLogger;_logger=logger;}
+    public Task InitializeProgressChannelAsync(string jobId){_progressChannels.TryAdd(jobId,Channel.CreateUnbounded<PipelineProgress>());return Task.CompletedTask;}
+    public async Task SubscribeToProgressAsync(string jobId,Func<PipelineProgress,Task> callback){if(_progressChannels.TryGetValue(jobId,out var channel))await foreach(var p in channel.Reader.ReadAllAsync())await callback(p);}
+    public async Task<(bool success,BomRoot finalBom,string outputFilePath,string outputKind)> ExecutePipelineAsync(string jobId,ExtractionRequest request,Func<PipelineProgress,Task> callback)
+    {
+        if(!_progressChannels.TryGetValue(jobId,out var channel)){channel=Channel.CreateUnbounded<PipelineProgress>();_progressChannels.TryAdd(jobId,channel);}
+        var source=request.Kind==ExtractionKind.Sap?"SAP":request.Kind==ExtractionKind.Configit?"Configit":"TeamCenter";
+        var audit=new AuditLog{JobId=jobId,TeamcenterItemId=request.GetIdentifier()??"",StartTime=DateTime.UtcNow,Status="in_progress"};await _auditLogger.LogAsync(audit);
+        var outputKind=request.Kind.ToString().ToLowerInvariant();
+        try
+        {
+            await Report(jobId,"extract","in_progress",0,$"Connecting to {source}...",callback,channel);
+            var extraction=await _subprocessExecutor.ExecuteAsync(request,message=>Report(jobId,"transform","in_progress",request.Kind==ExtractionKind.Sap&&request.IncludeSapBusinessImpact?70:80,message,callback,channel));
+            if(!extraction.Success||extraction.Bom==null)throw new Exception($"Pipeline execution failed: {extraction.Output}");
+            if(request.Kind==ExtractionKind.Sap&&request.IncludeSapBusinessImpact)await Report(jobId,"sap-impact","in_progress",90,"Finalizing SAP Stock, Inventory and Cost impact...",callback,channel);
+            audit.Status="success";audit.EndTime=DateTime.UtcNow;audit.FinalBom=extraction.Bom;audit.SapBusinessImpact=extraction.SapImpact;audit.OutputFilePath=extraction.BomOutputPath;audit.SapImpactOutputFilePath=extraction.SapImpactOutputPath;audit.OutputKind=outputKind;
+            audit.Phases.Add(new PhaseLog{Phase="complete",Status="complete",StartTime=audit.StartTime,EndTime=audit.EndTime,ProgressPercent=100,Message="Pipeline completed successfully"});
+            await _auditLogger.LogAsync(audit);await Report(jobId,"load","complete",100,"Pipeline completed successfully!",callback,channel);
+            return(true,extraction.Bom,extraction.BomOutputPath??"",outputKind);
+        }
+        catch(Exception ex){_logger.LogError(ex,"Pipeline failed for job {JobId}",jobId);audit.Status="failed";audit.Error=ex.Message;audit.EndTime=DateTime.UtcNow;await _auditLogger.LogAsync(audit);await Report(jobId,"error","error",0,$"Error: {ex.Message}",callback,channel);return(false,null!,null!,outputKind);}
+        finally{if(_progressChannels.TryGetValue(jobId,out var ch))ch.Writer.TryComplete();}
+    }
+    private async Task Report(string jobId,string phase,string status,int percent,string message,Func<PipelineProgress,Task> callback,Channel<PipelineProgress> channel){var p=new PipelineProgress{JobId=jobId,Phase=phase,Status=status,ProgressPercent=percent,Message=message,Timestamp=DateTime.UtcNow.ToString("O")};try{await callback(p);await channel.Writer.WriteAsync(p);}catch(Exception ex){_logger.LogError(ex,"Error reporting progress");}}
+}
+

@@ -13,6 +13,7 @@
     "@react-three/fiber": "^9.6.1",
     "@tabler/icons-react": "^3.44.0",
     "clsx": "^2.1.1",
+    "exceljs": "^4.4.0",
     "framer-motion": "^12.41.0",
     "motion": "^12.42.2",
     "next": "16.2.9",

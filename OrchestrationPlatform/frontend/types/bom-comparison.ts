@@ -1,4 +1,4 @@
-export type SourceType = "teamcenter" | "windchill" | "configit" | "sap";
+export type SourceType = "teamcenter" | "windchill" | "configit" | "sap" | "excel";
 export type ComparisonStatus = "matched" | "changed" | "missing" | "source-only" | "probable";
 export type ComparisonFilter = "all" | ComparisonStatus;
 export type ComparisonSessionState = "idle" | "selecting" | "preparing" | "active";

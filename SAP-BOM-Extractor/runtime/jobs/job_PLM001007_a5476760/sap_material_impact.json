@@ -1,0 +1,105 @@
+{
+  "sourceMaterialId": "PLM001007",
+  "plant": "1001",
+  "status": "complete",
+  "materials": [
+    {
+      "materialId": "PLM001007",
+      "description": "Asm",
+      "materialType": "ROH",
+      "plant": "1001",
+      "baseUnit": "EA",
+      "status": "complete",
+      "stock": {
+        "unrestricted": 0.0,
+        "qualityInspection": 0.0,
+        "blocked": 0.0,
+        "inTransfer": 0.0,
+        "totalPhysical": 0.0,
+        "atpAvailable": 0.0
+      },
+      "inventory": {
+        "valuatedQuantity": null,
+        "totalStockValue": null,
+        "valuationArea": "",
+        "valuationType": ""
+      },
+      "cost": {
+        "priceControl": "",
+        "standardPrice": null,
+        "movingAveragePrice": null,
+        "priceUnit": null,
+        "effectiveUnitCost": null
+      },
+      "storageLocations": [],
+      "warnings": [],
+      "extractedAt": "2026-08-10T09:13:15.610Z"
+    },
+    {
+      "materialId": "PLM001008",
+      "description": "Child1",
+      "materialType": "ROH",
+      "plant": "1001",
+      "baseUnit": "EA",
+      "status": "complete",
+      "stock": {
+        "unrestricted": 0.0,
+        "qualityInspection": 0.0,
+        "blocked": 0.0,
+        "inTransfer": 0.0,
+        "totalPhysical": 0.0,
+        "atpAvailable": 0.0
+      },
+      "inventory": {
+        "valuatedQuantity": null,
+        "totalStockValue": null,
+        "valuationArea": "",
+        "valuationType": ""
+      },
+      "cost": {
+        "priceControl": "",
+        "standardPrice": null,
+        "movingAveragePrice": null,
+        "priceUnit": null,
+        "effectiveUnitCost": null
+      },
+      "storageLocations": [],
+      "warnings": [],
+      "extractedAt": "2026-08-10T09:13:19.691Z"
+    },
+    {
+      "materialId": "PLM001009",
+      "description": "Child2",
+      "materialType": "ROH",
+      "plant": "1001",
+      "baseUnit": "EA",
+      "status": "complete",
+      "stock": {
+        "unrestricted": 0.0,
+        "qualityInspection": 0.0,
+        "blocked": 0.0,
+        "inTransfer": 0.0,
+        "totalPhysical": 0.0,
+        "atpAvailable": 0.0
+      },
+      "inventory": {
+        "valuatedQuantity": null,
+        "totalStockValue": null,
+        "valuationArea": "",
+        "valuationType": ""
+      },
+      "cost": {
+        "priceControl": "",
+        "standardPrice": null,
+        "movingAveragePrice": null,
+        "priceUnit": null,
+        "effectiveUnitCost": null
+      },
+      "storageLocations": [],
+      "warnings": [],
+      "extractedAt": "2026-08-10T09:13:23.479Z"
+    }
+  ],
+  "warnings": [],
+  "extractedAt": "2026-08-10T09:13:23.5501197Z"
+}
