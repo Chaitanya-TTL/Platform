@@ -52,17 +52,27 @@ export function indexBom(root: TreeNodeData | null) {
 
 function nameFromPath(path?: string | null) {
   if (!path) return "Unnamed BOM occurrence";
-  const parts = path.split(/[\\/→>]+/).map((part) => part.trim()).filter(Boolean);
+  const parts = path
+    .split(/[\\/→>]+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
   return parts.at(-1) ?? path;
 }
 
 function branchFromPath(path?: string | null) {
   if (!path) return "Other changes";
-  const parts = path.split(/[\\/→>]+/).map((part) => part.trim()).filter(Boolean);
-  return parts.length > 1 ? parts.at(-2) ?? "Other changes" : "Root structure";
+  const parts = path
+    .split(/[\\/→>]+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  return parts.length > 1
+    ? (parts.at(-2) ?? "Other changes")
+    : "Root structure";
 }
 
-export function revisionChangeRecords(result: WindchillRevisionComparisonResult | null): ReviewChangeRecord[] {
+export function revisionChangeRecords(
+  result: WindchillRevisionComparisonResult | null,
+): ReviewChangeRecord[] {
   if (!result) return [];
   return result.changes
     .filter((change) => change.status !== "unchanged")
@@ -79,23 +89,29 @@ export function revisionChangeRecords(result: WindchillRevisionComparisonResult 
 }
 
 export function groupedRevisionChanges(records: ReviewChangeRecord[]) {
-  return records.reduce<Record<string, ReviewChangeRecord[]>>((groups, record) => {
-    (groups[record.branch] ??= []).push(record);
-    return groups;
-  }, {});
+  return records.reduce<Record<string, ReviewChangeRecord[]>>(
+    (groups, record) => {
+      (groups[record.branch] ??= []).push(record);
+      return groups;
+    },
+    {},
+  );
 }
 
-export function impactRecords(root: TreeNodeData | null, result: WindchillChangeImpactResult | null) {
+export function impactRecords(
+  root: TreeNodeData | null,
+  result: WindchillChangeImpactResult | null,
+) {
   const { byId, paths } = indexBom(root);
   if (!result) return [] as ReviewImpactRecord[];
   return Object.entries(result.impactMap).map(([nodeId, impact]) => {
     const node = byId[nodeId];
-    const meta = node ? nodeMeta(node) : {};
+    const meta = node ? nodeMeta(node) : undefined;
     return {
       nodeId,
-      name: node?.name ?? meta.itemId ?? nodeId,
-      itemId: meta.itemId,
-      partId: meta.partId,
+      name: node?.name ?? meta?.itemId ?? nodeId,
+      itemId: meta?.itemId,
+      partId: meta?.partId,
       path: paths[nodeId] ?? [],
       impact,
     };

@@ -24,6 +24,7 @@ const sourceLabels: Record<SourceType, string> = {
   windchill: "Windchill",
   configit: "Configit",
   sap: "SAP",
+  excel: "Excel BOM",
 };
 
 const fieldLabels: Record<ComparisonField, string> = {
