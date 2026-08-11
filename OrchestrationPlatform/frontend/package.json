@@ -16,7 +16,7 @@
     "exceljs": "^4.4.0",
     "framer-motion": "^12.41.0",
     "motion": "^12.42.2",
-    "next": "16.2.9",
+    "next": "^16.3.0",
     "react": "19.2.4",
     "react-arborist": "^3.10.5",
     "react-d3-tree": "^3.6.6",

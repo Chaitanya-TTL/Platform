@@ -24,6 +24,7 @@ const labels: Record<SourceType, string> = {
   windchill: "Windchill",
   sap: "SAP",
   configit: "Configit",
+  excel: "Excel BOM",
 };
 export function ImpactModeToggle({
   enabled,
