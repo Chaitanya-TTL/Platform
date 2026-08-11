@@ -53,8 +53,15 @@ import type {
 } from "@/types/bom-comparison";
 import { SourceBomPanel } from "@/components/SourceBomPanel";
 import { WindchillChangeReviewWorkspace } from "@/components/windchill/WindchillChangeReviewWorkspace";
-import type { WindchillRevisionComparisonResult, WindchillVersion, WindchillVersionList } from "@/types/windchill-revision";
-import type { WindchillChangeImpactFilter, WindchillChangeImpactResult } from "@/types/windchill-change-impact";
+import type {
+  WindchillRevisionComparisonResult,
+  WindchillVersion,
+  WindchillVersionList,
+} from "@/types/windchill-revision";
+import type {
+  WindchillChangeImpactFilter,
+  WindchillChangeImpactResult,
+} from "@/types/windchill-change-impact";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5212/api";
 type Category = "PLM" | "ERP" | "CPQ" | "DATA";
@@ -192,11 +199,14 @@ export default function Page() {
   const [wcVersionLoading, setWcVersionLoading] = useState(false);
   const [wcRevisionLoading, setWcRevisionLoading] = useState(false);
   const [wcRevisionError, setWcRevisionError] = useState<string | null>(null);
-  const [wcRevisionResult, setWcRevisionResult] = useState<WindchillRevisionComparisonResult | null>(null);
+  const [wcRevisionResult, setWcRevisionResult] =
+    useState<WindchillRevisionComparisonResult | null>(null);
   const [wcChangeLoading, setWcChangeLoading] = useState(false);
   const [wcChangeError, setWcChangeError] = useState<string | null>(null);
-  const [wcChangeImpact, setWcChangeImpact] = useState<WindchillChangeImpactResult | null>(null);
-  const [wcChangeFilter, setWcChangeFilter] = useState<WindchillChangeImpactFilter>("all");
+  const [wcChangeImpact, setWcChangeImpact] =
+    useState<WindchillChangeImpactResult | null>(null);
+  const [wcChangeFilter, setWcChangeFilter] =
+    useState<WindchillChangeImpactFilter>("all");
   const [wcReviewOpen, setWcReviewOpen] = useState(false);
   const [excelRoot, setExcelRoot] = useState<TreeNodeData | null>(null);
   const [dragged, setDragged] = useState<SourceType | null>(null);
@@ -304,31 +314,61 @@ export default function Page() {
     setWcRevisionError(null);
     setWcRevisionResult(null);
     try {
-      const response = await fetch(`/api/bom-windchill?operation=versions&partId=${encodeURIComponent(partId)}`, { cache: "no-store" });
-      const payload = (await response.json()) as WindchillVersionList | { error?: string };
-      if (!response.ok || !("versions" in payload)) throw new Error("error" in payload ? payload.error || "Unable to load revisions" : "Unable to load revisions");
+      const response = await fetch(
+        `/api/bom-windchill?operation=versions&partId=${encodeURIComponent(partId)}`,
+        { cache: "no-store" },
+      );
+      const payload = (await response.json()) as
+        | WindchillVersionList
+        | { error?: string };
+      if (!response.ok || !("versions" in payload))
+        throw new Error(
+          "error" in payload
+            ? payload.error || "Unable to load revisions"
+            : "Unable to load revisions",
+        );
       setWcVersions(payload.versions);
       setWcFromVersion(payload.versions[0]?.label ?? "");
       setWcToVersion(payload.versions.at(-1)?.label ?? "");
     } catch (cause) {
       setWcVersions([]);
-      setWcRevisionError(cause instanceof Error ? cause.message : String(cause));
+      setWcRevisionError(
+        cause instanceof Error ? cause.message : String(cause),
+      );
     } finally {
       setWcVersionLoading(false);
     }
   };
 
   const compareWindchillVersions = async () => {
-    if (!wcRevisionPart || !wcFromVersion || !wcToVersion || wcFromVersion === wcToVersion) return;
+    if (
+      !wcRevisionPart ||
+      !wcFromVersion ||
+      !wcToVersion ||
+      wcFromVersion === wcToVersion
+    )
+      return;
     setWcRevisionLoading(true);
     setWcRevisionError(null);
     try {
-      const response = await fetch(`/api/bom-windchill?operation=compare&partId=${encodeURIComponent(wcRevisionPart)}&from=${encodeURIComponent(wcFromVersion)}&to=${encodeURIComponent(wcToVersion)}`, { cache: "no-store" });
-      const payload = (await response.json()) as WindchillRevisionComparisonResult | { error?: string };
-      if (!response.ok || !("summary" in payload)) throw new Error("error" in payload ? payload.error || "Unable to compare revisions" : "Unable to compare revisions");
+      const response = await fetch(
+        `/api/bom-windchill?operation=compare&partId=${encodeURIComponent(wcRevisionPart)}&from=${encodeURIComponent(wcFromVersion)}&to=${encodeURIComponent(wcToVersion)}`,
+        { cache: "no-store" },
+      );
+      const payload = (await response.json()) as
+        | WindchillRevisionComparisonResult
+        | { error?: string };
+      if (!response.ok || !("summary" in payload))
+        throw new Error(
+          "error" in payload
+            ? payload.error || "Unable to compare revisions"
+            : "Unable to compare revisions",
+        );
       setWcRevisionResult(payload);
     } catch (cause) {
-      setWcRevisionError(cause instanceof Error ? cause.message : String(cause));
+      setWcRevisionError(
+        cause instanceof Error ? cause.message : String(cause),
+      );
     } finally {
       setWcRevisionLoading(false);
     }
@@ -339,12 +379,23 @@ export default function Page() {
     setWcChangeLoading(true);
     setWcChangeError(null);
     try {
-      const response = await fetch(`/api/bom-windchill?operation=change-impact&partId=${encodeURIComponent(partId)}`, { cache: "no-store" });
-      const payload = (await response.json()) as WindchillChangeImpactResult | { error?: string };
-      if (!response.ok || !("impactMap" in payload)) throw new Error("error" in payload ? payload.error || "Unable to find associated changes" : "Unable to find associated changes");
+      const response = await fetch(
+        `/api/bom-windchill?operation=change-impact&partId=${encodeURIComponent(partId)}`,
+        { cache: "no-store" },
+      );
+      const payload = (await response.json()) as
+        | WindchillChangeImpactResult
+        | { error?: string };
+      if (!response.ok || !("impactMap" in payload))
+        throw new Error(
+          "error" in payload
+            ? payload.error || "Unable to find associated changes"
+            : "Unable to find associated changes",
+        );
       setWcChangeImpact(payload);
       setWcChangeFilter("all");
-      if (!payload.summary.changeNotices) toast.info("No associated Change Notices found.");
+      if (!payload.summary.changeNotices)
+        toast.info("No associated Change Notices found.");
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : String(cause);
       setWcChangeImpact(null);
@@ -652,35 +703,41 @@ export default function Page() {
         open={modal}
         onClose={closeModal}
         categories={[
-                    {
+          {
             label: "ALM",
             value: "ALM",
-            description: "Codebeamaer",
+            description: "Codebeamer",
             icon: <IconCancel className="h-6 w-" />,
+          },
+                    {
+            label: "CPQ",
+            value: "CPQ",
+            description: "Configit",
+            icon: <IconBox className="h-6 w-6" />,
           },
           {
             label: "PLM",
             value: "PLM",
-            description: "Teamcenter and Windchill",
+            description: "Teamcenter, Windchill",
             icon: <IconPlugConnected className="h-6 w-6" />,
           },
           {
             label: "ERP",
             value: "ERP",
-            description: "SAP enterprise resource planning",
+            description: "SAP",
             icon: <IconDatabase className="h-6 w-6" />,
           },
           {
-            label: "CPQ",
-            value: "CPQ",
-            description: "Configit",
+            label: "Service",
+            value: "Service",
+            description: "Servigistics",
             icon: <IconBox className="h-6 w-6" />,
           },
 
           {
             label: "Data",
             value: "DATA",
-            description: "Import structured data files",
+            description: "Excel",
             icon: <IconFileSpreadsheet className="h-6 w-6" />,
           },
         ]}

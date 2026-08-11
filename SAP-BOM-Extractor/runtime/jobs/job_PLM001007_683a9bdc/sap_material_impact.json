@@ -1,0 +1,153 @@
+{
+  "sourceMaterialId": "PLM001007",
+  "plant": "1001",
+  "status": "complete",
+  "materials": [
+    {
+      "materialId": "PLM001007",
+      "internalMaterialId": "",
+      "requestedMaterialId": "",
+      "description": "Asm",
+      "materialType": "ROH",
+      "baseUnit": "EA",
+      "batchManaged": false,
+      "crossPlantStatus": "",
+      "status": "complete",
+      "organization": {
+        "plant": "",
+        "valuationArea": "",
+        "companyCode": "",
+        "currency": ""
+      },
+      "stock": {
+        "unrestricted": 0.0,
+        "qualityInspection": 0.0,
+        "restrictedUse": null,
+        "blocked": 0.0,
+        "inTransfer": 0.0,
+        "returns": null,
+        "totalPhysical": 0.0,
+        "atpAvailable": 0.0
+      },
+      "inventory": {
+        "valuatedQuantity": null,
+        "totalStockValue": null,
+        "valuationType": ""
+      },
+      "cost": {
+        "priceControl": "",
+        "standardPrice": null,
+        "movingAveragePrice": null,
+        "priceUnit": null,
+        "effectiveUnitCost": null,
+        "valuationClass": ""
+      },
+      "checks": {
+        "calculatedInventoryValue": null,
+        "reportedInventoryValue": null,
+        "valuationReconciled": null
+      },
+      "storageLocations": [],
+      "warnings": [],
+      "extractedAt": "2026-08-11T09:50:00.659Z"
+    },
+    {
+      "materialId": "PLM001008",
+      "internalMaterialId": "",
+      "requestedMaterialId": "",
+      "description": "Child1",
+      "materialType": "ROH",
+      "baseUnit": "EA",
+      "batchManaged": false,
+      "crossPlantStatus": "",
+      "status": "complete",
+      "organization": {
+        "plant": "",
+        "valuationArea": "",
+        "companyCode": "",
+        "currency": ""
+      },
+      "stock": {
+        "unrestricted": 0.0,
+        "qualityInspection": 0.0,
+        "restrictedUse": null,
+        "blocked": 0.0,
+        "inTransfer": 0.0,
+        "returns": null,
+        "totalPhysical": 0.0,
+        "atpAvailable": 0.0
+      },
+      "inventory": {
+        "valuatedQuantity": null,
+        "totalStockValue": null,
+        "valuationType": ""
+      },
+      "cost": {
+        "priceControl": "",
+        "standardPrice": null,
+        "movingAveragePrice": null,
+        "priceUnit": null,
+        "effectiveUnitCost": null,
+        "valuationClass": ""
+      },
+      "checks": {
+        "calculatedInventoryValue": null,
+        "reportedInventoryValue": null,
+        "valuationReconciled": null
+      },
+      "storageLocations": [],
+      "warnings": [],
+      "extractedAt": "2026-08-11T09:50:04.613Z"
+    },
+    {
+      "materialId": "PLM001009",
+      "internalMaterialId": "",
+      "requestedMaterialId": "",
+      "description": "Child2",
+      "materialType": "ROH",
+      "baseUnit": "EA",
+      "batchManaged": false,
+      "crossPlantStatus": "",
+      "status": "complete",
+      "organization": {
+        "plant": "",
+        "valuationArea": "",
+        "companyCode": "",
+        "currency": ""
+      },
+      "stock": {
+        "unrestricted": 0.0,
+        "qualityInspection": 0.0,
+        "restrictedUse": null,
+        "blocked": 0.0,
+        "inTransfer": 0.0,
+        "returns": null,
+        "totalPhysical": 0.0,
+        "atpAvailable": 0.0
+      },
+      "inventory": {
+        "valuatedQuantity": null,
+        "totalStockValue": null,
+        "valuationType": ""
+      },
+      "cost": {
+        "priceControl": "",
+        "standardPrice": null,
+        "movingAveragePrice": null,
+        "priceUnit": null,
+        "effectiveUnitCost": null,
+        "valuationClass": ""
+      },
+      "checks": {
+        "calculatedInventoryValue": null,
+        "reportedInventoryValue": null,
+        "valuationReconciled": null
+      },
+      "storageLocations": [],
+      "warnings": [],
+      "extractedAt": "2026-08-11T09:50:08.121Z"
+    }
+  ],
+  "warnings": [],
+  "extractedAt": "2026-08-11T09:50:08.1999905Z"
+}

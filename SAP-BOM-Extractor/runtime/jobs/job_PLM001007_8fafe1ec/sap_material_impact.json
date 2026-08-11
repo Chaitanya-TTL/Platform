@@ -1,0 +1,153 @@
+{
+  "sourceMaterialId": "PLM001007",
+  "plant": "1001",
+  "status": "complete",
+  "materials": [
+    {
+      "materialId": "PLM001007",
+      "internalMaterialId": "PLM001007",
+      "requestedMaterialId": "PLM001007",
+      "description": "Asm",
+      "materialType": "ROH",
+      "baseUnit": "EA",
+      "batchManaged": false,
+      "crossPlantStatus": "",
+      "status": "complete",
+      "organization": {
+        "plant": "1001",
+        "valuationArea": "",
+        "companyCode": "0100",
+        "currency": "INR"
+      },
+      "stock": {
+        "unrestricted": 0.0,
+        "qualityInspection": 0.0,
+        "restrictedUse": 0.0,
+        "blocked": 0.0,
+        "inTransfer": 0.0,
+        "returns": 0.0,
+        "totalPhysical": 0.0,
+        "atpAvailable": 0.0
+      },
+      "inventory": {
+        "valuatedQuantity": null,
+        "totalStockValue": null,
+        "valuationType": ""
+      },
+      "cost": {
+        "priceControl": "",
+        "standardPrice": null,
+        "movingAveragePrice": null,
+        "priceUnit": null,
+        "effectiveUnitCost": null,
+        "valuationClass": ""
+      },
+      "checks": {
+        "calculatedInventoryValue": null,
+        "reportedInventoryValue": null,
+        "valuationReconciled": null
+      },
+      "storageLocations": [],
+      "warnings": [],
+      "extractedAt": "2026-08-11T10:01:08.066Z"
+    },
+    {
+      "materialId": "PLM001008",
+      "internalMaterialId": "PLM001008",
+      "requestedMaterialId": "PLM001008",
+      "description": "Child1",
+      "materialType": "ROH",
+      "baseUnit": "EA",
+      "batchManaged": false,
+      "crossPlantStatus": "",
+      "status": "complete",
+      "organization": {
+        "plant": "1001",
+        "valuationArea": "",
+        "companyCode": "0100",
+        "currency": "INR"
+      },
+      "stock": {
+        "unrestricted": 0.0,
+        "qualityInspection": 0.0,
+        "restrictedUse": 0.0,
+        "blocked": 0.0,
+        "inTransfer": 0.0,
+        "returns": 0.0,
+        "totalPhysical": 0.0,
+        "atpAvailable": 0.0
+      },
+      "inventory": {
+        "valuatedQuantity": null,
+        "totalStockValue": null,
+        "valuationType": ""
+      },
+      "cost": {
+        "priceControl": "",
+        "standardPrice": null,
+        "movingAveragePrice": null,
+        "priceUnit": null,
+        "effectiveUnitCost": null,
+        "valuationClass": ""
+      },
+      "checks": {
+        "calculatedInventoryValue": null,
+        "reportedInventoryValue": null,
+        "valuationReconciled": null
+      },
+      "storageLocations": [],
+      "warnings": [],
+      "extractedAt": "2026-08-11T10:01:12.234Z"
+    },
+    {
+      "materialId": "PLM001009",
+      "internalMaterialId": "PLM001009",
+      "requestedMaterialId": "PLM001009",
+      "description": "Child2",
+      "materialType": "ROH",
+      "baseUnit": "EA",
+      "batchManaged": false,
+      "crossPlantStatus": "",
+      "status": "complete",
+      "organization": {
+        "plant": "1001",
+        "valuationArea": "",
+        "companyCode": "0100",
+        "currency": "INR"
+      },
+      "stock": {
+        "unrestricted": 0.0,
+        "qualityInspection": 0.0,
+        "restrictedUse": 0.0,
+        "blocked": 0.0,
+        "inTransfer": 0.0,
+        "returns": 0.0,
+        "totalPhysical": 0.0,
+        "atpAvailable": 0.0
+      },
+      "inventory": {
+        "valuatedQuantity": null,
+        "totalStockValue": null,
+        "valuationType": ""
+      },
+      "cost": {
+        "priceControl": "",
+        "standardPrice": null,
+        "movingAveragePrice": null,
+        "priceUnit": null,
+        "effectiveUnitCost": null,
+        "valuationClass": ""
+      },
+      "checks": {
+        "calculatedInventoryValue": null,
+        "reportedInventoryValue": null,
+        "valuationReconciled": null
+      },
+      "storageLocations": [],
+      "warnings": [],
+      "extractedAt": "2026-08-11T10:01:17.196Z"
+    }
+  ],
+  "warnings": [],
+  "extractedAt": "2026-08-11T10:01:17.2752099Z"
+}
