@@ -17,6 +17,7 @@ import {
   IconBox,
   IconBuildingFactory,
   IconDatabase,
+  IconFileSpreadsheet,
   IconGripVertical,
   IconPlus,
   IconPlugConnected,
@@ -33,6 +34,7 @@ import { ComparisonLoader } from "@/components/ComparisonLoader";
 import { ComparisonSetupModal } from "@/components/ComparisonSetupModal";
 import { ComparisonSummary } from "@/components/ComparisonSummary";
 import { ConfigitForm } from "@/components/ConfigitForm";
+import { ExcelBomImportWorkspace } from "@/components/excel-import/ExcelBomImportWorkspace";
 import { PipelineForm } from "@/components/PipelineForm";
 import { QuickStartModal } from "@/components/QuickStartModal";
 import { SAPForm } from "@/components/SAPForm";
@@ -55,7 +57,7 @@ import type { WindchillRevisionComparisonResult, WindchillVersion, WindchillVers
 import type { WindchillChangeImpactFilter, WindchillChangeImpactResult } from "@/types/windchill-change-impact";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5212/api";
-type Category = "PLM" | "ERP" | "CPQ";
+type Category = "PLM" | "ERP" | "CPQ" | "DATA";
 type Active = { type: SourceType; category: Category };
 type Transition = "enter" | "exit" | "add" | null;
 type SourceDefinition = {
@@ -95,12 +97,20 @@ const defs: SourceDefinition[] = [
     description: "Resolve a Configit product model.",
     icon: <IconBox className="h-6 w-6" />,
   },
+  {
+    type: "excel",
+    label: "Excel BOM",
+    category: "DATA",
+    description: "Map, validate and preview an XLSX bill of materials.",
+    icon: <IconFileSpreadsheet className="h-6 w-6" />,
+  },
 ];
 const labels: Record<SourceType, string> = {
   teamcenter: "Teamcenter",
   windchill: "Windchill",
   sap: "SAP",
   configit: "Configit",
+  excel: "Excel BOM",
 };
 const meta = (type: SourceType) => defs.find((item) => item.type === type)!;
 
@@ -188,6 +198,7 @@ export default function Page() {
   const [wcChangeImpact, setWcChangeImpact] = useState<WindchillChangeImpactResult | null>(null);
   const [wcChangeFilter, setWcChangeFilter] = useState<WindchillChangeImpactFilter>("all");
   const [wcReviewOpen, setWcReviewOpen] = useState(false);
+  const [excelRoot, setExcelRoot] = useState<TreeNodeData | null>(null);
   const [dragged, setDragged] = useState<SourceType | null>(null);
   const [roots, setRoots] = useState<Partial<Record<SourceType, TreeNodeData>>>(
     {},
@@ -218,7 +229,7 @@ export default function Page() {
   const visible = comparing
     ? active.filter((item) => included.includes(item.type))
     : active;
-  const groups = (["PLM", "ERP", "CPQ"] as Category[])
+  const groups = (["PLM", "ERP", "CPQ", "DATA"] as Category[])
     .map((groupCategory) => ({
       category: groupCategory,
       sources: visible.filter((item) => item.category === groupCategory),
@@ -396,6 +407,7 @@ export default function Page() {
       setCfgRun(false);
       setProduct(null);
     }
+    if (type === "excel") setExcelRoot(null);
     if (type === "windchill") {
       setWcActive(false);
       setWcRun(false);
@@ -437,6 +449,29 @@ export default function Page() {
         : undefined;
 
   const panelFor = (source: Active) => {
+    if (source.type === "excel")
+      return (
+        <>
+          <ExcelBomImportWorkspace onBomReady={setExcelRoot} />
+          {excelRoot ? (
+            <div className="mt-4">
+              <SourceBomPanel
+                source="excel"
+                title="DATA"
+                endpoint=""
+                transformPayload={() => excelRoot}
+                payloadOverride={excelRoot}
+                active
+                onBomReady={onReady}
+                comparisonMode={Boolean(comparing)}
+                comparison={mapFor("excel")}
+                comparisonFilter={filter}
+                counterpartLabel={counterpart("excel")}
+              />
+            </div>
+          ) : null}
+        </>
+      );
     if (source.type === "teamcenter")
       return (
         <>
@@ -617,6 +652,12 @@ export default function Page() {
         open={modal}
         onClose={closeModal}
         categories={[
+                    {
+            label: "ALM",
+            value: "ALM",
+            description: "Codebeamaer",
+            icon: <IconCancel className="h-6 w-" />,
+          },
           {
             label: "PLM",
             value: "PLM",
@@ -635,11 +676,12 @@ export default function Page() {
             description: "Configit",
             icon: <IconBox className="h-6 w-6" />,
           },
+
           {
-            label: "ALM",
-            value: "ALM",
-            description: "Codebeamaer",
-            icon: <IconCancel className="h-6 w-" />,
+            label: "Data",
+            value: "DATA",
+            description: "Import structured data files",
+            icon: <IconFileSpreadsheet className="h-6 w-6" />,
           },
         ]}
         options={options}

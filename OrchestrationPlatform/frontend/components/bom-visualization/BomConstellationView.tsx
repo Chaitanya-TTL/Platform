@@ -78,6 +78,8 @@ import type {
   RequirementTraceResult,
   ReverseRequirementTraceResult,
 } from "@/types/requirement-trace";
+import type { WindchillChangeImpactResult } from "@/types/windchill-change-impact";
+import { WindchillChangeContextRail } from "@/components/windchill/WindchillChangeContextRail";
 const W = 1400,
   H = 900,
   DEFAULT: ConstellationTransform = { x: 0, y: 0, scale: 0.78, rotation: 0 },
@@ -102,6 +104,7 @@ type Props = {
   requirementTraceEnabled?: boolean;
   requirementResult?: RequirementTraceResult | null;
   requirementFocus?: ReverseRequirementTraceResult | null;
+  changeImpact?: WindchillChangeImpactResult | null;
 };
 type Drag = {
   pointerId: number;
@@ -123,6 +126,7 @@ export function BomConstellationView({
   requirementTraceEnabled = false,
   requirementResult,
   requirementFocus,
+  changeImpact = null,
 }: Props) {
   const impact = useCrossBomImpact(),
     graph = useMemo(
@@ -164,13 +168,40 @@ export function BomConstellationView({
     [tourActive, setTourActive] = useState(false),
     [tourIndex, setTourIndex] = useState(0),
     [searchIndex, setSearchIndex] = useState(0),
-    [differenceIndex, setDifferenceIndex] = useState(0);
+    [differenceIndex, setDifferenceIndex] = useState(0),
+    [changeEnabled, setChangeEnabled] = useState(false),
+    [changeIndex, setChangeIndex] = useState(0),
+    [changeFocus, setChangeFocus] = useState(false);
   const drag = useRef<Drag | null>(null),
     frame = useRef<number | null>(null),
     pending = useRef<{ x: number; y: number } | null>(null),
     svg = useRef<SVGSVGElement | null>(null),
     canvas = useRef<HTMLDivElement | null>(null);
   const hand = mode === "hand" || spaceHand;
+  const directChangeIds = useMemo(
+    () =>
+      new Set(
+        Object.entries(changeImpact?.impactMap ?? {})
+          .filter(([, entry]) => entry.impact === "direct")
+          .flatMap(([sourceNodeId]) => graph.bySourceNodeId[sourceNodeId] ?? []),
+      ),
+    [changeImpact, graph],
+  );
+  const parentChangeIds = useMemo(
+    () =>
+      new Set(
+        Object.entries(changeImpact?.impactMap ?? {})
+          .filter(([, entry]) => entry.impact === "indirect")
+          .flatMap(([sourceNodeId]) => graph.bySourceNodeId[sourceNodeId] ?? []),
+      ),
+    [changeImpact, graph],
+  );
+  const directChangeList = useMemo(() => [...directChangeIds], [directChangeIds]);
+  const activeChangeId = directChangeList[changeIndex];
+  const activeChangePathIds = useMemo(
+    () => new Set(ancestors(graph, activeChangeId ?? null).map((node) => node.id)),
+    [graph, activeChangeId],
+  );
   useEffect(() => {
     setExpanded(new Set([graph.rootId]));
     setSelected(null);
@@ -178,7 +209,17 @@ export function BomConstellationView({
     setPinned(new Set());
     setTransform(DEFAULT);
     setIsolatedRoot(null);
+    setChangeEnabled(false);
+    setChangeIndex(0);
+    setChangeFocus(false);
   }, [graph.rootId]);
+  useEffect(() => {
+    if (changeIndex >= directChangeList.length) setChangeIndex(0);
+    if (!directChangeList.length) {
+      setChangeEnabled(false);
+      setChangeFocus(false);
+    }
+  }, [directChangeList.length, changeIndex]);
   useEffect(() => {
     if (!selectedId) return;
     const id = graph.bySourceNodeId[selectedId]?.[0];
@@ -251,7 +292,13 @@ export function BomConstellationView({
     ),
     searchIds = useMemo(() => new Set(results.map((x) => x.nodeId)), [results]),
     forced = useMemo(
-      () => new Set([...reqIds, ...impactIds, ...searchIds, ...pinned]),
+      () =>
+        new Set([
+          ...reqIds,
+          ...impactIds,
+          ...searchIds,
+          ...pinned,
+        ]),
       [reqIds, impactIds, searchIds, pinned],
     );
   useEffect(() => setSearchIndex(0), [search]);
@@ -663,7 +710,12 @@ export function BomConstellationView({
                 multi.has(e.sourceId) ||
                 multi.has(e.targetId),
               req = reqIds.has(e.sourceId) || reqIds.has(e.targetId),
-              imp = impactIds.has(e.sourceId) || impactIds.has(e.targetId);
+              imp = impactIds.has(e.sourceId) || impactIds.has(e.targetId),
+              changePath =
+                changeEnabled &&
+                activeChangePathIds.has(e.sourceId) &&
+                activeChangePathIds.has(e.targetId),
+              entersAffected = changePath && e.targetId === activeChangeId;
             return (
               <path
                 key={e.id}
@@ -672,14 +724,18 @@ export function BomConstellationView({
                 stroke={
                   req
                     ? "#a78bfa"
-                    : imp
-                      ? "#f59e0b"
-                      : related
-                        ? "#0ea5e9"
-                        : "#334155"
+                    : entersAffected
+                      ? "#f97316"
+                      : changePath
+                        ? "#64748b"
+                        : imp
+                          ? "#f59e0b"
+                          : related
+                            ? "#0ea5e9"
+                            : "#334155"
                 }
-                strokeOpacity={req || imp ? 1 : related ? 0.72 : 0.08}
-                strokeWidth={req || imp ? 3 : related ? 1.8 : 0.8}
+                strokeOpacity={req || imp || changePath ? 1 : related ? 0.72 : 0.08}
+                strokeWidth={req || imp || changePath ? (entersAffected ? 3.2 : 2.4) : related ? 1.8 : 0.8}
               />
             );
           })}
@@ -702,6 +758,8 @@ export function BomConstellationView({
               }
               req={reqIds.has(n.id)}
               impact={impactIds.has(n.id)}
+              changeDirect={changeEnabled && directChangeIds.has(n.id)}
+              changeParent={changeEnabled && parentChangeIds.has(n.id)}
               comparison={comparison?.[n.sourceNodeId]}
               quality={quality.findingIdsByNode[n.id]?.length ?? 0}
               labels={labels}
@@ -709,14 +767,18 @@ export function BomConstellationView({
               colorBy={colorBy}
               sizeBy={sizeBy}
               dimmed={
-                unrelated === "ghost" &&
-                !!selected &&
-                !(
-                  n.id === selected ||
-                  rel.ancestorIds.has(n.id) ||
-                  rel.descendantIds.has(n.id) ||
-                  rel.siblingIds.has(n.id)
-                )
+                (changeEnabled &&
+                  changeFocus &&
+                  Boolean(activeChangeId) &&
+                  !activeChangePathIds.has(n.id)) ||
+                (unrelated === "ghost" &&
+                  !!selected &&
+                  !(
+                    n.id === selected ||
+                    rel.ancestorIds.has(n.id) ||
+                    rel.descendantIds.has(n.id) ||
+                    rel.siblingIds.has(n.id)
+                  ))
               }
               expanded={expanded.has(n.id)}
               disabled={hand}
@@ -747,6 +809,60 @@ export function BomConstellationView({
         ) : null}
       </svg>
       <div data-constellation-ui>
+        {changeImpact?.summary.affectedOccurrences ? (
+          changeEnabled ? (
+            <>
+            <WindchillChangeContextRail
+              result={changeImpact}
+              index={changeIndex}
+              count={directChangeList.length}
+              name={graph.byId[activeChangeId]?.name}
+              path={ancestors(graph, activeChangeId ?? null).map((node) => node.name)}
+              focused={changeFocus}
+              onPrevious={() => {
+                if (!directChangeList.length) return;
+                const next = (changeIndex - 1 + directChangeList.length) % directChangeList.length;
+                setChangeIndex(next);
+                selectOccurrence(directChangeList[next], false);
+              }}
+              onNext={() => {
+                if (!directChangeList.length) return;
+                const next = (changeIndex + 1) % directChangeList.length;
+                setChangeIndex(next);
+                selectOccurrence(directChangeList[next], false);
+              }}
+              onFit={() => {
+                if (!activeChangeId) return;
+                reveal(activeChangeId);
+                window.setTimeout(() => fitNode(activeChangeId), 30);
+              }}
+              onToggleFocus={() => {
+                if (!changeFocus && activeChangeId) reveal(activeChangeId);
+                setChangeFocus((value) => !value);
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => {
+                setChangeEnabled(false);
+                setChangeFocus(false);
+              }}
+              className="absolute left-4 top-[238px] z-[51] text-[9px] font-semibold uppercase tracking-wide text-slate-500 hover:text-slate-300"
+            >
+              Close change overlay
+            </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setChangeEnabled(true)}
+              className="absolute left-4 top-20 z-50 inline-flex h-9 items-center gap-2 rounded-lg border border-slate-700 bg-slate-950/95 px-3 text-[10px] font-semibold text-slate-300 shadow-xl hover:border-orange-400/50 hover:text-orange-200"
+            >
+              <span className="h-2 w-2 rounded-full bg-orange-500" />
+              Change impact · {changeImpact.summary.affectedOccurrences}
+            </button>
+          )
+        ) : null}
         <BomConstellationLensSelector value={lens} onChange={applyLens} />
         <BomConstellationToolbar
           layout={layoutMode}
@@ -949,6 +1065,8 @@ function GraphNode({
   related,
   req,
   impact,
+  changeDirect,
+  changeParent,
   comparison,
   quality,
   labels,
@@ -973,6 +1091,8 @@ function GraphNode({
   related: boolean;
   req: boolean;
   impact: boolean;
+  changeDirect: boolean;
+  changeParent: boolean;
   comparison?: NodeComparison;
   quality: number;
   labels: ConstellationLabelMode;
@@ -998,7 +1118,11 @@ function GraphNode({
               ? 0.8 + n.complexity / 120
               : 1,
     r = n.nodeRadius * factor,
-    color = nodeColor(n, selected, req, impact, comparison, quality, colorBy),
+    color = selected
+      ? "#22d3ee"
+      : changeDirect
+        ? "#f97316"
+        : nodeColor(n, selected, req, impact, comparison, quality, colorBy),
     priority = n.isRoot
       ? 100
       : n.isAssembly
@@ -1041,6 +1165,23 @@ function GraphNode({
       onContextMenu={onContext}
       className="cursor-pointer"
     >
+      {changeParent ? (
+        <circle
+          r={r + 8}
+          fill="none"
+          stroke="#64748b"
+          strokeWidth="2"
+          strokeDasharray="5 4"
+        />
+      ) : null}
+      {changeDirect ? (
+        <circle
+          r={r + 9}
+          fill="none"
+          stroke="#f97316"
+          strokeWidth="3"
+        />
+      ) : null}
       {selected || multi || req || impact || common ? (
         <circle
           r={r + 10}

@@ -571,6 +571,7 @@ export function SourceBomPanel({
                         : null
                     }
                     requirementFocus={trace.focus}
+                    changeImpact={source === "windchill" ? changeImpact : null}
                   />
                 ) : viewMode === "three-dimensional" ? (
                   <BomThreeUniverseView

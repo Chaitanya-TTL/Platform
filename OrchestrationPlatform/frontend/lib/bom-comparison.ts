@@ -50,6 +50,14 @@ export function sourcePresentation(n: TreeNodeData, s: SourceType) {
       revision,
     };
   }
+  if (s === "excel") {
+    return {
+      name: n.name.trim(),
+      itemId: attr(n, ["Item ID"]),
+      quantity,
+      revision,
+    };
+  }
   return {
     name: n.name.trim(),
     itemId: n.id.trim().match(/-([A-Za-z0-9]+)$/)?.[1],
