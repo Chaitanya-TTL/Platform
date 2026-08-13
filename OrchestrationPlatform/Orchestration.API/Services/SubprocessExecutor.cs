@@ -39,17 +39,39 @@ public sealed class SubprocessExecutor : ISubprocessExecutor
             await CompileIfNeeded(bomSource,bomClass,jar,dir,progress,output);
             var bomRun=JavaInfo(dir,jar,"SapBomExtractor",request.MaterialId??"",string.IsNullOrWhiteSpace(request.Plant)?"1001":request.Plant,string.IsNullOrWhiteSpace(request.BomUsage)?"3":request.BomUsage,string.IsNullOrWhiteSpace(request.Alternative)?"1":request.Alternative,bomPath);
             await progress($"Extracting SAP BOM for {request.MaterialId}...");var bomExecuted=await _runner.RunAsync(bomRun,TimeSpan.FromSeconds(Math.Max(30,_options.SapTimeoutSeconds)),progress);output.Append(bomExecuted.output);
-            if(bomExecuted.exitCode!=0||!File.Exists(bomPath))return new(){Success=false,Output=output.ToString()};
-            var bom=JsonConvert.DeserializeObject<BomRoot>(await File.ReadAllTextAsync(bomPath));if(bom?.BomRootNode==null)throw new Exception("SAP extractor produced invalid BOM JSON.");
-            if(!request.IncludeSapBusinessImpact)return new(){Success=true,Output=output.ToString(),Bom=bom,BomOutputPath=bomPath};
+
+            BomRoot? bom=null;
+            string? bomFailure=null;
+            if(bomExecuted.exitCode==0&&File.Exists(bomPath))
+            {
+                try
+                {
+                    bom=JsonConvert.DeserializeObject<BomRoot>(await File.ReadAllTextAsync(bomPath));
+                    if(bom?.BomRootNode==null){bom=null;bomFailure="SAP extractor produced invalid BOM JSON.";}
+                }
+                catch(Exception ex){bomFailure=$"SAP BOM JSON could not be parsed: {ex.Message}";}
+            }
+            else bomFailure=$"SAP BOM extraction was unavailable for material {request.MaterialId}.";
+
+            if(!request.IncludeSapBusinessImpact)
+            {
+                if(bom==null)return new(){Success=false,Output=AppendReason(output,bomFailure)};
+                return new(){Success=true,Output=output.ToString(),Bom=bom,BomOutputPath=bomPath};
+            }
+
             await CompileIfNeeded(impactSource,impactClass,jar,dir,progress,output);
-            var materials=CollectMaterials(bom.BomRootNode).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
-            var result=new SapBusinessImpactResult{SourceMaterialId=request.MaterialId??"",Plant=string.IsNullOrWhiteSpace(request.Plant)?"1001":request.Plant,Status="in_progress",ExtractedAt=DateTime.UtcNow.ToString("O")};
+            var requestedMaterial=request.MaterialId?.Trim()??"";
+            var materials=bom?.BomRootNode!=null
+                ? CollectMaterials(bom.BomRootNode).Where(x=>!string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.OrdinalIgnoreCase).ToList()
+                : new List<string>{requestedMaterial}.Where(x=>!string.IsNullOrWhiteSpace(x)).ToList();
+            var result=new SapBusinessImpactResult{SourceMaterialId=requestedMaterial,Plant=string.IsNullOrWhiteSpace(request.Plant)?"1001":request.Plant,Status="in_progress",ExtractedAt=DateTime.UtcNow.ToString("O")};
+            if(bom==null)result.Warnings.Add($"SAP BOM extraction was unavailable for material {requestedMaterial}. Business impact was extracted for the requested material only.");
             var impactDir=Path.Combine(runtime,"impact-items");Directory.CreateDirectory(impactDir);
             for(var i=0;i<materials.Count;i++)
             {
                 var material=materials[i];await progress($"Retrieving SAP stock, inventory and cost for {material} ({i+1}/{materials.Count})...");
-                var itemPath=Path.Combine(impactDir,$"{SafeSegment(material)}.json");var run=JavaInfo(dir,jar,"SapMaterialImpactExtractor",material,result.Plant,itemPath);
+                var itemPath=Path.Combine(impactDir,$"{SafeSegment(material)}.json");if(File.Exists(itemPath))File.Delete(itemPath);
+                var run=JavaInfo(dir,jar,"SapMaterialImpactExtractor",material,result.Plant,itemPath);
                 var executed=await _runner.RunAsync(run,TimeSpan.FromSeconds(Math.Max(30,_options.SapTimeoutSeconds)),progress);output.Append(executed.output);
                 if(executed.exitCode!=0||!File.Exists(itemPath)){result.Warnings.Add($"Impact extraction failed for {material}.");continue;}
                 try{var item=JsonConvert.DeserializeObject<SapMaterialImpact>(await File.ReadAllTextAsync(itemPath));if(item!=null)result.Materials.Add(item);else result.Warnings.Add($"Invalid impact JSON for {material}.");}
@@ -58,9 +80,16 @@ public sealed class SubprocessExecutor : ISubprocessExecutor
             result.Status=result.Materials.Count==materials.Count&&result.Materials.All(x=>string.Equals(x.Status,"complete",StringComparison.OrdinalIgnoreCase))?"complete":result.Materials.Count>0?"partial_success":"failed";
             result.ExtractedAt=DateTime.UtcNow.ToString("O");
             var impactPath=Path.Combine(runtime,"sap_material_impact.json");await File.WriteAllTextAsync(impactPath,JsonConvert.SerializeObject(result,Formatting.Indented));
-            return new(){Success=true,Output=output.ToString(),Bom=bom,BomOutputPath=bomPath,SapImpact=result,SapImpactOutputPath=impactPath};
+            var success=bom!=null||result.Materials.Count>0;
+            return new(){Success=success,Output=AppendReason(output,bomFailure),Bom=bom,BomOutputPath=bom==null?null:bomPath,SapImpact=result,SapImpactOutputPath=impactPath};
         }
         finally{_sapGate.Release();}
+    }
+    private static string AppendReason(StringBuilder output,string? reason)
+    {
+        if(string.IsNullOrWhiteSpace(reason))return output.ToString();
+        if(output.Length>0&&!char.IsWhiteSpace(output[output.Length-1]))output.AppendLine();
+        output.AppendLine(reason);return output.ToString();
     }
     private async Task CompileIfNeeded(string source,string cls,string jar,string dir,Func<string,Task> progress,StringBuilder output)
     {
@@ -75,3 +104,5 @@ public sealed class SubprocessExecutor : ISubprocessExecutor
     private static ProcessStartInfo BaseInfo(string file,string cwd)=>new(){FileName=file,WorkingDirectory=cwd,UseShellExecute=false,RedirectStandardOutput=true,RedirectStandardError=true,CreateNoWindow=true,StandardOutputEncoding=Encoding.UTF8,StandardErrorEncoding=Encoding.UTF8};
     private static string SafeSegment(string value)=>string.Concat(value.Select(c=>char.IsLetterOrDigit(c)||c is '-' or '_'?c:'_'));
 }
+
+
