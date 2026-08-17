@@ -3,6 +3,7 @@
 import { motion } from "motion/react";
 import { useState } from "react";
 import { StatefulButtonDemo } from "./StatefulButton";
+import { toast } from "sonner";
 interface ConfigitFormProps {
   onSubmit: (workItemId: string, productModel: string) => void;
   isRunning: boolean;
@@ -17,11 +18,14 @@ export function ConfigitForm({ onSubmit, isRunning }: ConfigitFormProps) {
     setError("");
 
     if (!productId.trim()) {
-      setError("Product ID is required");
+      setError("Enter a Configit product ID to continue.");
+      toast.error("Configit product ID required");
       return;
     }
 
+    toast.loading("Resolving Configit product model...", { id: "configit-start" });
     onSubmit(productId.trim(), productId.trim());
+    toast.success("Configit extraction started", { id: "configit-start", description: `Resolving ${productId.trim()}.` });
   };
 
   return (
@@ -49,7 +53,7 @@ export function ConfigitForm({ onSubmit, isRunning }: ConfigitFormProps) {
             disabled={isRunning}
             className="min-w-0 flex-1 border-0 bg-transparent px-4 py-3 text-xs text-slate-100 placeholder-slate-500 transition-all duration-200 focus:border-0 focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:opacity-60"
           />
-          <StatefulButtonDemo isLoading={isRunning} disabled={isRunning} />
+          <StatefulButtonDemo isLoading={isRunning} disabled={isRunning} idleLabel="Resolve product" loadingLabel="Resolving" />
         </div>
       </div>
 

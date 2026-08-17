@@ -19,31 +19,31 @@ function presentation(node: TreeNodeData, source: SourceType) {
   }
   return { name: node.name.trim(), itemId: attribute(node, ["Number", "Part Number", "Item ID"]) || node.id.match(/:([A-Za-z0-9]+)$/)?.[1] || node.id.match(/-([A-Za-z0-9]+)$/)?.[1], quantity, revision };
 }
-function counts(node: TreeNodeData): [number, number] {
-  const children = node.children ?? []; if (!children.length) return [0, 1];
-  let descendants = 0, leaves = 0;
-  for (const child of children) { const [nested, leafCount] = counts(child); descendants += 1 + nested; leaves += leafCount; }
-  return [descendants, leaves];
-}
 export function buildVisualBomGraph(root: TreeNodeData, source: SourceType, comparison?: Record<string, NodeComparison>, occurrenceSafe = false): VisualBomGraph {
-  const nodes: VisualBomNode[] = [], edges: VisualBomEdge[] = [], bySourceNodeId: Record<string, string[]> = {};
-  const walk = (node: TreeNodeData, level: number, parentId: string | undefined, names: string[], indices: number[]) => {
+  const nodes: VisualBomNode[] = [], edges: VisualBomEdge[] = [], bySourceNodeId: Record<string, string[]> = {}, byId: Record<string, VisualBomNode> = {};
+  let maxLevel = 0;
+  const walk = (node: TreeNodeData, level: number, parentId: string | undefined, siblingCount: number, names: string[], indices: number[]): VisualBomNode => {
     const shown = presentation(node, source), id = occurrenceSafe ? (indices.length ? `occ:${indices.join(".")}:${node.id}` : `occ:root:${node.id}`) : node.id;
-    const [descendantCount, leafCount] = counts(node);
-    const childIds = (node.children ?? []).map((child, index) => occurrenceSafe ? `occ:${[...indices, index].join(".")}:${child.id}` : child.id);
-    const visual: VisualBomNode = { id, sourceNodeId: node.id, occurrencePath: indices, source, name: shown.name, itemId: shown.itemId, quantity: shown.quantity, revision: shown.revision, parentId, childIds, level, path: [...names, shown.name], isRoot: !parentId, isAssembly: childIds.length > 0, descendantCount, leafCount, siblingCount: parentId ? Math.max(0, (nodes.find((entry) => entry.id === parentId)?.childIds.length ?? 1) - 1) : 0, comparisonStatus: comparison?.[node.id]?.status };
-    nodes.push(visual); (bySourceNodeId[node.id] ??= []).push(id);
+    const children = node.children ?? [];
+    const childIds = children.map((child, index) => occurrenceSafe ? `occ:${[...indices, index].join(".")}:${child.id}` : child.id);
+    const visual: VisualBomNode = { id, sourceNodeId: node.id, occurrencePath: indices, source, name: shown.name, itemId: shown.itemId, quantity: shown.quantity, revision: shown.revision, parentId, childIds, level, path: [...names, shown.name], isRoot: !parentId, isAssembly: childIds.length > 0, descendantCount: 0, leafCount: childIds.length ? 0 : 1, siblingCount, comparisonStatus: comparison?.[node.id]?.status };
+    nodes.push(visual); byId[id] = visual; (bySourceNodeId[node.id] ??= []).push(id); maxLevel = Math.max(maxLevel, level);
     if (parentId) edges.push({ id: `${parentId}->${id}`, sourceId: parentId, targetId: id, depth: level, quantity: shown.quantity, comparisonStatus: comparison?.[node.id]?.status });
-    (node.children ?? []).forEach((child, index) => walk(child, level + 1, id, visual.path, [...indices, index]));
+    for (let index = 0; index < children.length; index += 1) {
+      const child = walk(children[index], level + 1, id, Math.max(0, children.length - 1), visual.path, [...indices, index]);
+      visual.descendantCount += 1 + child.descendantCount;
+      visual.leafCount += child.leafCount;
+    }
+    return visual;
   };
-  walk(root, 0, undefined, [], []);
-  return { rootId: nodes[0].id, nodes, edges, byId: Object.fromEntries(nodes.map((node) => [node.id, node])), bySourceNodeId, maxLevel: Math.max(...nodes.map((node) => node.level), 0) };
+  const rootNode = walk(root, 0, undefined, 0, [], []);
+  return { rootId: rootNode.id, nodes, edges, byId, bySourceNodeId, maxLevel };
 }
 export function ancestors(graph: VisualBomGraph, id: string | null) { const result: VisualBomNode[] = []; let current = id ? graph.byId[id] : undefined; while (current) { result.unshift(current); current = current.parentId ? graph.byId[current.parentId] : undefined; } return result; }
 export function descendants(graph: VisualBomGraph, id: string | null) { const result: VisualBomNode[] = []; const visit = (currentId: string) => { for (const childId of graph.byId[currentId]?.childIds ?? []) { const child = graph.byId[childId]; if (child) { result.push(child); visit(childId); } } }; if (id) visit(id); return result; }
 export function relationshipState(graph: VisualBomGraph, id: string | null) { const ancestorIds = new Set(ancestors(graph, id).map((node) => node.id)), descendantIds = new Set(descendants(graph, id).map((node) => node.id)), selected = id ? graph.byId[id] : undefined, siblingIds = new Set(selected?.parentId ? (graph.byId[selected.parentId]?.childIds ?? []).filter((childId) => childId !== id) : []); return { ancestorIds, descendantIds, siblingIds }; }
 export function deriveVisibleGraph(graph: VisualBomGraph, expanded: Set<string>, focusId: string | null, mode: "full" | "branch" | "descendants" | "root-path" | "neighbourhood", search = "", forcedIds = new Set<string>()) {
-  const allowed = new Set<string>(), relationships = relationshipState(graph, focusId);
+  const allowed = new Set<string>(), effectiveExpanded = new Set(expanded), relationships = relationshipState(graph, focusId);
   if (!focusId || mode === "full") graph.nodes.forEach((node) => allowed.add(node.id));
   else if (mode === "branch") { relationships.ancestorIds.forEach((id) => allowed.add(id)); relationships.descendantIds.forEach((id) => allowed.add(id)); }
   else if (mode === "descendants") { allowed.add(focusId); relationships.descendantIds.forEach((id) => allowed.add(id)); }
@@ -51,8 +51,8 @@ export function deriveVisibleGraph(graph: VisualBomGraph, expanded: Set<string>,
   else { allowed.add(focusId); relationships.siblingIds.forEach((id) => allowed.add(id)); const node = graph.byId[focusId]; if (node?.parentId) allowed.add(node.parentId); node?.childIds.forEach((id) => allowed.add(id)); }
   forcedIds.forEach((id) => { allowed.add(id); ancestors(graph, id).forEach((node) => allowed.add(node.id)); });
   const query = search.trim().toLowerCase(), matches = new Set(graph.nodes.filter((node) => query && `${node.name} ${node.itemId ?? ""} ${node.path.join(" ")}`.toLowerCase().includes(query)).map((node) => node.id));
-  for (const id of [...matches, ...forcedIds]) ancestors(graph, id).forEach((node) => { allowed.add(node.id); expanded.add(node.id); });
-  const nodes = graph.nodes.filter((node) => { if (!allowed.has(node.id)) return false; if (node.isRoot) return true; let parentId = node.parentId; while (parentId) { if (!expanded.has(parentId) && !matches.has(node.id) && !forcedIds.has(node.id)) return false; parentId = graph.byId[parentId]?.parentId; } return true; });
+  for (const id of [...matches, ...forcedIds]) ancestors(graph, id).forEach((node) => { allowed.add(node.id); effectiveExpanded.add(node.id); });
+  const nodes = graph.nodes.filter((node) => { if (!allowed.has(node.id)) return false; if (node.isRoot) return true; let parentId = node.parentId; while (parentId) { if (!effectiveExpanded.has(parentId) && !matches.has(node.id) && !forcedIds.has(node.id)) return false; parentId = graph.byId[parentId]?.parentId; } return true; });
   const ids = new Set(nodes.map((node) => node.id)), edges = graph.edges.filter((edge) => ids.has(edge.sourceId) && ids.has(edge.targetId));
   return { ...graph, nodes, edges, byId: Object.fromEntries(nodes.map((node) => [node.id, node])) };
 }

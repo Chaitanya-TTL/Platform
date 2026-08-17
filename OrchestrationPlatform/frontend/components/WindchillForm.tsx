@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { motion } from "motion/react";
+import { toast } from "sonner";
+import { userFacingError } from "@/lib/user-facing-errors";
 import {
   IconArrowRight,
   IconSearch,
@@ -93,9 +95,11 @@ export function WindchillForm({
   const performSearch = async () => {
     const value = query.trim();
     if (!value) {
-      setError("Enter a product name, number, or Windchill ID");
+      setError("Enter a product name, number, or Windchill ID.");
+      toast.error("Windchill product required");
       return;
     }
+    toast.loading("Searching Windchill products...", { id: "windchill-search" });
     setSearching(true);
     setSearched(false);
     setSelected(null);
@@ -111,10 +115,14 @@ export function WindchillForm({
         throw new Error("error" in payload ? payload.error || "Product search failed" : "Product search failed");
       }
       setResults(payload.results);
+      if (payload.results.length) toast.success(`${payload.results.length} Windchill product${payload.results.length === 1 ? "" : "s"} found`, { id: "windchill-search" });
+      else toast.info("No matching Windchill products", { id: "windchill-search", description: "Try a different name, number or ID." });
       setSearched(true);
       if (payload.results.length === 1) setSelected(payload.results[0]);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      const outcome = userFacingError("windchill", cause);
+      setError(outcome.message);
+      toast.error(outcome.title, { id: "windchill-search", description: outcome.message });
     } finally {
       setSearching(false);
     }
@@ -124,6 +132,7 @@ export function WindchillForm({
     const id = authoritativeId;
     if (id) {
       setEditing(false);
+      toast.loading("Loading Windchill structure...", { id: "windchill-structure" });
       onSubmit(id);
       return;
     }

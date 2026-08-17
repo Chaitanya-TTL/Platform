@@ -1,3 +1,4 @@
+
 import { execFile } from "node:child_process";
 import { promises as fs } from "node:fs";
 import path from "node:path";
@@ -94,7 +95,7 @@ export async function GET(request: NextRequest) {
       ...(date ? ["--date", date] : []),
     ], {
       cwd: scriptDir,
-      timeout: 5 * 60 * 1000,
+      timeout: 2 * 60 * 1000,
     });
 
     const content = await fs.readFile(outputPath, "utf8");

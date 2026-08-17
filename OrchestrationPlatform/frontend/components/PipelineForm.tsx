@@ -2,7 +2,9 @@
 
 import { motion } from "motion/react";
 import { useState } from "react";
-import { startPipeline } from "@/lib/api";
+import { ApiError, startPipeline } from "@/lib/api";
+import { userFacingError } from "@/lib/user-facing-errors";
+import { toast } from "sonner";
 import { StatefulButtonDemo } from "./StatefulButton";
 
 interface PipelineFormProps {
@@ -20,15 +22,20 @@ export function PipelineForm({ onSubmit, isLoading }: PipelineFormProps) {
     const submittedItemId = itemId.trim();
 
     if (!submittedItemId) {
-      setError("TeamCenter Item ID is required");
+      setError("Enter a Teamcenter item ID to continue.");
+      toast.error("Teamcenter item ID required");
       return;
     }
 
     try {
+      toast.loading("Starting Teamcenter extraction...", { id: "teamcenter-start" });
       const result = await startPipeline({ teamcenterItemId: submittedItemId });
+      toast.success("Teamcenter extraction started", { id: "teamcenter-start", description: `Loading structure for ${submittedItemId}.` });
       onSubmit(result.jobId ?? "", result.payload ?? null, submittedItemId);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to start pipeline");
+      const outcome = userFacingError("teamcenter", err, err instanceof ApiError ? err.status : undefined);
+      setError(outcome.message);
+      toast.error(outcome.title, { id: "teamcenter-start", description: outcome.message });
     }
   };
 
@@ -58,7 +65,7 @@ export function PipelineForm({ onSubmit, isLoading }: PipelineFormProps) {
             disabled={isLoading}
             className="min-w-0 flex-1 border-0 bg-transparent px-4 py-3 text-sm text-slate-100 placeholder-slate-500 transition-all duration-200 focus:border-0 focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:opacity-60"
           />
-          <StatefulButtonDemo isLoading={isLoading} disabled={isLoading} />
+          <StatefulButtonDemo isLoading={isLoading} disabled={isLoading} idleLabel="Extract structure" loadingLabel="Starting" />
         </div>
       </div>
       {error && (

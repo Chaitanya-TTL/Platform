@@ -2,6 +2,8 @@
 "use client";
 
 import { useRef, useState, type ReactNode } from "react";
+import { toast } from "sonner";
+import { userFacingError } from "@/lib/user-facing-errors";
 import {
   IconAlertTriangle, IconCheck, IconChevronDown, IconChevronRight, IconDownload,
   IconFileDescription, IconFileSpreadsheet, IconRefresh, IconUpload, IconX,
@@ -49,6 +51,7 @@ export function ExcelBomImportWorkspace({ onBomReady }: { onBomReady: (root: Tre
 
   const loadFile = async (file?: File) => {
     if (!file) return;
+    toast.loading("Understanding Excel workbook...", { id: "excel-import" });
     setLoading(true); setError(""); setLoaded(false); setResult(null); onBomReady(null);
     try {
       const inspected = await inspectExcelWorkbook(file);
@@ -56,9 +59,13 @@ export function ExcelBomImportWorkspace({ onBomReady }: { onBomReady: (root: Tre
       const suggested = suggestExcelMapping(first);
       setWorkbook(inspected); setSheetName(first.name); setMapping(suggested); setMode("auto");
       setMappingOpen(false); setPreviewOpen(false); setTreeOpen(true);
-      execute(inspected, first, suggested, "auto");
+      const normalized = execute(inspected, first, suggested, "auto");
+      if (normalized.summary.errors) toast.warning("Workbook needs review", { id: "excel-import", description: `${normalized.summary.errors} blocking issue${normalized.summary.errors === 1 ? "" : "s"} found.` });
+      else toast.success("Workbook understood", { id: "excel-import", description: `${normalized.summary.items.toLocaleString("en-IN")} BOM occurrences are ready for review.` });
     } catch (cause) {
-      setWorkbook(null); setMapping(null); setError(cause instanceof Error ? cause.message : String(cause));
+      const outcome = userFacingError("excel", cause);
+      setWorkbook(null); setMapping(null); setError(outcome.message);
+      toast.error(outcome.title, { id: "excel-import", description: outcome.message });
     } finally { setLoading(false); }
   };
 
@@ -170,7 +177,7 @@ export function ExcelBomImportWorkspace({ onBomReady }: { onBomReady: (root: Tre
         <div className={`rounded-2xl border p-5 ${result.summary.errors ? "border-rose-500/30 bg-rose-500/[.05]" : "border-emerald-500/20 bg-slate-950/55"}`}>
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex min-w-0 items-start gap-3"><span className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${result.summary.errors ? "bg-rose-500/10 text-rose-400" : "bg-emerald-400/10 text-emerald-400"}`}>{result.summary.errors ? <IconAlertTriangle className="h-5 w-5" /> : <IconCheck className="h-5 w-5" />}</span><div><h4 className="text-base font-semibold text-slate-100">{result.summary.errors ? "Review required before loading" : loaded ? "Excel BOM loaded" : "BOM ready to load"}</h4><p className="mt-1 text-sm text-slate-400">{result.summary.items.toLocaleString("en-IN")} occurrences · {result.summary.uniqueItems.toLocaleString("en-IN")} unique items · {result.summary.roots} root{result.summary.roots === 1 ? "" : "s"} · {result.summary.levels} levels</p></div></div>
-            <div className="flex flex-wrap gap-2"><button type="button" onClick={() => downloadExcelDiagnostics(result)} className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-700 px-3 text-sm font-semibold text-slate-300"><IconFileDescription className="h-4 w-4" />Diagnostics</button><button type="button" onClick={() => downloadExcelBomJson(result)} className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-700 px-3 text-sm font-semibold text-slate-300"><IconDownload className="h-4 w-4" />Normalized JSON</button>{result.issueGroups.length ? <button type="button" onClick={() => setIssuesOpen((value) => !value)} className="h-9 rounded-lg border border-slate-700 px-3 text-sm font-semibold text-slate-300">{issuesOpen ? "Hide issues" : `Review ${result.issueGroups.length} issue groups`}</button> : null}<button type="button" disabled={!canLoad || loaded} onClick={() => { onBomReady(result.root); setLoaded(true); }} className="inline-flex h-9 items-center gap-2 rounded-lg bg-cyan-600 px-4 text-sm font-semibold text-white hover:bg-cyan-500 disabled:bg-slate-800 disabled:text-slate-600"><IconCheck className="h-4 w-4" />{loaded ? "Loaded" : "Load BOM"}</button></div>
+            <div className="flex flex-wrap gap-2"><button type="button" onClick={() => downloadExcelDiagnostics(result)} className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-700 px-3 text-sm font-semibold text-slate-300"><IconFileDescription className="h-4 w-4" />Diagnostics</button><button type="button" onClick={() => downloadExcelBomJson(result)} className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-700 px-3 text-sm font-semibold text-slate-300"><IconDownload className="h-4 w-4" />Normalized JSON</button>{result.issueGroups.length ? <button type="button" onClick={() => setIssuesOpen((value) => !value)} className="h-9 rounded-lg border border-slate-700 px-3 text-sm font-semibold text-slate-300">{issuesOpen ? "Hide issues" : `Review ${result.issueGroups.length} issue groups`}</button> : null}<button type="button" disabled={!canLoad || loaded} onClick={() => { onBomReady(result.root); setLoaded(true); toast.success("Excel BOM loaded", { description: `${result.summary.items.toLocaleString("en-IN")} occurrences are ready in the workspace.` }); }} className="inline-flex h-9 items-center gap-2 rounded-lg bg-cyan-600 px-4 text-sm font-semibold text-white hover:bg-cyan-500 disabled:bg-slate-800 disabled:text-slate-600"><IconCheck className="h-4 w-4" />{loaded ? "Loaded" : "Load BOM"}</button></div>
           </div>
           {issuesOpen && result.issueGroups.length ? <IssueGroups result={result} /> : null}
         </div>

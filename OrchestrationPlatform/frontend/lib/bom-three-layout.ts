@@ -8,11 +8,13 @@ export function layoutThreeBom(graph: VisualBomGraph, options: ThreeLayoutOption
   const settings = config[options.spacing], root = graph.byId[graph.rootId], branches = root?.childIds.filter((id) => graph.byId[id]) ?? [], weights = branches.map((id) => Math.max(1, Math.sqrt((graph.byId[id]?.descendantCount ?? 0) + 1))), total = weights.reduce((sum, value) => sum + value, 0), angleById: Record<string, number> = {};
   let cursor = -Math.PI;
   branches.forEach((id, index) => { const span = Math.PI * 2 * (weights[index] / Math.max(1, total)); angleById[id] = cursor + span / 2; cursor += span; });
-  const branchRoot = (id: string) => { let node = graph.byId[id]; while (node?.parentId && node.parentId !== graph.rootId) node = graph.byId[node.parentId]; return node?.id ?? id; };
+  const branchById: Record<string, string> = {};
+  for (const node of graph.nodes) branchById[node.id] = node.isRoot ? node.id : node.parentId === graph.rootId ? node.id : (node.parentId ? branchById[node.parentId] : node.id);
+  const branchIndexById = Object.fromEntries(branches.map((id, index) => [id, index]));
   const nodes = graph.nodes.map((node) => {
     const complexityScore = node.descendantCount + node.leafCount * 1.5 + node.childIds.length * 2 + node.level * 0.5;
     if (node.isRoot) return { ...node, position: [0, 0, 0] as ThreePosition, branchIndex: -1, complexityScore };
-    const branchId = branchRoot(node.id), branchIndex = Math.max(0, branches.indexOf(branchId)), angle = angleById[branchId] ?? 0, direction: ThreePosition = [Math.cos(angle), 0, Math.sin(angle)], base = scale(direction, settings.ring + (node.level - 1) * settings.level);
+    const branchId = branchById[node.id] ?? node.id, branchIndex = Math.max(0, branchIndexById[branchId] ?? 0), angle = angleById[branchId] ?? 0, direction: ThreePosition = [Math.cos(angle), 0, Math.sin(angle)], base = scale(direction, settings.ring + (node.level - 1) * settings.level);
     let local: ThreePosition = [0, (node.level - 1) * 1.6, 0];
     const parent = node.parentId ? graph.byId[node.parentId] : undefined, siblingIndex = Math.max(0, parent?.childIds.indexOf(node.id) ?? 0), siblingCount = Math.max(1, parent?.childIds.length ?? 1);
     if (node.level > 1) { const localAngle = siblingCount === 1 ? 0 : siblingIndex / siblingCount * Math.PI * 2, radius = settings.cluster * Math.max(0.5, Math.sqrt(siblingCount) / 3); local = [Math.cos(localAngle) * radius, (siblingIndex % 3 - 1) * 1.4, Math.sin(localAngle) * radius]; }

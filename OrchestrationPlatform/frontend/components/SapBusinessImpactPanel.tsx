@@ -16,11 +16,15 @@ import {
   IconScale,
   IconX,
 } from "@tabler/icons-react";
-import {
+import { toast } from "sonner";
+import { OutcomeNotice, RetryButton } from "@/components/feedback/OutcomeNotice";
+import { TechnicalDetails } from "@/components/feedback/TechnicalDetails";
+import { ApiError,
   getSapBusinessImpact,
   type SapBusinessImpact,
   type SapMaterialImpact,
 } from "@/lib/api";
+import { userFacingError } from "@/lib/user-facing-errors";
 const wait = (ms: number) =>
   new Promise((resolve) => window.setTimeout(resolve, ms));
 const number = (value: number) =>
@@ -56,6 +60,7 @@ export function SapBusinessImpactPanel({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [retrySignal, setRetrySignal] = useState(0);
   useEffect(() => {
     if (!jobId || !active) {
       setData(null);
@@ -75,12 +80,15 @@ export function SapBusinessImpactPanel({
           setData(result);
           setSelectedId(result.materials[0]?.materialId ?? null);
           setLoading(false);
+          const partial = result.status === "partial_success" || result.warnings.length > 0 || result.materials.some((item) => item.status === "partial_success");
+          if (partial) toast.warning("SAP analysis completed with warnings", { id: "sap-impact", description: "Core stock and valuation information is ready." });
+          else toast.success("SAP business impact ready", { id: "sap-impact", description: `${result.materials.length} material${result.materials.length === 1 ? "" : "s"} loaded.` });
           return;
         } catch (cause) {
           if (attempt === 44 && !cancelled) {
-            setError(
-              cause instanceof Error ? cause.message : "SAP impact unavailable",
-            );
+            const outcome = userFacingError("sap", cause, cause instanceof ApiError ? cause.status : undefined);
+            setError(outcome.message);
+            toast.error(outcome.title, { description: outcome.message, id: "sap-impact" });
             setLoading(false);
             return;
           }
@@ -91,7 +99,7 @@ export function SapBusinessImpactPanel({
     return () => {
       cancelled = true;
     };
-  }, [jobId, active]);
+  }, [jobId, active, retrySignal]);
   const selected = useMemo(
     () =>
       data?.materials.find((material) => material.materialId === selectedId) ??
@@ -127,11 +135,10 @@ export function SapBusinessImpactPanel({
     );
   if (error)
     return (
-      <Notice warning icon={<IconAlertTriangle />}>
-        {error}
-      </Notice>
+      <div className="mt-4"><OutcomeNotice tone="error" title="SAP business impact is unavailable" message={error} actions={<RetryButton onClick={() => setRetrySignal((value) => value + 1)} label="Retry analysis" />} /></div>
     );
   if (!data) return null;
+  const partial = data.status === "partial_success" || data.materials.some((item) => item.status === "partial_success");
   const currency =
     selected?.organization.currency ||
     data.materials.find((item) => item.organization.currency)?.organization
@@ -152,11 +159,12 @@ export function SapBusinessImpactPanel({
         </div>
         <Status value={data.status} />
       </header>
+      {partial ? <div className="mt-5"><OutcomeNotice compact tone="warning" title="Analysis completed with warnings" message="Core stock, inventory and valuation information is available. Some optional SAP attributes were not returned." /></div> : null}
       <div className="mt-5 grid gap-px overflow-hidden rounded-xl border border-slate-800 bg-slate-800 sm:grid-cols-2 xl:grid-cols-4">
         <Metric
           label="Physical stock"
           value={quantity(summary.stock)}
-          note="Across BOM materials"
+          note={summary.total === 1 ? `For material ${data.sourceMaterialId}` : "Across returned materials"}
         />
         <Metric
           label="Inventory value"
@@ -467,27 +475,21 @@ function StorageLocations({ material }: { material: SapMaterialImpact }) {
     </article>
   );
 }
+function friendlyWarning(warning: string) {
+  const lower = warning.toLowerCase();
+  if (lower.includes("base unit")) return { title: "Base unit unavailable", message: "SAP did not return a base unit for this material." };
+  if (lower.includes("industry sector") || lower.includes("m3099")) return { title: "Optional material details unavailable", message: "Some descriptive material attributes could not be retrieved." };
+  if (lower.includes("unit") && lower.includes("language")) return { title: "Localized unit description unavailable", message: "SAP did not return a localized unit description." };
+  if (lower.includes("bom extraction was unavailable")) return { title: "No BOM structure found", message: "Business-impact information was loaded successfully for the requested material." };
+  return { title: "SAP returned a warning", message: "Some optional information may be incomplete." };
+}
 function Warnings({ title, warnings }: { title: string; warnings: string[] }) {
+  const summarized = warnings.map(friendlyWarning).filter((item, index, all) => all.findIndex((candidate) => candidate.title === item.title) === index);
   return (
-    <article className="mt-4 rounded-xl border border-amber-500/25 bg-amber-500/[.06] p-5">
-      <div className="flex items-center gap-2 text-base font-semibold text-amber-200">
-        <IconAlertTriangle className="h-5 w-5" />
-        {title}
-        <span className="rounded-full bg-amber-500/10 px-2.5 py-1 text-xs">
-          {warnings.length}
-        </span>
-      </div>
-      <ul className="mt-3 space-y-2">
-        {warnings.map((warning, index) => (
-          <li
-            key={`${warning}-${index}`}
-            className="flex gap-3 text-sm leading-6 text-amber-100/80"
-          >
-            <span className="mt-2.5 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400" />
-            {warning}
-          </li>
-        ))}
-      </ul>
+    <article className="mt-4 rounded-xl border border-amber-500/25 bg-amber-500/[.05] p-5">
+      <div className="flex items-center gap-2 text-base font-semibold text-amber-200"><IconAlertTriangle className="h-5 w-5" />{title}<span className="rounded-full bg-amber-500/10 px-2.5 py-1 text-xs">{warnings.length}</span></div>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">{summarized.map((item) => <div key={item.title} className="rounded-lg border border-amber-500/15 bg-slate-950/30 p-3"><b className="text-sm text-amber-100">{item.title}</b><p className="mt-1 text-sm leading-5 text-amber-100/70">{item.message}</p></div>)}</div>
+      <TechnicalDetails details={warnings.join("\n")} />
     </article>
   );
 }
