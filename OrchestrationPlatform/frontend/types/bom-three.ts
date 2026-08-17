@@ -59,6 +59,7 @@ export type ThreeAnalysisSnapshot = {
   complexityByNode: Record<string, number>;
   comparisonByNode: Record<string, BranchComparisonSummary>;
   requirementCoverageByNode: Record<string, RequirementCoverage>;
+  qualityCountByNode: Record<string, number>;
 };
 
 export type ThreeAnalysisMode = "structure" | "quantity" | "comparison" | "complexity" | "impact";

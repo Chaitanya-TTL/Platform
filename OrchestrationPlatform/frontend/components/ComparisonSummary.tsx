@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { toast } from "sonner";
 import { AnimatePresence, motion } from "motion/react";
 import {
   IconArrowsExchange,
@@ -115,14 +116,14 @@ export function ComparisonSummary({
             />
           </button>
           <button
-            onClick={() => downloadMultiComparison(result, "json")}
+            onClick={() => { downloadMultiComparison(result, "json"); toast.success("Comparison JSON exported"); }}
             className="inline-flex h-9 items-center gap-2 rounded-xl border border-slate-200 px-3 text-xs font-semibold dark:border-slate-700"
           >
             <IconJson className="h-4 w-4" />
             JSON
           </button>
           <button
-            onClick={() => downloadMultiComparison(result, "csv")}
+            onClick={() => { downloadMultiComparison(result, "csv"); toast.success("Comparison CSV exported"); }}
             className="inline-flex h-9 items-center gap-2 rounded-xl border border-slate-200 px-3 text-xs font-semibold dark:border-slate-700"
           >
             <IconFileTypeCsv className="h-4 w-4" />

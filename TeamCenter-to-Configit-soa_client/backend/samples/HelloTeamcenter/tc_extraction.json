@@ -46,21 +46,21 @@
         "variantState": "Y",
         "children": [
           {
-            "itemId": "002414",
-            "sequence": "10",
-            "variantState": "Y",
-            "qty": "",
-            "revId": "A",
-            "name": "002414/A;1-Normal Body",
-            "variantCondition": null
-          },
-          {
             "itemId": "002413",
             "sequence": "20",
             "variantState": "Y",
             "qty": "",
             "revId": "A",
             "name": "002413/A;1-Slim Body",
+            "variantCondition": null
+          },
+          {
+            "itemId": "002422",
+            "sequence": "30",
+            "variantState": "Y",
+            "qty": "",
+            "revId": "A",
+            "name": "002422/A;1-Normal Body",
             "variantCondition": null
           }
         ],
@@ -121,5 +121,5 @@
   "variantRules": [
 
   ],
-  "extractedAt": "2026-07-30T08:31:32.974545Z"
+  "extractedAt": "2026-08-17T10:04:50.149921700Z"
 }

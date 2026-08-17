@@ -1,4 +1,3 @@
-
 import { ConstellationLayoutMode, ConstellationSpacing, ConstellationLayout, ConstellationNode } from "@/types/bom-constellation";
 import type { VisualBomGraph } from "@/types/bom-visualization";
 
@@ -7,25 +6,6 @@ const GAP = {
   balanced: { level: 180, sibling: 94 },
   expanded: { level: 255, sibling: 138 },
 };
-
-function branchWeight(
-  graph: VisualBomGraph,
-  id: string,
-  visible: Set<string>,
-): number {
-  const node = graph.byId[id];
-  if (!node || !visible.has(id)) return 0;
-  const children = node.childIds.filter((childId) => visible.has(childId));
-  return children.length
-    ? Math.max(
-        1,
-        children.reduce(
-          (total, childId) => total + branchWeight(graph, childId, visible),
-          0,
-        ),
-      )
-    : 1;
-}
 
 export function layoutConstellationGraph(
   graph: VisualBomGraph,
@@ -36,6 +16,13 @@ export function layoutConstellationGraph(
 ): ConstellationLayout {
   const visibleIds = new Set(graph.nodes.map((node) => node.id));
   const config = GAP[spacing];
+  const weights = new Map<string, number>();
+  for (let index = graph.nodes.length - 1; index >= 0; index -= 1) {
+    const node = graph.nodes[index];
+    const children = node.childIds.filter((id) => visibleIds.has(id));
+    weights.set(node.id, children.length ? Math.max(1, children.reduce((sum, id) => sum + (weights.get(id) ?? 1), 0)) : 1);
+  }
+  const weight = (id: string) => weights.get(id) ?? 0;
   const nodes: ConstellationNode[] = [];
 
   const pushNode = (id: string, x: number, y: number, angle = 0) => {
@@ -124,14 +111,14 @@ export function layoutConstellationGraph(
       );
       const totalWeight = children.reduce(
         (total, childId) =>
-          total + branchWeight(graph, childId, visibleIds),
+          total + weight(childId),
         0,
       );
       let cursor = startAngle;
       for (const childId of children) {
         const span =
           (endAngle - startAngle) *
-          (branchWeight(graph, childId, visibleIds) /
+          (weight(childId) /
             Math.max(1, totalWeight));
         placeBranch(
           childId,
@@ -148,7 +135,7 @@ export function layoutConstellationGraph(
       root?.childIds.filter((childId) => visibleIds.has(childId)) ?? [];
     const totalWeight = branches.reduce(
       (total, childId) =>
-        total + branchWeight(graph, childId, visibleIds),
+        total + weight(childId),
       0,
     );
     let cursor = -Math.PI;
@@ -156,7 +143,7 @@ export function layoutConstellationGraph(
       const span =
         Math.PI *
         2 *
-        (branchWeight(graph, branchId, visibleIds) /
+        (weight(branchId) /
           Math.max(1, totalWeight));
       placeBranch(branchId, cursor + 0.025, cursor + span - 0.025, 1);
       cursor += span;

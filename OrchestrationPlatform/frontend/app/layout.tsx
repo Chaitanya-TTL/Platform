@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { DM_Sans, Geist_Mono } from "next/font/google";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { PlatformShell } from "@/components/platform-shell/PlatformShell";
 import "./globals.css";
 
 const dmSans = DM_Sans({
@@ -36,12 +37,13 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body className="min-h-full bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider><PlatformShell>{children}</PlatformShell></ThemeProvider>
         <Toaster
-          position="bottom-right"
+          position="top-right"
           richColors
           closeButton
-          expand
+          expand={false}
+          duration={5000}
           visibleToasts={4}
           theme="system"
         />

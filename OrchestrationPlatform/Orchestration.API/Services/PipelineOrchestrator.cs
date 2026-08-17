@@ -1,3 +1,4 @@
+
 using System.Collections.Concurrent;
 using System.Threading.Channels;
 using Orchestration.API.Models;
@@ -32,7 +33,8 @@ public sealed class PipelineOrchestrator:IPipelineOrchestrator
             if(isSapImpactRequest)await Report(jobId,"sap-impact","in_progress",90,"Finalizing SAP Stock, Inventory and Cost impact...",callback,channel);
             var impactOnly=isSapImpactRequest&&extraction.Bom==null&&hasImpact;
             var completionMessage=impactOnly?"SAP business impact completed; BOM was unavailable for this material":"Pipeline completed successfully";
-            audit.Status="success";audit.EndTime=DateTime.UtcNow;audit.FinalBom=extraction.Bom;audit.SapBusinessImpact=extraction.SapImpact;audit.OutputFilePath=extraction.BomOutputPath;audit.SapImpactOutputFilePath=extraction.SapImpactOutputPath;audit.OutputKind=outputKind;
+            audit.Status="success";audit.EndTime=DateTime.UtcNow;audit.FinalBom=extraction.Bom;audit.SapBusinessImpact=extraction.SapImpact;audit.OutputFilePath=extraction.BomOutputPath;audit.SapImpactOutputFilePath=extraction.SapImpactOutputPath;audit.SapHistoryOutputFilePath=extraction.SapHistoryOutputPath;audit.OutputKind=outputKind;
+            if(isSapImpactRequest){var warnings=new List<string>();if(extraction.SapImpact?.Warnings!=null)warnings.AddRange(extraction.SapImpact.Warnings);if(extraction.SapHistory?.Warnings!=null)warnings.AddRange(extraction.SapHistory.Warnings);audit.SapOperationalImpact=new SapOperationalImpactResult{SourceMaterialId=request.MaterialId??"",Plant=request.Plant??"1001",Status=extraction.SapImpact!=null&&extraction.SapHistory!=null&&warnings.Count==0?"complete":"partial_success",CurrentState=extraction.SapImpact,History=extraction.SapHistory,Warnings=warnings,GeneratedAt=DateTime.UtcNow.ToString("O")};}
             audit.Phases.Add(new PhaseLog{Phase="complete",Status="complete",StartTime=audit.StartTime,EndTime=audit.EndTime,ProgressPercent=100,Message=completionMessage});
             await _auditLogger.LogAsync(audit);await Report(jobId,"load","complete",100,completionMessage,callback,channel);
             return(true,extraction.Bom,extraction.BomOutputPath??"",outputKind);
@@ -42,5 +44,3 @@ public sealed class PipelineOrchestrator:IPipelineOrchestrator
     }
     private async Task Report(string jobId,string phase,string status,int percent,string message,Func<PipelineProgress,Task> callback,Channel<PipelineProgress> channel){var p=new PipelineProgress{JobId=jobId,Phase=phase,Status=status,ProgressPercent=percent,Message=message,Timestamp=DateTime.UtcNow.ToString("O")};try{await callback(p);await channel.Writer.WriteAsync(p);}catch(Exception ex){_logger.LogError(ex,"Error reporting progress");}}
 }
-
-

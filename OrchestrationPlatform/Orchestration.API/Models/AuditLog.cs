@@ -1,3 +1,4 @@
+
 using Newtonsoft.Json;
 namespace Orchestration.API.Models;
 public class AuditLog
@@ -10,9 +11,11 @@ public class AuditLog
     [JsonProperty("phases")] public List<PhaseLog> Phases { get; set; } = new();
     [JsonProperty("finalBom")] public BomRoot? FinalBom { get; set; }
     [JsonProperty("sapBusinessImpact")] public SapBusinessImpactResult? SapBusinessImpact { get; set; }
+    [JsonProperty("sapOperationalImpact")] public SapOperationalImpactResult? SapOperationalImpact { get; set; }
     [JsonProperty("error")] public string? Error { get; set; }
     [JsonProperty("outputFilePath")] public string? OutputFilePath { get; set; }
     [JsonProperty("sapImpactOutputFilePath")] public string? SapImpactOutputFilePath { get; set; }
+    [JsonProperty("sapHistoryOutputFilePath")] public string? SapHistoryOutputFilePath { get; set; }
     [JsonProperty("outputKind")] public string? OutputKind { get; set; }
 }
 public class PhaseLog

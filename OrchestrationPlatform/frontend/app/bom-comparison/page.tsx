@@ -1,3 +1,5 @@
+
+
 "use client";
 
 import {
@@ -8,7 +10,6 @@ import {
   type DragEvent,
   type ReactNode,
 } from "react";
-import Link from "next/link";
 import { AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import {
@@ -38,10 +39,10 @@ import { ExcelBomImportWorkspace } from "@/components/excel-import/ExcelBomImpor
 import { PipelineForm } from "@/components/PipelineForm";
 import { QuickStartModal } from "@/components/QuickStartModal";
 import { SAPForm } from "@/components/SAPForm";
-import { SapBusinessImpactPanel } from "@/components/SapBusinessImpactPanel";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import { SapOperationalImpactPanel } from "@/components/SapOperationalImpactPanel";
 import { WindchillForm } from "@/components/WindchillForm";
-import { subscribeToProgress, type PipelineProgress } from "@/lib/api";
+import { startSapExtraction, subscribeToProgress, type PipelineProgress } from "@/lib/api";
+import { userFacingError } from "@/lib/user-facing-errors";
 import { compareMultipleBoms } from "@/lib/bom-comparison";
 import { resolveRequirementContext } from "@/lib/requirement-context";
 import type {
@@ -184,6 +185,7 @@ export default function Page() {
   const [sapJob, setSapJob] = useState<string | null>(null);
   const [sapRun, setSapRun] = useState(false);
   const [sapProgress, setSapProgress] = useState<PipelineProgress | null>(null);
+  const [sapRequest, setSapRequest] = useState<{ materialId: string; plant: string; includeImpact: boolean } | null>(null);
   const [cfgActive, setCfgActive] = useState(false);
   const [cfgRun, setCfgRun] = useState(false);
   const [product, setProduct] = useState<string | null>(null);
@@ -274,7 +276,7 @@ export default function Page() {
   );
   const submitTc = useCallback(
     (id: string, _payload?: unknown, submittedItemId?: string) => {
-      if (!id.trim()) return toast.error("No Teamcenter job ID returned");
+      if (!id.trim()) return toast.error("Teamcenter request could not be started", { description: "No request reference was returned." });
       setJob(id);
       setTeamcenterItemId(submittedItemId?.trim() || null);
       setTcRun(true);
@@ -282,20 +284,33 @@ export default function Page() {
     },
     [],
   );
-  const submitSap = useCallback((id: string) => {
-    if (!id.trim()) return toast.error("No SAP job ID returned");
+  const submitSap = useCallback((id: string, request?: { materialId: string; plant: string; includeImpact: boolean }) => {
+    if (!id.trim()) return toast.error("SAP request could not be started", { description: "No request reference was returned." });
     setSapJob(id);
     setSapRun(true);
     setSapProgress(null);
+    if (request) setSapRequest(request);
   }, []);
+  const retrySap = useCallback(async () => {
+    if (!sapRequest) return;
+    try {
+      toast.loading("Running SAP analysis again...", { id: "sap-retry" });
+      const result = await startSapExtraction({ materialId: sapRequest.materialId, plant: sapRequest.plant, includeSapBusinessImpact: sapRequest.includeImpact });
+      submitSap(result.jobId, sapRequest);
+      toast.success("SAP request restarted", { id: "sap-retry", description: `${sapRequest.materialId} · Plant ${sapRequest.plant}` });
+    } catch (cause) {
+      const outcome = userFacingError("sap", cause);
+      toast.error(outcome.title, { id: "sap-retry", description: outcome.message });
+    }
+  }, [sapRequest, submitSap]);
 
   useEffect(() => {
     if (!job || !tcRun) return;
     return subscribeToProgress(
       job,
       setProgress,
-      (message) => toast.error(message),
-      () => undefined,
+      (message) => { const outcome = userFacingError("teamcenter", message); toast.error(outcome.title, { description: outcome.message }); },
+      () => toast.success("Teamcenter request completed", { description: "The latest extraction result is ready for review." }),
     );
   }, [job, tcRun]);
   useEffect(() => {
@@ -303,8 +318,8 @@ export default function Page() {
     return subscribeToProgress(
       sapJob,
       setSapProgress,
-      (message) => toast.error(message),
-      () => undefined,
+      (message) => { const outcome = userFacingError("sap", message); toast.error(outcome.title, { description: outcome.message }); },
+      () => toast.success("SAP request completed", { description: "Available structure and business-impact results are ready." }),
     );
   }, [sapJob, sapRun]);
 
@@ -452,6 +467,7 @@ export default function Page() {
       setSapJob(null);
       setSapRun(false);
       setSapProgress(null);
+      setSapRequest(null);
     }
     if (type === "configit") {
       setCfgActive(false);
@@ -635,7 +651,8 @@ export default function Page() {
         <>
           <ConfigitForm
             onSubmit={(id) => {
-              setCfgActive(true);
+              setCfgActive(false);
+              onReady("configit", null);
               setCfgRun(true);
               setProduct(id);
               setCfgRefresh((value) => value + 1);
@@ -657,9 +674,9 @@ export default function Page() {
                   : "/api/bom-configit"
               }
               transformPayload={getConfigitRoot}
-              active={cfgActive || cfgRun}
+              active={cfgRun || cfgActive}
               refreshSignal={cfgRefresh}
-              onLoadComplete={() => setCfgRun(false)}
+              onLoadComplete={(status) => { setCfgRun(false); setCfgActive(status === "ready"); }}
               onBomReady={onReady}
               comparisonMode={Boolean(comparing)}
               comparison={mapFor("configit")}
@@ -690,8 +707,9 @@ export default function Page() {
             comparison={mapFor("sap")}
             comparisonFilter={filter}
             counterpartLabel={counterpart("sap")}
+            onRetryRequest={sapRequest ? retrySap : undefined}
           />
-          <SapBusinessImpactPanel jobId={sapJob} active={Boolean(sapJob)} />
+          <SapOperationalImpactPanel jobId={sapJob} active={Boolean(sapJob)} />
         </div>
       </>
     );
@@ -784,60 +802,19 @@ export default function Page() {
       </AnimatePresence>
 
       <div className="mx-auto flex min-h-screen max-w-[1920px] flex-col gap-5 px-4 py-5 sm:px-6 lg:px-8">
-        <header className="rounded-[28px] border border-slate-200 bg-white/90 p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900/80 sm:p-7">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <h1 className=" text-3xl font-semibold sm:text-4xl">
-                Digital Thread Orchestration Platform
-              </h1>
-              {/* <p className="mt-3 text-sm text-slate-500">
-                Extract and inspect BOMs independently. Start comparison only
-                when needed.
-              </p> */}
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <ThemeToggle compact />
-              <Link
-                href="/"
-                className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-300 px-3 text-sm font-semibold dark:border-slate-700"
-              >
-                <IconArrowLeft className="h-4 w-4" />
-                Overview
-              </Link>
-              <button
-                onClick={() => setModal(true)}
-                className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-300 px-4 text-sm font-semibold dark:border-slate-700"
-              >
-                <IconPlus className="h-4 w-4" />
-                Add source
-              </button>
-              {comparing ? (
-                <button
-                  onClick={() => setTransition("exit")}
-                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-cyan-600 px-4 text-sm font-semibold text-white"
-                >
-                  <IconArrowLeft className="h-4 w-4" />
-                  Back to workspace
-                </button>
-              ) : (
-                <button
-                  disabled={ready.length < 2}
-                  onClick={() => setSession("selecting")}
-                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-cyan-600 px-4 text-sm font-semibold text-white disabled:opacity-45"
-                >
-                  <IconArrowsExchange className="h-4 w-4" />
-                  Compare BOMs
-                </button>
-              )}
-            </div>
-          </div>
-          {/* {ready.length < 2 && !comparing ? (
-            <p className="mt-4 border-t border-slate-200 pt-3 text-xs text-slate-500 dark:border-slate-700">
-              Load at least two BOMs to enable comparison.
-            </p>
-          ) : null} */}
+        <header className="border-b border-slate-200 pb-4 dark:border-slate-800">
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Digital Thread Orchestration Platform</h1>
         </header>
-
+        <section className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white/90 px-4 py-3 shadow-sm dark:border-slate-700 dark:bg-slate-900/80 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">Sources</p>
+            <p className="mt-0.5 text-xs text-slate-500">{active.length} added · {ready.length} ready for comparison</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button onClick={() => setModal(true)} className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-300 px-4 text-sm font-semibold dark:border-slate-700"><IconPlus className="h-4 w-4"/>Add source</button>
+            {comparing ? <button onClick={() => setTransition("exit")} className="inline-flex h-10 items-center gap-2 rounded-lg bg-cyan-600 px-4 text-sm font-semibold text-white"><IconArrowLeft className="h-4 w-4"/>Back to workspace</button> : <button disabled={ready.length < 2} onClick={() => setSession("selecting")} className="inline-flex h-10 items-center gap-2 rounded-lg bg-cyan-600 px-4 text-sm font-semibold text-white disabled:opacity-45"><IconArrowsExchange className="h-4 w-4"/>Compare BOMs</button>}
+          </div>
+        </section>
         {result ? (
           <ComparisonSummary
             result={result}

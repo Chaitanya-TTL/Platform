@@ -1,6 +1,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 import {
+  memo,
   useEffect,
   useMemo,
   useRef,
@@ -744,6 +745,7 @@ export function BomConstellationView({
               key={n.id}
               n={n}
               index={i}
+              sceneSize={layout.nodes.length}
               selected={n.id === selected}
               multi={multi.has(n.id)}
               pinned={pinned.has(n.id)}
@@ -1054,9 +1056,10 @@ export function BomConstellationView({
     </motion.div>
   );
 }
-function GraphNode({
+const GraphNode = memo(function GraphNode({
   n,
   index,
+  sceneSize,
   selected,
   multi,
   pinned,
@@ -1083,6 +1086,7 @@ function GraphNode({
 }: {
   n: ConstellationNode;
   index: number;
+  sceneSize: number;
   selected: boolean;
   multi: boolean;
   pinned: boolean;
@@ -1149,7 +1153,7 @@ function GraphNode({
         type: "spring",
         stiffness: 260,
         damping: 24,
-        delay: Math.min(0.12, index * 0.002),
+        delay: sceneSize > 240 ? 0 : Math.min(0.12, index * 0.002),
       }}
       pointerEvents={disabled ? "none" : "all"}
       onPointerEnter={() => onHover(n.id)}
@@ -1253,7 +1257,7 @@ function GraphNode({
       ) : null}
     </motion.g>
   );
-}
+});
 function nodeColor(
   n: ConstellationNode,
   selected: boolean,

@@ -1,0 +1,73 @@
+{
+  "sourceMaterialId": "31",
+  "plant": "1001",
+  "status": "partial_success",
+  "materials": [
+    {
+      "materialId": "31",
+      "internalMaterialId": "000000000000000031",
+      "requestedMaterialId": "31",
+      "description": "Stearing",
+      "materialType": "ROH",
+      "baseUnit": "",
+      "batchManaged": false,
+      "crossPlantStatus": "",
+      "status": "partial_success",
+      "organization": {
+        "plant": "1001",
+        "valuationArea": "1001",
+        "companyCode": "0100",
+        "currency": "INR"
+      },
+      "stock": {
+        "unrestricted": 10.0,
+        "qualityInspection": 0.0,
+        "restrictedUse": 0.0,
+        "blocked": 0.0,
+        "inTransfer": 0.0,
+        "returns": 0.0,
+        "totalPhysical": 10.0,
+        "atpAvailable": 0.0
+      },
+      "inventory": {
+        "valuatedQuantity": 10.0,
+        "totalStockValue": 5000.0,
+        "valuationType": ""
+      },
+      "cost": {
+        "priceControl": "V",
+        "standardPrice": 0.0,
+        "movingAveragePrice": 500.0,
+        "priceUnit": 1.0,
+        "effectiveUnitCost": 500.0,
+        "valuationClass": "3000"
+      },
+      "checks": {
+        "calculatedInventoryValue": 5000.0,
+        "reportedInventoryValue": 5000.0,
+        "valuationReconciled": true
+      },
+      "storageLocations": [
+        {
+          "storageLocation": "1D",
+          "unrestricted": 10.0,
+          "qualityInspection": 0.0,
+          "restrictedUse": 0.0,
+          "blocked": 0.0,
+          "inTransfer": 0.0,
+          "returns": 0.0
+        }
+      ],
+      "warnings": [
+        "E M3099 Enter an industry sector",
+        "Base unit was not returned by MARA or material-detail BAPI.",
+        "W BM305 Unit  is not created in language ."
+      ],
+      "extractedAt": "2026-08-13T07:18:24.643Z"
+    }
+  ],
+  "warnings": [
+    "SAP BOM extraction was unavailable for material 31. Business impact was extracted for the requested material only."
+  ],
+  "extractedAt": "2026-08-13T07:18:24.7113788Z"
+}

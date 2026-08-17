@@ -1,3 +1,4 @@
+
 /* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 import {
@@ -23,6 +24,9 @@ import {
   IconX,
 } from "@tabler/icons-react";
 import type { PipelineProgress } from "@/lib/api";
+import { OutcomeNotice, RetryButton } from "@/components/feedback/OutcomeNotice";
+import { safeProgressMessage, userFacingError, type UserFacingError } from "@/lib/user-facing-errors";
+import { toast } from "sonner";
 import { ComparisonReasoningModal } from "@/components/ComparisonReasoningModal";
 import { BomFullscreenButton } from "@/components/BomFullscreenButton";
 import { useBomNativeFullscreen } from "@/components/useBomNativeFullscreen";
@@ -78,8 +82,10 @@ type Props = {
   counterpartLabel?: string;
   changeImpact?: WindchillChangeImpactResult | null;
   changeImpactFilter?: WindchillChangeImpactFilter;
+  onRetryRequest?: () => void;
+  onEditRequest?: () => void;
 };
-type Status = "idle" | "loading" | "ready" | "error";
+type Status = "idle" | "loading" | "ready" | "empty" | "error";
 type FocusRelationship = "direct" | "corresponding";
 const POLL_INTERVAL = 2000;
 const visuals = {
@@ -209,11 +215,7 @@ function TreeRow({
         ? "border-indigo-400 bg-[#151c3b] ring-2 ring-indigo-400/35"
         : "";
   return (
-    <motion.div
-      style={style}
-      ref={dragHandle}
-      className="flex items-center pr-2"
-    >
+    <div style={style} ref={dragHandle} className="flex items-center pr-2">
       <div
         role="button"
         tabIndex={0}
@@ -289,7 +291,7 @@ function TreeRow({
           <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Impacted parent</span>
         ) : null}
       </div>
-    </motion.div>
+    </div>
   );
 }
 export function SourceBomPanel({
@@ -309,10 +311,12 @@ export function SourceBomPanel({
   counterpartLabel,
   changeImpact = null,
   changeImpactFilter = "all",
+  onRetryRequest,
+  onEditRequest,
 }: Props) {
   const [bom, setBom] = useState<TreeNodeData | null>(null),
     [status, setStatus] = useState<Status>("idle"),
-    [error, setError] = useState<string | null>(null),
+    [error, setError] = useState<UserFacingError | null>(null),
     [search, setSearch] = useState(""),
     [selected, setSelected] = useState<TreeNodeData | null>(null),
     [comparisonModalOpen, setComparisonModalOpen] = useState(false),
@@ -341,10 +345,11 @@ export function SourceBomPanel({
       [trace.focus, source],
     );
   useEffect(() => {
-    const update = () => setViewportHeight(window.innerHeight);
+    let frame = 0;
+    const update = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(() => setViewportHeight(window.innerHeight)); };
     update();
     window.addEventListener("resize", update);
-    return () => window.removeEventListener("resize", update);
+    return () => { cancelAnimationFrame(frame); window.removeEventListener("resize", update); };
   }, []);
   useEffect(() => {
     if (!active) {
@@ -367,7 +372,8 @@ export function SourceBomPanel({
           onLoadComplete?.("ready");
         } catch (c) {
           setStatus("error");
-          setError(c instanceof Error ? c.message : String(c));
+          const outcome = userFacingError(source, c);
+          setError(outcome);
           onLoadComplete?.("error");
         }
       }, 0);
@@ -398,9 +404,31 @@ export function SourceBomPanel({
           again();
           return;
         }
-        if (!response.ok) throw new Error(backendMessage(payload));
+        if (!response.ok) {
+          const outcome = userFacingError(source, backendMessage(payload), response.status);
+          if (outcome.kind === "not-found") {
+            if (cancelled) return;
+            setBom(null);
+            onBomReady?.(source, null);
+            setError(outcome);
+            setStatus("empty");
+            onLoadComplete?.("error");
+            toast.info(outcome.title, { description: outcome.message, id: `${source}-structure` });
+            return;
+          }
+          throw Object.assign(new Error(outcome.message), { outcome });
+        }
         const root = transformPayload(payload);
         if (!root) {
+          if (source === "configit") {
+            const outcome = userFacingError(source, "Configit returned no usable BOM nodes.");
+            setBom(null);
+            onBomReady?.(source, null);
+            setError(outcome);
+            setStatus("empty");
+            onLoadComplete?.("error");
+            return;
+          }
           again();
           return;
         }
@@ -409,13 +437,16 @@ export function SourceBomPanel({
         onBomReady?.(source, root);
         setSelected(null);
         setStatus("ready");
+        toast.success(`${source === "excel" ? "Excel" : source.charAt(0).toUpperCase() + source.slice(1)} structure ready`, { id: `${source}-structure` });
         onLoadComplete?.("ready");
       } catch (c) {
         if (cancelled) return;
         setBom(null);
         onBomReady?.(source, null);
+        const supplied = c && typeof c === "object" && "outcome" in c ? (c as { outcome: UserFacingError }).outcome : userFacingError(source, c);
         setStatus("error");
-        setError(c instanceof Error ? c.message : String(c));
+        setError(supplied);
+        toast.error(supplied.title, { description: supplied.message, id: `${source}-structure` });
         onLoadComplete?.("error");
       }
     };
@@ -667,11 +698,13 @@ export function SourceBomPanel({
           </>
         ) : (
           <Empty
+            source={source}
             status={status}
             error={error}
             progress={progress}
             label={loadingLabel}
-            retry={() => setRetry((v) => v + 1)}
+            retry={onRetryRequest ?? (() => setRetry((v) => v + 1))}
+            edit={onEditRequest}
           />
         )}
       </motion.section>
@@ -765,47 +798,43 @@ function Tool({
   );
 }
 function Empty({
+  source,
   status,
   error,
   progress,
   label,
   retry,
+  edit,
 }: {
+  source: SourceType;
   status: Status;
-  error: string | null;
+  error: UserFacingError | null;
   progress?: PipelineProgress | null;
   label: string;
   retry: () => void;
+  edit?: () => void;
 }) {
-  return (
-    <div className="flex min-h-[380px] items-center justify-center p-8 text-center">
-      <div>
-        <IconPackage className="mx-auto h-8 w-8 text-slate-400" />
-        <p className="mt-4 text-sm font-semibold">
-          {status === "loading"
-            ? progress?.phase || "Preparing BOM preview"
-            : status === "error"
-              ? "BOM preview unavailable"
-              : "Waiting for extraction"}
-        </p>
-        <p className="mt-2 text-xs text-slate-500">
-          {status === "loading"
-            ? progress?.message || label
-            : status === "error"
-              ? error
-              : "Submit an identifier to begin."}
-        </p>
-        {status === "error" ? (
-          <button
-            type="button"
-            onClick={retry}
-            className="mt-5 rounded-xl bg-cyan-600 px-4 py-2 text-white"
-          >
-            <IconRefresh className="mr-2 inline h-4 w-4" />
-            Retry
-          </button>
-        ) : null}
+  if (status === "loading") {
+    return (
+      <div className="flex min-h-[380px] items-center justify-center p-8 text-center">
+        <div className="max-w-md">
+          <IconRefresh className="mx-auto h-7 w-7 animate-spin text-cyan-500" />
+          <p className="mt-4 text-sm font-semibold">{progress?.phase ? safeProgressMessage(source, progress.message) : "Preparing the result..."}</p>
+          <p className="mt-2 text-sm leading-6 text-slate-500">{progress?.message ? safeProgressMessage(source, progress.message) : label}</p>
+          {progress?.progressPercent != null ? <div className="mx-auto mt-4 h-1.5 max-w-xs overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800"><div className="h-full rounded-full bg-cyan-500 transition-all" style={{ width: `${Math.max(4, progress.progressPercent)}%` }} /></div> : null}
+        </div>
       </div>
+    );
+  }
+  if (status === "empty" && error) {
+    return <div className="p-5 sm:p-8"><OutcomeNotice tone="info" title={error.title} message={error.message} technicalDetails={error.technicalDetails} actions={<>{edit ? <button type="button" onClick={edit} className="h-9 rounded-lg border border-slate-300 px-3.5 text-xs font-semibold dark:border-slate-700">Review request</button> : null}<RetryButton onClick={retry} label="Run again" /></>} /></div>;
+  }
+  if (status === "error" && error) {
+    return <div className="p-5 sm:p-8"><OutcomeNotice tone={error.kind === "validation" || error.kind === "configuration" ? "warning" : "error"} title={error.title} message={error.message} technicalDetails={error.technicalDetails} actions={<>{edit ? <button type="button" onClick={edit} className="h-9 rounded-lg border border-slate-300 px-3.5 text-xs font-semibold dark:border-slate-700">Edit request</button> : null}{error.retryable ? <RetryButton onClick={retry} /> : null}</>} /></div>;
+  }
+  return (
+    <div className="flex min-h-[320px] items-center justify-center p-8 text-center">
+      <div><IconPackage className="mx-auto h-8 w-8 text-slate-400" /><p className="mt-4 text-sm font-semibold">Waiting for a request</p><p className="mt-2 text-sm text-slate-500">Submit an identifier to load a structure.</p></div>
     </div>
   );
 }
