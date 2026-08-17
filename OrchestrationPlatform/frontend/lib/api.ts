@@ -1,3 +1,5 @@
+import type { SapOperationalImpact } from "@/types/sap-operational-impact";
+
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5212/api";
 
 export class ApiError extends Error {
@@ -81,6 +83,10 @@ export function subscribeToProgress(jobId: string, onProgress: (progress: Pipeli
 
 export async function getPipelineBom(jobId: string) {
   return expectJson(await fetch(`${API_BASE}/pipeline/bom/${encodeURIComponent(jobId)}`, { cache: "no-store" }));
+}
+export async function getSapOperationalImpact(jobId: string): Promise<SapOperationalImpact> {
+  const body = await expectJson<{ sapOperationalImpact: SapOperationalImpact }>(await fetch(`${API_BASE}/pipeline/sap-operational-impact/${encodeURIComponent(jobId)}`, { cache: "no-store" }));
+  return body.sapOperationalImpact;
 }
 export async function getSapBusinessImpact(jobId: string): Promise<SapBusinessImpact> {
   const body = await expectJson<{ sapImpact: SapBusinessImpact }>(await fetch(`${API_BASE}/pipeline/sap-impact/${encodeURIComponent(jobId)}`, { cache: "no-store" }));

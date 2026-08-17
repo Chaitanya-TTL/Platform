@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import {
@@ -38,7 +39,7 @@ import { ExcelBomImportWorkspace } from "@/components/excel-import/ExcelBomImpor
 import { PipelineForm } from "@/components/PipelineForm";
 import { QuickStartModal } from "@/components/QuickStartModal";
 import { SAPForm } from "@/components/SAPForm";
-import { SapBusinessImpactPanel } from "@/components/SapBusinessImpactPanel";
+import { SapOperationalImpactPanel } from "@/components/SapOperationalImpactPanel";
 import { WindchillForm } from "@/components/WindchillForm";
 import { startSapExtraction, subscribeToProgress, type PipelineProgress } from "@/lib/api";
 import { userFacingError } from "@/lib/user-facing-errors";
@@ -708,7 +709,7 @@ export default function Page() {
             counterpartLabel={counterpart("sap")}
             onRetryRequest={sapRequest ? retrySap : undefined}
           />
-          <SapBusinessImpactPanel jobId={sapJob} active={Boolean(sapJob)} />
+          <SapOperationalImpactPanel jobId={sapJob} active={Boolean(sapJob)} />
         </div>
       </>
     );
@@ -801,6 +802,9 @@ export default function Page() {
       </AnimatePresence>
 
       <div className="mx-auto flex min-h-screen max-w-[1920px] flex-col gap-5 px-4 py-5 sm:px-6 lg:px-8">
+        <header className="border-b border-slate-200 pb-4 dark:border-slate-800">
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Digital Thread Orchestration Platform</h1>
+        </header>
         <section className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white/90 px-4 py-3 shadow-sm dark:border-slate-700 dark:bg-slate-900/80 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">Sources</p>

@@ -1,3 +1,4 @@
+
 using System.Diagnostics;
 using System.Text;
 using Microsoft.Extensions.Options;
@@ -12,6 +13,8 @@ public sealed class SubprocessResult
     public string? BomOutputPath { get; init; }
     public SapBusinessImpactResult? SapImpact { get; init; }
     public string? SapImpactOutputPath { get; init; }
+    public SapMaterialHistoryResult? SapHistory { get; init; }
+    public string? SapHistoryOutputPath { get; init; }
 }
 public interface ISubprocessExecutor { Task<SubprocessResult> ExecuteAsync(ExtractionRequest request,Func<string,Task> progressCallback); }
 public sealed class SubprocessExecutor : ISubprocessExecutor
@@ -31,8 +34,10 @@ public sealed class SubprocessExecutor : ISubprocessExecutor
             var dir=_options.ResolveSapPath();var jar=Path.Combine(dir,"lib","sapjco3.jar");var dll=Path.Combine(dir,"lib","sapjco3.dll");var config=Path.Combine(dir,"config","sap.properties");
             var bomSource=Path.Combine(dir,"src","SapBomExtractor.java");var bomClass=Path.Combine(dir,"out","SapBomExtractor.class");
             var impactSource=Path.Combine(dir,"src","SapMaterialImpactExtractor.java");var impactClass=Path.Combine(dir,"out","SapMaterialImpactExtractor.class");
+            var historySource=Path.Combine(dir,"src","SapMaterialHistoryExtractor.java");var historyClass=Path.Combine(dir,"out","SapMaterialHistoryExtractor.class");
             foreach(var file in new[]{jar,dll,config,bomSource})if(!File.Exists(file))throw new FileNotFoundException("Required SAP runtime file was not found.",file);
             if(request.IncludeSapBusinessImpact&&!File.Exists(impactSource))throw new FileNotFoundException("SAP impact extractor source was not found.",impactSource);
+            if(request.IncludeSapBusinessImpact&&!File.Exists(historySource))throw new FileNotFoundException("SAP history extractor source was not found.",historySource);
             var runtime=Path.Combine(dir,"runtime","jobs",SafeSegment(request.JobId??Guid.NewGuid().ToString("N")));Directory.CreateDirectory(runtime);
             var bomPath=Path.Combine(runtime,"sap_bom_extraction.json");if(File.Exists(bomPath))File.Delete(bomPath);
             var output=new StringBuilder();
@@ -80,8 +85,16 @@ public sealed class SubprocessExecutor : ISubprocessExecutor
             result.Status=result.Materials.Count==materials.Count&&result.Materials.All(x=>string.Equals(x.Status,"complete",StringComparison.OrdinalIgnoreCase))?"complete":result.Materials.Count>0?"partial_success":"failed";
             result.ExtractedAt=DateTime.UtcNow.ToString("O");
             var impactPath=Path.Combine(runtime,"sap_material_impact.json");await File.WriteAllTextAsync(impactPath,JsonConvert.SerializeObject(result,Formatting.Indented));
-            var success=bom!=null||result.Materials.Count>0;
-            return new(){Success=success,Output=AppendReason(output,bomFailure),Bom=bom,BomOutputPath=bom==null?null:bomPath,SapImpact=result,SapImpactOutputPath=impactPath};
+            await CompileIfNeeded(historySource,historyClass,jar,dir,progress,output);
+            await progress($"Retrieving SAP material movements and financial trace for {requestedMaterial}...");
+            var historyPath=Path.Combine(runtime,"sap_material_history.json");
+            var historyRun=JavaInfo(dir,jar,"SapMaterialHistoryExtractor",requestedMaterial,result.Plant,historyPath);
+            var historyExecuted=await _runner.RunAsync(historyRun,TimeSpan.FromSeconds(Math.Max(30,_options.SapTimeoutSeconds)),progress);output.Append(historyExecuted.output);
+            SapMaterialHistoryResult? history=null;
+            if(historyExecuted.exitCode==0&&File.Exists(historyPath)){try{history=JsonConvert.DeserializeObject<SapMaterialHistoryResult>(await File.ReadAllTextAsync(historyPath));}catch(Exception ex){result.Warnings.Add($"SAP history could not be parsed: {ex.Message}");}}
+            else result.Warnings.Add("SAP movement history was unavailable. Current stock and valuation remain usable.");
+            var success=bom!=null||result.Materials.Count>0||history?.Movements.Count>0;
+            return new(){Success=success,Output=AppendReason(output,bomFailure),Bom=bom,BomOutputPath=bom==null?null:bomPath,SapImpact=result,SapImpactOutputPath=impactPath,SapHistory=history,SapHistoryOutputPath=history==null?null:historyPath};
         }
         finally{_sapGate.Release();}
     }
@@ -104,5 +117,3 @@ public sealed class SubprocessExecutor : ISubprocessExecutor
     private static ProcessStartInfo BaseInfo(string file,string cwd)=>new(){FileName=file,WorkingDirectory=cwd,UseShellExecute=false,RedirectStandardOutput=true,RedirectStandardError=true,CreateNoWindow=true,StandardOutputEncoding=Encoding.UTF8,StandardErrorEncoding=Encoding.UTF8};
     private static string SafeSegment(string value)=>string.Concat(value.Select(c=>char.IsLetterOrDigit(c)||c is '-' or '_'?c:'_'));
 }
-
-
