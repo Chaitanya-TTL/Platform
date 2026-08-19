@@ -91,7 +91,7 @@ export function QuickStartModal({
             initial={{ opacity: 0, y: 28, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20 }}
-            className="max-h-[92dvh] w-full overflow-auto rounded-t-[28px] border border-slate-200 bg-white p-5 shadow-2xl dark:border-slate-700 dark:bg-slate-900 sm:max-w-2xl sm:rounded-[30px] sm:p-8"
+            className="max-h-[92dvh] w-full overflow-auto rounded-t-2xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-slate-700 dark:bg-slate-900 sm:max-w-2xl sm:rounded-2xl sm:p-8"
           >
             <header className="mb-6 flex items-start justify-between gap-4">
               <div>

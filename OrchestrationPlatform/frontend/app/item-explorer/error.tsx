@@ -1,3 +1,0 @@
-"use client";
-import { IconAlertTriangle } from "@tabler/icons-react";
-export default function ErrorPage({ reset }: { reset: () => void }) { return <div className="flex min-h-[60vh] items-center justify-center p-6"><div className="max-w-md rounded-xl border border-rose-300 bg-white p-6 text-center dark:border-rose-500/30 dark:bg-slate-900"><IconAlertTriangle className="mx-auto h-7 w-7 text-rose-500"/><h2 className="mt-4 text-lg font-semibold">Item Explorer could not be opened</h2><p className="mt-2 text-sm text-slate-500">No source record was changed.</p><button onClick={reset} className="mt-5 h-10 rounded-lg bg-cyan-600 px-4 text-sm font-semibold text-white">Try again</button></div></div>; }

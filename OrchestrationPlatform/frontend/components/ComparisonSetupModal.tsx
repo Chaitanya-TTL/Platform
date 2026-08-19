@@ -69,7 +69,7 @@ export function ComparisonSetupModal({
             initial={{ opacity: 0, y: 25, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20 }}
-            className="w-full rounded-t-[28px] border border-slate-200 bg-white p-5 shadow-2xl dark:border-slate-700 dark:bg-slate-900 sm:max-w-xl sm:rounded-[28px] sm:p-7"
+            className="w-full rounded-t-2xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-slate-700 dark:bg-slate-900 sm:max-w-xl sm:rounded-2xl sm:p-7"
           >
             <div className="flex justify-between gap-4">
               <div>

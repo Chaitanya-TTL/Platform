@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -644,7 +645,7 @@ function TreeRow({
           {node.data.attributes &&
             Object.keys(node.data.attributes).length >
               0 && (
-              <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-slate-400">
+              <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-400">
                 {Object.entries(
                   node.data.attributes
                 )

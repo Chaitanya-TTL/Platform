@@ -16,3 +16,20 @@ windchill_extractor/__pycache__/
 windchill_extractor/*.pyc
 windchill_extractor/windchill_extraction.json
 windchill_extractor/windchill_extraction_raw.json
+
+### Generated platform artifacts
+**/.next/
+**/bin/
+**/obj/
+**/out/
+**/runtime/
+**/__pycache__/
+**/*.pyc
+**/*-run-output.txt
+*-bundle.txt
+*-bundle.zip
+platform-engineering-review-audit.txt
+**/.env
+**/.env.*
+!**/.env.example
+**/sap.properties

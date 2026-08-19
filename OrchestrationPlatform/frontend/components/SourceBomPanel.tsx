@@ -1,4 +1,3 @@
-
 /* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 import {
@@ -25,6 +24,7 @@ import {
 } from "@tabler/icons-react";
 import type { PipelineProgress } from "@/lib/api";
 import { OutcomeNotice, RetryButton } from "@/components/feedback/OutcomeNotice";
+import { SourceStateBadge, SourceStructureSkeleton } from "@/components/source-workflow/SourceState";
 import { safeProgressMessage, userFacingError, type UserFacingError } from "@/lib/user-facing-errors";
 import { toast } from "sonner";
 import { ComparisonReasoningModal } from "@/components/ComparisonReasoningModal";
@@ -270,25 +270,25 @@ function TreeRow({
             {shown.name}
           </span>
           <span
-            className={`text-[14px] ${focusRelationship === "direct" ? "text-violet-200/80" : focusRelationship === "corresponding" ? "text-indigo-200/80" : "text-slate-500"}`}
+            className={`text-sm ${focusRelationship === "direct" ? "text-violet-200/80" : focusRelationship === "corresponding" ? "text-indigo-200/80" : "text-slate-500"}`}
           >
             {shown.itemId ? `Item ID: ${shown.itemId}` : node.data.attributes?.["Part ID"] ? `Part ID: ${String(node.data.attributes["Part ID"])}` : node.data.attributes?.["Tree Path"] ? `Path: ${String(node.data.attributes["Tree Path"])}` : "Structural occurrence"}
           </span>
         </span>
         {focusRelationship ? (
           <span
-            className={`shrink-0 rounded-full border px-2 py-1 text-[12px] font-bold uppercase ${focusRelationship === "direct" ? "border-violet-300/35 bg-violet-400/15 text-violet-200" : "border-indigo-300/35 bg-indigo-400/15 text-indigo-200"}`}
+            className={`shrink-0 rounded-full border px-2 py-1 text-xs font-bold uppercase ${focusRelationship === "direct" ? "border-violet-300/35 bg-violet-400/15 text-violet-200" : "border-indigo-300/35 bg-indigo-400/15 text-indigo-200"}`}
           >
             {focusRelationship}
           </span>
         ) : result && visual ? (
-          <span className="shrink-0 rounded-full border border-current/20 px-2 py-1 text-[12px] font-semibold uppercase">
+          <span className="shrink-0 rounded-full border border-current/20 px-2 py-1 text-xs font-semibold uppercase">
             {visual.label}
           </span>
         ) : changeDirect ? (
-          <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-orange-400">Affected{changeImpact?.notices?.length ? ` -+ ${changeImpact.notices.length}` : ""}</span>
+          <span className="shrink-0 text-xs font-semibold uppercase tracking-wide text-orange-400">Affected{changeImpact?.notices?.length ? ` -+ ${changeImpact.notices.length}` : ""}</span>
         ) : changeIndirect ? (
-          <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Impacted parent</span>
+          <span className="shrink-0 text-xs font-semibold uppercase tracking-wide text-slate-400">Impacted parent</span>
         ) : null}
       </div>
     </div>
@@ -296,6 +296,7 @@ function TreeRow({
 }
 export function SourceBomPanel({
   source,
+  title,
   endpoint,
   transformPayload,
   active,
@@ -322,7 +323,8 @@ export function SourceBomPanel({
     [comparisonModalOpen, setComparisonModalOpen] = useState(false),
     [retry, setRetry] = useState(0),
     [viewMode, setViewMode] = useState<BomViewMode>("tree"),
-    [viewportHeight, setViewportHeight] = useState(900);
+    [viewportHeight, setViewportHeight] = useState(900),
+    [loadedAt, setLoadedAt] = useState<Date | null>(null);
   const tree = useRef<TreeApi<TreeNodeData> | null>(null),
     panelRef = useRef<HTMLElement | null>(null),
     impact = useCrossBomImpact(),
@@ -369,6 +371,7 @@ export function SourceBomPanel({
           setBom(root);
           onBomReady?.(source, root);
           setStatus("ready");
+          setLoadedAt(new Date());
           onLoadComplete?.("ready");
         } catch (c) {
           setStatus("error");
@@ -437,6 +440,7 @@ export function SourceBomPanel({
         onBomReady?.(source, root);
         setSelected(null);
         setStatus("ready");
+        setLoadedAt(new Date());
         toast.success(`${source === "excel" ? "Excel" : source.charAt(0).toUpperCase() + source.slice(1)} structure ready`, { id: `${source}-structure` });
         onLoadComplete?.("ready");
       } catch (c) {
@@ -502,15 +506,12 @@ export function SourceBomPanel({
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
         className="relative flex min-h-0 flex-col overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-950/95 fullscreen:h-screen fullscreen:w-screen fullscreen:rounded-none fullscreen:border-0 fullscreen:bg-white dark:fullscreen:bg-[#020617]"
       >
-        <header className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-slate-800">
-          <span className="rounded-full border border-slate-200 px-2.5 py-1 text-[13px] font-semibold uppercase dark:border-slate-700">
-            {status}
-          </span>
-          {isFullscreen ? (
-            <span className="text-[10px] font-semibold uppercase tracking-[.16em] text-cyan-400">
-              Fullscreen BOM workspace
-            </span>
-          ) : null}
+        <header className="flex min-h-14 items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 dark:border-slate-800">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">{title} structure</p>
+            <p className="mt-0.5 text-xs text-slate-500">{loadedAt ? `Updated ${loadedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "Source result"}</p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2"><SourceStateBadge status={status} />{isFullscreen ? <span className="hidden text-xs font-semibold text-cyan-600 dark:text-cyan-300 sm:inline">Fullscreen</span> : null}</div>
         </header>
         {status === "ready" && bom && summary ? (
           <>
@@ -575,7 +576,7 @@ export function SourceBomPanel({
                 ].map(([v, l]) => (
                   <div key={String(l)} className="p-2 text-center">
                     <b className="block text-xs">{v}</b>
-                    <span className="text-[12px] uppercase text-slate-500">
+                    <span className="text-xs uppercase text-slate-500">
                       {l}
                     </span>
                   </div>
@@ -753,7 +754,7 @@ function Details({
     >
       <div className="flex justify-between">
         <div>
-          <p className="text-[14px] uppercase text-cyan-600">
+          <p className="text-sm uppercase text-cyan-600">
             BOM line details
           </p>
           <h4 className="mt-1 text-sm font-semibold">{shown?.name}</h4>
@@ -764,7 +765,7 @@ function Details({
       </div>
       {changeImpact ? (
         <div className="mt-4 rounded-xl border border-amber-400/25 bg-amber-400/[.08] p-3">
-          <p className="text-[11px] font-bold uppercase text-amber-500">{changeImpact.impact === "direct" ? "Directly affected" : "Impacted assembly"}</p>
+          <p className="text-xs font-bold uppercase text-amber-500">{changeImpact.impact === "direct" ? "Directly affected" : "Impacted assembly"}</p>
           {changeImpact.notices?.map((notice, index) => <p key={`${notice.number}-${index}`} className="mt-1 text-xs text-slate-600 dark:text-slate-300">CN {notice.number ?? "Unknown"} -+ {notice.name ?? "Unnamed change"}{notice.changeIntent ? ` -+ ${notice.changeIntent}` : ""}{notice.affectedVersion ? ` -+ ${notice.affectedVersion}` : ""}</p>)}
         </div>
       ) : null}
@@ -815,22 +816,14 @@ function Empty({
   edit?: () => void;
 }) {
   if (status === "loading") {
-    return (
-      <div className="flex min-h-[380px] items-center justify-center p-8 text-center">
-        <div className="max-w-md">
-          <IconRefresh className="mx-auto h-7 w-7 animate-spin text-cyan-500" />
-          <p className="mt-4 text-sm font-semibold">{progress?.phase ? safeProgressMessage(source, progress.message) : "Preparing the result..."}</p>
-          <p className="mt-2 text-sm leading-6 text-slate-500">{progress?.message ? safeProgressMessage(source, progress.message) : label}</p>
-          {progress?.progressPercent != null ? <div className="mx-auto mt-4 h-1.5 max-w-xs overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800"><div className="h-full rounded-full bg-cyan-500 transition-all" style={{ width: `${Math.max(4, progress.progressPercent)}%` }} /></div> : null}
-        </div>
-      </div>
-    );
+    const message = progress?.message ? safeProgressMessage(source, progress.message) : progress?.phase ? safeProgressMessage(source, progress.message) : label;
+    return <SourceStructureSkeleton label={message || "Preparing source structure"} progress={progress?.progressPercent} />;
   }
   if (status === "empty" && error) {
-    return <div className="p-5 sm:p-8"><OutcomeNotice tone="info" title={error.title} message={error.message} technicalDetails={error.technicalDetails} actions={<>{edit ? <button type="button" onClick={edit} className="h-9 rounded-lg border border-slate-300 px-3.5 text-xs font-semibold dark:border-slate-700">Review request</button> : null}<RetryButton onClick={retry} label="Run again" /></>} /></div>;
+    return <div className="p-5 sm:p-8"><OutcomeNotice tone="info" title={error.title} message={error.message} technicalDetails={error.technicalDetails} actions={<>{edit ? <button type="button" onClick={edit} className="h-10 rounded-lg border border-slate-300 px-3.5 text-sm font-semibold dark:border-slate-700">Review request</button> : null}<RetryButton onClick={retry} label="Run again" /></>} /></div>;
   }
   if (status === "error" && error) {
-    return <div className="p-5 sm:p-8"><OutcomeNotice tone={error.kind === "validation" || error.kind === "configuration" ? "warning" : "error"} title={error.title} message={error.message} technicalDetails={error.technicalDetails} actions={<>{edit ? <button type="button" onClick={edit} className="h-9 rounded-lg border border-slate-300 px-3.5 text-xs font-semibold dark:border-slate-700">Edit request</button> : null}{error.retryable ? <RetryButton onClick={retry} /> : null}</>} /></div>;
+    return <div className="p-5 sm:p-8"><OutcomeNotice tone={error.kind === "validation" || error.kind === "configuration" ? "warning" : "error"} title={error.title} message={error.message} technicalDetails={error.technicalDetails} actions={<>{edit ? <button type="button" onClick={edit} className="h-10 rounded-lg border border-slate-300 px-3.5 text-sm font-semibold dark:border-slate-700">Edit request</button> : null}{error.retryable ? <RetryButton onClick={retry} /> : null}</>} /></div>;
   }
   return (
     <div className="flex min-h-[320px] items-center justify-center p-8 text-center">
