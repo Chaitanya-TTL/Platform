@@ -1,5 +1,3 @@
-
-
 "use client";
 
 import {
@@ -53,6 +51,7 @@ import type {
   TreeNodeData,
 } from "@/types/bom-comparison";
 import { SourceBomPanel } from "@/components/SourceBomPanel";
+import { RemoveSourceDialog } from "@/components/source-workflow/RemoveSourceDialog";
 import { WindchillChangeReviewWorkspace } from "@/components/windchill/WindchillChangeReviewWorkspace";
 import type {
   WindchillRevisionComparisonResult,
@@ -222,6 +221,7 @@ export default function Page() {
   const [transition, setTransition] = useState<Transition>(null);
   const [addModal, setAddModal] = useState(false);
   const [pendingAdd, setPendingAdd] = useState<SourceType | null>(null);
+  const [pendingRemoval, setPendingRemoval] = useState<SourceType | null>(null);
 
   const ready = useMemo(
     () =>
@@ -450,6 +450,7 @@ export default function Page() {
   }, [transition, pendingAdd]);
 
   const remove = (type: SourceType) => {
+    setPendingRemoval(null);
     setActive((current) => current.filter((item) => item.type !== type));
     onReady(type, null);
     if (included.includes(type)) {
@@ -725,7 +726,7 @@ export default function Page() {
             label: "ALM",
             value: "ALM",
             description: "Codebeamer",
-            icon: <IconCancel className="h-6 w-" />,
+            icon: <IconCancel className="h-6 w-6" />,
           },
                     {
             label: "CPQ",
@@ -788,6 +789,7 @@ export default function Page() {
         onClose={() => setAddModal(false)}
         onAdd={addComparisonSource}
       />
+      <RemoveSourceDialog open={Boolean(pendingRemoval)} sourceLabel={pendingRemoval ? labels[pendingRemoval] : "source"} hasData={Boolean(pendingRemoval && roots[pendingRemoval])} onCancel={() => setPendingRemoval(null)} onConfirm={() => pendingRemoval && remove(pendingRemoval)} />
       <AnimatePresence>
         {transition ? (
           <ComparisonLoader
@@ -801,13 +803,10 @@ export default function Page() {
         ) : null}
       </AnimatePresence>
 
-      <div className="mx-auto flex min-h-screen max-w-[1920px] flex-col gap-5 px-4 py-5 sm:px-6 lg:px-8">
-        <header className="border-b border-slate-200 pb-4 dark:border-slate-800">
-          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Digital Thread Orchestration Platform</h1>
-        </header>
-        <section className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white/90 px-4 py-3 shadow-sm dark:border-slate-700 dark:bg-slate-900/80 sm:flex-row sm:items-center sm:justify-between">
+      <div className="platform-page flex min-h-[calc(100vh-64px)] flex-col platform-section-gap">
+        <section className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm dark:border-slate-800 dark:bg-[#080d18] sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">Sources</p>
+            <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">Source workspace</p>
             <p className="mt-0.5 text-xs text-slate-500">{active.length} added · {ready.length} ready for comparison</p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -826,20 +825,20 @@ export default function Page() {
           />
         ) : null}
         {!active.length ? (
-          <section className="flex min-h-[82vh] items-center justify-center rounded-[28px] border border-dashed border-slate-300 bg-white/60 text-center dark:border-slate-700 dark:bg-slate-900/60">
-            <button
-              onClick={() => setModal(true)}
-              className="rounded-full transition-all hover:scale-110 duration-300 cursor-pointer bg-cyan-600 p-4 text-sm font-semibold text-white"
-            >
-              <IconPlus className="h-4 w-4" />
-            </button>
+          <section className="flex min-h-[52vh] items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white/70 px-6 py-12 text-center dark:border-slate-700 dark:bg-[#080d18]/75">
+            <div className="max-w-md">
+              <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl border border-cyan-500/25 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300"><IconPlus className="h-5 w-5" /></span>
+              <h2 className="mt-5 text-xl font-semibold tracking-tight">Add your first source</h2>
+              <p className="mt-2 text-sm leading-6 text-slate-500">Connect a PLM, ERP, CPQ, or spreadsheet source to inspect its structure and prepare a comparison.</p>
+              <button onClick={() => setModal(true)} className="mt-6 inline-flex h-10 items-center gap-2 rounded-lg bg-cyan-600 px-4 text-sm font-semibold text-white transition hover:bg-cyan-500"><IconPlus className="h-4 w-4" />Add source</button>
+            </div>
           </section>
         ) : (
           <div className="bom-groups flex gap-5 overflow-x-auto pb-4 snap-x snap-mandatory">
             {groups.map((group) => (
               <section
                 key={group.category}
-                className="bom-source-group flex-none snap-start rounded-[26px] border border-slate-200 bg-white/70 p-3 dark:border-slate-700 dark:bg-slate-900/70 sm:p-4 lg:min-w-0 lg:basis-0"
+                className="bom-source-group flex-none snap-start rounded-2xl border border-slate-200 bg-white/70 p-3 dark:border-slate-700 dark:bg-slate-900/70 sm:p-4 lg:min-w-0 lg:basis-0"
                 style={{ flexGrow: group.sources.length }}
               >
                 <div className="mb-4 flex justify-between">
@@ -863,13 +862,13 @@ export default function Page() {
                       onDragStart={() => setDragged(source.type)}
                       onDragOver={(event) => event.preventDefault()}
                       onDrop={(event) => drop(source.type, event)}
-                      className="bom-source-card min-w-0 rounded-[22px] border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-950/80 sm:p-4"
+                      className="bom-source-card min-w-0 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-950/80 sm:p-4"
                     >
-                      <div className="mb-5 flex justify-between gap-3">
-                        <h2 className="min-w-0 truncate text-xl font-semibold">
+                      <div className="mb-4 flex items-center justify-between gap-3 border-b border-slate-200 pb-3 dark:border-slate-800">
+                        <h2 className="min-w-0 truncate text-lg font-semibold">
                           {labels[source.type]}
                           {source.type === primary && comparing ? (
-                            <span className="ml-2 rounded-full bg-cyan-50 px-2 py-1 text-[9px] uppercase text-cyan-700 dark:bg-cyan-400/[.08] dark:text-cyan-300">
+                            <span className="ml-2 rounded-full bg-cyan-50 px-2 py-1 text-xs uppercase text-cyan-700 dark:bg-cyan-400/[.08] dark:text-cyan-300">
                               Primary
                             </span>
                           ) : null}
@@ -879,7 +878,7 @@ export default function Page() {
                             <IconGripVertical className="h-5 w-5 text-slate-400" />
                           ) : null}
                           <button
-                            onClick={() => remove(source.type)}
+                            onClick={() => setPendingRemoval(source.type)}
                             aria-label={`Remove ${labels[source.type]}`}
                           >
                             <IconX className="h-5 w-5" />

@@ -80,9 +80,9 @@ export function WindchillForm({
     return (
       <div className="flex flex-col gap-3 border-y border-slate-800 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <p className="text-[10px] font-semibold uppercase tracking-[.16em] text-slate-600">Current Windchill product</p>
+          <p className="text-xs font-semibold uppercase tracking-[.16em] text-slate-600">Current Windchill product</p>
           <p className="mt-1 truncate text-sm font-semibold text-slate-100">{selected?.name || selected?.number || query || "Loaded product"}</p>
-          <p className="mt-1 text-[11px] text-slate-500">{selected ? metadata(selected) : `ID ${query}`}</p>
+          <p className="mt-1 text-xs text-slate-500">{selected ? metadata(selected) : `ID ${query}`}</p>
         </div>
         <div className="flex gap-2">
           <button type="button" onClick={() => { setEditing(true); setQuery(""); setSelected(null); setResults([]); setSearched(false); }} className="h-9 rounded-lg border border-slate-700 px-3 text-xs font-semibold text-slate-400 hover:bg-slate-800 hover:text-white">Change product</button>
@@ -150,8 +150,8 @@ export function WindchillForm({
       transition={{ duration: 0.2, ease: "easeOut" }}
       className="space-y-3"
     >
-      <div className="rounded-[22px] border border-slate-700/80 bg-slate-900/70 p-4">
-        <label htmlFor="windchill-product" className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+      <div className="rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-950/70 p-4">
+        <label htmlFor="windchill-product" className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-600 dark:text-slate-300">
           Product
         </label>
         <div className="flex min-w-0 items-stretch overflow-hidden rounded-xl border border-slate-700 bg-slate-950/80 focus-within:border-cyan-500/70">
@@ -196,7 +196,7 @@ export function WindchillForm({
               <p className="truncate text-sm font-semibold text-slate-100">
                 {selected.name || selected.number || selected.numericPartId}
               </p>
-              <p className="mt-1 truncate text-[11px] text-slate-500">{metadata(selected)}</p>
+              <p className="mt-1 truncate text-xs text-slate-500">{metadata(selected)}</p>
             </div>
             <button
               type="button"
@@ -221,7 +221,7 @@ export function WindchillForm({
                 <span className="block truncate text-sm font-semibold text-slate-200">
                   {result.name || result.number || result.numericPartId}
                 </span>
-                <span className="mt-0.5 block truncate text-[11px] text-slate-500">{metadata(result)}</span>
+                <span className="mt-0.5 block truncate text-xs text-slate-500">{metadata(result)}</span>
               </button>
             ))}
           </div>

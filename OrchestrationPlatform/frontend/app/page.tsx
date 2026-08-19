@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -87,7 +88,7 @@ const toneClasses: Record<string, { icon: string; hover: string }> = {
 
 export default function Home() {
   return (
-    <main className="relative h-[100svh] min-h-[680px] overflow-hidden bg-slate-50 text-slate-900 dark:bg-[#050b18] dark:text-slate-50">
+    <main className="relative min-h-[100svh] overflow-x-hidden bg-slate-50 text-slate-900 dark:bg-[#050b18] dark:text-slate-50">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_70%_35%,rgba(34,211,238,.11),transparent_32%),radial-gradient(circle_at_20%_90%,rgba(99,102,241,.07),transparent_30%)]" />
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(148,163,184,.025)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,.025)_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:linear-gradient(to_bottom,black,transparent_92%)]" />
 
@@ -106,11 +107,11 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="flex mr-22  items-center gap-2">
+          <div className="flex items-center gap-2">
             <ThemeToggle compact />
             <Link
               href="/bom-comparison"
-              className="inline-flex h-10 items-center gap-2 rounded-xl bg-cyan-600 px-4 text-xs font-semibold text-white shadow-lg shadow-cyan-500/15 transition hover:bg-cyan-500"
+              className="inline-flex h-10 items-center gap-2 rounded-xl bg-cyan-600 px-4 text-sm font-semibold text-white shadow-lg shadow-cyan-500/15 transition hover:bg-cyan-500"
             >
               Open workspace
               <IconArrowRight className="h-4 w-4" />
@@ -126,11 +127,11 @@ export default function Home() {
             className="flex min-h-0 flex-col justify-center py-3 lg:py-5"
           >
             <div className="max-w-[900px]">
-              {/* <p className="inline-flex items-center rounded-full border border-cyan-400/20 bg-cyan-400/[.06] px-3 py-1.5 text-[9px] font-semibold uppercase tracking-[.22em] text-cyan-600 dark:text-cyan-300">
+              {/* <p className="inline-flex items-center rounded-full border border-cyan-400/20 bg-cyan-400/[.06] px-3 py-1.5 text-xs font-semibold uppercase tracking-[.22em] text-cyan-600 dark:text-cyan-300">
                 Connected enterprise product intelligence
               </p> */}
 
-              <h1 className="mt-5 text-7xl font-semibold leading-[.98] tracking-[-.055em]">
+              <h1 className="mt-5 text-4xl font-semibold leading-[1.02] tracking-[-.045em] sm:text-5xl lg:text-6xl xl:text-7xl">
                 Orchestration Platform
                 <span className="mt-1 block bg-gradient-to-r from-cyan-500 via-sky-500 to-indigo-500 bg-clip-text text-transparent">
                   for products across enterprise applications
@@ -143,7 +144,7 @@ export default function Home() {
               </p>
             </div>
 
-            <div className="mt-7 grid grid-cols-5 gap-2.5 xl:gap-3">
+            <div className="mt-7 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
               {capabilities.map((card, index) => {
                 const CardIcon = card.icon;
                 const tone = toneClasses[card.tone];
@@ -163,10 +164,10 @@ export default function Home() {
                     <h2 className="mt-3 text-xl font-semibold tracking-tight">
                       {card.title}
                     </h2>
-                    <p className="mt-1.5 text-[11px] leading-[1.55] text-slate-500 dark:text-slate-400">
+                    <p className="mt-1.5 text-sm leading-6 text-slate-500 dark:text-slate-400">
                       {card.text}
                     </p>
-                    <span className="mt-auto block truncate pt-3 text-[9px] font-semibold uppercase tracking-[.12em] text-slate-500">
+                    <span className="mt-auto block truncate pt-3 text-xs font-semibold uppercase tracking-[.1em] text-slate-500">
                       {card.badge}
                     </span>
                   </motion.article>
@@ -266,7 +267,7 @@ function PlatformVisual() {
         <span className="flex h-12 w-12 items-center justify-center rounded-2xl border border-cyan-400/20 bg-cyan-400/[.09] text-cyan-600 dark:text-cyan-300">
           <IconDatabase className="h-5 w-5" />
         </span>
-        <span className="mt-3 text-center text-[11px] font-semibold uppercase tracking-[.2em] text-cyan-700 dark:text-cyan-200">
+        <span className="mt-3 text-center text-xs font-semibold uppercase tracking-[.2em] text-cyan-700 dark:text-cyan-200">
           Orchestration
           <br />
           Platform

@@ -1,11 +1,12 @@
 "use client";
-import { useState } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import { motion } from "motion/react";
 import { IconChartDots3, IconHierarchy3 } from "@tabler/icons-react";
 import { toast } from "sonner";
 import { ApiError, startSapExtraction } from "@/lib/api";
 import { userFacingError } from "@/lib/user-facing-errors";
 import { StatefulButtonDemo } from "./StatefulButton";
+import { SourceField, SourceRequestPanel, sourceInputClass } from "@/components/source-workflow/SourceRequestPanel";
 
 interface SAPFormProps { onSubmit: (jobId: string, request?: { materialId: string; plant: string; includeImpact: boolean }) => void; isLoading: boolean }
 export function SAPForm({ onSubmit, isLoading }: SAPFormProps) {
@@ -13,11 +14,10 @@ export function SAPForm({ onSubmit, isLoading }: SAPFormProps) {
   const [plant, setPlant] = useState("1001");
   const [includeImpact, setIncludeImpact] = useState(true);
   const [error, setError] = useState("");
-  const submitLabel = includeImpact ? "Analyze material" : "Extract BOM";
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault(); setError("");
     const value = materialId.trim(), plantValue = plant.trim() || "1001";
-    if (!value) { setError("Enter an SAP material ID to continue."); toast.error("SAP material ID required"); return; }
+    if (!value) { setError("Enter an SAP material ID to continue."); return; }
     try {
       toast.loading(includeImpact ? "Starting SAP material analysis..." : "Starting SAP BOM extraction...", { id: "sap-start" });
       const result = await startSapExtraction({ materialId: value, plant: plantValue, includeSapBusinessImpact: includeImpact });
@@ -26,22 +26,17 @@ export function SAPForm({ onSubmit, isLoading }: SAPFormProps) {
       onSubmit(result.jobId, { materialId: value, plant: plantValue, includeImpact });
     } catch (cause) {
       const outcome = userFacingError("sap", cause, cause instanceof ApiError ? cause.status : undefined);
-      setError(outcome.message);
-      toast.error(outcome.title, { id: "sap-start", description: outcome.message });
+      setError(outcome.message); toast.error(outcome.title, { id: "sap-start", description: outcome.message });
     }
   };
-  return <motion.form onSubmit={handleSubmit} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, ease: "easeOut" }} className="space-y-3" aria-label="SAP extraction setup">
-    <div className="rounded-[22px] border border-slate-700/80 bg-slate-900/70 p-4">
-      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_112px]">
-        <label className="block"><span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">Material ID</span><input value={materialId} onChange={(event) => { setMaterialId(event.target.value); setError(""); }} placeholder="31 or PLM001007" disabled={isLoading} className="h-11 w-full rounded-xl border border-slate-700 bg-slate-950/80 px-3.5 text-sm font-medium text-slate-100 outline-none placeholder:text-slate-600 focus:border-cyan-500/70 disabled:opacity-60" /></label>
-        <label className="block"><span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">Plant</span><input value={plant} onChange={(event) => setPlant(event.target.value)} placeholder="1001" disabled={isLoading} className="h-11 w-full rounded-xl border border-slate-700 bg-slate-950/80 px-3.5 text-sm font-medium text-slate-100 outline-none focus:border-cyan-500/70 disabled:opacity-60" /></label>
+  return <motion.form onSubmit={handleSubmit} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.18 }}>
+    <SourceRequestPanel title="Retrieve SAP material evidence" description="Choose a structure-only request or include stock, valuation, and transaction impact." error={error}>
+      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_128px]"><SourceField label="Material ID"><input value={materialId} onChange={(e) => { setMaterialId(e.target.value); setError(""); }} placeholder="31 or PLM001007" disabled={isLoading} className={sourceInputClass}/></SourceField><SourceField label="Plant"><input value={plant} onChange={(e) => setPlant(e.target.value)} placeholder="1001" disabled={isLoading} className={sourceInputClass}/></SourceField></div>
+      <div className="mt-4 flex flex-col gap-3 border-t border-slate-200 pt-4 dark:border-slate-800 sm:flex-row sm:items-end sm:justify-between">
+        <div><span className="block text-xs font-semibold text-slate-600 dark:text-slate-300">Request scope</span><div className="mt-2 inline-flex rounded-lg border border-slate-300 bg-slate-50 p-1 dark:border-slate-700 dark:bg-slate-900"><ScopeButton active={!includeImpact} disabled={isLoading} icon={<IconHierarchy3 className="h-4 w-4"/>} onClick={() => setIncludeImpact(false)}>BOM structure</ScopeButton><ScopeButton active={includeImpact} disabled={isLoading} icon={<IconChartDots3 className="h-4 w-4"/>} onClick={() => setIncludeImpact(true)}>Operational impact</ScopeButton></div><p className="mt-2 max-w-xl text-xs leading-5 text-slate-500">{includeImpact ? "Includes available stock, valuation, movement, and accounting evidence." : "Retrieves the maintained material BOM for the selected plant."}</p></div>
+        <StatefulButtonDemo isLoading={isLoading} disabled={isLoading} idleLabel={includeImpact ? "Analyze material" : "Retrieve BOM"} loadingLabel="Starting"/>
       </div>
-      <div className="mt-3 flex flex-col gap-3 border-t border-slate-800 pt-3 sm:flex-row sm:items-end sm:justify-between">
-        <div><span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">Request</span><div className="inline-flex rounded-xl border border-slate-700 bg-slate-950/80 p-1"><ScopeButton active={!includeImpact} disabled={isLoading} icon={<IconHierarchy3 className="h-3.5 w-3.5" />} onClick={() => setIncludeImpact(false)}>BOM structure</ScopeButton><ScopeButton active={includeImpact} disabled={isLoading} icon={<IconChartDots3 className="h-3.5 w-3.5" />} onClick={() => setIncludeImpact(true)}>Business impact</ScopeButton></div><p className="mt-2 max-w-xl text-xs leading-5 text-slate-500">{includeImpact ? "Loads stock, inventory and cost information. A BOM is included when SAP has one for this material." : "Loads the maintained SAP material BOM for the selected plant."}</p></div>
-        <StatefulButtonDemo isLoading={isLoading} disabled={isLoading} idleLabel={submitLabel} loadingLabel="Starting" />
-      </div>
-    </div>
-    {error ? <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3.5 py-2.5 text-sm text-rose-200">{error}</div> : null}
+    </SourceRequestPanel>
   </motion.form>;
 }
-function ScopeButton({ active, disabled, icon, children, onClick }: { active: boolean; disabled: boolean; icon: React.ReactNode; children: React.ReactNode; onClick: () => void }) { return <button type="button" disabled={disabled} aria-pressed={active} onClick={onClick} className={`inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-[11px] font-semibold transition disabled:opacity-50 ${active ? "bg-slate-800 text-slate-100 shadow-sm" : "text-slate-500 hover:text-slate-300"}`}>{icon}{children}</button>; }
+function ScopeButton({ active, disabled, icon, children, onClick }: { active: boolean; disabled: boolean; icon: ReactNode; children: ReactNode; onClick: () => void }) { return <button type="button" disabled={disabled} aria-pressed={active} onClick={onClick} className={`inline-flex h-9 items-center gap-2 rounded-md px-3 text-xs font-semibold transition disabled:opacity-50 ${active ? "bg-white text-slate-900 shadow-sm dark:bg-slate-800 dark:text-white" : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"}`}>{icon}{children}</button>; }

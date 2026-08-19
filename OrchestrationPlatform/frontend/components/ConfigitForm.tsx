@@ -1,67 +1,28 @@
 "use client";
-
 import { motion } from "motion/react";
-import { useState } from "react";
-import { StatefulButtonDemo } from "./StatefulButton";
+import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
-interface ConfigitFormProps {
-  onSubmit: (workItemId: string, productModel: string) => void;
-  isRunning: boolean;
-}
+import { StatefulButtonDemo } from "./StatefulButton";
+import { SourceField, SourceRequestPanel, sourceInputClass } from "@/components/source-workflow/SourceRequestPanel";
 
+interface ConfigitFormProps { onSubmit: (workItemId: string, productModel: string) => void; isRunning: boolean }
 export function ConfigitForm({ onSubmit, isRunning }: ConfigitFormProps) {
   const [productId, setProductId] = useState("");
   const [error, setError] = useState("");
-
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setError("");
-
-    if (!productId.trim()) {
-      setError("Enter a Configit product ID to continue.");
-      toast.error("Configit product ID required");
-      return;
-    }
-
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault(); setError("");
+    const value = productId.trim();
+    if (!value) { setError("Enter a Configit Product ID to continue."); return; }
     toast.loading("Resolving Configit product model...", { id: "configit-start" });
-    onSubmit(productId.trim(), productId.trim());
-    toast.success("Configit extraction started", { id: "configit-start", description: `Resolving ${productId.trim()}.` });
+    onSubmit(value, value);
+    toast.success("Configit extraction started", { id: "configit-start", description: `Resolving ${value}.` });
   };
-
-  return (
-    <motion.form
-      onSubmit={handleSubmit}
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.22, ease: "easeOut" }}
-      className="space-y-4"
-    >
-      <div className="rounded-[24px] border border-slate-700/70 bg-slate-900/80 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <label className="text-xs font-semibold text-slate-100">
-            Product ID
-          </label>
-          {/* <span className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-2.5 py-1 text-xs font-medium uppercase tracking-[0.24em] text-cyan-300">
-            Configit
-          </span> */}
-        </div>
-        <div className="flex items-stretch overflow-hidden rounded-xl border border-slate-700/80 bg-slate-950/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-          <input
-            value={productId}
-            onChange={(event) => setProductId(event.target.value)}
-            placeholder="002403"
-            disabled={isRunning}
-            className="min-w-0 flex-1 border-0 bg-transparent px-4 py-3 text-xs text-slate-100 placeholder-slate-500 transition-all duration-200 focus:border-0 focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:opacity-60"
-          />
-          <StatefulButtonDemo isLoading={isRunning} disabled={isRunning} idleLabel="Resolve product" loadingLabel="Resolving" />
-        </div>
+  return <motion.form onSubmit={handleSubmit} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.18 }}>
+    <SourceRequestPanel title="Resolve Configit product" description="Configit currently requires an exact Product ID." error={error}>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+        <div className="min-w-0 flex-1"><SourceField label="Product ID"><input value={productId} onChange={(e) => { setProductId(e.target.value); setError(""); }} placeholder="002403" disabled={isRunning} className={sourceInputClass}/></SourceField></div>
+        <StatefulButtonDemo isLoading={isRunning} disabled={isRunning} idleLabel="Resolve product" loadingLabel="Resolving" />
       </div>
-
-      {error && (
-        <div className="rounded-2xl border border-rose-500/40 bg-rose-500/10 px-3.5 py-3 text-xs text-rose-200">
-          {error}
-        </div>
-      )}
-    </motion.form>
-  );
+    </SourceRequestPanel>
+  </motion.form>;
 }
