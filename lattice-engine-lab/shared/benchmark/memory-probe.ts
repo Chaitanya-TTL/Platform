@@ -1,0 +1,1 @@
+export interface MemorySnapshot{label:string;timestamp:number;jsHeapBytes?:number;gpuEstimateBytes?:number;domNodes?:number;canvases?:number;workers?:number}export interface MemoryProbe{snapshot(label:string):Promise<MemorySnapshot>|MemorySnapshot}

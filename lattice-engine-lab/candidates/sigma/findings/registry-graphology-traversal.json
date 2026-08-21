@@ -1,0 +1,41 @@
+﻿{
+  "name": "graphology-traversal",
+  "version": "0.3.1",
+  "time": {
+    "created": "2020-11-14T00:28:13.198Z",
+    "0.0.1": "2020-11-14T00:28:13.337Z",
+    "modified": "2022-05-04T02:39:22.024Z",
+    "0.1.0": "2020-11-14T12:45:04.732Z",
+    "0.2.0": "2020-11-15T13:07:33.502Z",
+    "0.2.1": "2021-03-19T15:50:40.936Z",
+    "0.2.2": "2021-10-15T15:05:10.942Z",
+    "0.3.0": "2021-12-09T20:45:29.084Z",
+    "0.3.1": "2022-04-21T13:02:00.648Z"
+  },
+  "license": "MIT",
+  "peerDependencies": {
+    "graphology-types": ">=0.20.0"
+  },
+  "scripts": {
+    "prepublishOnly": "npm test",
+    "test": "mocha test.js"
+  },
+  "dist": {
+    "integrity": "sha512-lGLrLKEDKtNgAKgHVhVftKf3cb/nuWwuVPQZHXRnN90JWn0RSjco/s+NB2ARSlMapEMlbnPgv6j++427yTnU3Q==",
+    "shasum": "d4342a7093b4d4dab0f9130949166d1a85467bcc",
+    "tarball": "https://registry.npmjs.org/graphology-traversal/-/graphology-traversal-0.3.1.tgz",
+    "fileCount": 11,
+    "unpackedSize": 11882,
+    "signatures": [
+      {
+        "keyid": "SHA256:jl3bwswu80PjjokCgh0o2w5c2U4LhQAE57gj9cz1kzA",
+        "sig": "MEUCIQCxWpZTOIUl+gpQDDlsp6vYBarjQVthbGVGtKED9EotPAIgT2TXrPgc+rlp884Mjb3qQrbwmZjmDsPixv3/zFdY54Y="
+      }
+    ],
+    "npm-signature": "-----BEGIN PGP SIGNATURE-----\r\nVersion: OpenPGP.js v4.10.10\r\nComment: https://openpgpjs.org\r\n\r\nwsFzBAEBCAAGBQJiYVXIACEJED1NWxICdlZqFiEECWMYAoorWMhJKdjhPU1b\r\nEgJ2Vmp2TA/8CeMRzsZ+QuTE75PLj86Pisl9dtPeJWURox6SdylkXK//DyFG\r\nufq5+4b9qOJhbVcFI7OiTwkCsTZDeiTMi5o5udOdCg8j09x2WderNi2depkM\r\n2sQKoks4hAGyPdjQZIDDN3O4rQ3ofBzvhv3lQ09sCV+5WJEgpO4bQdaNBGoB\r\nU0eOQxjdTy+2QGfHRn+naMRil7XN2Yb5BhKk1W5i5bYpA4ZYwgFPFyLI7Ap6\r\nGiVryyy5WuRFIWWoj/AMmhG2OeGBluh5PfdxkIpI2eHgKlVyT3GXAdVoP/9L\r\n3TmYLG/HkZvqz7cRGY8ilXbtIDZOuBeUSY6k7OxlNPlQEwIHNgVzEa2ITZyQ\r\nCoQi4zzyOd6evuphmH2MjBQCTrDPlrTaK+WxD99p0z50N//Aau3tM/L2F4lV\r\nR779BFwRSBduRTDDuNesoJXWi0HOoAzulhGVbBNWRjwc7BWu/PHG/YL2v/KR\r\nVyIvChviXOYFQP7hXIW8+MDpuvSo/yx7TMZPMBaLNrp4B+1SvIXvo2tMbJER\r\nLjJSIVgqMZT6zbkxrQc+6ew3UYK0j0eqDG2+EBm8dGgezloq2ifKQrRITZKn\r\nSbvwWa0K6tx5LTDtSGy0U4wI1pV6kxd+JYlhlEnWXyu5zd0OTB8zpFRc2SrY\r\nRyeho8oGTDg0iewRuofCoI23wyHZKXpH8kI=\r\n=B2np\r\n-----END PGP SIGNATURE-----\r\n"
+  },
+  "dependencies": {
+    "graphology-indices": "^0.17.0",
+    "graphology-utils": "^2.0.0"
+  }
+}

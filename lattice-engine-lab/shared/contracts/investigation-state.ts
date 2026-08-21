@@ -1,0 +1,1 @@
+import type{Domain,EntityId,EvidenceClass,RelationshipId}from"./canonical-graph";import type{CameraSnapshot}from"./commands";export interface InvestigationState{focusId:EntityId;selectedIds:EntityId[];expandedIds:EntityId[];pinnedIds:EntityId[];activeDomains:Domain[];activeEvidenceClasses:EvidenceClass[];highlightedPath:RelationshipId[];camera?:CameraSnapshot;history:EntityId[]}

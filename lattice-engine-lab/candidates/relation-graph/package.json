@@ -1,0 +1,28 @@
+{
+    "name":  "@lattice-lab/relation-graph",
+    "version":  "0.0.0",
+    "private":  true,
+    "type":  "module",
+    "scripts":  {
+                    "dev":  "vite",
+                    "typecheck":  "tsc -b",
+                    "build":  "tsc -b \u0026\u0026 vite build"
+                },
+    "dependencies":  {
+                         "react":  "19.2.4",
+                         "react-dom":  "19.2.4",
+                         "@relation-graph/react":  "3.0.3"
+                     },
+    "devDependencies":  {
+                            "@types/react":  "19.1.10",
+                            "@types/react-dom":  "19.1.7",
+                            "@vitejs/plugin-react":  "5.0.2",
+                            "typescript":  "5.9.2",
+                            "vite":  "7.3.6",
+                            "@types/node":  "26.1.2"
+                        },
+    "latticeLab":  {
+                       "versionsAreProvisional":  true,
+                       "requiresRegistryVerification":  true
+                   }
+}

@@ -1,0 +1,54 @@
+﻿{
+  "name": "cytoscape-layout-utilities",
+  "version": "1.1.1",
+  "time": {
+    "created": "2019-10-02T18:24:27.318Z",
+    "1.0.0": "2019-10-02T18:24:27.434Z",
+    "modified": "2022-04-28T02:45:40.900Z",
+    "1.0.1": "2020-03-29T16:39:11.662Z",
+    "1.0.2": "2020-05-19T13:04:39.355Z",
+    "1.1.0": "2021-06-25T11:00:12.966Z",
+    "1.1.1": "2021-06-25T11:12:52.719Z"
+  },
+  "license": "MIT",
+  "peerDependencies": {
+    "cytoscape": "^3.2.0"
+  },
+  "scripts": {
+    "postpublish": "run-s gh-pages:demo gh-pages:deploy gh-pages:clean",
+    "gh-pages:demo": "cpy demo.html . --rename=index.html",
+    "gh-pages:deploy": "gh-pages -d .",
+    "gh-pages:clean": "rimraf index.html",
+    "copyright": "update license",
+    "lint": "eslint src",
+    "type-check": "tsc --noEmit",
+    "build": "cross-env NODE_ENV=production webpack",
+    "build:types": "tsc --emitDeclarationOnly",
+    "build:min": "cross-env NODE_ENV=production MIN=true webpack",
+    "build:release": "run-s build copyright",
+    "watch": "webpack --progress --watch",
+    "dev": "webpack-dev-server --open",
+    "test": "mocha"
+  },
+  "dist": {
+    "integrity": "sha512-JnTAVGMsNtYjmUiDvFYKN/5MHkHOrEvuK9rOt7bhYvSfUrOFziTdrZM/8B2tSQ9iwcMEX3nzNiZjUoYIJxWb4w==",
+    "shasum": "fad663acaa19338483732ee25ff693682313f8db",
+    "tarball": "https://registry.npmjs.org/cytoscape-layout-utilities/-/cytoscape-layout-utilities-1.1.1.tgz",
+    "fileCount": 63,
+    "unpackedSize": 1038961,
+    "npm-signature": "-----BEGIN PGP SIGNATURE-----\r\nVersion: OpenPGP.js v3.0.13\r\nComment: https://openpgpjs.org\r\n\r\nwsFcBAEBCAAQBQJg1bo0CRA9TVsSAnZWagAA1aUP/0kPNT0NW//3g1xs3Zvb\n9MyHDYVKHmQM3si1KuxPGK1jjMCg3tj4ShsPJsZRzP1Q/GshMHw8LldidBRH\nCLhsUD5VQ+Jz9sCgHpj9PVL85prLJz7bBu8rTpgtrDS9Q51ZcJAf8w8dyJVY\nz2BDTl/acsVaIEv5aVft/wCqxw6pt0fv2w435kY6BrFfgIk6voqJdX5HWBsN\np2+DCadhgtvN4d5Y7l+uLVB5YF/BjfvNkrl7oh2yva7rOYdzhwQU7FbUA9ne\n6EdNTtR+4yTBh2hhcw5s60NdAlwnmHrZ90MKBblzLV4k1gXLh/ol/Dx3B3aP\nO7c0zi47h+T7l0uwsAPWBmzcvxkvHjc7D5O+sZhbxUJ+oDa41haFUkivOdSC\nvQDefeZPQZyBtNv5UgsLaMdCr3zHzSwFr4ALvzchmnpMWjP0FcSJsLCMKnAn\newodIv7DLgWtVybLjLIXC7xBrnrWNm7NUCC+uTScIpIws92QHBAyY0h2gdup\nYO4fRP3FiBz1lcniG9v////yDFYLYbaMePHpy0EnP67Lgpt4bH5Fh4F3Iz6D\nSa2CNLSR5HbP0Vl1gUsvCpvMNz/DSIS69Z8T1/lzD+BUanY1a9Fh8ZEtQmA+\nIt+F9yqXEbDjZD0x+lA+vIYREZtdgOiM/ARHKs7ZI/pU2g+ZCXR439cwK/cl\nxiZb\r\n=EiUA\r\n-----END PGP SIGNATURE-----\r\n",
+    "signatures": [
+      {
+        "keyid": "SHA256:jl3bwswu80PjjokCgh0o2w5c2U4LhQAE57gj9cz1kzA",
+        "sig": "MEUCIQCc9d1+CjJKEkYV6JcT4i0fExQhRw9l0bvmlCa3PtwE2gIgRWY0Nu96ppVga4t833VjZZHVb3ISOcjDbiadoiZ37N0="
+      }
+    ]
+  },
+  "dependencies": {
+    "@babel/runtime": "^7.12.5",
+    "@turf/turf": "^5.1.6",
+    "@types/d3-delaunay": "^5.3.0",
+    "convex-minkowski-sum": "^1.0.0",
+    "d3-delaunay": "^5.3.0"
+  }
+}

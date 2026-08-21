@@ -1,0 +1,1 @@
+import type{MetricSample}from"../contracts/benchmark-result";export interface MetricsCollector{mark(name:string):void;measure(name:string,start:string,end:string):MetricSample;sample(name:string,value:number,unit:MetricSample["unit"]):void;results():MetricSample[];reset():void}

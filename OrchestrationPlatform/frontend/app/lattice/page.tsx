@@ -1,2 +1,2 @@
-import { LatticeWorkspace } from "@/components/lattice/LatticeWorkspace";
-export default function LatticePage() { return <LatticeWorkspace/>; }
+import { LatticeNextFeature } from "@/features/lattice-next/application/LatticeNextFeature";
+export default function LatticePage(){ return <LatticeNextFeature/>; }

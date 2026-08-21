@@ -1,0 +1,67 @@
+﻿{
+  "name": "graphology-layout-forceatlas2",
+  "version": "0.10.1",
+  "time": {
+    "created": "2017-02-19T17:24:44.544Z",
+    "modified": "2024-11-08T09:26:14.997Z",
+    "0.0.1": "2017-02-19T17:24:44.544Z",
+    "0.1.0": "2017-10-05T21:23:45.476Z",
+    "0.1.1": "2017-10-06T07:05:09.058Z",
+    "0.2.0": "2018-09-21T11:34:08.431Z",
+    "0.2.1": "2018-10-01T13:42:34.037Z",
+    "0.3.0": "2019-08-08T15:16:52.060Z",
+    "0.3.1": "2019-08-08T15:25:28.199Z",
+    "0.4.0": "2020-02-18T17:18:51.947Z",
+    "0.4.1": "2020-02-18T17:26:54.459Z",
+    "0.4.2": "2020-02-23T15:09:20.250Z",
+    "0.4.3": "2020-04-07T21:07:23.294Z",
+    "0.4.4": "2020-06-22T16:07:03.220Z",
+    "0.5.0": "2020-09-29T19:48:42.570Z",
+    "0.5.1": "2020-09-29T20:09:00.213Z",
+    "0.5.2": "2020-10-12T09:05:32.762Z",
+    "0.5.3": "2020-10-30T15:59:31.102Z",
+    "0.6.0": "2020-11-10T09:10:26.617Z",
+    "0.6.1": "2021-06-18T07:33:29.484Z",
+    "0.7.0": "2021-11-02T14:16:23.735Z",
+    "0.7.1": "2021-11-02T14:46:38.578Z",
+    "0.8.0": "2021-11-04T07:21:42.040Z",
+    "0.8.1": "2021-11-04T07:28:35.383Z",
+    "0.8.2": "2022-02-17T14:54:32.804Z",
+    "0.9.0": "2022-03-30T15:25:32.267Z",
+    "0.9.1": "2022-04-01T09:56:11.600Z",
+    "0.9.1-zeroweights1": "2022-04-04T19:46:42.365Z",
+    "0.9.1-zeroweights2": "2022-04-15T14:05:29.614Z",
+    "0.9.2": "2022-06-23T08:48:37.814Z",
+    "0.10.0": "2022-10-13T13:22:51.766Z",
+    "0.10.1": "2022-10-17T14:15:42.819Z",
+    "0.11.0-rc1": "2024-11-08T09:26:14.828Z"
+  },
+  "license": "MIT",
+  "peerDependencies": {
+    "graphology-types": ">=0.19.0"
+  },
+  "scripts": {
+    "test": "mocha test.js",
+    "bench": "node bench.js",
+    "clean": "rimraf webworker.js",
+    "template": "node ./scripts/template-webworker.js > webworker.js",
+    "prepublishOnly": "npm run clean && npm test && npm run template"
+  },
+  "dist": {
+    "shasum": "741842135609d82d12db5a5fdf74672062c28205",
+    "tarball": "https://registry.npmjs.org/graphology-layout-forceatlas2/-/graphology-layout-forceatlas2-0.10.1.tgz",
+    "fileCount": 11,
+    "integrity": "sha512-ogzBeF1FvWzjkikrIFwxhlZXvD2+wlY54lqhsrWprcdPjopM2J9HoMweUmIgwaTvY4bUYVimpSsOdvDv1gPRFQ==",
+    "signatures": [
+      {
+        "sig": "MEUCIHfjFMD3SGtqqfxlHM8FCReAsQ1YjYpdEJ3z3+SzRI5BAiEA9SFYJEZo7pykl6T8rhPVDGdP7YN2YrDB2+8N5Uky748=",
+        "keyid": "SHA256:jl3bwswu80PjjokCgh0o2w5c2U4LhQAE57gj9cz1kzA"
+      }
+    ],
+    "unpackedSize": 78790,
+    "npm-signature": "-----BEGIN PGP SIGNATURE-----\r\nVersion: OpenPGP.js v4.10.10\r\nComment: https://openpgpjs.org\r\n\r\nwsFzBAEBCAAGBQJjTWOOACEJED1NWxICdlZqFiEECWMYAoorWMhJKdjhPU1b\r\nEgJ2VmqpWQ//WJKJhCrJhcnwAGBblJZxAOTjhEqmFsIw1YJ6OPjVo8jIp8Vn\r\nrUWNHRIhogMG/PqDbmKEM5YV2HVo11QPrgNBdyu53tZfY1Y8FYETl5KoSZwc\r\nD63hX5H0rSNzvBDCZiLfHpGf0tCQ6acmiSw2gOPHZfCmdPueXAQUjavZwRIV\r\nGgY4Wz80x4Xvz8TiOkXLPa/VI9o1sVQK+qa+c+Ax0fXhnIUPLT4DEq00awLn\r\nldND/8AljBJinyIiFBBoUf5CJgTrDaqxUR/LhVBY9s+e5A8FKEuyzzi6HmRM\r\nynW1HEnnfrdFfpJf3So0MuL998LwId/ep9XK9amLHBOcYDRcT2PfEaWg/Xtf\r\nYat2i7zMb7SOcCQ7DA9heYcDu2FgCGVpoyOmlv0S/whDtFKl2ubq3Zi3BpHg\r\nrIYaRY+abrFFdXv9VgQMR5fChbBP8aW3n39HAPd+0ddWW7nZ9yHvl7g9Fw/A\r\nHYacNfUEi9G+wwgIj1klosi0hfnL4qaarjT1Vx5diCiUL86bTF50jOIqtVIB\r\ny32wKf0zn+ILpd5ltm8yDXTdASbzhwL/0ASkSjh1PZhdvoHW48DV9V91hXl6\r\n2CMmN8YA+F5r97maZwzVY8zBjDv2YffCaeHYQAE1WxM5VbAJfQFJXuUPNnmA\r\nMQRkvU8zham3hI2ApBVhQkX2C0f927AH1/A=\r\n=jbbz\r\n-----END PGP SIGNATURE-----\r\n"
+  },
+  "dependencies": {
+    "graphology-utils": "^2.1.0"
+  }
+}

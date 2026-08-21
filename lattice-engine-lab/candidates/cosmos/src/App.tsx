@@ -1,0 +1,1 @@
+import{verticalSliceFixture}from"@lattice-lab/fixtures/lattice-vertical-slice";export function App(){return <main><h1>cosmos</h1><p>Minimal compilable shell only.</p><p>{verticalSliceFixture.entities.length} entities / {verticalSliceFixture.relationships.length} relationships</p><div id="candidate-canvas" aria-label="cosmos evaluation canvas"/></main>}

@@ -1,0 +1,35 @@
+{
+    "name":  "@lattice-lab/sigma",
+    "version":  "0.0.0",
+    "private":  true,
+    "type":  "module",
+    "scripts":  {
+                    "dev":  "vite",
+                    "typecheck":  "tsc -b",
+                    "build":  "tsc -b \u0026\u0026 vite build"
+                },
+    "dependencies":  {
+                         "react":  "19.2.4",
+                         "react-dom":  "19.2.4",
+                         "sigma":  "3.0.3",
+                         "graphology":  "0.26.0",
+                         "graphology-layout":  "0.6.1",
+                         "graphology-layout-forceatlas2":  "0.10.1",
+                         "graphology-shortest-path":  "2.1.0",
+                         "graphology-communities-louvain":  "2.0.2",
+                         "graphology-metrics":  "2.4.0",
+                         "graphology-traversal":  "0.3.1"
+                     },
+    "devDependencies":  {
+                            "@types/react":  "19.1.10",
+                            "@types/react-dom":  "19.1.7",
+                            "@vitejs/plugin-react":  "5.0.2",
+                            "typescript":  "5.9.2",
+                            "vite":  "7.3.6",
+                            "@types/node":  "26.1.2"
+                        },
+    "latticeLab":  {
+                       "versionsAreProvisional":  true,
+                       "requiresRegistryVerification":  true
+                   }
+}

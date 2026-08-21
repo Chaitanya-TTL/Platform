@@ -1,0 +1,6 @@
+import type{CanonicalGraphFixture,Domain,EntityId,EvidenceClass}from"@lattice-lab/contracts/canonical-graph";
+export const DOMAINS:Domain[]=["product","plm","erp","cpq","requirements","change","document","supplier","manufacturing","source","data"];
+export const EVIDENCE:EvidenceClass[]=["authoritative-source-fact","deterministic-calculation","verified-cross-reference","heuristic-match","user-approved-link","inferred-relationship","simulated-test-data","unavailable-evidence"];
+export function firstDegree(graph:CanonicalGraphFixture,id:EntityId){const result=new Set<EntityId>([id]);for(const edge of graph.relationships){if(edge.sourceId===id)result.add(edge.targetId);if(edge.targetId===id)result.add(edge.sourceId)}return result}
+export function projection(graph:CanonicalGraphFixture,visible:Set<EntityId>,domains:Set<Domain>,evidence:Set<EvidenceClass>){const entities=graph.entities.filter(entity=>visible.has(entity.id)&&domains.has(entity.domain)&&evidence.has(entity.evidenceClass));const ids=new Set(entities.map(entity=>entity.id));const relationships=graph.relationships.filter(edge=>ids.has(edge.sourceId)&&ids.has(edge.targetId)&&evidence.has(edge.evidenceClass));return{entities,relationships}}
+export function degree(graph:CanonicalGraphFixture,id:EntityId){return graph.relationships.filter(edge=>edge.sourceId===id||edge.targetId===id).length}

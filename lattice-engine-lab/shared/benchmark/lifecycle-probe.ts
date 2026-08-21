@@ -1,0 +1,1 @@
+export interface LifecycleProbe{mounts:number;destroys:number;listenersBefore:number;listenersAfter:number;canvasesBefore:number;canvasesAfter:number;notes:string[]}export const createLifecycleProbe=():LifecycleProbe=>({mounts:0,destroys:0,listenersBefore:0,listenersAfter:0,canvasesBefore:0,canvasesAfter:0,notes:[]});

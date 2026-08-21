@@ -1,0 +1,6 @@
+import type { CanonicalInvestigation } from "../discovery/investigation";
+const PREFIX="lattice-next:canonical:";const INDEX="lattice-next:canonical:index";
+export function saveCanonicalInvestigation(value:CanonicalInvestigation){try{const next={...value,updatedAt:new Date().toISOString()};localStorage.setItem(`${PREFIX}${value.investigationId}`,JSON.stringify(next));const index=listCanonicalInvestigations().filter(item=>item.id!==value.investigationId);localStorage.setItem(INDEX,JSON.stringify([{id:value.investigationId,label:value.rootContext.label,updatedAt:next.updatedAt},...index].slice(0,8)));return true;}catch{return false;}}
+export function loadCanonicalInvestigation(id:string):CanonicalInvestigation|null{try{const raw=localStorage.getItem(`${PREFIX}${id}`);if(!raw)return null;const value=JSON.parse(raw) as CanonicalInvestigation;return value.schemaVersion===3?value:null;}catch{return null;}}
+export function listCanonicalInvestigations():{id:string;label:string;updatedAt?:string}[]{try{const raw=localStorage.getItem(INDEX);return raw?JSON.parse(raw):[];}catch{return[];}}
+export function clearCanonicalInvestigation(id:string){try{localStorage.removeItem(`${PREFIX}${id}`);localStorage.setItem(INDEX,JSON.stringify(listCanonicalInvestigations().filter(item=>item.id!==id)));}catch{}}

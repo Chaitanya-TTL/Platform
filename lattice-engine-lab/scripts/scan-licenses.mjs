@@ -1,0 +1,1 @@
+import{execFileSync}from"node:child_process";const d=process.argv[2];if(!d)throw new Error("candidate directory required");console.log(execFileSync("npm",["query",".license"],{cwd:d,encoding:"utf8"}));

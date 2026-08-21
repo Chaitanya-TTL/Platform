@@ -1,0 +1,48 @@
+﻿{
+  "name": "cytoscape-fcose",
+  "version": "2.0.0",
+  "time": {
+    "created": "2019-04-12T12:42:10.774Z",
+    "1.0.0": "2019-04-12T12:42:11.028Z",
+    "modified": "2023-01-17T13:53:14.183Z",
+    "1.1.0": "2019-10-03T10:55:50.900Z",
+    "1.2.0": "2019-10-22T10:32:57.446Z",
+    "1.2.1": "2020-03-29T16:22:18.303Z",
+    "1.2.2": "2020-05-19T15:17:31.772Z",
+    "1.2.3": "2020-05-20T13:06:39.963Z",
+    "2.0.0": "2021-01-20T10:48:07.492Z",
+    "2.1.0": "2021-06-25T12:16:21.944Z",
+    "2.2.0": "2023-01-17T13:53:14.042Z"
+  },
+  "license": "MIT",
+  "peerDependencies": {
+    "cytoscape": "^3.2.0"
+  },
+  "scripts": {
+    "copyright": "update license",
+    "lint": "eslint src",
+    "build": "cross-env NODE_ENV=production webpack",
+    "build:min": "cross-env NODE_ENV=production MIN=true webpack",
+    "build:release": "run-s build copyright",
+    "watch": "webpack --progress --watch",
+    "dev": "webpack-dev-server --open",
+    "test": "mocha"
+  },
+  "dist": {
+    "integrity": "sha512-Wy80mbn50qKba5KH2GhZRPZYZGvGXCVK3yWcxSxrZOMJwXmoFQqp76OLUASgdSk5jPsrH3XA+O/bW+hJ5I0Dzw==",
+    "shasum": "2d4ae5f80f7a7251bbd16184289cb4eca10af3f4",
+    "tarball": "https://registry.npmjs.org/cytoscape-fcose/-/cytoscape-fcose-2.0.0.tgz",
+    "fileCount": 32,
+    "unpackedSize": 8665481,
+    "npm-signature": "-----BEGIN PGP SIGNATURE-----\r\nVersion: OpenPGP.js v3.0.13\r\nComment: https://openpgpjs.org\r\n\r\nwsFcBAEBCAAQBQJgCApnCRA9TVsSAnZWagAAIe4P/38IZ8XMBElJc0qN+x97\n2pTBtIaGtOlmBlOQvHItPh2WD6yMxIbNJ6vlrItwMIcVFs69w76XTnVdcDD6\nD53LK2AF7ngydT6/XMY4s1/lxKVFfks//n70kOpqz3BmQGmfzAdLES+P02Ov\nBV93YXSlXqfTWx8W67Ai80DbENlLMe2y4ama+oXNCIUvHwoVoVvwBUCqntUu\nIbeZxXE2NiHfwC80SKpF9Sx+l+PzlnUjVIKszQNDzhwQ9N5KuJCyIA++/cc5\nuoFpvkH+ch05hj7AQmzh4WzCDvrDDvmlDmEDGWRKdBWiG9qnU1LNK12OibPr\netPJ20u+thBQIAdc7siMZi+BEmMwp3vs76CK4CoS5p96ScltsyyID0HQouMb\nKqSmZrgTZp8gLyvVuOl8PUe0ZVxTpGPfjtE7hhyCwA/quHXeEIPjYHowmZok\nKYOquAjHwots+RaVddRBWprQ60OUUyUt9OLTejdRqvR4E7IQISb5WDwkVIlT\n661LUlNasmeMqHSBBzrJvCdm39EmqqVwPWEJ3NJ1/G1ZnTQig1dn28jcLkYS\nQweqJZHry/EBt7hvtIoLyLur8w35SMcjiK6C2zDHVppC6Br99Vpo/6p2QCzq\n3ff5rimoE/ZuaP/ziRoYYCI81j4vCBLcfKuiCID3LkmfpVN5S8da9HZAArxr\nFoU7\r\n=pTYW\r\n-----END PGP SIGNATURE-----\r\n",
+    "signatures": [
+      {
+        "keyid": "SHA256:jl3bwswu80PjjokCgh0o2w5c2U4LhQAE57gj9cz1kzA",
+        "sig": "MEUCICgkSBNOYyrX16I1lHUPes7ngP5rFBz4rTqnJQDGh5hCAiEAkb5kWOeSwHswsUfX0ntj1RksNSpojs+44Z8phxA3mfY="
+      }
+    ]
+  },
+  "dependencies": {
+    "cose-base": "^2.0.0"
+  }
+}
