@@ -1,0 +1,6 @@
+namespace Orchestration.API.Engineering.Contracts;
+public sealed record EngineeringQuery(string? OriginalInput, string? ProductId, string? ProductName, IdentifierType IdentifierType = IdentifierType.Auto, string? Revision = null, string? Version = null);
+public sealed record EngineeringDiscoveryRequest(string SchemaVersion, string RequestId, string CorrelationId, IReadOnlyList<EngineeringSource> RequestedSources, EngineeringQuery Query, int ResultLimitPerSource, TimeoutPolicy TimeoutPolicy, DateTimeOffset InitiatedAt);
+public sealed record QueryNormalizationRecord(string OriginalValue, string NormalizedValue, IReadOnlyList<string> Transformations, IReadOnlyList<StructuredWarning> Warnings, IdentifierType InferredIdentifierType, ConfidenceClass InferenceConfidence);
+public sealed record EngineeringDiscoveryResult(string SchemaVersion, string RequestId, string CorrelationId, IReadOnlyList<SourceDiscoveryOutcome> Sources, DateTimeOffset CompletedAt);
+public sealed record SourceDiscoveryOutcome(EngineeringSource Source, StandardStatus Status, SourceCapability Capability, IReadOnlyList<SourceCandidate> Candidates, IReadOnlyList<StructuredWarning> Warnings, IReadOnlyList<StructuredError> Errors, bool Retryable);

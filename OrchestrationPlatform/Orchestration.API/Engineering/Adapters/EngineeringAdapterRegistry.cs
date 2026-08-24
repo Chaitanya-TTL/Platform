@@ -1,0 +1,4 @@
+using Orchestration.API.Engineering.Contracts;
+namespace Orchestration.API.Engineering.Adapters;
+public interface IEngineeringAdapterRegistry { bool TryResolve(EngineeringSource source,out IEngineeringSourceAdapter? adapter); IReadOnlyCollection<IEngineeringSourceAdapter> All {get;} }
+public sealed class EngineeringAdapterRegistry:IEngineeringAdapterRegistry { readonly IReadOnlyDictionary<EngineeringSource,IEngineeringSourceAdapter> adapters; public EngineeringAdapterRegistry(IEnumerable<IEngineeringSourceAdapter> values){var list=values.ToList();var duplicate=list.GroupBy(x=>x.Source).FirstOrDefault(x=>x.Count()>1);if(duplicate!=null)throw new InvalidOperationException($"Duplicate adapter registration for {duplicate.Key}.");adapters=list.ToDictionary(x=>x.Source);All=list;}public IReadOnlyCollection<IEngineeringSourceAdapter> All{get;}public bool TryResolve(EngineeringSource s,out IEngineeringSourceAdapter? a)=>adapters.TryGetValue(s,out a);}

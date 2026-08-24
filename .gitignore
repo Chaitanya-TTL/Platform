@@ -33,3 +33,17 @@ platform-engineering-review-audit.txt
 **/.env.*
 !**/.env.example
 **/sap.properties
+
+# Backend connector secrets and generated artifacts
+# Connector-local secrets and generated backend artifacts
+.env
+.env.*
+!.env.example
+**/config/sap.properties
+**/configit_extraction.json
+**/configit_raw_response.json
+**/windchill_extraction*.json
+
+# Legacy Configit documentation excluded from delivery
+TeamCenter-to-Configit-soa_client/backend/samples/ConfigitAceIntegration/FINAL_OPTIMIZATION_REPORT.md
+TeamCenter-to-Configit-soa_client/backend/samples/ConfigitAceIntegration/Transform_and_Load Documentation/README.md
