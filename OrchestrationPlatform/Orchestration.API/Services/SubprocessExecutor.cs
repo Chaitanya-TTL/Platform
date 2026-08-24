@@ -17,6 +17,7 @@ public sealed class SubprocessResult
     public SapMaterialHistoryResult? SapHistory { get; init; }
     public string? SapHistoryOutputPath { get; init; }
     public string? OptionalStageWarning { get; init; }
+    public int? ProcessExitCode { get; init; }
 }
 public interface ISubprocessExecutor { Task<SubprocessResult> ExecuteAsync(ExtractionRequest request, Func<string, Task> progressCallback, CancellationToken cancellationToken = default); }
 public sealed class SubprocessExecutor : ISubprocessExecutor

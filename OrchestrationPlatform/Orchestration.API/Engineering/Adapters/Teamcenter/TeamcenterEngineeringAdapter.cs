@@ -1,15 +1,297 @@
-using System.Security.Cryptography;
 using Orchestration.API.Engineering.Contracts;
 using Orchestration.API.Models;
 using Orchestration.API.Services;
+
 namespace Orchestration.API.Engineering.Adapters.Teamcenter;
-public sealed class TeamcenterEngineeringAdapter: IEngineeringSourceAdapter {
- readonly ISubprocessExecutor executor; public TeamcenterEngineeringAdapter(ISubprocessExecutor executor)=>this.executor=executor; public EngineeringSource Source=>EngineeringSource.Teamcenter;
- static SourceCapability Capability()=>new(EngineeringSource.Teamcenter,SourceReadiness.CapabilityLimited,[DiscoveryMode.ExactId,DiscoveryMode.Unsupported],true,false,false,true,true,false,false,false,true,true,true,true,[],["Product-name saved-query discovery has not been verified in the installed Teamcenter environment.","The legacy batch does not emit machine-readable status for every optional downstream stage."]);
- public Task<SourceCapability> GetCapabilitiesAsync(CancellationToken token)=>Task.FromResult(Capability());
- public Task<SourceDiscoveryOutcome> DiscoverAsync(EngineeringDiscoveryRequest request,QueryNormalizationRecord normalized,CancellationToken token){var q=request.Query; if(string.IsNullOrWhiteSpace(q.ProductId)){var warning=new StructuredWarning("teamcenter-name-search-unverified",Source,EngineeringStage.Discovery,"Teamcenter product-name discovery is capability-limited because a saved-query endpoint has not been verified.",DateTimeOffset.UtcNow);return Task.FromResult(new SourceDiscoveryOutcome(Source,StandardStatus.CapabilityLimited,Capability(),[],[warning],[],false));}var id=q.ProductId.Trim();var candidate=new SourceCandidate($"teamcenter:{id}",Source,id,id,"teamcenter-item",q.Revision,q.Version,"Teamcenter Item ID accepted by the existing extraction pipeline; existence is verified only after extraction.",null,MatchCategory.SourceNativeReference,"The identifier was supplied as a Teamcenter Item ID and has not yet been verified against the source.",ConfidenceClass.Unverified,["structure"],new Dictionary<string,string?>(),new(ProvenanceKind.CapabilityOnly,"teamcenter-legacy-pipeline",DateTimeOffset.UtcNow),true);return Task.FromResult(new SourceDiscoveryOutcome(Source,StandardStatus.Success,Capability(),[candidate],[],[],false));}
- public async Task<StandardExtractionResult> ExtractAsync(string jobId,EngineeringExtractionRequest request,IProgress<StandardProgress> progress,CancellationToken token){var started=DateTimeOffset.UtcNow;var candidate=request.Candidate;if(string.IsNullOrWhiteSpace(candidate.NativeId))return Failure(request,started,"teamcenter-item-id-required","A Teamcenter Item ID is required.",false);progress.Report(new(jobId,Source,EngineeringStage.TeamcenterStructureExtraction,JobState.Extracting,10,"Starting Teamcenter structure extraction.",DateTimeOffset.UtcNow));try{var legacy=new ExtractionRequest{Kind=ExtractionKind.Teamcenter,JobId=jobId,TeamcenterItemId=candidate.NativeId};var result=await executor.ExecuteAsync(legacy,m=>{progress.Report(new(jobId,Source,EngineeringStage.TeamcenterStructureExtraction,JobState.Extracting,50,"Teamcenter extraction is running.",DateTimeOffset.UtcNow));return Task.CompletedTask;},token);token.ThrowIfCancellationRequested();if(!result.Success||result.Bom?.BomRootNode is null)return Failure(request,started,"teamcenter-extraction-failed","Teamcenter did not produce a valid structure.",true);var verified=candidate with{ConfidenceClass=ConfidenceClass.Verified,MatchCategory=MatchCategory.VerifiedIdentifierMatch,MatchReason="A valid Teamcenter extraction output verified the source-native Item ID.",Provenance=new(ProvenanceKind.LiveSource,"teamcenter-soa",DateTimeOffset.UtcNow)};var warning=!string.IsNullOrWhiteSpace(result.OptionalStageWarning)?new StructuredWarning("teamcenter-optional-stage-partial",Source,EngineeringStage.ConfigitTransformation,"Teamcenter structure extraction succeeded, but an optional downstream stage was not fully successful.",DateTimeOffset.UtcNow):null;var warnings=warning is null?Array.Empty<StructuredWarning>():new[]{warning};var status=warning is null?StandardStatus.Success:StandardStatus.PartialSuccess;var completed=DateTimeOffset.UtcNow;var artifact=new SourceArtifactReference($"artifact-{Guid.NewGuid():N}",Source,"normalized-bom",completed,EvidenceAvailability.Available,Checksum(result.Bom),$"engineering-jobs/{jobId}/teamcenter/normalized-bom",ArtifactSensitivity.Sensitive,"job-retention-policy");return new(EngineeringContractVersions.V1,request.RequestId,request.CorrelationId,jobId,Source,status,new(status,verified,candidate.NativeId,warnings,[]),Capability(),result.Bom,[],new Dictionary<string,object?>(),warnings,[],new(jobId,Source,EngineeringStage.TeamcenterNormalization,status==StandardStatus.Success?JobState.Success:JobState.PartialSuccess,100,"Teamcenter structure extraction completed.",completed),[artifact],new(ProvenanceKind.LiveSource,"teamcenter-soa",completed),Stages(warning!=null),started,completed,(long)(completed-started).TotalMilliseconds);}catch(TimeoutException){return Failure(request,started,"teamcenter-timeout","Teamcenter extraction timed out.",true,StandardStatus.TimedOut,EngineeringStage.Timeout);}}
- static IReadOnlyList<StageObservation> Stages(bool optionalWarning)=>[new(EngineeringStage.TeamcenterSession,EvidenceAvailability.NotObserved,null,"Legacy batch does not emit machine-readable session status."),new(EngineeringStage.TeamcenterResolution,EvidenceAvailability.Available,StandardStatus.Success,"Item ID verified by valid extraction output."),new(EngineeringStage.TeamcenterStructureExtraction,EvidenceAvailability.Available,StandardStatus.Success,"Valid normalized structure produced."),new(EngineeringStage.TeamcenterPlmxmlExport,EvidenceAvailability.NotObserved,null,"Not independently observed."),new(EngineeringStage.TeamcenterNormalization,EvidenceAvailability.Available,StandardStatus.Success,"Legacy output normalized."),new(EngineeringStage.ConfigitTransformation,optionalWarning?EvidenceAvailability.Partial:EvidenceAvailability.NotObserved,optionalWarning?StandardStatus.PartialSuccess:null,"Optional downstream status is not fully machine-readable."),new(EngineeringStage.ConfigitCompilation,EvidenceAvailability.NotObserved,null,"Not independently observed."),new(EngineeringStage.ConfigitPublication,EvidenceAvailability.NotObserved,null,"Not independently observed.")];
- static string Checksum(BomRoot root){var bytes=System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(root);return Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();}
- static StandardExtractionResult Failure(EngineeringExtractionRequest r,DateTimeOffset started,string code,string message,bool retryable,StandardStatus status=StandardStatus.Failed,EngineeringStage stage=EngineeringStage.Extraction){var now=DateTimeOffset.UtcNow;var error=new StructuredError(code,EngineeringSource.Teamcenter,stage,message,message,retryable,now);var state=status==StandardStatus.Cancelled?JobState.Cancelled:status==StandardStatus.TimedOut?JobState.TimedOut:JobState.Failed;return new(EngineeringContractVersions.V1,r.RequestId,r.CorrelationId,$"failed-{Guid.NewGuid():N}",EngineeringSource.Teamcenter,status,new(status,r.Candidate,null,[],[error]),Capability(),null,[],new Dictionary<string,object?>(),[],[error],new("",EngineeringSource.Teamcenter,stage,state,100,message,now),[],new(ProvenanceKind.Unavailable,"teamcenter-legacy-pipeline",now),Stages(false),started,now,(long)(now-started).TotalMilliseconds);}
+
+public sealed class TeamcenterEngineeringAdapter : IEngineeringSourceAdapter
+{
+    private static readonly SemaphoreSlim LegacyPipelineGate = new(1, 1);
+    private readonly ISubprocessExecutor executor;
+    private readonly ITeamcenterArtifactCaptureService capture;
+    private readonly ITeamcenterFailureClassifier classifier;
+
+    public TeamcenterEngineeringAdapter(
+        ISubprocessExecutor executor,
+        ITeamcenterArtifactCaptureService capture,
+        ITeamcenterFailureClassifier classifier)
+    {
+        this.executor = executor;
+        this.capture = capture;
+        this.classifier = classifier;
+    }
+
+    public EngineeringSource Source => EngineeringSource.Teamcenter;
+
+    public Task<SourceCapability> GetCapabilitiesAsync(CancellationToken token) =>
+        Task.FromResult(Capability());
+
+    public Task<SourceDiscoveryOutcome> DiscoverAsync(
+        EngineeringDiscoveryRequest request,
+        QueryNormalizationRecord normalized,
+        CancellationToken token)
+    {
+        if (string.IsNullOrWhiteSpace(request.Query.ProductId))
+        {
+            var warning = new StructuredWarning(
+                "teamcenter-name-search-unverified",
+                Source,
+                EngineeringStage.Discovery,
+                "Teamcenter product-name discovery is capability-limited because the installed saved-query contract has not been verified.",
+                DateTimeOffset.UtcNow);
+            return Task.FromResult(new SourceDiscoveryOutcome(
+                Source, StandardStatus.CapabilityLimited, Capability(), [], [warning], [], false));
+        }
+
+        var itemId = request.Query.ProductId.Trim();
+        var candidate = new SourceCandidate(
+            $"teamcenter:{itemId}", Source, itemId, itemId, "teamcenter-item",
+            request.Query.Revision, request.Query.Version,
+            "Teamcenter Item ID accepted by the existing extraction pipeline. Source existence is verified only by valid extraction output.",
+            null, MatchCategory.SourceNativeReference,
+            "The source-native reference has not yet been verified against Teamcenter.",
+            ConfidenceClass.Unverified, ["structure"], new Dictionary<string, string?>(),
+            new(ProvenanceKind.CapabilityOnly, "teamcenter-legacy-pipeline", DateTimeOffset.UtcNow), true);
+        return Task.FromResult(new SourceDiscoveryOutcome(
+            Source, StandardStatus.Success, Capability(), [candidate], [], [], false));
+    }
+
+    public async Task<StandardExtractionResult> ExtractAsync(
+        string jobId,
+        EngineeringExtractionRequest request,
+        IProgress<StandardProgress> progress,
+        CancellationToken token)
+    {
+        var started = DateTimeOffset.UtcNow;
+        if (string.IsNullOrWhiteSpace(request.Candidate.NativeId))
+            return Failure(jobId, request, started,
+                Error("teamcenter-item-id-required", EngineeringStage.TeamcenterResolution,
+                    "A Teamcenter Item ID is required.", false));
+
+        var gateAcquired = false;
+        try
+        {
+            progress.Report(Progress(jobId, EngineeringStage.TeamcenterSession, JobState.Queued, 2,
+                "Waiting for exclusive access to the legacy Teamcenter pipeline."));
+            await LegacyPipelineGate.WaitAsync(token);
+            gateAcquired = true;
+
+            progress.Report(Progress(jobId, EngineeringStage.TeamcenterStructureExtraction, JobState.Extracting, 10,
+                "Starting Teamcenter structure extraction."));
+            var legacyRequest = new ExtractionRequest
+            {
+                Kind = ExtractionKind.Teamcenter,
+                JobId = jobId,
+                TeamcenterItemId = request.Candidate.NativeId
+            };
+            var result = await executor.ExecuteAsync(
+                legacyRequest,
+                _ =>
+                {
+                    progress.Report(Progress(jobId, EngineeringStage.TeamcenterStructureExtraction,
+                        JobState.Extracting, 45, "Teamcenter extraction is running."));
+                    return Task.CompletedTask;
+                }, token);
+            token.ThrowIfCancellationRequested();
+
+            if (!result.Success || string.IsNullOrWhiteSpace(result.BomOutputPath))
+            {
+                var failure = classifier.Classify(result.Output, result.ProcessExitCode,
+                    !string.IsNullOrWhiteSpace(result.BomOutputPath) && File.Exists(result.BomOutputPath));
+                return Failure(jobId, request, started, failure);
+            }
+
+            var optionalFailure = !string.IsNullOrWhiteSpace(result.OptionalStageWarning);
+            var preliminaryStages = BuildStages(optionalFailure, captureSucceeded: false, captureFailureCode: null);
+            progress.Report(Progress(jobId, EngineeringStage.CanonicalArtifactCapture, JobState.Extracting, 85,
+                "Capturing attributable Teamcenter artifacts."));
+            var captured = await capture.CaptureAsync(jobId, request.Candidate.NativeId,
+                result.BomOutputPath, started, preliminaryStages, token);
+            if (!captured.Success || captured.Bom?.BomRootNode is null)
+            {
+                var error = Error(captured.FailureCode ?? "teamcenter-output-missing",
+                    EngineeringStage.CanonicalArtifactCapture,
+                    CaptureMessage(captured.FailureCode),
+                    captured.FailureCode is not "teamcenter-output-identity-mismatch");
+                return Failure(jobId, request, started, error);
+            }
+
+            var completed = DateTimeOffset.UtcNow;
+            var verified = request.Candidate with
+            {
+                ConfidenceClass = ConfidenceClass.Verified,
+                MatchCategory = MatchCategory.VerifiedIdentifierMatch,
+                MatchReason = "A fresh, valid and Item-ID-owned Teamcenter extraction output verified the source-native reference.",
+                Provenance = new(ProvenanceKind.LiveSource, "teamcenter-soa", completed)
+            };
+            var warnings = optionalFailure
+                ? new[] { new StructuredWarning("configit-transformation-failed", Source,
+                    EngineeringStage.ConfigitTransformation,
+                    "Teamcenter structure extraction succeeded, but the optional downstream Configit stage failed.", completed) }
+                : Array.Empty<StructuredWarning>();
+            var status = optionalFailure ? StandardStatus.PartialSuccess : StandardStatus.Success;
+            var stages = BuildStages(optionalFailure, captureSucceeded: true, captureFailureCode: null);
+            var evidence = new Dictionary<string, object?>
+            {
+                ["teamcenterStages"] = stages,
+                ["artifactManifest"] = captured.Manifest
+            };
+
+            return new StandardExtractionResult(
+                EngineeringContractVersions.V1, request.RequestId, request.CorrelationId, jobId, Source, status,
+                new(status, verified, request.Candidate.NativeId, warnings, []), Capability(), captured.Bom,
+                [], evidence, warnings, [],
+                Progress(jobId, EngineeringStage.CanonicalArtifactCapture,
+                    status == StandardStatus.Success ? JobState.Success : JobState.PartialSuccess, 100,
+                    "Teamcenter extraction and canonical artifact capture completed."),
+                captured.Artifacts, new(ProvenanceKind.LiveSource, "teamcenter-soa", completed),
+                ToGenericStages(stages, status), started, completed, (long)(completed - started).TotalMilliseconds);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (TimeoutException ex)
+        {
+            return Failure(jobId, request, started, classifier.Classify(null, null, false, ex));
+        }
+        catch (Exception ex)
+        {
+            return Failure(jobId, request, started, classifier.Classify(null, null, false, ex));
+        }
+        finally
+        {
+            if (gateAcquired) LegacyPipelineGate.Release();
+        }
+    }
+
+    private static SourceCapability Capability() => new(
+        Source: EngineeringSource.Teamcenter,
+        Readiness: SourceReadiness.CapabilityLimited,
+        DiscoveryModes: [DiscoveryMode.ExactId, DiscoveryMode.Unsupported],
+        SupportsExactId: true,
+        SupportsNameSearch: false,
+        SupportsNumberSearch: false,
+        SupportsStructureExtraction: true,
+        SupportsRevisionContext: true,
+        SupportsChangeContext: false,
+        SupportsRequirements: false,
+        SupportsOperationalImpact: false,
+        SupportsConfigurationContext: true,
+        SupportsCancellation: true,
+        SupportsRetry: true,
+        SupportsPartialSuccess: true,
+        RequiredOrganizationContext: [],
+        KnownLimitations:
+        [
+            "Product-name saved-query discovery has not been verified in the installed Teamcenter environment.",
+            "The unchanged legacy batch does not emit machine-readable evidence for every optional stage.",
+            "Legacy Teamcenter execution is serialized to prevent shared-output contamination."
+        ]);
+
+    private static IReadOnlyList<TeamcenterStageEvidence> BuildStages(
+        bool optionalFailure, bool captureSucceeded, string? captureFailureCode)
+    {
+        var now = DateTimeOffset.UtcNow;
+        return
+        [
+            Stage(EngineeringStage.TeamcenterSession, TeamcenterObservationState.NotObserved,
+                "teamcenter-session-not-observed", "The legacy batch does not emit a machine-readable session result.", now),
+            Stage(EngineeringStage.TeamcenterResolution, TeamcenterObservationState.ObservedSuccess,
+                "teamcenter-resolution-observed", "Valid owned output proves the Item ID resolved.", now),
+            Stage(EngineeringStage.TeamcenterStructureExtraction, TeamcenterObservationState.ObservedSuccess,
+                "teamcenter-structure-observed", "A valid normalized Teamcenter structure was produced.", now),
+            Stage(EngineeringStage.TeamcenterPlmxmlExport, TeamcenterObservationState.NotObserved,
+                "teamcenter-plmxml-not-observed", "PLMXML export is not independently reported by the legacy batch.", now),
+            Stage(EngineeringStage.TeamcenterNormalization, TeamcenterObservationState.ObservedSuccess,
+                "teamcenter-normalization-observed", "The Teamcenter output passed canonical JSON validation.", now),
+            Stage(EngineeringStage.ConfigitTransformation,
+                optionalFailure ? TeamcenterObservationState.ObservedFailure : TeamcenterObservationState.NotObserved,
+                optionalFailure ? "configit-transformation-failed" : "configit-transformation-not-observed",
+                optionalFailure ? "The optional downstream stage failed after Teamcenter output was produced." : "Transformation was not independently observed.", now),
+            Stage(EngineeringStage.ConfigitCompilation, TeamcenterObservationState.NotObserved,
+                "configit-compilation-not-observed", "Compilation was not independently observed.", now),
+            Stage(EngineeringStage.ConfigitPublication, TeamcenterObservationState.NotObserved,
+                "configit-publication-not-observed", "Publication was not independently observed and is never inferred.", now),
+            Stage(EngineeringStage.CanonicalArtifactCapture,
+                captureSucceeded ? TeamcenterObservationState.ObservedSuccess :
+                    captureFailureCode is null ? TeamcenterObservationState.NotObserved : TeamcenterObservationState.ObservedFailure,
+                captureSucceeded ? "canonical-artifact-capture-observed" : captureFailureCode ?? "canonical-artifact-capture-not-observed",
+                captureSucceeded ? "Fresh Item-ID-owned artifacts were captured in request-scoped storage." : "Canonical artifact capture was not completed.", now)
+        ];
+    }
+
+    private static IReadOnlyList<TeamcenterStageEvidence> BuildFailureStages(StructuredError error)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var ordered = new[]
+        {
+            EngineeringStage.TeamcenterSession,
+            EngineeringStage.TeamcenterResolution,
+            EngineeringStage.TeamcenterStructureExtraction,
+            EngineeringStage.TeamcenterPlmxmlExport,
+            EngineeringStage.TeamcenterNormalization,
+            EngineeringStage.ConfigitTransformation,
+            EngineeringStage.ConfigitCompilation,
+            EngineeringStage.ConfigitPublication,
+            EngineeringStage.CanonicalArtifactCapture
+        };
+        return ordered.Select(stage => stage == error.Stage
+            ? Stage(stage, TeamcenterObservationState.ObservedFailure, error.Code, error.UserMessage, now)
+            : Stage(stage, TeamcenterObservationState.NotObserved,
+                $"{stage.ToString().ToLowerInvariant()}-not-observed", "No attributable stage evidence was available.", now)).ToArray();
+    }
+
+    private static IReadOnlyList<StageObservation> ToGenericStages(
+        IReadOnlyList<TeamcenterStageEvidence> stages, StandardStatus status) =>
+        stages.Select(stage => new StageObservation(
+            stage.Stage,
+            stage.Observation switch
+            {
+                TeamcenterObservationState.ObservedSuccess => EvidenceAvailability.Available,
+                TeamcenterObservationState.ObservedFailure => EvidenceAvailability.Partial,
+                TeamcenterObservationState.NotRequested => EvidenceAvailability.NotRequested,
+                _ => EvidenceAvailability.NotObserved
+            },
+            stage.Observation == TeamcenterObservationState.ObservedSuccess ? StandardStatus.Success :
+            stage.Observation == TeamcenterObservationState.ObservedFailure ? StandardStatus.Failed : null,
+            stage.Message)).ToArray();
+
+    private static TeamcenterStageEvidence Stage(
+        EngineeringStage stage, TeamcenterObservationState observation, string code, string message, DateTimeOffset now) =>
+        new(stage, observation, code, message, now);
+
+    private static StandardProgress Progress(
+        string jobId, EngineeringStage stage, JobState state, int percent, string message) =>
+        new(jobId, EngineeringSource.Teamcenter, stage, state, percent, message, DateTimeOffset.UtcNow);
+
+    private static StructuredError Error(string code, EngineeringStage stage, string message, bool retryable) =>
+        new(code, EngineeringSource.Teamcenter, stage, message, message, retryable, DateTimeOffset.UtcNow);
+
+    private static string CaptureMessage(string? code) => code switch
+    {
+        "teamcenter-output-malformed" => "Teamcenter output was malformed.",
+        "teamcenter-output-stale" => "Teamcenter output predates the current execution and was rejected.",
+        "teamcenter-output-identity-mismatch" => "Teamcenter output does not belong to the requested Item ID.",
+        _ => "Teamcenter did not produce an attributable output."
+    };
+
+    private static StandardExtractionResult Failure(
+        string jobId, EngineeringExtractionRequest request, DateTimeOffset started, StructuredError error)
+    {
+        var completed = DateTimeOffset.UtcNow;
+        var status = error.Code == "teamcenter-timeout" ? StandardStatus.TimedOut :
+            error.Code == "teamcenter-cancelled" ? StandardStatus.Cancelled : StandardStatus.Failed;
+        var state = status == StandardStatus.TimedOut ? JobState.TimedOut :
+            status == StandardStatus.Cancelled ? JobState.Cancelled : JobState.Failed;
+        var stages = BuildFailureStages(error);
+        return new(
+            EngineeringContractVersions.V1, request.RequestId, request.CorrelationId, jobId,
+            EngineeringSource.Teamcenter, status,
+            new(status, request.Candidate, null, [], [error]), Capability(), null, [],
+            new Dictionary<string, object?> { ["teamcenterStages"] = stages }, [], [error],
+            Progress(jobId, error.Stage, state, 100, error.UserMessage), [],
+            new(ProvenanceKind.Unavailable, "teamcenter-legacy-pipeline", completed),
+            ToGenericStages(stages, status), started, completed, (long)(completed - started).TotalMilliseconds);
+    }
 }

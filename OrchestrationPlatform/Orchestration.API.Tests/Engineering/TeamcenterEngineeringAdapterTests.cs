@@ -6,191 +6,119 @@ using Xunit;
 
 namespace Orchestration.API.Tests.Engineering;
 
-public class TeamcenterEngineeringAdapterTests
+public sealed class TeamcenterEngineeringAdapterTests
 {
     [Fact]
-    public async Task ExactIdIsUnverifiedUntilExtraction()
+    public async Task ExactIdRemainsUnverifiedBeforeExtraction()
     {
-        var adapter = new TeamcenterEngineeringAdapter(new FakeSubprocessExecutor());
-        var request = CreateDiscoveryRequest("000123", null);
-
-        var normalization = new QueryNormalizationRecord(
-            OriginalValue: "000123",
-            NormalizedValue: "000123",
-            Transformations: [],
-            Warnings: [],
-            InferredIdentifierType: IdentifierType.ItemId,
-            InferenceConfidence: ConfidenceClass.Probable
-        );
-
-        var outcome = await adapter.DiscoverAsync(
-            request,
-            normalization,
-            CancellationToken.None
-        );
-
+        var adapter = CreateAdapter(new SuccessfulExecutor(), new SuccessfulCapture());
+        var outcome = await adapter.DiscoverAsync(Discovery("000123", null),
+            new("000123", "000123", [], [], IdentifierType.ItemId, ConfidenceClass.Probable), CancellationToken.None);
         var candidate = Assert.Single(outcome.Candidates);
-
         Assert.Equal(ConfidenceClass.Unverified, candidate.ConfidenceClass);
-        Assert.Equal(
-            MatchCategory.SourceNativeReference,
-            candidate.MatchCategory
-        );
-        Assert.True(candidate.CanExtract);
+        Assert.Equal(MatchCategory.SourceNativeReference, candidate.MatchCategory);
     }
 
     [Fact]
-    public async Task NameOnlyIsCapabilityLimited()
+    public async Task ProductNameRemainsCapabilityLimited()
     {
-        var adapter = new TeamcenterEngineeringAdapter(new FakeSubprocessExecutor());
-        var request = CreateDiscoveryRequest(null, "Pump");
-
-        var normalization = new QueryNormalizationRecord(
-            OriginalValue: "Pump",
-            NormalizedValue: "Pump",
-            Transformations: [],
-            Warnings: [],
-            InferredIdentifierType: IdentifierType.ProductName,
-            InferenceConfidence: ConfidenceClass.Probable
-        );
-
-        var outcome = await adapter.DiscoverAsync(
-            request,
-            normalization,
-            CancellationToken.None
-        );
-
+        var adapter = CreateAdapter(new SuccessfulExecutor(), new SuccessfulCapture());
+        var outcome = await adapter.DiscoverAsync(Discovery(null, "Pump"),
+            new("Pump", "Pump", [], [], IdentifierType.ProductName, ConfidenceClass.Probable), CancellationToken.None);
         Assert.Equal(StandardStatus.CapabilityLimited, outcome.Status);
         Assert.Empty(outcome.Candidates);
-        Assert.False(outcome.Retryable);
     }
 
     [Fact]
-    public async Task ValidOutputVerifiesCandidateAndHidesPhysicalPath()
+    public async Task OptionalTransformationFailureProducesPartialSuccess()
     {
-        var adapter = new TeamcenterEngineeringAdapter(new FakeSubprocessExecutor());
-        var candidate = CreateCandidate();
-
-        var request = new EngineeringExtractionRequest(
-            SchemaVersion: EngineeringContractVersions.V1,
-            RequestId: "request-1",
-            CorrelationId: "correlation-1",
-            Source: EngineeringSource.Teamcenter,
-            Candidate: candidate,
-            RequestedEvidence: ["structure"],
-            OrganizationContext: null,
-            TimeoutPolicy: new TimeoutPolicy(30000),
-            InitiatedAt: DateTimeOffset.UtcNow
-        );
-
-        var result = await adapter.ExtractAsync(
-            "job-1",
-            request,
-            new Progress<StandardProgress>(),
-            CancellationToken.None
-        );
-
-        Assert.Equal(StandardStatus.Success, result.Status);
-        Assert.NotNull(result.Resolution.Candidate);
-        Assert.Equal(
-            ConfidenceClass.Verified,
-            result.Resolution.Candidate!.ConfidenceClass
-        );
-        Assert.Equal(
-            MatchCategory.VerifiedIdentifierMatch,
-            result.Resolution.Candidate.MatchCategory
-        );
-
-        var serialized = System.Text.Json.JsonSerializer.Serialize(result);
-
-        Assert.DoesNotContain("workstation-root", serialized);
-        Assert.DoesNotContain("tc.json", serialized);
-        Assert.All(
-            result.Artifacts,
-            artifact => Assert.False(
-                Path.IsPathRooted(artifact.LogicalReference)
-            )
-        );
+        var adapter = CreateAdapter(new OptionalFailureExecutor(), new SuccessfulCapture());
+        var result = await adapter.ExtractAsync("job-1", Extraction(), new Progress<StandardProgress>(), CancellationToken.None);
+        Assert.Equal(StandardStatus.PartialSuccess, result.Status);
+        Assert.Contains(result.Warnings, warning => warning.Code == "configit-transformation-failed");
+        Assert.Equal(ConfidenceClass.Verified, result.Resolution.Candidate!.ConfidenceClass);
     }
 
-    private static EngineeringDiscoveryRequest CreateDiscoveryRequest(
-        string? productId,
-        string? productName
-    )
+    [Fact]
+    public async Task CaptureIdentityFailureIsSafe()
     {
-        return new EngineeringDiscoveryRequest(
-            SchemaVersion: EngineeringContractVersions.V1,
-            RequestId: "request-1",
-            CorrelationId: "correlation-1",
-            RequestedSources: [EngineeringSource.Teamcenter],
-            Query: new EngineeringQuery(
-                OriginalInput: productId ?? productName,
-                ProductId: productId,
-                ProductName: productName
-            ),
-            ResultLimitPerSource: 10,
-            TimeoutPolicy: new TimeoutPolicy(30000),
-            InitiatedAt: DateTimeOffset.UtcNow
-        );
+        var adapter = CreateAdapter(new SuccessfulExecutor(), new FailedCapture("teamcenter-output-identity-mismatch"));
+        var result = await adapter.ExtractAsync("job-1", Extraction(), new Progress<StandardProgress>(), CancellationToken.None);
+        Assert.Equal(StandardStatus.Failed, result.Status);
+        Assert.Equal("teamcenter-output-identity-mismatch", Assert.Single(result.Errors).Code);
+        Assert.DoesNotContain("C:\\", System.Text.Json.JsonSerializer.Serialize(result));
     }
 
-    private static SourceCandidate CreateCandidate()
+    [Fact]
+    public async Task CancellationPropagates()
     {
-        return new SourceCandidate(
-            CandidateId: "teamcenter:0001",
-            Source: EngineeringSource.Teamcenter,
-            NativeId: "0001",
-            DisplayName: "0001",
-            EntityType: "teamcenter-item",
-            Revision: null,
-            Version: null,
-            Description: null,
-            LifecycleState: null,
-            MatchCategory: MatchCategory.SourceNativeReference,
-            MatchReason: "Unverified source-native reference.",
-            ConfidenceClass: ConfidenceClass.Unverified,
-            AvailableCapabilities: ["structure"],
-            SourceMetadata: new Dictionary<string, string?>(),
-            Provenance: new ResultProvenance(
-                ProvenanceKind.CapabilityOnly,
-                "unit-test",
-                DateTimeOffset.UtcNow
-            ),
-            CanExtract: true
-        );
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        var adapter = CreateAdapter(new SuccessfulExecutor(), new SuccessfulCapture());
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            adapter.ExtractAsync("job-1", Extraction(), new Progress<StandardProgress>(), cts.Token));
     }
 
-    private sealed class FakeSubprocessExecutor : ISubprocessExecutor
+    private static TeamcenterEngineeringAdapter CreateAdapter(ISubprocessExecutor executor, ITeamcenterArtifactCaptureService capture) =>
+        new(executor, capture, new TeamcenterFailureClassifier());
+
+    private static EngineeringDiscoveryRequest Discovery(string? id, string? name) =>
+        new(EngineeringContractVersions.V1, "request-1", "correlation-1", [EngineeringSource.Teamcenter],
+            new(id ?? name, id, name), 10, new(30000), DateTimeOffset.UtcNow);
+
+    private static EngineeringExtractionRequest Extraction() =>
+        new(EngineeringContractVersions.V1, "request-1", "correlation-1", EngineeringSource.Teamcenter,
+            new("teamcenter:000123", EngineeringSource.Teamcenter, "000123", "000123", "teamcenter-item",
+                null, null, null, null, MatchCategory.SourceNativeReference, "Unverified.", ConfidenceClass.Unverified,
+                ["structure"], new Dictionary<string, string?>(),
+                new(ProvenanceKind.CapabilityOnly, "unit-test", DateTimeOffset.UtcNow), true),
+            ["structure"], null, new(30000), DateTimeOffset.UtcNow);
+
+    private class SuccessfulExecutor : ISubprocessExecutor
     {
-        public Task<SubprocessResult> ExecuteAsync(
-            ExtractionRequest request,
-            Func<string, Task> progressCallback,
-            CancellationToken cancellationToken = default
-        )
+        public virtual Task<SubprocessResult> ExecuteAsync(ExtractionRequest request, Func<string, Task> progressCallback,
+            CancellationToken cancellationToken = default)
         {
-            var result = new SubprocessResult
+            cancellationToken.ThrowIfCancellationRequested();
+            return Task.FromResult(new SubprocessResult
             {
-                Success = true,
-                Bom = new BomRoot
-                {
-                    SourceItemId = "0001",
-                    SourceRevId = "A",
-                    ExtractedAt = DateTimeOffset.UtcNow.ToString("O"),
-                    BomRootNode = new BomNode
-                    {
-                        ItemId = "0001",
-                        Name = "Root",
-                        RevId = "A",
-                        Sequence = "",
-                        VariantState = "",
-                        Qty = "1",
-                        VariantCondition = ""
-                    }
-                },
-                BomOutputPath = "workstation-root/teamcenter/tc.json"
-            };
-
-            return Task.FromResult(result);
+                Success = true, BomOutputPath = "legacy-output.json", ProcessExitCode = 0,
+                Bom = new BomRoot { SourceItemId = "000123", BomRootNode = new BomNode { ItemId = "000123" } }
+            });
         }
+    }
+
+    private sealed class OptionalFailureExecutor : SuccessfulExecutor
+    {
+        public override async Task<SubprocessResult> ExecuteAsync(ExtractionRequest request, Func<string, Task> progressCallback,
+            CancellationToken cancellationToken = default)
+        {
+            var result = await base.ExecuteAsync(request, progressCallback, cancellationToken);
+            return new SubprocessResult
+            {
+                Success = result.Success, Bom = result.Bom, BomOutputPath = result.BomOutputPath,
+                ProcessExitCode = 1, OptionalStageWarning = "optional stage failed"
+            };
+        }
+    }
+
+    private sealed class SuccessfulCapture : ITeamcenterArtifactCaptureService
+    {
+        public Task<TeamcenterArtifactCaptureResult> CaptureAsync(string jobId, string requestedItemId,
+            string? legacyOutputPath, DateTimeOffset executionStartedAt, IReadOnlyList<TeamcenterStageEvidence> stages,
+            CancellationToken token) => Task.FromResult(new TeamcenterArtifactCaptureResult(true, null,
+                new BomRoot { SourceItemId = requestedItemId, BomRootNode = new BomNode { ItemId = requestedItemId } },
+                [new("artifact-1", EngineeringSource.Teamcenter, "normalized-bom", DateTimeOffset.UtcNow,
+                    EvidenceAvailability.Available, "abc", $"engineering-jobs/{jobId}/teamcenter/normalized-bom.json",
+                    ArtifactSensitivity.Sensitive, "delete-after-24-hours")], null));
+        public int CleanupExpired(DateTimeOffset now) => 0;
+    }
+
+    private sealed class FailedCapture(string code) : ITeamcenterArtifactCaptureService
+    {
+        public Task<TeamcenterArtifactCaptureResult> CaptureAsync(string jobId, string requestedItemId,
+            string? legacyOutputPath, DateTimeOffset executionStartedAt, IReadOnlyList<TeamcenterStageEvidence> stages,
+            CancellationToken token) => Task.FromResult(new TeamcenterArtifactCaptureResult(false, code, null, [], null));
+        public int CleanupExpired(DateTimeOffset now) => 0;
     }
 }

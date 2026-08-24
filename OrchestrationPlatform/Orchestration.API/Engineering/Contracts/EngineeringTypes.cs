@@ -4,10 +4,10 @@ public enum EngineeringSource { Teamcenter, Windchill, Sap, Configit }
 public enum IdentifierType { Auto, ProductId, ItemId, PartNumber, MaterialNumber, ProductName, NativeId }
 public enum SourceReadiness { Ready, Degraded, Unavailable, AuthenticationRequired, CapabilityLimited, Unknown }
 public enum DiscoveryMode { ExactId, Name, Number, MaterialCatalog, ProductId, ContextualHandoff, Unsupported }
-public enum MatchCategory { VerifiedIdentifierMatch, SourceNativeReference, DeterministicNormalizedIdMatch, ExactNormalizedNameMatch, StructureSupportedProbableMatch, ProbableMatch, AmbiguousCandidate, Unresolved }
+public enum MatchCategory { VerifiedIdentifierMatch, SourceNativeReference, DeterministicNormalizedIdMatch, ExactNormalizedNameMatch, ExactSourceNameMatch, SourceSearchResult, StructureSupportedProbableMatch, ProbableMatch, AmbiguousCandidate, Unresolved }
 public enum ConfidenceClass { Verified, Deterministic, Probable, Ambiguous, Unresolved, Unverified }
-public enum StandardStatus { Queued, Resolving, Extracting, Enriching, Success, PartialSuccess, Empty, Failed, Unavailable, Cancelled, TimedOut, CapabilityLimited }
-public enum EngineeringStage { Validation, Readiness, Discovery, Resolution, Extraction, Enrichment, Normalization, Persistence, Cancellation, Timeout, TeamcenterSession, TeamcenterResolution, TeamcenterStructureExtraction, TeamcenterPlmxmlExport, TeamcenterNormalization, ConfigitTransformation, ConfigitCompilation, ConfigitPublication }
+public enum StandardStatus { Queued, Resolving, Extracting, Enriching, Success, PartialSuccess, Empty, Failed, Unavailable, Cancelled, TimedOut, CapabilityLimited, AwaitingContext }
+public enum EngineeringStage { Validation, Readiness, Discovery, Resolution, Extraction, Enrichment, Normalization, Persistence, Cancellation, Timeout, TeamcenterSession, TeamcenterResolution, TeamcenterStructureExtraction, TeamcenterPlmxmlExport, TeamcenterNormalization, ConfigitTransformation, ConfigitCompilation, ConfigitPublication, CanonicalArtifactCapture }
 public enum EvidenceAvailability { Available, Partial, Unavailable, Unsupported, NotRequested, NotObserved }
 public enum ProvenanceKind { LiveSource, CachedSourceResult, DeterministicTestFixture, CapabilityOnly, Unavailable }
 public enum ArtifactSensitivity { Internal, Sensitive, Restricted }
