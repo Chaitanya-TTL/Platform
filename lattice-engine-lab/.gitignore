@@ -1,0 +1,11 @@
+**/node_modules/
+**/dist/
+**/build/
+**/coverage/
+**/.vite/
+**/*.tgz
+**/*.zip
+.env
+.env.*
+reports/generated/
+*.log

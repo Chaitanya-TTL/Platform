@@ -1,0 +1,12 @@
+using Orchestration.API.Engineering.Contracts;using Orchestration.API.Engineering.Federation;
+namespace Orchestration.API.Tests.Engineering.Federation;
+public sealed class Sprint2ClosureTests
+{
+ [Theory][InlineData(StandardStatus.Empty)][InlineData(StandardStatus.Unavailable)][InlineData(StandardStatus.AwaitingContext)][InlineData(StandardStatus.TimedOut)]public void ParentPreservesUniformTerminalState(StandardStatus status)=>Assert.Equal(status,new FederatedExtractionStatusAggregator().Aggregate([status,status],false));
+ [Fact]public void UsableSiblingMakesTimeoutPartialSuccess()=>Assert.Equal(StandardStatus.PartialSuccess,new FederatedExtractionStatusAggregator().Aggregate([StandardStatus.Success,StandardStatus.TimedOut],false));
+ [Fact]public void CancellationOverridesCompletedSibling()=>Assert.Equal(StandardStatus.Cancelled,new FederatedExtractionStatusAggregator().Aggregate([StandardStatus.Success,StandardStatus.Cancelled],true));
+ [Fact]public void CancellationRequestedIsRecordedAndDuplicateRejected(){var s=new FederatedExtractionJobStore();var j=s.Create("d","r","c",[(EngineeringSource.Sap,"sap:1")]);Assert.True(s.TryRequestCancellation(j.ParentExtractionJobId));Assert.False(s.TryRequestCancellation(j.ParentExtractionJobId));Assert.True(s.TryGet(j.ParentExtractionJobId,out var current));Assert.Equal(FederatedExtractionJobState.CancellationRequested,current!.State);Assert.NotNull(current.CancellationRequestedAt);}
+ [Fact]public void RetryRejectedAfterCancellation(){var s=new FederatedExtractionJobStore();var j=s.Create("d","r","c",[(EngineeringSource.Sap,"sap:1")]);s.TryRequestCancellation(j.ParentExtractionJobId);Assert.False(s.TryStartRetry(j.ParentExtractionJobId,EngineeringSource.Sap,out _));}
+ [Fact]public void ActiveChildBecomesExtracting(){var s=new FederatedExtractionJobStore();var j=s.Create("d","r","c",[(EngineeringSource.Sap,"sap:1")]);Assert.True(s.TryProgress(j.ParentExtractionJobId,j.Sources[0].SourceExecutionId,StandardStatus.Extracting,10));Assert.True(s.TryGet(j.ParentExtractionJobId,out var x));Assert.Equal(StandardStatus.Extracting,x!.Sources[0].Status);}
+ [Fact]public void ConfigitCanonicalCliDoesNotPersistSharedRawResponse(){var path=Path.GetFullPath(Path.Combine(AppContext.BaseDirectory,"../../../../../configit_extractor/extractor.py"));if(!File.Exists(path))return;var text=File.ReadAllText(path);Assert.DoesNotContain("save_extraction(payload, 'configit_raw_response.json')",text);Assert.Contains("verify=True",text);}
+}

@@ -1,0 +1,45 @@
+﻿{
+  "name": "graphology-layout",
+  "version": "0.6.1",
+  "time": {
+    "modified": "2022-09-20T14:14:17.105Z",
+    "created": "2016-10-10T20:12:43.937Z",
+    "0.0.1": "2016-10-10T20:12:43.937Z",
+    "0.1.0": "2018-06-28T09:25:14.335Z",
+    "0.2.0": "2020-02-19T14:48:01.232Z",
+    "0.3.0": "2020-05-25T13:15:47.752Z",
+    "0.3.1": "2020-06-22T16:00:57.728Z",
+    "0.3.2": "2020-10-12T09:05:58.034Z",
+    "0.4.0": "2020-11-09T17:27:16.284Z",
+    "0.4.1": "2021-11-04T13:55:02.559Z",
+    "0.5.0": "2021-11-27T14:17:34.288Z",
+    "0.6.0": "2022-04-15T13:47:09.687Z",
+    "0.6.1": "2022-09-20T14:14:17.037Z"
+  },
+  "license": "MIT",
+  "peerDependencies": {
+    "graphology-types": ">=0.19.0"
+  },
+  "scripts": {
+    "prepublishOnly": "npm test",
+    "test": "mocha --recursive test"
+  },
+  "dist": {
+    "integrity": "sha512-m9aMvbd0uDPffUCFPng5ibRkb2pmfNvdKjQWeZrf71RS1aOoat5874+DcyNfMeCT4aQguKC7Lj9eCbqZj/h8Ag==",
+    "shasum": "e7c1d65c022e337b11c977e2d30abe4076a0327d",
+    "tarball": "https://registry.npmjs.org/graphology-layout/-/graphology-layout-0.6.1.tgz",
+    "fileCount": 18,
+    "unpackedSize": 41672,
+    "signatures": [
+      {
+        "keyid": "SHA256:jl3bwswu80PjjokCgh0o2w5c2U4LhQAE57gj9cz1kzA",
+        "sig": "MEUCIQC+dUKNGSGmSHcGz9aaz/XbNOjeY3Qn8UDUEY5WXdac+wIgBB8LoNIqnq5n5ADs32VlqGUOcVH/TdgvY5GkvC4zrqU="
+      }
+    ],
+    "npm-signature": "-----BEGIN PGP SIGNATURE-----\r\nVersion: OpenPGP.js v4.10.10\r\nComment: https://openpgpjs.org\r\n\r\nwsFzBAEBCAAGBQJjKcq5ACEJED1NWxICdlZqFiEECWMYAoorWMhJKdjhPU1b\r\nEgJ2Vmrgnw//ZoiaQ9OcJ0PCsaxuk9mb2gaYhckdJV3sNLR4UfcwysirC75v\r\nPoXnvJvQOxhVewgaqYVcXmZlRebzhTY/qmpxn3J8vLihNIFo4i3YRY8o8kez\r\n2ocE40oyLk8/HKBKj6wM4eQUTgCUFfEahsNYwoBfq5RciF0RIe6lIIEwre1T\r\n+4XXj8L9KfY8y+gjMeE8iml5CS16spwcTrleJUtcgyYim997C+BrNJMOHhi0\r\nOCaeoDpHg2NnDQ48CKXCSphXtuv4Ff4OA7Rz3zpLXnuK8mASVt24G/Hh++tR\r\nVpMDo7n9Nmc84tLCiIQkC6BiebqBPgBMKEELH5FueANF+usIRvTWiUKzAt8O\r\n/VdhTc7xTnRsDIwTiOmlVBXkxIpLf1X+P0t8Qw9uY0PRX6J8QIYYvrRv/VMA\r\nCcdLu9+OUnpr/2nRURWmsQ2oPpq2WQLebEBuqK/gCtsRGzt7v1R6feBq65/o\r\nS/yMsbJVKPzeW9QIub9QPsca1te0JhLL7wkyRxhJw66qVZ2UHW5szgLkFNWE\r\n8DJGp0QaW4JpVNBSSTf4AEBQngF4MEYLDDWmFsrT22saT3YILAklvAhosNHM\r\nTwaOf1tOyZrFLxEg4Tzx3q8Z5v/JnZNrCxKO6EANoAMT5DZ5phDRwHsLOoRU\r\n+jAboxkp1z3Rsafm+oDIfJlDfiSdzPLLHnk=\r\n=tjqG\r\n-----END PGP SIGNATURE-----\r\n"
+  },
+  "dependencies": {
+    "graphology-utils": "^2.3.0",
+    "pandemonium": "^2.4.0"
+  }
+}

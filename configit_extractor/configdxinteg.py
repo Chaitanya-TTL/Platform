@@ -1,3 +1,4 @@
+﻿import os
 import time
 import requests
 import pandas as pd
@@ -7,7 +8,7 @@ import GrammarBasedParserR
 
 # Replace with your actual URL and headers
 BASE_URL ="https://ttl.demo.configit.cloud:8080/api/v1/wi/"
-API_KEY = 'YTAwMjNlMzkwZmY4NGJhN2I2YWUzMjZhOTBlMTM5NzdfZGVlYzJkY2UyNjA3NDI2Y2IyZDk3MGM2OTllNmNlNTE='
+API_KEY = os.environ.get("CONFIGIT_API_KEY", "")
 
 
 # Headers for the API requests;

@@ -1,0 +1,4 @@
+import ELK from "elkjs/lib/elk.bundled.js";
+import type { LayoutOrientation, RelationshipProjection } from "../contracts/projection";
+const elk=new ELK(); export const NODE_WIDTH=256,NODE_HEIGHT=76;
+export async function layoutProjection(p:RelationshipProjection,orientation:LayoutOrientation,signal:number){ const graph={id:"root",layoutOptions:{"elk.algorithm":"layered","elk.direction":orientation,"elk.spacing.nodeNode":"42","elk.layered.spacing.nodeNodeBetweenLayers":"110","elk.layered.nodePlacement.strategy":"NETWORK_SIMPLEX"},children:p.nodes.map(n=>({id:n.id,width:NODE_WIDTH,height:NODE_HEIGHT})),edges:p.edges.filter(e=>e.kind==="contains").map(e=>({id:e.id,sources:[e.source],targets:[e.target]}))}; const result=await elk.layout(graph); return {signal,positions:Object.fromEntries((result.children??[]).map(n=>[n.id,{x:n.x??0,y:n.y??0}]))}; }

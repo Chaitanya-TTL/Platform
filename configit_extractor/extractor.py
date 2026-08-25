@@ -1,3 +1,4 @@
+
 import argparse
 import json
 import os
@@ -179,7 +180,7 @@ def solve_bom(product_id: str, package_path: str, generated_date: str | None = N
         headers=HEADERS,
         params={'packagePath': package_path},
         json=body,
-        verify=VERIFY,
+        verify=True,
         timeout=120,
     )
     if response.status_code >= 400:
@@ -199,11 +200,6 @@ def prompt_and_run() -> None:
     generated_date = generate_date()
     print('Calling Configit BOM solve API...')
     payload = solve_bom(product_id, package_path, generated_date)
-    # save raw payload for debugging
-    try:
-        save_extraction(payload, 'configit_raw_response.json')
-    except Exception:
-        pass
     normalized = normalize_solve_response(payload, product_id, package_path, generated_date)
     save_extraction(normalized, 'configit_extraction.json')
     print('Extraction saved to configit_extraction.json')
@@ -222,11 +218,6 @@ def run_from_cli() -> None:
     args = parse_args()
     print('Configit BOM solver')
     payload = solve_bom(args.product_id, args.package_path, args.date)
-    # save raw payload for debugging
-    try:
-        save_extraction(payload, 'configit_raw_response.json')
-    except Exception:
-        pass
     normalized = normalize_solve_response(payload, args.product_id, args.package_path, args.date or generate_date())
     save_extraction(normalized, args.output)
     print(f'Extraction saved to {args.output}')

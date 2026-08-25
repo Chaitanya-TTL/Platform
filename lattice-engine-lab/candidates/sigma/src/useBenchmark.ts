@@ -1,0 +1,3 @@
+import { useCallback, useRef, useState } from "react";
+export type Measurement={name:string;durationMs:number;recordedAt:string};
+export function useBenchmark(){const starts=useRef(new Map<string,number>());const[measurements,setMeasurements]=useState<Measurement[]>([]);const begin=useCallback((name:string)=>starts.current.set(name,performance.now()),[]);const end=useCallback((name:string)=>{const start=starts.current.get(name);if(start===undefined)return;starts.current.delete(name);const sample={name,durationMs:Number((performance.now()-start).toFixed(2)),recordedAt:new Date().toISOString()};setMeasurements(current=>[sample,...current.filter(item=>item.name!==name)].slice(0,22));return sample.durationMs},[]);return{begin,end,measurements};}

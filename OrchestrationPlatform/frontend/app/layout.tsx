@@ -1,4 +1,3 @@
-
 import type { Metadata } from "next";
 import { dmSans } from "@/fonts/static/dm-sans";
 import { Toaster } from "sonner";

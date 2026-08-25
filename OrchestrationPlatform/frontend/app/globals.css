@@ -66,3 +66,22 @@ small { font-size: .75rem; line-height: 1.35; }
 @media (max-width:1023px) { .bom-source-group { flex-grow:0 !important; } }
 @media (max-width:767px) { :root { --page-gutter: 1rem; } }
 @media (prefers-reduced-motion:reduce) { html { scroll-behavior:auto; } *,*::before,*::after { animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important; scroll-behavior:auto !important; } }
+
+/* Lattice terminal workbench */
+.lattice-node { width: 250px; border: 1px solid #263244; border-radius: 16px; background: rgba(8,13,24,.96); color: #e2e8f0; box-shadow: 0 18px 50px rgba(0,0,0,.28); padding: 16px; transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease; }
+.lattice-node p { font-size: 9px; font-weight: 700; letter-spacing: .16em; color: #64748b; }
+.lattice-node h3 { margin-top: 4px; font-size: 14px; font-weight: 650; }
+.lattice-product-node { border-color: rgba(34,211,238,.38); background: linear-gradient(145deg,rgba(8,145,178,.18),rgba(8,13,24,.98)); }
+.lattice-product-node span { margin-top: 8px; display: block; font-size: 10px; color: #94a3b8; }
+.lattice-source-node.is-selected { border-color: #22d3ee; box-shadow: 0 0 0 1px rgba(34,211,238,.35),0 18px 55px rgba(8,145,178,.16); transform: translateY(-1px); }
+.lattice-source-icon { display:flex; height:34px; width:34px; flex:none; align-items:center; justify-content:center; border-radius:10px; border:1px solid rgba(34,211,238,.22); background:rgba(34,211,238,.08); color:#67e8f9; }
+.lattice-icon-button { display:inline-flex; height:40px; width:40px; align-items:center; justify-content:center; border-radius:10px; border:1px solid #263244; color:#94a3b8; transition:.16s ease; }
+.lattice-icon-button:hover { border-color:#0891b2; color:#67e8f9; background:rgba(8,145,178,.08); }
+.lattice-icon-button svg,.lattice-action-primary svg,.lattice-action-secondary svg { height:16px; width:16px; }
+.lattice-action-primary,.lattice-action-secondary { display:inline-flex; min-height:40px; align-items:center; justify-content:center; gap:8px; border-radius:10px; padding:0 14px; font-size:12px; font-weight:650; }
+.lattice-action-primary { background:#0891b2; color:white; }
+.lattice-action-primary:hover { background:#06b6d4; }
+.lattice-action-secondary { border:1px solid #334155; color:#cbd5e1; }
+.lattice-action-secondary:hover { border-color:#0891b2; color:#67e8f9; }
+.lattice-dockview { --dv-group-view-background-color:#050914; --dv-tabs-and-actions-container-background-color:#080d18; --dv-activegroup-visiblepanel-tab-background-color:#0f172a; --dv-activegroup-visiblepanel-tab-color:#e2e8f0; --dv-separator-border:#263244; }
+@media (prefers-reduced-motion:reduce) { .lattice-node { transition:none; } }

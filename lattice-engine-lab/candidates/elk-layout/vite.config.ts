@@ -1,0 +1,1 @@
+import{defineConfig}from"vite";import react from"@vitejs/plugin-react";import{fileURLToPath,URL}from"node:url";const shared=fileURLToPath(new URL("../../shared",import.meta.url));const here=fileURLToPath(new URL(".",import.meta.url));export default defineConfig({plugins:[react()],resolve:{alias:{"@lattice-lab":shared}},server:{fs:{allow:[shared,here]}},build:{sourcemap:true}});

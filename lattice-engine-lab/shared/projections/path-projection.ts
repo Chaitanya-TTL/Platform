@@ -1,0 +1,1 @@
+import type{CanonicalGraphFixture,RelationshipId}from"../contracts/canonical-graph";export function projectPath(g:CanonicalGraphFixture,p:RelationshipId[]){const relationships=g.relationships.filter(x=>p.includes(x.id)),ids=new Set(relationships.flatMap(x=>[x.sourceId,x.targetId]));return{entities:g.entities.filter(x=>ids.has(x.id)),relationships}}

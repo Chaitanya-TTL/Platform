@@ -1,4 +1,3 @@
-
 "use client";
 import { motion } from "motion/react";
 import { IconArrowsMaximize, IconArrowsMinimize } from "@tabler/icons-react";

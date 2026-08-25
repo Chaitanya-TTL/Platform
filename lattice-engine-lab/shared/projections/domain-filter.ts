@@ -1,0 +1,1 @@
+import type{CanonicalGraphFixture,Domain}from"../contracts/canonical-graph";export function filterByDomains(g:CanonicalGraphFixture,d:Domain[]){const ids=new Set(g.entities.filter(x=>d.includes(x.domain)||x.id===g.focusId).map(x=>x.id));return{entities:g.entities.filter(x=>ids.has(x.id)),relationships:g.relationships.filter(x=>ids.has(x.sourceId)&&ids.has(x.targetId))}}

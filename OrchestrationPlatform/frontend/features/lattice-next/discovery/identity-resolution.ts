@@ -1,0 +1,8 @@
+import type { CorrespondenceCandidate, NormalizedSearchResult } from "./contracts";
+const normalized=(value:string)=>value.toLowerCase().replace(/[^a-z0-9]/g,"");
+export function buildCorrespondenceCandidates(results:NormalizedSearchResult[]):CorrespondenceCandidate[]{
+  const output:CorrespondenceCandidate[]=[];
+  for(let left=0;left<results.length;left+=1)for(let right=left+1;right<results.length;right+=1){const a=results[left],b=results[right];if(a.source===b.source)continue;const sameId=Boolean(a.nativeId&&b.nativeId&&normalized(a.nativeId)===normalized(b.nativeId));const sameName=normalized(a.displayName)===normalized(b.displayName);if(!sameId&&!sameName)continue;const category=sameId?"deterministic-normalized-id-match":"exact-normalized-name-match";output.push({correspondenceId:crypto.randomUUID(),sourceResultIds:[a.resultId,b.resultId],category,reason:sameId?"Normalized source identifiers are equal; source-native records remain distinct.":"Normalized labels are equal. This is not authoritative identity and requires review.",evidence:[{type:sameId?"normalized-id":"normalized-name",value:sameId?normalized(a.nativeId):normalized(a.displayName)}],confidenceClass:sameId?"deterministic":"ambiguous",reviewState:sameId?"unreviewed":"ambiguous",conflicts:[],createdBy:"system",createdAt:new Date().toISOString()});}
+  return output;
+}
+export function selectedCorrespondence(results:NormalizedSearchResult[],rootId:string,candidates:CorrespondenceCandidate[]){return candidates.filter(candidate=>candidate.sourceResultIds.includes(rootId)&&candidate.reviewState!=="rejected").map(candidate=>({...candidate,reviewState:candidate.confidenceClass==="deterministic"?"accepted":candidate.reviewState}));}

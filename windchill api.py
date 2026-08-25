@@ -1,7 +1,8 @@
+﻿import os
 import requests
 hostname = "hnjdigisolnwnc.tatatechnologies.com"
-username = "wcadmin"
-password = "TT!user@123"
+username = os.environ.get("WINDCHILL_USERNAME", "")
+password = os.environ.get("WINDCHILL_PASSWORD", "")
 PartId = 572081
 OptionsetID=549397 
 productName='Bike'

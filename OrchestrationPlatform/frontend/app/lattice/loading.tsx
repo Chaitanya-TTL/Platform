@@ -1,1 +1,1 @@
-export default function Loading() { return <div className="flex min-h-[calc(100vh-64px)] items-center justify-center bg-[#020817] text-slate-400"><div className="text-center"><div className="mx-auto h-12 w-12 animate-pulse rounded-2xl border border-cyan-500/30 bg-cyan-500/10"/><p className="mt-4 text-sm font-semibold">Preparing Lattice...</p></div></div>; }
+export default function Loading(){ return <div className="flex min-h-[calc(100vh-64px)] items-center justify-center bg-slate-950 text-sm text-slate-500">Opening engineering investigation...</div>; }

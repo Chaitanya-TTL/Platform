@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { AnimatePresence } from "motion/react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   IconArrowLeft,
@@ -22,6 +23,7 @@ import {
   IconPlugConnected,
   IconX,
   IconCancel,
+  IconTopologyStar3,
 } from "@tabler/icons-react";
 import { AddComparisonSourceModal } from "@/components/AddComparisonSourceModal";
 import {
@@ -51,6 +53,8 @@ import type {
   TreeNodeData,
 } from "@/types/bom-comparison";
 import { SourceBomPanel } from "@/components/SourceBomPanel";
+import { createHandoff, type LatticeSourceEnvelope } from "@/features/lattice-next/contracts/handoff";
+import { writeHandoff } from "@/features/lattice-next/persistence/handoff-store";
 import { RemoveSourceDialog } from "@/components/source-workflow/RemoveSourceDialog";
 import { WindchillChangeReviewWorkspace } from "@/components/windchill/WindchillChangeReviewWorkspace";
 import type {
@@ -173,6 +177,7 @@ function getSapRoot(payload: unknown): TreeNodeData | null {
 }
 
 export default function Page() {
+  const router = useRouter();
   const [active, setActive] = useState<Active[]>([]);
   const [modal, setModal] = useState(false);
   const [view, setView] = useState<"categories" | "options">("categories");
@@ -228,6 +233,22 @@ export default function Page() {
       active.map((item) => item.type).filter((type) => Boolean(roots[type])),
     [active, roots],
   );
+  const openLattice = useCallback(() => {
+    if (!ready.length) return;
+    const sources: LatticeSourceEnvelope[] = ready.flatMap((source) => {
+      const root = roots[source];
+      if (!root) return [];
+      const nativeId = source === "teamcenter" ? teamcenterItemId ?? undefined : source === "windchill" ? part ?? undefined : source === "sap" ? sapRequest?.materialId : source === "configit" ? product ?? undefined : root.name;
+      return [{ source, label: labels[source], root, nativeId, jobId: source === "teamcenter" ? job ?? undefined : source === "sap" ? sapJob ?? undefined : undefined, capturedAt: new Date().toISOString(), completeness: "complete" as const }];
+    });
+    const handoff = createHandoff({ subjectLabel: sources[0]?.root.name ?? "Loaded engineering context", sources });
+    const persisted = writeHandoff(handoff);
+    if (!persisted.ok) {
+      toast.error("Lattice could not be opened", { description: persisted.message });
+      return;
+    }
+    router.push(`/lattice?handoff=${encodeURIComponent(handoff.handoffId)}`);
+  }, [job, part, product, ready, roots, router, sapJob, sapRequest, teamcenterItemId]);
   const result = useMemo(
     () =>
       session === "active" && primary
@@ -297,7 +318,7 @@ export default function Page() {
       toast.loading("Running SAP analysis again...", { id: "sap-retry" });
       const result = await startSapExtraction({ materialId: sapRequest.materialId, plant: sapRequest.plant, includeSapBusinessImpact: sapRequest.includeImpact });
       submitSap(result.jobId, sapRequest);
-      toast.success("SAP request restarted", { id: "sap-retry", description: `${sapRequest.materialId} · Plant ${sapRequest.plant}` });
+      toast.success("SAP request restarted", { id: "sap-retry", description: `${sapRequest.materialId} Â· Plant ${sapRequest.plant}` });
     } catch (cause) {
       const outcome = userFacingError("sap", cause);
       toast.error(outcome.title, { id: "sap-retry", description: outcome.message });
@@ -807,11 +828,11 @@ export default function Page() {
         <section className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm dark:border-slate-800 dark:bg-[#080d18] sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">Source workspace</p>
-            <p className="mt-0.5 text-xs text-slate-500">{active.length} added · {ready.length} ready for comparison</p>
+            <p className="mt-0.5 text-xs text-slate-500">{active.length} added Â· {ready.length} ready for comparison</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <button onClick={() => setModal(true)} className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-300 px-4 text-sm font-semibold dark:border-slate-700"><IconPlus className="h-4 w-4"/>Add source</button>
-            {comparing ? <button onClick={() => setTransition("exit")} className="inline-flex h-10 items-center gap-2 rounded-lg bg-cyan-600 px-4 text-sm font-semibold text-white"><IconArrowLeft className="h-4 w-4"/>Back to workspace</button> : <button disabled={ready.length < 2} onClick={() => setSession("selecting")} className="inline-flex h-10 items-center gap-2 rounded-lg bg-cyan-600 px-4 text-sm font-semibold text-white disabled:opacity-45"><IconArrowsExchange className="h-4 w-4"/>Compare BOMs</button>}
+            {comparing ? <button onClick={() => setTransition("exit")} className="inline-flex h-10 items-center gap-2 rounded-lg bg-cyan-600 px-4 text-sm font-semibold text-white"><IconArrowLeft className="h-4 w-4"/>Back to workspace</button> : <><button disabled={ready.length < 2} onClick={() => setSession("selecting")} className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-300 px-4 text-sm font-semibold dark:border-slate-700 disabled:opacity-45"><IconArrowsExchange className="h-4 w-4"/>Compare BOMs</button><button disabled={!ready.length} onClick={openLattice} className="inline-flex h-10 items-center gap-2 rounded-lg bg-cyan-600 px-4 text-sm font-semibold text-white shadow-lg shadow-cyan-500/15 transition hover:bg-cyan-500 disabled:opacity-45"><IconTopologyStar3 className="h-4 w-4"/>Go to Lattice{ready.length ? <span className="rounded-full bg-white/15 px-1.5 text-[10px]">{ready.length}</span> : null}</button></>}
           </div>
         </section>
         {result ? (
@@ -897,3 +918,4 @@ export default function Page() {
     </main>
   );
 }
+

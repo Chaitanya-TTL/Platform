@@ -6,7 +6,7 @@ namespace Orchestration.API.Services;
 public interface IPipelineOrchestrator
 {
     Task InitializeProgressChannelAsync(string jobId);
-    Task<(bool success,BomRoot? finalBom,string outputFilePath,string outputKind)> ExecutePipelineAsync(string jobId,ExtractionRequest request,Func<PipelineProgress,Task> progressCallback);
+    Task<(bool success,BomRoot? finalBom,string outputFilePath,string outputKind)> ExecutePipelineAsync(string jobId,ExtractionRequest request,Func<PipelineProgress,Task> progressCallback,CancellationToken cancellationToken=default);
     Task SubscribeToProgressAsync(string jobId,Func<PipelineProgress,Task> callback);
 }
 public sealed class PipelineOrchestrator:IPipelineOrchestrator
@@ -16,7 +16,7 @@ public sealed class PipelineOrchestrator:IPipelineOrchestrator
     public PipelineOrchestrator(ISubprocessExecutor subprocessExecutor,IAuditLogger auditLogger,ILogger<PipelineOrchestrator> logger){_subprocessExecutor=subprocessExecutor;_auditLogger=auditLogger;_logger=logger;}
     public Task InitializeProgressChannelAsync(string jobId){_progressChannels.TryAdd(jobId,Channel.CreateUnbounded<PipelineProgress>());return Task.CompletedTask;}
     public async Task SubscribeToProgressAsync(string jobId,Func<PipelineProgress,Task> callback){if(_progressChannels.TryGetValue(jobId,out var channel))await foreach(var p in channel.Reader.ReadAllAsync())await callback(p);}
-    public async Task<(bool success,BomRoot? finalBom,string outputFilePath,string outputKind)> ExecutePipelineAsync(string jobId,ExtractionRequest request,Func<PipelineProgress,Task> callback)
+    public async Task<(bool success,BomRoot? finalBom,string outputFilePath,string outputKind)> ExecutePipelineAsync(string jobId,ExtractionRequest request,Func<PipelineProgress,Task> callback,CancellationToken cancellationToken=default)
     {
         if(!_progressChannels.TryGetValue(jobId,out var channel)){channel=Channel.CreateUnbounded<PipelineProgress>();_progressChannels.TryAdd(jobId,channel);}
         var source=request.Kind==ExtractionKind.Sap?"SAP":request.Kind==ExtractionKind.Configit?"Configit":"TeamCenter";
@@ -25,7 +25,7 @@ public sealed class PipelineOrchestrator:IPipelineOrchestrator
         try
         {
             await Report(jobId,"extract","in_progress",0,$"Connecting to {source}...",callback,channel);
-            var extraction=await _subprocessExecutor.ExecuteAsync(request,message=>Report(jobId,"transform","in_progress",request.Kind==ExtractionKind.Sap&&request.IncludeSapBusinessImpact?70:80,message,callback,channel));
+            var extraction=await _subprocessExecutor.ExecuteAsync(request,message=>Report(jobId,"transform","in_progress",request.Kind==ExtractionKind.Sap&&request.IncludeSapBusinessImpact?70:80,message,callback,channel),cancellationToken);
             var isSapImpactRequest=request.Kind==ExtractionKind.Sap&&request.IncludeSapBusinessImpact;
             var hasImpact=extraction.SapImpact?.Materials.Count>0;
             var validResult=extraction.Success&&(extraction.Bom!=null||(isSapImpactRequest&&hasImpact));

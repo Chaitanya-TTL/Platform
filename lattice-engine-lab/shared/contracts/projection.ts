@@ -1,0 +1,1 @@
+import type{Domain,EntityId,EvidenceClass,RelationshipId}from"./canonical-graph";export interface VisibleProjection{graphId:string;focusId:EntityId;visibleEntityIds:EntityId[];visibleRelationshipIds:RelationshipId[];selectedEntityIds:EntityId[];expandedEntityIds:EntityId[];highlightedRelationshipIds:RelationshipId[];activeDomains:Domain[];activeEvidenceClasses:EvidenceClass[]}

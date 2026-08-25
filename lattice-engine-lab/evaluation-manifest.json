@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "status": "phase-1-source-foundation",
+  "productionBoundary": "OrchestrationPlatform/frontend",
+  "normalCandidates": [
+    "cytoscape",
+    "g6",
+    "sigma",
+    "reagraph",
+    "cosmos",
+    "relation-graph",
+    "react-flow",
+    "elk-layout"
+  ],
+  "quarantined": [
+    "graphin"
+  ],
+  "commercialDocumentationOnly": [
+    "yfiles",
+    "ogma",
+    "keylines"
+  ]
+}

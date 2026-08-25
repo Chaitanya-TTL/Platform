@@ -1,0 +1,3 @@
+using Microsoft.AspNetCore.Mvc;using Orchestration.API.Engineering.Adapters;
+namespace Orchestration.API.Engineering.Controllers;
+[ApiController][Route("api/engineering/capabilities")]public sealed class EngineeringCapabilitiesController:ControllerBase{readonly IEngineeringAdapterRegistry registry;public EngineeringCapabilitiesController(IEngineeringAdapterRegistry registry)=>this.registry=registry;[HttpGet]public async Task<IActionResult> Get(CancellationToken token){var values=new List<object>();foreach(var adapter in registry.All)values.Add(await adapter.GetCapabilitiesAsync(token));return Ok(new{schemaVersion=Contracts.EngineeringContractVersions.V1,sources=values});}}

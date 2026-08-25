@@ -111,3 +111,6 @@ C:\Users\skk932045\OneDrive - Tata Technologies\Desktop\Platform\OrchestrationPl
 C:\Users\skk932045\OneDrive - Tata Technologies\Desktop\Platform\OrchestrationPlatform\Orchestration.API.Tests\obj\Debug\net10.0\Orchestration.API.Tests.pdb
 C:\Users\skk932045\OneDrive - Tata Technologies\Desktop\Platform\OrchestrationPlatform\Orchestration.API.Tests\obj\Debug\net10.0\Orchestration.API.Tests.genruntimeconfig.cache
 C:\Users\skk932045\OneDrive - Tata Technologies\Desktop\Platform\OrchestrationPlatform\Orchestration.API.Tests\obj\Debug\net10.0\ref\Orchestration.API.Tests.dll
+C:\Users\skk932045\OneDrive - Tata Technologies\Desktop\Platform\OrchestrationPlatform\Orchestration.API.Tests\bin\Debug\net10.0\appsettings.SapPhase1.example.json
+C:\Users\skk932045\OneDrive - Tata Technologies\Desktop\Platform\OrchestrationPlatform\Orchestration.API.Tests\bin\Debug\net10.0\sap-capability-result.json
+C:\Users\skk932045\OneDrive - Tata Technologies\Desktop\Platform\OrchestrationPlatform\Orchestration.API.Tests\bin\Debug\net10.0\sap-impact-execution-result.json

@@ -1,0 +1,2 @@
+namespace Orchestration.API.Engineering.Contracts;
+public sealed record CanonicalStructureNode(string NodeId,string NativeEntityId,string ItemOrPartNumber,string DisplayName,string OccurrenceId,string? RelationshipId,string? ParentOccurrenceId,string TreePath,string? Revision,string? Version,string? Quantity,string? Sequence,string? LifecycleState,IReadOnlyDictionary<string,string?> SourceMetadata,IReadOnlyList<CanonicalStructureNode> Children);

@@ -1,0 +1,8 @@
+using Orchestration.API.Models;
+namespace Orchestration.API.Engineering.Contracts;
+public sealed record StructuredWarning(string Code, EngineeringSource? Source, EngineeringStage Stage, string Message, DateTimeOffset OccurredAt, IReadOnlyDictionary<string,string>? SafeContext = null);
+public sealed record StructuredError(string Code, EngineeringSource? Source, EngineeringStage Stage, string Message, string UserMessage, bool Retryable, DateTimeOffset OccurredAt, IReadOnlyDictionary<string,string>? SafeContext = null);
+public sealed record StandardProgress(string JobId, EngineeringSource Source, EngineeringStage Stage, JobState State, int ProgressPercent, string Message, DateTimeOffset Timestamp);
+public sealed record SourceArtifactReference(string ArtifactId, EngineeringSource Source, string ArtifactType, DateTimeOffset CreatedAt, EvidenceAvailability Availability, string? Checksum, string LogicalReference, ArtifactSensitivity Sensitivity, string RetentionPolicy);
+public sealed record StageObservation(EngineeringStage Stage, EvidenceAvailability Availability, StandardStatus? Status, string Message);
+public sealed record StandardExtractionResult(string SchemaVersion, string RequestId, string CorrelationId, string SourceExecutionId, EngineeringSource Source, StandardStatus Status, SourceResolution Resolution, SourceCapability Capabilities, BomRoot? Root, IReadOnlyList<object> Structures, IReadOnlyDictionary<string,object?> Evidence, IReadOnlyList<StructuredWarning> Warnings, IReadOnlyList<StructuredError> Errors, StandardProgress Progress, IReadOnlyList<SourceArtifactReference> Artifacts, ResultProvenance Provenance, IReadOnlyList<StageObservation> Stages, DateTimeOffset StartedAt, DateTimeOffset CompletedAt, long DurationMs);
