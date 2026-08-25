@@ -1,5 +1,0 @@
-OrchestrationPlatform\Orchestration.API\Engineering\Adapters\Teamcenter\TeamcenterEngineeringAdapter.cs
-OrchestrationPlatform\Orchestration.API.Tests\Engineering\TeamcenterEngineeringAdapterTests.cs
-OrchestrationPlatform\Orchestration.API\Engineering\Contracts\EngineeringTypes.cs
-OrchestrationPlatform\Orchestration.API\Program.cs
-OrchestrationPlatform\Orchestration.API\Services\SubprocessExecutor.cs
