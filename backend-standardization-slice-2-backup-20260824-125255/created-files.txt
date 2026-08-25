@@ -1,0 +1,10 @@
+OrchestrationPlatform\Orchestration.API\Engineering\Adapters\Teamcenter\TeamcenterArtifactCaptureService.cs
+OrchestrationPlatform\Orchestration.API\Engineering\Adapters\Teamcenter\TeamcenterFailureClassifier.cs
+OrchestrationPlatform\Orchestration.API\Engineering\Contracts\TeamcenterStageEvidence.cs
+OrchestrationPlatform\Orchestration.API.Tests\Engineering\EngineeringAdapterRegistryTests.cs
+OrchestrationPlatform\Orchestration.API.Tests\Engineering\EngineeringJobsControllerTests.cs
+OrchestrationPlatform\Orchestration.API.Tests\Engineering\TeamcenterArtifactCaptureTests.cs
+OrchestrationPlatform\Orchestration.API.Tests\Engineering\TeamcenterFailureClassifierTests.cs
+OrchestrationPlatform\docs\backend-standardization\TEAMCENTER-CONNECTED-VALIDATION.md
+OrchestrationPlatform\docs\backend-standardization\TEAMCENTER-RUNTIME-AUDIT.md
+OrchestrationPlatform\scripts\teamcenter\collect-teamcenter-runtime-evidence.ps1
