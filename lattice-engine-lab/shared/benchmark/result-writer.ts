@@ -1,1 +1,0 @@
-import type{BenchmarkResult}from"../contracts/benchmark-result";export interface ResultWriter{write(result:BenchmarkResult):Promise<void>}export const serializeResult=(r:BenchmarkResult)=>JSON.stringify(r,null,2);

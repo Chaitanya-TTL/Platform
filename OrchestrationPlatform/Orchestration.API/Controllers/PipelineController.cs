@@ -1,4 +1,5 @@
 
+
 using Microsoft.AspNetCore.Mvc;
 using Orchestration.API.Models;
 using Orchestration.API.Services;
@@ -11,9 +12,9 @@ public class PipelineController:ControllerBase
     [HttpPost("start")]
     public async Task<IActionResult> StartPipeline([FromBody]ExtractionRequest request)
     {
-        if(request.Kind==ExtractionKind.Teamcenter&&string.IsNullOrWhiteSpace(request.TeamcenterItemId))return BadRequest(new{success=false,message="TeamcenterItemId is required"});
+        if(request.Kind==ExtractionKind.Teamcenter&&string.IsNullOrWhiteSpace(request.GetTeamcenterQuery()))return BadRequest(new{success=false,message="A Teamcenter product name or Item ID is required"});
         if(request.Kind==ExtractionKind.Configit&&(string.IsNullOrWhiteSpace(request.WorkItemId)||string.IsNullOrWhiteSpace(request.ProductModelCode)))return BadRequest(new{success=false,message="WorkItemId and ProductModelCode are required"});
-        if(request.Kind==ExtractionKind.Sap&&string.IsNullOrWhiteSpace(request.MaterialId))return BadRequest(new{success=false,message="MaterialId is required"});
+        if(request.Kind==ExtractionKind.Sap&&string.IsNullOrWhiteSpace(request.GetMaterialQuery()))return BadRequest(new{success=false,message="An SAP material description or material number is required"});
         var jobId=_jobStore.CreateJob(request.GetIdentifier()??"unknown");request.JobId=jobId;
         try{await _orchestrator.InitializeProgressChannelAsync(jobId);_=Task.Run(()=>ExecutePipelineInBackground(jobId,request));return Ok(new{success=true,jobId,kind=request.Kind.ToString().ToLowerInvariant(),message="Extraction started successfully"});}
         catch(Exception ex){_jobStore.FailJob(jobId,ex.Message);_logger.LogError(ex,"Pipeline start failed for job {JobId}",jobId);return StatusCode(500,new{success=false,jobId,message=ex.Message});}

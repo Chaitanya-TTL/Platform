@@ -1,1 +1,0 @@
-export interface MetricSample{name:string;value:number;unit:"ms"|"bytes"|"count"|"fps"|"ratio"}export interface BenchmarkResult{schemaVersion:1;candidate:string;packageVersions:Record<string,string>;fixture:string;startedAt:string;completedAt:string;samples:MetricSample[];warnings:string[]}

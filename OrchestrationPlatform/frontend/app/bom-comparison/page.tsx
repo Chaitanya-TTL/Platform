@@ -1,3 +1,4 @@
+
 "use client";
 
 import {
@@ -316,7 +317,7 @@ export default function Page() {
     if (!sapRequest) return;
     try {
       toast.loading("Running SAP analysis again...", { id: "sap-retry" });
-      const result = await startSapExtraction({ materialId: sapRequest.materialId, plant: sapRequest.plant, includeSapBusinessImpact: sapRequest.includeImpact });
+      const result = await startSapExtraction({ materialQuery: sapRequest.materialId, plant: sapRequest.plant, includeSapBusinessImpact: sapRequest.includeImpact });
       submitSap(result.jobId, sapRequest);
       toast.success("SAP request restarted", { id: "sap-retry", description: `${sapRequest.materialId} Â· Plant ${sapRequest.plant}` });
     } catch (cause) {
@@ -918,4 +919,3 @@ export default function Page() {
     </main>
   );
 }
-
