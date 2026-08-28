@@ -8,3 +8,5 @@ configit:{source:"configit",readiness:"ready",discoveryModes:["exact-id","name",
 };
 export const SOURCE_LABELS:Record<LatticeSource,string>={teamcenter:"Teamcenter",windchill:"Windchill",sap:"SAP",configit:"Configit"};
 export const SOURCE_TONES:Record<LatticeSource,string>={teamcenter:"cyan",windchill:"violet",sap:"emerald",configit:"fuchsia"};
+
+

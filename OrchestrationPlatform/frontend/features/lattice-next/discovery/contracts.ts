@@ -44,3 +44,5 @@ export interface CorrespondenceCandidate {
   evidence: IdentityEvidence[]; confidenceClass: ConfidenceClass; reviewState: CorrespondenceReviewState;
   conflicts: string[]; createdBy: "system" | "user"; createdAt: string;
 }
+
+

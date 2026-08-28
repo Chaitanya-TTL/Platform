@@ -1,4 +1,4 @@
-﻿import type { ItemSearchCandidate, SourceSearchResult } from "@/types/item-explorer";
+import type { ItemSearchCandidate, SourceSearchResult } from "@/types/item-explorer";
 import { SOURCE_CAPABILITIES } from "../capability-matrix";
 import type { FederatedSearchRequest, LatticeSource, MatchCategory, NormalizedSearchResult, SourceSearchOutcome } from "../contracts";
 import type { SourceSearchAdapter } from "./base";
@@ -63,3 +63,5 @@ export class ApiSearchAdapter implements SourceSearchAdapter {
     };
   }
 }
+
+

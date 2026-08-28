@@ -1,4 +1,4 @@
-﻿import { LATTICE_SOURCES, SOURCE_CAPABILITIES } from "./capability-matrix";
+import { LATTICE_SOURCES, SOURCE_CAPABILITIES } from "./capability-matrix";
 import type {
   FederatedSearchRequest,
   FederatedSearchSnapshot,
@@ -6,6 +6,7 @@ import type {
   SourceSearchOutcome,
 } from "./contracts";
 import { classifyQueryIntent, normalizeQuery } from "./query-intent";
+import { rememberDiscoveryQuery } from "./search-query-store";
 import type { SourceSearchAdapter } from "./source-adapters/base";
 import { ApiSearchAdapter } from "./source-adapters/api-search-adapter";
 type Listener = (snapshot: FederatedSearchSnapshot | null) => void;
@@ -62,6 +63,7 @@ export class FederatedSearchOrchestrator {
     this.emit();
   }
   async search(query: string) {
+    rememberDiscoveryQuery(query);
     this.cancel("superseded");
     const normalizedQuery = normalizeQuery(query);
     const request: FederatedSearchRequest = {
@@ -194,4 +196,7 @@ export class FederatedSearchOrchestrator {
     this.listeners.clear();
   }
 }
+
+
+
 

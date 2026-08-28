@@ -96,6 +96,10 @@ export async function searchEngineeringSource(source: EnterpriseSource, query: s
         objectType: candidate.entityType,
         plant: candidate.sourceMetadata?.plant ?? undefined,
         configuration: candidate.sourceMetadata?.packagePath ?? undefined,
+        logicalPackagePath: candidate.sourceMetadata?.logicalPackagePath ?? undefined,
+        resolvedPackagePath: candidate.sourceMetadata?.resolvedPackagePath ?? candidate.sourceMetadata?.packagePath ?? undefined,
+        packageVersionId: candidate.sourceMetadata?.versionId ?? candidate.version ?? undefined,
+        packageState: candidate.sourceMetadata?.packageState ?? candidate.lifecycleState ?? undefined,
       },
       retrievedAt: candidate.provenance?.observedAt ?? new Date().toISOString(),
       providerMode: candidate.provenance?.kind === "live-source" ? "live" as const : "capability" as const,
@@ -113,3 +117,4 @@ export async function searchEngineeringSource(source: EnterpriseSource, query: s
     }), { status: timedOut ? 504 : 502 });
   }
 }
+

@@ -21,6 +21,7 @@ import {
   saveInvestigation,
 } from "../persistence/investigation-store";
 import { RelationshipCanvas } from "../components/RelationshipCanvas";
+import { LatticeFlowProvider } from "../canvas/LatticeFlowProvider";
 import { EntityInspector } from "../components/EntityInspector";
 import { RelationshipInspector } from "../components/RelationshipInspector";
 import { InvestigationToolbar } from "../components/InvestigationToolbar";
@@ -58,22 +59,12 @@ export function LatticeNextWorkspace() {
   const [direct, setDirect] = useState<LatticeHandoff | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [recent, setRecent] = useState<RecentInvestigation[]>([]);
-  const [handoff, setHandoff] = useState<HandoffReadResult | null>(null);
-  const [restored, setRestored] = useState<CanonicalInvestigation | null>(null);
-  const [storageReady, setStorageReady] = useState(false);
 
   useEffect(() => {
     setRecent(listCanonicalInvestigations());
-    setHandoff(handoffId ? readHandoff(handoffId) : null);
-    setRestored(
-      investigationId ? loadCanonicalInvestigation(investigationId) : null,
-    );
-    setStorageReady(true);
-  }, [handoffId, investigationId]);
-
-  if (!storageReady) {
-    return <LatticeLoadingState />;
-  }
+  }, []);
+  const [handoff] = useState<HandoffReadResult | null>(() => handoffId ? readHandoff(handoffId) : null);
+  const [restored] = useState<CanonicalInvestigation | null>(() => investigationId ? loadCanonicalInvestigation(investigationId) : null);
 
   if (direct) {
     return <Investigation handoffId={direct.handoffId} handoff={direct} />;
@@ -175,26 +166,6 @@ export function LatticeNextWorkspace() {
   );
 }
 
-function LatticeLoadingState() {
-  return (
-    <main className="flex min-h-[calc(100vh-64px)] items-center justify-center bg-[#050914] p-6 text-white">
-      <section
-        className="rounded-xl border border-slate-800 bg-slate-950/75 px-6 py-5 text-center"
-        role="status"
-        aria-live="polite"
-      >
-        <div className="mx-auto h-5 w-5 animate-spin rounded-full border-2 border-slate-700 border-t-cyan-400" />
-        <p className="mt-3 text-sm font-medium text-slate-300">
-          Opening Lattice
-        </p>
-        <p className="mt-1 text-xs text-slate-500">
-          Restoring the latest investigation context.
-        </p>
-      </section>
-    </main>
-  );
-}
-
 function Restored({ canonical }: { canonical: CanonicalInvestigation }) {
   return (
     <main className="flex min-h-[calc(100vh-64px)] items-center justify-center bg-slate-950 p-6 text-white">
@@ -253,23 +224,32 @@ function Investigation({
   const projection = useMemo(
     () =>
       projectVisibleGraph(domain, core, {
-        expanded: state.expanded,
-        selection: state.selection,
+        expanded: state.interaction.expansion.expanded,
+        selection: state.interaction.selection,
         query: state.query,
-        focusRoot: state.focusRoot,
+        focusRoot: state.interaction.expansion.focusRoot,
         sources: state.activeSources,
         relationships: state.activeRelationships,
       }),
-    [domain, core, state],
+    [
+      domain,
+      core,
+      state.interaction.expansion.expanded,
+      state.interaction.selection,
+      state.interaction.expansion.focusRoot,
+      state.query,
+      state.activeSources,
+      state.activeRelationships,
+    ],
   );
 
   const entity =
-    state.selection.type === "entity"
-      ? domain.byId[state.selection.id] ?? null
+    state.interaction.selection.type === "entity"
+      ? domain.byId[state.interaction.selection.id] ?? null
       : null;
   const relationship =
-    state.selection.type === "relationship"
-      ? domain.relationshipById[state.selection.id] ?? null
+    state.interaction.selection.type === "relationship"
+      ? domain.relationshipById[state.interaction.selection.id] ?? null
       : null;
   const related = entity
     ? domain.relationships.filter(
@@ -325,8 +305,15 @@ function Investigation({
         onSource={(value) => dispatch({ type: "source", value })}
         activeKinds={state.activeRelationships}
         onKind={(value) => dispatch({ type: "relationship", value })}
-        focused={Boolean(state.focusRoot)}
+        focused={Boolean(state.interaction.expansion.focusRoot)}
         onClearFocus={() => dispatch({ type: "focus", id: null })}
+        pinnedCount={Object.keys(state.interaction.pinnedPositions).length}
+        onResetLayout={() => dispatch({ type: "reset-layout" })}
+        onResetSelected={() => dispatch({ type: "reset-selected" })}
+        canResetSelected={
+          state.interaction.selection.type === "entity" &&
+          Boolean(state.interaction.pinnedPositions[state.interaction.selection.id])
+        }
       />
 
       {entity ? (
@@ -350,18 +337,40 @@ function Investigation({
 
       <section className="grid min-h-[650px] overflow-hidden rounded-xl border border-slate-800 bg-slate-950 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="min-h-[520px]">
-          <RelationshipCanvas
-            projection={projection}
-            orientation={state.orientation}
-            onSelectEntity={(id) =>
-              dispatch({ type: "select-entity", id })
-            }
-            onSelectRelationship={(id) =>
-              dispatch({ type: "select-relationship", id })
-            }
-            onToggle={(id) => dispatch({ type: "toggle", id })}
-            onViewport={(value) => dispatch({ type: "viewport", value })}
-          />
+          <LatticeFlowProvider>
+            <RelationshipCanvas
+              projection={projection}
+              orientation={state.orientation}
+              pinnedPositions={state.interaction.pinnedPositions}
+              viewport={state.interaction.viewport}
+              onSelectEntity={(id) => dispatch({ type: "select-entity", id })}
+              onSelectRelationship={(id) => dispatch({ type: "select-relationship", id })}
+              onToggle={(id) => dispatch({ type: "toggle", id })}
+              onViewport={(value) => dispatch({ type: "viewport", value })}
+              onPinPosition={(id, position) => dispatch({ type: "pin-position", id, position })}
+              onClearTransient={() => dispatch({ type: "clear-transient" })}
+              onNodeAction={({nodeId,action}) => {
+                if(action==="focus") dispatch({type:"focus",id:nodeId});
+                else if(action==="expand-one"&&!state.interaction.expansion.expanded.has(nodeId)) dispatch({type:"toggle",id:nodeId});
+                else if(action==="expand-branch") dispatch({type:"expand-many",ids:[nodeId,...core.descendants(nodeId)]});
+                else if(action==="collapse-descendants") dispatch({type:"collapse-many",ids:[nodeId,...core.descendants(nodeId)]});
+                else if(action==="reset-position") dispatch({type:"unpin-position",id:nodeId});
+                else if(action==="toggle-pin"&&state.interaction.pinnedPositions[nodeId]) dispatch({type:"unpin-position",id:nodeId});
+                else if(action==="open-details") dispatch({type:"select-entity",id:nodeId});
+                else if(action==="trace-upstream") dispatch({type:"expand-many",ids:core.ancestors(nodeId)});
+                else if(action==="trace-downstream") dispatch({type:"expand-many",ids:core.descendants(nodeId)});
+                else if(action==="compare-representations") dispatch({type:"focus",id:domain.roots[0]??null});
+              }}
+              onEdgeAction={({edgeId,action}) => {
+                const relationship=domain.relationships.find(item=>item.id===edgeId);
+                if(!relationship) return;
+                if(action==="hide-family") dispatch({type:"relationship",value:relationship.kind});
+                else if(action==="trace") { dispatch({type:"expand-many",ids:[relationship.from,relationship.to,...core.ancestors(relationship.from),...core.descendants(relationship.to)]}); dispatch({type:"select-relationship",id:edgeId}); }
+                else if(action==="compare-endpoints") dispatch({type:"expand-many",ids:[relationship.from,relationship.to]});
+                else dispatch({type:"select-relationship",id:edgeId});
+              }}
+            />
+          </LatticeFlowProvider>
         </div>
 
         {relationship ? (
@@ -405,3 +414,9 @@ function Recovery({ message }: { message: string }) {
     </main>
   );
 }
+
+
+
+
+
+

@@ -3,7 +3,7 @@ export type SearchMode = "name" | "item-id";
 export type MatchType = "exact-name" | "name-contains" | "description-match" | "exact-id" | "id-prefix" | "nearby-id" | "source-result";
 export type SourceSearchStatus = "idle" | "searching" | "complete" | "empty" | "failed" | "timed-out" | "cancelled" | "unsupported";
 export type SelectionScope = "session" | "user" | "team" | "project" | "approved-enterprise";
-export interface CandidateContext { revision?: string; version?: string; lifecycleState?: string; plant?: string; organization?: string; configuration?: string; objectType?: string; }
+export interface CandidateContext { revision?: string; version?: string; lifecycleState?: string; plant?: string; organization?: string; configuration?: string; objectType?: string; logicalPackagePath?: string; resolvedPackagePath?: string; packageVersionId?: string; packageState?: string; }
 export interface ItemSearchCandidate { candidateId: string; source: EnterpriseSource; nativeId: string; name: string; description?: string; matchType: MatchType; matchScore?: number; matchReasons: string[]; context: CandidateContext; retrievedAt: string; providerMode: "live" | "capability" | "fixture"; }
 export interface SourceCapabilities { nameSearch: boolean; itemIdSearch: boolean; nearbyIds: boolean; live: boolean; }
 export interface SourceSearchResult { source: EnterpriseSource; status: SourceSearchStatus; candidates: ItemSearchCandidate[]; durationMs: number; capabilityNote?: string; error?: string; capabilities: SourceCapabilities; }

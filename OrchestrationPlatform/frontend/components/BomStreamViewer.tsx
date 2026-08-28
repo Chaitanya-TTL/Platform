@@ -365,80 +365,48 @@ function transformConfigitNodes(
   ];
 }
 
-export function getConfigitRoot(
-  payload: unknown
-): TreeNodeData | null {
+export function getConfigitRoot(payload: unknown): TreeNodeData | null {
   const obj = asRecord(payload);
+  if (!obj) return null;
 
-  if (!obj) {
-    return null;
+  const bom = getArray(obj.bom) ?? getArray(obj.nodes) ?? getArray(obj.children) ?? getArray(obj.items);
+  if (!bom || bom.length === 0) {
+    const roots = transformConfigitNodes(payload, "configit-root");
+    if (roots.length === 0) return null;
+    if (roots.length === 1) return { ...roots[0], id: "configit-root" };
+    return { id: "configit-root", name: "Configit BOM", attributes: {}, children: roots };
   }
 
-  const bom =
-    getArray(obj.bom) ??
-    getArray(obj.nodes) ??
-    getArray(obj.children) ??
-    getArray(obj.items);
+  const productId = getString(obj.productId) ?? getString(obj.productModel) ?? getString(obj.productID);
+  const packagePath = getString(obj.packagePath);
+  const roots = bom.flatMap((node,index)=>transformConfigitNodes(node,`configit-node-${index}`));
+  const normalize = (value:string|undefined) => (value ?? "").toLowerCase().replace(/[^a-z0-9]/g,"");
+  const productKey = normalize(productId);
+  const matchingRoot = roots.length === 1 && productKey && (
+    normalize(roots[0].id) === productKey ||
+    normalize(roots[0].name) === productKey ||
+    normalize(roots[0].attributes?.["Item ID"] as string | undefined) === productKey ||
+    normalize(roots[0].id).endsWith(productKey) ||
+    productKey.endsWith(normalize(roots[0].id))
+  ) ? roots[0] : null;
 
-  if (!bom || bom.length === 0) {
-    const roots = transformConfigitNodes(
-      payload,
-      "configit-root"
-    );
+  const attributes: Record<string,string|number|boolean> = {};
+  if (productId) attributes["Product ID"] = productId;
+  if (packagePath) attributes["Package Path"] = packagePath;
 
-    if (roots.length === 0) {
-      return null;
-    }
-
-    if (roots.length === 1) {
-      return {
-        ...roots[0],
-        id: "configit-root",
-      };
-    }
-
+  if (matchingRoot) {
     return {
-      id: "configit-root",
-      name: "Configit BOM",
-      attributes: {},
-      children: roots,
+      ...matchingRoot,
+      id: `configit-${productId ?? matchingRoot.id}`,
+      attributes: { ...matchingRoot.attributes, ...attributes },
     };
   }
 
-  const productId =
-    getString(obj.productId) ??
-    getString(obj.productModel) ??
-    getString(obj.productID);
-
-  const packagePath = getString(obj.packagePath);
-
-  const attributes: Record<
-    string,
-    string | number | boolean
-  > = {};
-
-  if (productId) {
-    attributes["Product ID"] = productId;
-  }
-
-  if (packagePath) {
-    attributes["Package Path"] = packagePath;
-  }
-
   return {
-    id: productId
-      ? `configit-${productId}`
-      : "configit-root",
-    name: productId
-      ? `Product ${productId}`
-      : "Configit BOM",
+    id: productId ? `configit-${productId}` : "configit-root",
+    name: productId ? productId.replace(/_[0-9]+$/, "").replaceAll("_", " ") : "Configit BOM",
     attributes,
-    children: bom.flatMap((node, index) =>
-      transformConfigitNodes(
-        node,
-        `configit-node-${index}`
-      )
-    ),
+    children: roots,
   };
 }
 
@@ -1250,3 +1218,4 @@ export function BomStreamViewer({
     </div>
   );
 }
+

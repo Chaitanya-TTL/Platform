@@ -1,4 +1,10 @@
-import ELK from "elkjs/lib/elk.bundled.js";
-import type { LayoutOrientation, RelationshipProjection } from "../contracts/projection";
-const elk=new ELK(); export const NODE_WIDTH=256,NODE_HEIGHT=76;
-export async function layoutProjection(p:RelationshipProjection,orientation:LayoutOrientation,signal:number){ const graph={id:"root",layoutOptions:{"elk.algorithm":"layered","elk.direction":orientation,"elk.spacing.nodeNode":"42","elk.layered.spacing.nodeNodeBetweenLayers":"110","elk.layered.nodePlacement.strategy":"NETWORK_SIMPLEX"},children:p.nodes.map(n=>({id:n.id,width:NODE_WIDTH,height:NODE_HEIGHT})),edges:p.edges.filter(e=>e.kind==="contains").map(e=>({id:e.id,sources:[e.source],targets:[e.target]}))}; const result=await elk.layout(graph); return {signal,positions:Object.fromEntries((result.children??[]).map(n=>[n.id,{x:n.x??0,y:n.y??0}]))}; }
+import type { LayoutOrientation, NodePosition, RelationshipProjection } from "../contracts/projection";
+import type { LayoutViewport } from "../layout/layout-contract";
+import type { LayoutSession } from "../layout/layout-session";
+import { classifyChange, createSession, movementDiagnostics, stabilizeLayout } from "../layout/layout-session";
+import { routeRelationships } from "../layout/relationship-router";
+import { hybridLayout, NODE_HEIGHT, NODE_WIDTH } from "./hybrid-layout-planner";
+export { NODE_HEIGHT, NODE_WIDTH };
+export async function layoutProjection(projection:RelationshipProjection,_orientation:LayoutOrientation,signal:number,pinned:Readonly<Record<string,NodePosition>>={},viewport?:LayoutViewport,previous?:LayoutSession){
+ const started=Date.now();const changeType=classifyChange(previous,projection,pinned,false);let result=await hybridLayout(projection,pinned,signal,viewport);result=stabilizeLayout(result,previous,changeType);const routed=routeRelationships(projection,result.positions,result.dimensions,result.branches,result.routes,pinned);result={...result,routes:routed.routes,diagnostics:{...result.diagnostics,invalidRouteCount:routed.diagnostics.invalidRouteCount,routing:routed.diagnostics}};const stability=movementDiagnostics(previous,result,changeType,Date.now()-started);result={...result,diagnostics:{...result.diagnostics,stability}};return{...result,session:createSession(result,projection,signal)};
+}

@@ -26,3 +26,5 @@ export function readHandoff(id: string): HandoffReadResult {
     return { ok: false, code: "storage-unavailable", message: "Browser session storage is unavailable." };
   }
 }
+
+
