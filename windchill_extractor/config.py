@@ -1,7 +1,7 @@
 ﻿import os
 HOSTNAME = 'hnjdigisolnwnc.tatatechnologies.com'
-USERNAME = os.environ.get("WINDCHILL_USERNAME", "")
-PASSWORD = os.environ.get("WINDCHILL_PASSWORD", "")
+USERNAME = 'wcadmin'
+PASSWORD = 'TT!user@123'
 VERIFY_SSL = False
 DEFAULT_PART_ID = '572081'
 DEFAULT_PRODUCT_NAME = 'Bike'

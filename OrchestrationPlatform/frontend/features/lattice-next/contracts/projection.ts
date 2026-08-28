@@ -1,6 +1,4 @@
 import type { EntityKind, RelationshipKind } from "../domain/model";
-export type LayoutOrientation = "RIGHT" | "DOWN";
-export type ProjectedNode = { id:string; label:string; subtitle:string; kind:EntityKind; source:string; level:number; selected:boolean; expanded:boolean; hasChildren:boolean; hiddenChildren:number; position?:{x:number;y:number} };
-export type ProjectedEdge = { id:string; source:string; target:string; kind:RelationshipKind; selected:boolean; label?:string };
-export type RelationshipProjection = { nodes:ProjectedNode[]; edges:ProjectedEdge[]; structuralKey:string };
-export type RendererViewport = {x:number;y:number;zoom:number};
+export type LayoutOrientation="RIGHT"|"DOWN";export type NodePosition={x:number;y:number};export type PinnedNodePosition=NodePosition&{pinnedAt:string};
+export type ProjectedNode={id:string;label:string;subtitle:string;kind:EntityKind;source:string;level:number;selected:boolean;expanded:boolean;hasChildren:boolean;hiddenChildren:number;provenanceSources?:string[];position?:NodePosition;nativeIdentifier?:string;revision?:string;capturedAt?:string;attributes?:Record<string,string|number|boolean>;relationshipCount:number;childCount:number;matchConfidence?:number;resolutionState?:string;dimmed?:boolean};
+export type ProjectedEdge={id:string;source:string;target:string;kind:RelationshipKind;selected:boolean;label?:string;fullLabel?:string;confidence?:number};export type RelationshipProjection={nodes:ProjectedNode[];edges:ProjectedEdge[];structuralKey:string};export type RendererViewport={x:number;y:number;zoom:number};export type LayoutDiagnostics={strategy:"hybrid-radial-elk";sourceCount:number;rings:number;iterations:number;collisionsResolved:number;elapsedMs:number};

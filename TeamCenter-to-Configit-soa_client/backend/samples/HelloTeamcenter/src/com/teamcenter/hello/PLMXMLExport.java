@@ -1,3 +1,4 @@
+
 package com.teamcenter.hello;
  
 import java.util.IdentityHashMap;
@@ -19,7 +20,7 @@ import com.teamcenter.schemas.soa._2006_03.exceptions.ServiceException;
  
 import com.teamcenter.services.strong.cad.StructureManagementService;
 import com.teamcenter.services.strong.cad._2007_01.StructureManagement.CreateBOMWindowsResponse;
-// ✅ Your jar has expand classes under _2008_06
+// âœ… Your jar has expand classes under _2008_06
 import com.teamcenter.services.strong.cad._2008_06.StructureManagement.ExpandPSOneLevelInfo;
 import com.teamcenter.services.strong.cad._2008_06.StructureManagement.ExpandPSOneLevelPref;
 import com.teamcenter.services.strong.cad._2019_06.StructureManagement.CreateWindowsInfo3;
@@ -190,6 +191,23 @@ public class PLMXMLExport {
         }
     }
  
+    /**
+     * Pins a live Teamcenter Item resolved by the discovery service.
+     * Extraction then uses the exact selected object while preserving the existing
+     * tc_extraction.json writer and schema.
+     */
+    public void setResolvedItem(Item resolvedItem) {
+        this.item = resolvedItem;
+        if (resolvedItem != null) {
+            try {
+                dmService.getProperties(new ModelObject[]{ resolvedItem }, new String[]{ "item_id", "object_name", "revision_list", "bom_view_tags" });
+                this.rootItemId = resolvedItem.get_item_id();
+            } catch (Exception e) {
+                System.out.println("[BOM] Resolved item property preload warning: " + e.getMessage());
+            }
+        }
+    }
+
     // -------- Step 1: Load Item --------
     public boolean loadRootItem() {
         item = getWorkspaceObjectByName(rootItemId, Item.class);
@@ -426,7 +444,7 @@ public void printFullBOMTree() {
     // -------- Export to PLMXML (Includes VariantRuleCheck) --------
     public void exportToPLMXML(String outputDirectory) {
         if (item == null) {
-            System.out.println("[PLMXML] ❌ Item not loaded. Call loadRootItem() first.");
+            System.out.println("[PLMXML] âŒ Item not loaded. Call loadRootItem() first.");
             return;
         }
         
@@ -490,22 +508,22 @@ public void printFullBOMTree() {
                     
                     fMSUtil.getTransientFile(ticket, plmxmlPath);
                     
-                    System.out.println("[PLMXML] ✅ PLMXML exported successfully via generateStructure");
-                    System.out.println("[PLMXML] ✓ File: " + plmxmlFileName);
-                    System.out.println("[PLMXML] ✓ Path: " + plmxmlPath);
-                    System.out.println("[PLMXML] ✓ Contains VariantRuleCheck with AND/OR logic");
+                    System.out.println("[PLMXML] âœ… PLMXML exported successfully via generateStructure");
+                    System.out.println("[PLMXML] âœ“ File: " + plmxmlFileName);
+                    System.out.println("[PLMXML] âœ“ Path: " + plmxmlPath);
+                    System.out.println("[PLMXML] âœ“ Contains VariantRuleCheck with AND/OR logic");
                 } else {
-                    System.out.println("[PLMXML] ⚠ generateStructure returned empty ticket");
+                    System.out.println("[PLMXML] âš  generateStructure returned empty ticket");
                 }
                 
             } catch (ClassNotFoundException | NoSuchMethodException e) {
-                System.out.println("[PLMXML] ⚠ generateStructure method not available: " + e.getMessage());
-                System.out.println("[PLMXML] ⚠ PLMXML export via SOA is not available in this SDK version");
-                System.out.println("[PLMXML] ⚠ Variant rules will be handled through standard extraction");
+                System.out.println("[PLMXML] âš  generateStructure method not available: " + e.getMessage());
+                System.out.println("[PLMXML] âš  PLMXML export via SOA is not available in this SDK version");
+                System.out.println("[PLMXML] âš  Variant rules will be handled through standard extraction");
             }
             
         } catch (Exception e) {
-            System.out.println("[PLMXML] ❌ Export failed: " + e.getMessage());
+            System.out.println("[PLMXML] âŒ Export failed: " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -659,7 +677,7 @@ public void printFullBOMTree() {
                                 var obj = loadResp.getPlainObject(i);
                                 System.out.println("[BOM]   Loaded: " + safeUid(obj) + " (type: " + obj.getClass().getSimpleName() + ")");
                                 if (tctype.isInstance(obj)) {
-                                    System.out.println("[BOM] ✓ Found matching item via SavedQuery (" + entryName + ")!");
+                                    System.out.println("[BOM] âœ“ Found matching item via SavedQuery (" + entryName + ")!");
                                     System.out.println("[BOM] =====================================");
                                     return tctype.cast(obj);
                                 }
@@ -844,7 +862,7 @@ public void printFullBOMTree() {
                             });
                             
                             indent(depth + 1);
-                            System.out.println("✓ Rule " + (index + 1) + ": " + ruleName);
+                            System.out.println("âœ“ Rule " + (index + 1) + ": " + ruleName);
                             
                             Map<String, Object> ruleMap = new HashMap<>();
                             ruleMap.put("name", ruleName);
@@ -1089,7 +1107,7 @@ public void printFullBOMTree() {
                 writer.flush();
             }
             
-            System.out.println("[JSON] ✓ Extraction exported to " + outputFile.getAbsolutePath());
+            System.out.println("[JSON] âœ“ Extraction exported to " + outputFile.getAbsolutePath());
             
         } catch (IOException e) {
             System.out.println("[JSON] ERROR: Failed to write JSON file: " + e.getMessage());
@@ -1119,7 +1137,7 @@ public void printFullBOMTree() {
             File backupFile = new File(originalFile.getParent(), backupName);
             
             Files.copy(originalFile.toPath(), backupFile.toPath());
-            System.out.println("[JSON] ✓ Backup created: " + backupFile.getName());
+            System.out.println("[JSON] âœ“ Backup created: " + backupFile.getName());
             
         } catch (IOException e) {
             System.out.println("[JSON] WARNING: Could not create backup: " + e.getMessage());

@@ -6,19 +6,11 @@ import type {
   SourceSearchOutcome,
 } from "./contracts";
 import { classifyQueryIntent, normalizeQuery } from "./query-intent";
+import { rememberDiscoveryQuery } from "./search-query-store";
 import type { SourceSearchAdapter } from "./source-adapters/base";
-import { TeamcenterSearchAdapter } from "./source-adapters/teamcenter-search-adapter";
-import { WindchillSearchAdapter } from "./source-adapters/windchill-search-adapter";
-import { SapSearchAdapter } from "./source-adapters/sap-search-adapter";
-import { ConfigitSearchAdapter } from "./source-adapters/configit-search-adapter";
-
+import { ApiSearchAdapter } from "./source-adapters/api-search-adapter";
 type Listener = (snapshot: FederatedSearchSnapshot | null) => void;
-const adapters: SourceSearchAdapter[] = [
-  new TeamcenterSearchAdapter(),
-  new WindchillSearchAdapter(),
-  new SapSearchAdapter(),
-  new ConfigitSearchAdapter(),
-];
+const adapters: SourceSearchAdapter[] = LATTICE_SOURCES.map((source) => new ApiSearchAdapter(source));
 const now = () => new Date().toISOString();
 function pending(
   source: LatticeSource,
@@ -71,6 +63,7 @@ export class FederatedSearchOrchestrator {
     this.emit();
   }
   async search(query: string) {
+    rememberDiscoveryQuery(query);
     this.cancel("superseded");
     const normalizedQuery = normalizeQuery(query);
     const request: FederatedSearchRequest = {
@@ -203,3 +196,7 @@ export class FederatedSearchOrchestrator {
     this.listeners.clear();
   }
 }
+
+
+
+

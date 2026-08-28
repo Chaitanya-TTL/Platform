@@ -1,3 +1,4 @@
+
 using Orchestration.API.Engineering.Contracts;
 using Orchestration.API.Models;
 using Orchestration.API.Services;
@@ -26,34 +27,66 @@ public sealed class TeamcenterEngineeringAdapter : IEngineeringSourceAdapter
     public Task<SourceCapability> GetCapabilitiesAsync(CancellationToken token) =>
         Task.FromResult(Capability());
 
-    public Task<SourceDiscoveryOutcome> DiscoverAsync(
+    public async Task<SourceDiscoveryOutcome> DiscoverAsync(
         EngineeringDiscoveryRequest request,
         QueryNormalizationRecord normalized,
         CancellationToken token)
     {
-        if (string.IsNullOrWhiteSpace(request.Query.ProductId))
-        {
-            var warning = new StructuredWarning(
-                "teamcenter-name-search-unverified",
-                Source,
-                EngineeringStage.Discovery,
-                "Teamcenter product-name discovery is capability-limited because the installed saved-query contract has not been verified.",
-                DateTimeOffset.UtcNow);
-            return Task.FromResult(new SourceDiscoveryOutcome(
-                Source, StandardStatus.CapabilityLimited, Capability(), [], [warning], [], false));
-        }
+        var query = request.Query.ProductId ?? request.Query.ProductName ?? request.Query.OriginalInput;
+        if (string.IsNullOrWhiteSpace(query))
+            return new SourceDiscoveryOutcome(Source, StandardStatus.Empty, Capability(), [], [], [], false);
 
-        var itemId = request.Query.ProductId.Trim();
-        var candidate = new SourceCandidate(
-            $"teamcenter:{itemId}", Source, itemId, itemId, "teamcenter-item",
-            request.Query.Revision, request.Query.Version,
-            "Teamcenter Item ID accepted by the existing extraction pipeline. Source existence is verified only by valid extraction output.",
-            null, MatchCategory.SourceNativeReference,
-            "The source-native reference has not yet been verified against Teamcenter.",
-            ConfidenceClass.Unverified, ["structure"], new Dictionary<string, string?>(),
-            new(ProvenanceKind.CapabilityOnly, "teamcenter-legacy-pipeline", DateTimeOffset.UtcNow), true);
-        return Task.FromResult(new SourceDiscoveryOutcome(
-            Source, StandardStatus.Success, Capability(), [candidate], [], [], false));
+        var gateAcquired = false;
+        try
+        {
+            await LegacyPipelineGate.WaitAsync(token);
+            gateAcquired = true;
+            var discoveryId = $"discovery-{request.RequestId}";
+            var result = await executor.ExecuteAsync(new ExtractionRequest
+            {
+                Kind = ExtractionKind.Teamcenter,
+                JobId = discoveryId,
+                TeamcenterQuery = query.Trim()
+            }, _ => Task.CompletedTask, token);
+
+            if (!result.Success || result.Bom?.BomRootNode is null)
+            {
+                var failure = classifier.Classify(result.Output, result.ProcessExitCode,
+                    !string.IsNullOrWhiteSpace(result.BomOutputPath) && File.Exists(result.BomOutputPath));
+                return new SourceDiscoveryOutcome(Source, StandardStatus.Failed, Capability(), [], [], [failure], failure.Retryable);
+            }
+
+            var root = result.Bom.BomRootNode;
+            var nativeId = string.IsNullOrWhiteSpace(result.Bom.SourceItemId) ? root.ItemId : result.Bom.SourceItemId;
+            var displayName = string.IsNullOrWhiteSpace(root.Name) ? nativeId : root.Name;
+            var exactId = string.Equals(nativeId, query.Trim(), StringComparison.OrdinalIgnoreCase);
+            var exactName = string.Equals(displayName, query.Trim(), StringComparison.OrdinalIgnoreCase);
+            var category = exactId ? MatchCategory.VerifiedIdentifierMatch : exactName ? MatchCategory.ExactSourceNameMatch : MatchCategory.SourceSearchResult;
+            var candidate = new SourceCandidate(
+                $"teamcenter:{nativeId}", Source, nativeId, displayName, "teamcenter-item",
+                string.IsNullOrWhiteSpace(result.Bom.SourceRevId) ? root.RevId : result.Bom.SourceRevId,
+                null, null, null, category,
+                exactId ? "A fresh Teamcenter extraction verified the Item ID." : exactName ? "A fresh Teamcenter extraction resolved the exact product name." : "A fresh Teamcenter extraction resolved the entered name or ID.",
+                ConfidenceClass.Verified, ["structure"],
+                new Dictionary<string, string?> { ["resolvedFrom"] = query.Trim(), ["artifactPath"] = result.BomOutputPath },
+                new(ProvenanceKind.LiveSource, "teamcenter-soa-name-or-id", DateTimeOffset.UtcNow), true);
+            return new SourceDiscoveryOutcome(Source, StandardStatus.Success, Capability(), [candidate], [], [], true);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (TimeoutException)
+        {
+            var error = Error("teamcenter-timeout", EngineeringStage.Discovery, "Teamcenter discovery timed out.", true);
+            return new SourceDiscoveryOutcome(Source, StandardStatus.TimedOut, Capability(), [], [], [error], true);
+        }
+        catch (Exception ex)
+        {
+            var error = Error("teamcenter-discovery-failed", EngineeringStage.Discovery, ex.Message, true);
+            return new SourceDiscoveryOutcome(Source, StandardStatus.Failed, Capability(), [], [], [error], true);
+        }
+        finally
+        {
+            if (gateAcquired) LegacyPipelineGate.Release();
+        }
     }
 
     public async Task<StandardExtractionResult> ExtractAsync(
@@ -82,7 +115,7 @@ public sealed class TeamcenterEngineeringAdapter : IEngineeringSourceAdapter
             {
                 Kind = ExtractionKind.Teamcenter,
                 JobId = jobId,
-                TeamcenterItemId = request.Candidate.NativeId
+                TeamcenterQuery = request.Candidate.NativeId
             };
             var result = await executor.ExecuteAsync(
                 legacyRequest,
@@ -167,27 +200,22 @@ public sealed class TeamcenterEngineeringAdapter : IEngineeringSourceAdapter
 
     private static SourceCapability Capability() => new(
         Source: EngineeringSource.Teamcenter,
-        Readiness: SourceReadiness.CapabilityLimited,
-        DiscoveryModes: [DiscoveryMode.ExactId, DiscoveryMode.Unsupported],
+        Readiness: SourceReadiness.Ready,
+        DiscoveryModes: [DiscoveryMode.ExactId, DiscoveryMode.Name, DiscoveryMode.Number],
         SupportsExactId: true,
-        SupportsNameSearch: false,
-        SupportsNumberSearch: false,
+        SupportsNameSearch: true,
+        SupportsNumberSearch: true,
         SupportsStructureExtraction: true,
         SupportsRevisionContext: true,
         SupportsChangeContext: false,
         SupportsRequirements: false,
         SupportsOperationalImpact: false,
-        SupportsConfigurationContext: true,
+        SupportsConfigurationContext: false,
         SupportsCancellation: true,
         SupportsRetry: true,
-        SupportsPartialSuccess: true,
+        SupportsPartialSuccess: false,
         RequiredOrganizationContext: [],
-        KnownLimitations:
-        [
-            "Product-name saved-query discovery has not been verified in the installed Teamcenter environment.",
-            "The unchanged legacy batch does not emit machine-readable evidence for every optional stage.",
-            "Legacy Teamcenter execution is serialized to prevent shared-output contamination."
-        ]);
+        KnownLimitations: ["Teamcenter discovery executes the authoritative name-or-ID resolver and is serialized to protect the connector runtime."]);
 
     private static IReadOnlyList<TeamcenterStageEvidence> BuildStages(
         bool optionalFailure, bool captureSucceeded, string? captureFailureCode)

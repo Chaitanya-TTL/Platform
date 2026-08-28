@@ -1,7 +1,9 @@
 import type { SourceType } from "@/types/bom-comparison";
-export type EntityKind = "assembly" | "component";
+export type EntitySource = SourceType | "unified";
+export type EntityKind = "assembly" | "component" | "identity";
 export type RelationshipKind =
   | "contains"
+  | "represented-by"
   | "corresponds-to"
   | "comparison"
   | "requirement"
@@ -15,12 +17,13 @@ export type RelationshipEvidence = {
 export type EngineeringEntity = {
   id: string;
   sourceNodeId: string;
-  source: SourceType;
+  source: EntitySource;
   name: string;
   kind: EntityKind;
   level: number;
   attributes: Record<string, string | number | boolean>;
   provenance: { sourceLabel: string; nativeId?: string; capturedAt?: string };
+  representationSources?: SourceType[];
 };
 export type EngineeringRelationship = {
   id: string;
@@ -30,6 +33,7 @@ export type EngineeringRelationship = {
   confidence?: number;
   verified?: boolean;
   quantity?: string | number;
+  label?: string;
   evidence: RelationshipEvidence[];
 };
 export type InvestigationGraph = {
@@ -43,3 +47,5 @@ export type InvestigationSelection =
   | { type: "none" }
   | { type: "entity"; id: string }
   | { type: "relationship"; id: string };
+
+

@@ -51,3 +51,5 @@ export function createHandoff(input: Omit<LatticeHandoff, "version" | "handoffId
   const now = new Date();
   return { ...input, version: LATTICE_HANDOFF_VERSION, handoffId: `lnx-${Date.now().toString(36)}-${crypto.randomUUID().slice(0, 8)}`, createdAt: now.toISOString(), expiresAt: new Date(now.getTime() + LATTICE_HANDOFF_TTL_MS).toISOString() };
 }
+
+

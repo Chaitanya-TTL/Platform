@@ -6,3 +6,5 @@ export function buildCorrespondenceCandidates(results:NormalizedSearchResult[]):
   return output;
 }
 export function selectedCorrespondence(results:NormalizedSearchResult[],rootId:string,candidates:CorrespondenceCandidate[]){return candidates.filter(candidate=>candidate.sourceResultIds.includes(rootId)&&candidate.reviewState!=="rejected").map(candidate=>({...candidate,reviewState:candidate.confidenceClass==="deterministic"?"accepted":candidate.reviewState}));}
+
+

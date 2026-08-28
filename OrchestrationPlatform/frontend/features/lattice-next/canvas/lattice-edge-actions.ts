@@ -1,0 +1,1 @@
+import type { LatticeEdgeAction } from "./lattice-flow-types"; export type LatticeEdgeActionIntent={edgeId:string;action:LatticeEdgeAction};

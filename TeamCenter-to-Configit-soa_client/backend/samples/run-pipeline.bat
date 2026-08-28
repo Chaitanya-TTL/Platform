@@ -1,3 +1,4 @@
+
 @echo off
 setlocal enabledelayedexpansion
 
@@ -9,14 +10,11 @@ REM ============================================================
 REM ============================================================
 REM CONFIGURATION - Update these credentials as needed
 REM ============================================================
-REM Teamcenter Connection
-set TC_HOST=http://hnjpitstop3srv:8080/tc
-set TC_USERNAME=infodba
-set TC_PASSWORD=infodba
+REM Teamcenter connection is supplied through TC_HOST, TC_USERNAME and TC_PASSWORD.
+if "%TC_HOST%"=="" set TC_HOST=http://hnjpitstop3srv:8080/tc
 
 REM Configit ACE Connection
-set CONFIGIT_URI=https://ttl-01.demo.configit.cloud/
-set CONFIGIT_API_KEY=MGYyODcxMTUwYTg4NDQ3N2ExYmJmZDJhNzJmOTIxNGJfZmUxMjRiMDQzNmY3NGM5MDliNTYxMDBkMzgxZDBjZjA=
+REM CONFIGIT_URI and CONFIGIT_API_KEY must be supplied through environment variables.
 REM ============================================================
 
 echo.
@@ -32,40 +30,14 @@ echo [STEP 1/2] Building and running HelloTeamcenter...
 echo Connecting to: %TC_HOST%
 echo.
 
-cd HelloTeamcenter
-call rebuild-java17-direct.bat
-if errorlevel 1 (
-    echo ERROR: HelloTeamcenter build failed
-    exit /b 1
-)
-
-REM Build explicit JAXB classpath FIRST, then other libraries
-set JAXB_CP=..\..\libs\jaxb-api-2.3.1.jar;..\..\libs\jaxb-runtime-2.3.1.jar;..\..\libs\jaxb-impl.jar;..\..\libs\javax.activation-api-1.2.0.jar
-
-REM Run HelloTeamcenter with the compatible Java runtime installed on this machine.
 set TC_ITEM_ID=%~1
 if "%TC_ITEM_ID%"=="" set TC_ITEM_ID=002380
-
-echo [INFO] Using TC_ITEM_ID: %TC_ITEM_ID%
-
-set JAVA_HOME=C:\Program Files\Java\jdk-17
-set PATH=%JAVA_HOME%\bin;%PATH%
-
-REM JVM module options required for Java 9+ (needed by TeamCenter SOA client libraries)
-set JVM_OPTS=--add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.util=ALL-UNNAMED --add-opens java.base/java.io=ALL-UNNAMED
-
-"%JAVA_HOME%\bin\java.exe" %JVM_OPTS% -Dhost=%TC_HOST% -DitemId=%TC_ITEM_ID% -cp "bin;%JAXB_CP%;..\..\libs\*" com.teamcenter.hello.Hello
-
+call "%~dp0run-teamcenter.bat" extract "%TC_ITEM_ID%" id "%~dp0HelloTeamcenter\tc_extraction.json"
 if errorlevel 1 (
-    echo ERROR: HelloTeamcenter failed
+    echo ERROR: Teamcenter extraction failed
     exit /b 1
 )
-
-if not exist tc_extraction.json (
-    echo ERROR: tc_extraction.json not created by HelloTeamcenter
-    exit /b 1
-)
-
+cd /d "%~dp0HelloTeamcenter"
 echo [OK] tc_extraction.json created
 echo.
 

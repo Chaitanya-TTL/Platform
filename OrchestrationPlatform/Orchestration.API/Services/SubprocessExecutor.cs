@@ -1,8 +1,10 @@
 
+
 using System.Diagnostics;
 using System.Text;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using Orchestration.API.Models;
 namespace Orchestration.API.Services;
 
@@ -46,8 +48,11 @@ public sealed class SubprocessExecutor : ISubprocessExecutor
             var runtime = Path.Combine(dir, "runtime", "jobs", SafeSegment(request.JobId ?? Guid.NewGuid().ToString("N"))); Directory.CreateDirectory(runtime);
             var bomPath = Path.Combine(runtime, "sap_bom_extraction.json"); if (File.Exists(bomPath)) File.Delete(bomPath);
             var output = new StringBuilder();
-            await CompileIfNeeded(bomSource, bomClass, jar, dir, progress, output, cancellationToken); var bomRun = JavaInfo(dir, jar, "SapBomExtractor", request.MaterialId ?? "", string.IsNullOrWhiteSpace(request.Plant) ? "1001" : request.Plant, string.IsNullOrWhiteSpace(request.BomUsage) ? "3" : request.BomUsage, string.IsNullOrWhiteSpace(request.Alternative) ? "1" : request.Alternative, bomPath);
-            await progress($"Extracting SAP BOM for {request.MaterialId}..."); var bomExecuted = await _runner.RunAsync(bomRun, TimeSpan.FromSeconds(Math.Max(30, _options.SapTimeoutSeconds)), progress, cancellationToken); output.Append(bomExecuted.output);
+            var materialQuery = request.GetMaterialQuery()?.Trim() ?? "";
+            var resolvedMaterialId = await ResolveSapMaterialAsync(dir, jar, runtime, materialQuery, request.Plant, progress, output, cancellationToken);
+            request.MaterialId = resolvedMaterialId;
+            await CompileIfNeeded(bomSource, bomClass, jar, dir, progress, output, cancellationToken); var bomRun = JavaInfo(dir, jar, "SapBomExtractor", resolvedMaterialId, string.IsNullOrWhiteSpace(request.Plant) ? "1001" : request.Plant, string.IsNullOrWhiteSpace(request.BomUsage) ? "3" : request.BomUsage, string.IsNullOrWhiteSpace(request.Alternative) ? "1" : request.Alternative, bomPath);
+            await progress($"Extracting SAP BOM for {resolvedMaterialId}..."); var bomExecuted = await _runner.RunAsync(bomRun, TimeSpan.FromSeconds(Math.Max(30, _options.SapTimeoutSeconds)), progress, cancellationToken); output.Append(bomExecuted.output);
 
             BomRoot? bom = null;
             string? bomFailure = null;
@@ -100,6 +105,37 @@ public sealed class SubprocessExecutor : ISubprocessExecutor
         }
         finally { _sapGate.Release(); }
     }
+
+    private async Task<string> ResolveSapMaterialAsync(string dir, string jar, string runtime, string query, string? plant, Func<string, Task> progress, StringBuilder output, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(query)) throw new InvalidOperationException("An SAP material description or material number is required.");
+        var source = Path.Combine(dir, "src", "SapMaterialCatalogExtractor.java");
+        var cls = Path.Combine(dir, "out", "SapMaterialCatalogExtractor.class");
+        if (!File.Exists(source)) throw new FileNotFoundException("SAP material catalogue extractor source was not found.", source);
+        await CompileIfNeeded(source, cls, jar, dir, progress, output, cancellationToken);
+        var catalogDir = Path.Combine(runtime, "material-resolution"); Directory.CreateDirectory(catalogDir);
+        var jsonPath = Path.Combine(catalogDir, "sap_material_catalog.json"); if (File.Exists(jsonPath)) File.Delete(jsonPath);
+        await progress($"Resolving SAP material for {query}...");
+        var run = JavaInfo(dir, jar, "SapMaterialCatalogExtractor", query, "20", catalogDir, string.IsNullOrWhiteSpace(plant) ? "1001" : plant);
+        var executed = await _runner.RunAsync(run, TimeSpan.FromSeconds(Math.Max(30, _options.SapTimeoutSeconds)), progress, cancellationToken); output.Append(executed.output);
+        if (executed.exitCode != 0 || !File.Exists(jsonPath)) throw new InvalidOperationException($"SAP material resolution failed for '{query}'.");
+        var root = JObject.Parse(await File.ReadAllTextAsync(jsonPath, cancellationToken));
+        var materials = (root["materials"] as JArray)?.OfType<JObject>().ToList() ?? new List<JObject>();
+        if (materials.Count == 0) throw new InvalidOperationException($"No SAP material matched '{query}'.");
+        static string Read(JObject item, string name) => item[name]?.ToString().Trim() ?? "";
+        var exact = materials.Where(item => string.Equals(Read(item, "materialId"), query, StringComparison.OrdinalIgnoreCase) || string.Equals(Read(item, "internalMaterialId"), query, StringComparison.OrdinalIgnoreCase) || string.Equals(Read(item, "description"), query, StringComparison.OrdinalIgnoreCase)).ToList();
+        var selected = exact.Count == 1 ? exact[0] : exact.Count == 0 && materials.Count == 1 ? materials[0] : null;
+        if (selected == null)
+        {
+            var choices = string.Join(", ", materials.Take(5).Select(item => $"{Read(item, "materialId")} ({Read(item, "description")})"));
+            throw new InvalidOperationException($"SAP material query '{query}' is ambiguous. Refine the name or enter a material number. Matches: {choices}");
+        }
+        var resolved = Read(selected, "materialId");
+        if (string.IsNullOrWhiteSpace(resolved)) throw new InvalidOperationException("SAP material resolution returned a candidate without a material number.");
+        await progress($"Resolved SAP material '{query}' to {resolved}.");
+        return resolved;
+    }
+
     private static string AppendReason(StringBuilder output, string? reason)
     {
         if (string.IsNullOrWhiteSpace(reason)) return output.ToString();
@@ -115,7 +151,29 @@ public sealed class SubprocessExecutor : ISubprocessExecutor
     private static IEnumerable<string> CollectMaterials(BomNode root) { yield return root.ItemId; foreach (var child in root.Children ?? new()) foreach (var id in CollectMaterials(child)) yield return id; }
     private static ProcessStartInfo JavaInfo(string dir, string jar, string className, params string[] args) { var info = BaseInfo("java", dir); info.ArgumentList.Add($"-Djava.library.path={Path.Combine(dir, "lib")}"); info.ArgumentList.Add("-cp"); info.ArgumentList.Add($"{Path.Combine(dir, "out")};{jar}"); info.ArgumentList.Add(className); foreach (var arg in args) info.ArgumentList.Add(arg); return info; }
     private async Task<SubprocessResult> ExecuteConfigitAsync(ExtractionRequest request, Func<string, Task> progress, CancellationToken cancellationToken) { var script = _options.ResolveConfigitPath(); var dir = Path.GetDirectoryName(script)!; var outputFile = Path.Combine(dir, "configit_extraction.json"); if (File.Exists(outputFile)) File.Delete(outputFile); var info = BaseInfo("python", dir); info.ArgumentList.Add(script); info.Environment["PYTHONIOENCODING"] = "utf-8"; info.Environment["CONFIGIT_WORK_ITEM_ID"] = request.WorkItemId ?? ""; info.Environment["CONFIGIT_PRODUCT_MODEL"] = request.ProductModelCode ?? ""; var run = await _runner.RunAsync(info, TimeSpan.FromSeconds(Math.Max(30, _options.GeneralTimeoutSeconds)), progress, cancellationToken); if (run.exitCode != 0 || !File.Exists(outputFile)) return new() { Success = false, Output = run.output }; var bom = JsonConvert.DeserializeObject<BomRoot>(await File.ReadAllTextAsync(outputFile)); return new() { Success = bom != null, Output = run.output, Bom = bom, BomOutputPath = outputFile }; }
-    private async Task<SubprocessResult> ExecuteTeamcenterAsync(ExtractionRequest request, Func<string, Task> progress, CancellationToken cancellationToken) { var pipeline = request.PipelinePath ?? _options.ResolveTeamcenterPath(); var dir = Path.GetDirectoryName(pipeline)!; if (!File.Exists(pipeline)) throw new FileNotFoundException("Teamcenter pipeline was not found.", pipeline); foreach (var stale in new[] { Path.Combine(dir, "HelloTeamcenter", "tc_extraction.json"), Path.Combine(dir, "ConfigitAceIntegration", "bom-output.json"), Path.Combine(dir, "ConfigitAceIntegration", "tc_extraction.json"), Path.Combine(dir, "tc_extraction.json") }) if (File.Exists(stale)) File.Delete(stale); var info = BaseInfo("cmd.exe", dir); info.ArgumentList.Add("/c"); info.ArgumentList.Add("call"); info.ArgumentList.Add(pipeline); info.ArgumentList.Add(request.TeamcenterItemId ?? ""); info.Environment["TC_ITEM_ID"] = request.TeamcenterItemId ?? ""; var run = await _runner.RunAsync(info, TimeSpan.FromSeconds(Math.Max(30, _options.GeneralTimeoutSeconds)), progress, cancellationToken); foreach (var path in new[] { Path.Combine(dir, "ConfigitAceIntegration", "bom-output.json"), Path.Combine(dir, "HelloTeamcenter", "tc_extraction.json"), Path.GetFullPath(Path.Combine(dir, "..", "tc_extraction.json")) }) if (File.Exists(path)) { try { var bom = JsonConvert.DeserializeObject<BomRoot>(await File.ReadAllTextAsync(path)); if (bom != null) { bom.SourceItemId = request.TeamcenterItemId ?? bom.SourceItemId; return new() { Success = true, Output = run.output, Bom = bom, BomOutputPath = path, OptionalStageWarning = run.exitCode == 0 ? null : "The Teamcenter structure was produced, but a later legacy batch stage returned a non-zero exit code." }; } } catch (Exception ex) { _logger.LogWarning(ex, "Could not parse Teamcenter output {Path}", path); } } return new() { Success = false, Output = run.output }; }
+    private async Task<SubprocessResult> ExecuteTeamcenterAsync(ExtractionRequest request, Func<string, Task> progress, CancellationToken cancellationToken)
+    {
+        var runner = request.PipelinePath ?? _options.ResolveTeamcenterPath();
+        var dir = Path.GetDirectoryName(runner)!;
+        if (!File.Exists(runner)) throw new FileNotFoundException("Teamcenter runner was not found.", runner);
+        var outputPath = Path.Combine(dir, "HelloTeamcenter", "tc_extraction.json");
+        var diagnosticPath = outputPath + ".search.json";
+        foreach (var stale in new[] { outputPath, diagnosticPath }) if (File.Exists(stale)) File.Delete(stale);
+        var query = request.GetTeamcenterQuery()?.Trim() ?? "";
+        if (string.IsNullOrWhiteSpace(query)) throw new InvalidOperationException("A Teamcenter product name or Item ID is required.");
+        var info = BaseInfo("cmd.exe", dir); info.ArgumentList.Add("/c"); info.ArgumentList.Add("call"); info.ArgumentList.Add(runner); info.ArgumentList.Add(query);
+        await progress($"Resolving and extracting Teamcenter structure for {query}...");
+        var run = await _runner.RunAsync(info, TimeSpan.FromSeconds(Math.Max(30, _options.GeneralTimeoutSeconds)), progress, cancellationToken);
+        if (run.exitCode != 0 || !File.Exists(outputPath)) return new() { Success = false, Output = run.output, ProcessExitCode = run.exitCode };
+        try
+        {
+            var bom = JsonConvert.DeserializeObject<BomRoot>(await File.ReadAllTextAsync(outputPath, cancellationToken));
+            if (bom?.BomRootNode == null) return new() { Success = false, Output = run.output + Environment.NewLine + "Teamcenter produced invalid extraction JSON.", ProcessExitCode = run.exitCode };
+            return new() { Success = true, Output = run.output, Bom = bom, BomOutputPath = outputPath, ProcessExitCode = run.exitCode };
+        }
+        catch (Exception ex) { _logger.LogWarning(ex, "Could not parse Teamcenter output {Path}", outputPath); return new() { Success = false, Output = run.output + Environment.NewLine + ex.Message, ProcessExitCode = run.exitCode }; }
+    }
+
     private static ProcessStartInfo BaseInfo(string file, string cwd) => new() { FileName = file, WorkingDirectory = cwd, UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true, StandardOutputEncoding = Encoding.UTF8, StandardErrorEncoding = Encoding.UTF8 };
     private static string SafeSegment(string value) => string.Concat(value.Select(c => char.IsLetterOrDigit(c) || c is '-' or '_' ? c : '_'));
 }

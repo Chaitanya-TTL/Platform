@@ -1,3 +1,4 @@
+
 import type { SapOperationalImpact } from "@/types/sap-operational-impact";
 
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5212/api";
@@ -41,14 +42,15 @@ async function postPipeline(body: Record<string, unknown>) {
   return expectJson<StartResponse>(response);
 }
 
-export function startPipeline(request: { teamcenterItemId: string }) {
-  return postPipeline({ kind: "teamcenter", ...request });
+export function startPipeline(request: { teamcenterQuery: string }) {
+  return postPipeline({ kind: "teamcenter", teamcenterQuery: request.teamcenterQuery });
 }
 export function startConfigitExtraction(request: { workItemId: string; productModelCode: string }) {
   return postPipeline({ kind: "configit", ...request });
 }
-export function startSapExtraction(request: { materialId: string; plant?: string; bomUsage?: string; alternative?: string; includeSapBusinessImpact?: boolean }) {
-  return postPipeline({ kind: "sap", ...request });
+export function startSapExtraction(request: { materialQuery?: string; materialId?: string; plant?: string; bomUsage?: string; alternative?: string; includeSapBusinessImpact?: boolean }) {
+  const materialQuery = request.materialQuery?.trim() || request.materialId?.trim() || "";
+  return postPipeline({ kind: "sap", ...request, materialQuery });
 }
 
 export interface BomNode { itemId: string; sequence?: string; variantState?: string; revId?: string; name?: string; qty?: string; variantCondition?: string; children?: BomNode[] }

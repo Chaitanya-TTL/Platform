@@ -1,3 +1,4 @@
+
 <project name="SOA Sample Client" default="All" basedir=".">
   <description>
      Build file to build SOA Tests.
@@ -162,3 +163,4 @@
     <target name="All" depends="init,Compile,CreateWindowsScript,CreateUnixScript"/>
     
 </project>
+

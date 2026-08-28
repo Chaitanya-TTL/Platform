@@ -1,1 +1,0 @@
-import type{CameraSnapshot}from"../contracts/commands";export interface CameraProbe{capture():CameraSnapshot;restore(s:CameraSnapshot):Promise<void>|void;compare(a:CameraSnapshot,b:CameraSnapshot):number}

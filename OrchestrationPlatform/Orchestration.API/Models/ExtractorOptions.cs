@@ -1,3 +1,4 @@
+
 namespace Orchestration.API.Models;
 
 public sealed class ExtractorOptions
@@ -31,6 +32,6 @@ public sealed class ExtractorOptions
     public string ResolveConfigitProductIndexPath() => string.IsNullOrWhiteSpace(ConfigitProductIndexPath)
         ? Path.Combine(ResolveWorkspaceRoot(), "configit_extractor", "product-index.json") : Path.GetFullPath(ConfigitProductIndexPath);
     public string ResolveTeamcenterPath() => string.IsNullOrWhiteSpace(TeamcenterPipelinePath)
-        ? Path.Combine(ResolveWorkspaceRoot(), "TeamCenter-to-Configit-soa_client", "backend", "samples", "run-pipeline.bat")
+        ? Path.Combine(ResolveWorkspaceRoot(), "TeamCenter-to-Configit-soa_client", "backend", "samples", "run-teamcenter.bat")
         : Path.GetFullPath(TeamcenterPipelinePath);
 }

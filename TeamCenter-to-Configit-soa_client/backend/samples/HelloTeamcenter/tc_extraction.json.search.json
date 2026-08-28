@@ -1,0 +1,14 @@
+{
+  "schemaVersion":"1.0",
+  "source":"teamcenter",
+  "operation":"search",
+  "query":{"originalInput":"WCITEST","queryType":"auto"},
+  "status":"empty",
+  "resultCount":0,
+  "truncated":false,
+  "candidates":[
+  ],
+  "warnings":[],
+  "errors":[],
+  "executedAt":"2026-08-25T10:24:21.681454800Z"
+}

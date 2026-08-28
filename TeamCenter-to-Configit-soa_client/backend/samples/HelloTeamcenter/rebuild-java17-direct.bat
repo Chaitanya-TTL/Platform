@@ -1,3 +1,4 @@
+
 @echo off
 setlocal enabledelayedexpansion
 
@@ -65,4 +66,5 @@ echo [SUCCESS] HelloTeamcenter compiled!
 echo.
 echo Created: %BIN%\com\teamcenter\hello\Hello.class
 echo.
+
 
