@@ -30,3 +30,27 @@
   min-width: 72px;
   white-space: nowrap;
 }
+/* Semantic zoom: preserve identity at distance, progressively disclose detail. */
+.lattice-premium-node[data-zoom-tier="far"] .node-copy h3 { font-size: 18px; line-height: 1.15; font-weight: 750; letter-spacing: -0.02em; }
+.lattice-premium-node[data-zoom-tier="far"] .node-heading { opacity: .78; font-size: 10px; }
+.lattice-premium-node[data-zoom-tier="far"] .node-identifier,
+.lattice-premium-node[data-zoom-tier="far"] .node-related,
+.lattice-premium-node[data-zoom-tier="far"] .node-metrics,
+.lattice-premium-node[data-zoom-tier="far"] .node-evidence,
+.lattice-premium-node[data-zoom-tier="far"] .lattice-completeness { display: none; }
+.lattice-premium-node[data-zoom-tier="far"] .node-copy { justify-content: center; min-width: 0; }
+.lattice-premium-node[data-zoom-tier="working"] .node-copy h3 { font-size: 15px; line-height: 1.2; }
+.lattice-premium-node .node-copy > * { transition: opacity 140ms ease, transform 140ms ease; }
+@media (prefers-reduced-motion: reduce) {
+  .lattice-premium-node, .lattice-premium-node *, .lattice-intelligent-edge { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
+}
+/* Radial relationship handles remain measurable without appearing as connection controls. */
+.lattice-radial-handle {
+  width: 4px !important;
+  height: 4px !important;
+  min-width: 4px !important;
+  min-height: 4px !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+.lattice-intelligence-legend{position:absolute;z-index:15;left:16px;bottom:16px;display:grid;gap:6px;padding:9px 11px;border:1px solid rgba(100,116,139,.22);border-radius:12px;background:rgba(2,6,23,.82);backdrop-filter:blur(10px);font-size:10px;color:#94a3b8}.lattice-intelligence-legend>div{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.lattice-intelligence-legend b{color:#e2e8f0}.lattice-intelligence-legend span{display:inline-flex;align-items:center;gap:4px}.lattice-intelligence-legend span:before{content:"";width:6px;height:6px;border-radius:999px;background:#64748b}.lattice-intelligence-legend span[data-tone="cyan"]:before{background:#22d3ee}.lattice-intelligence-legend span[data-tone="violet"]:before{background:#a78bfa}.lattice-intelligence-legend span[data-tone="emerald"]:before{background:#34d399}.lattice-intelligence-legend span[data-tone="fuchsia"]:before{background:#e879f9}.lattice-intelligence-legend span[data-tone="amber"]:before{background:#f59e0b}.lattice-intelligence-legend span[data-tone="teal"]:before{background:#2dd4bf}

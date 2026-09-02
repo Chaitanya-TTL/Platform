@@ -115,12 +115,12 @@ function IntelligentRelationshipEdge({
 
   const color = palette[edgeData.category];
   const width = selected
-    ? 3.2
+    ? 1.75
     : edgeData.importance === "primary"
-      ? 2.6
+      ? 1.45
       : edgeData.importance === "low"
-        ? 1.1
-        : 1.65;
+        ? 1.05
+        : 1.3;
   const dash =
     edgeData.category === "evidence"
       ? "2 5"
@@ -138,18 +138,18 @@ function IntelligentRelationshipEdge({
       <defs>
         <marker
           id={markerId}
-          markerWidth="10"
-          markerHeight="10"
-          refX="9"
-          refY="5"
+          markerWidth="8"
+          markerHeight="8"
+          refX="7.2"
+          refY="4"
           orient="auto-start-reverse"
-          markerUnits="strokeWidth"
+          markerUnits="userSpaceOnUse"
         >
           <path
-            d={edgeData.direction === "inferred" ? "M 1 1 L 9 5 L 1 9" : "M 1 1 L 9 5 L 1 9 Z"}
+            d={edgeData.direction === "inferred" ? "M 1 1 L 7 4 L 1 7" : "M 1 1 L 7 4 L 1 7 Z"}
             fill={edgeData.direction === "inferred" ? "none" : color}
             stroke={color}
-            strokeWidth="1.2"
+            strokeWidth="1"
           />
         </marker>
       </defs>
@@ -160,7 +160,7 @@ function IntelligentRelationshipEdge({
           edgeData.direction === "bidirectional" ? markerUrl : undefined
         }
         markerEnd={markerUrl}
-        interactionWidth={26}
+        interactionWidth={18}
         style={{
           stroke: color,
           strokeWidth: width,

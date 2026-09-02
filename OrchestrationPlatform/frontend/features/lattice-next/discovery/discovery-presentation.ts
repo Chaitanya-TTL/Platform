@@ -17,7 +17,7 @@ export function presentOutcome(source:LatticeSource,outcome:SourceSearchOutcome|
   if(["checking-readiness","searching"].includes(outcome.status)) return {label:"Searching",title:`Searching ${SOURCE_LABELS[source]}`,message:`Looking for matching ${sourceNoun[source].toLowerCase()}s.`,tone:"active"};
   if(outcome.status==="succeeded"||outcome.status==="partial") return {label:"Results found",title:`${outcome.results.length} match${outcome.results.length===1?"":"es"} in ${SOURCE_LABELS[source]}`,message:"Choose the record that belongs in this investigation.",technicalDetail:outcome.warning,tone:"success"};
   if(outcome.status==="empty"){
-    const message=source==="sap"&&outcome.warning?"The latest available SAP catalogue did not contain this material. Catalogue data may be out of date.":source==="configit"?`No configurable package matched â€œ${query}â€. Check the package path or try another identifier.`:`No ${sourceNoun[source].toLowerCase()} matched â€œ${query}â€.`;
+    const message=source==="sap"&&outcome.warning?"The latest available SAP catalogue did not contain this material. Catalogue data may be out of date.":source==="configit"?`No configurable package matched ${query}.`:`No ${sourceNoun[source].toLowerCase()} matched ${query}.`;
     return {label:"No results",title:source==="configit"?"Configit package not found":`No current ${SOURCE_LABELS[source]} match`,message,technicalDetail:outcome.warning,actionLabel:outcome.retryable?`Search ${SOURCE_LABELS[source]} again`:undefined,tone:"muted"};
   }
   if(outcome.status==="cancelled") return {label:"Needs attention",title:`${SOURCE_LABELS[source]} search stopped`,message:"The search was cancelled. Results from other sources are still available.",actionLabel:`Retry ${SOURCE_LABELS[source]}`,tone:"warning"};
@@ -34,7 +34,7 @@ export function presentMatch(category:MatchCategory){
 }
 
 export function cleanInvestigationLabel(value:string){
-  const parts=value.split(/\s*[+|Â·]\s*/).map(item=>item.trim()).filter(Boolean);
+  const parts=value.split(/\s*[+|·]\s*/).map(item=>item.trim()).filter(Boolean);
   const unique=[...new Set(parts)];
   if(unique.length) return unique[0];
   const half=value.slice(0,Math.floor(value.length/2));

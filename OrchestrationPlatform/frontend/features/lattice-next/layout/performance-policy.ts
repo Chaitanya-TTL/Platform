@@ -1,0 +1,3 @@
+export type GraphTier="small"|"medium"|"large"|"stress";
+export type GraphPerformancePolicy={tier:GraphTier;animate:boolean;showBackgroundLabels:boolean;deferEvidence:boolean;simplifySemanticRoutes:boolean;maxCacheEntries:number};
+export function performancePolicy(nodes:number,edges:number):GraphPerformancePolicy{const density=nodes?edges/nodes:0;const tier:GraphTier=nodes<=100?"small":nodes<=500?"medium":nodes<=1500?"large":"stress";return{tier,animate:tier==="small"||tier==="medium",showBackgroundLabels:tier==="small"&&density<3,deferEvidence:tier==="large"||tier==="stress"||density>5,simplifySemanticRoutes:tier==="stress"||density>8,maxCacheEntries:tier==="stress"?48:tier==="large"?96:160}}

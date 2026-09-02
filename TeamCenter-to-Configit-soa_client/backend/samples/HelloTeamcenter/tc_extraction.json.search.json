@@ -2,7 +2,7 @@
   "schemaVersion":"1.0",
   "source":"teamcenter",
   "operation":"search",
-  "query":{"originalInput":"WCITEST","queryType":"auto"},
+  "query":{"originalInput":"Stearing","queryType":"auto"},
   "status":"empty",
   "resultCount":0,
   "truncated":false,
@@ -10,5 +10,5 @@
   ],
   "warnings":[],
   "errors":[],
-  "executedAt":"2026-08-25T10:24:21.681454800Z"
+  "executedAt":"2026-09-02T05:24:02.952298400Z"
 }

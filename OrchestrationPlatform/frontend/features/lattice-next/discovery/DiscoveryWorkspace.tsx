@@ -156,11 +156,11 @@ export function DiscoveryWorkspace({
                     className="rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-2"
                   >
                     <p className="text-xs font-semibold text-slate-200">
-                      {SOURCE_LABELS[item.source]} Â· {item.displayName}
+                      {SOURCE_LABELS[item.source]} · {item.displayName}
                     </p>
                     <p className="mt-1 truncate text-[11px] text-slate-500">
                       {item.nativeId}
-                      {item.revision ? ` Â· Revision ${item.revision}` : ""}
+                      {item.revision ? ` · Revision ${item.revision}` : ""}
                     </p>
                   </div>
                 ))}
@@ -324,12 +324,12 @@ function friendlyReference(
   source: LatticeSource,
   result: NormalizedSearchResult,
 ) {
-  const revision = result.revision ? ` Â· Revision ${result.revision}` : "";
+  const revision = result.revision ? ` · Revision ${result.revision}` : "";
   if (source === "windchill")
     return `Part ${result.nativeId.replace(/^OR:wt\.part\.WTPart:/, "")}${revision}`;
   if (source === "sap") return `Material ${result.nativeId}${revision}`;
   if (source === "configit")
-    return `Product ${result.nativeId}${result.version ? ` Â· Package version ${result.version}` : ""}`;
+    return `Product ${result.nativeId}${result.version ? ` · Package version ${result.version}` : ""}`;
   return `Item ${result.nativeId}${revision}`;
 }
 

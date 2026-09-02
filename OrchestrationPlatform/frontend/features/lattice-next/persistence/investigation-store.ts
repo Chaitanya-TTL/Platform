@@ -1,10 +1,16 @@
+
 import type { InvestigationState } from "../state/investigation-reducer";
 import type { InvestigationGraph, InvestigationSelection, RelationshipKind } from "../domain/model";
 import { initialInvestigation } from "../state/investigation-reducer";
 import { LATTICE_LAYOUT_REVISION } from "../layout/layout-contract";
+import { LATTICE_PERSISTENCE_VERSION, migratePersistedInvestigation } from "./layout-migrations";
 
-const VERSION = 4;
+const VERSION = LATTICE_PERSISTENCE_VERSION;
 const key = (id: string) => `lattice-next:investigation:${id}`;
+
+export function clearInvestigation(id: string) {
+  try { localStorage.removeItem(key(id)); return true; } catch { return false; }
+}
 
 export function saveInvestigation(id: string, state: InvestigationState) {
   try {
@@ -43,38 +49,11 @@ export function loadInvestigation(id: string, graph: InvestigationGraph, sources
   try {
     const raw = localStorage.getItem(key(id));
     if (!raw) return null;
-    const value = JSON.parse(raw) as Record<string, unknown>;
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const migration = migratePersistedInvestigation(parsed);
+    if (!migration.ok) return null;
+    const value = migration.value;
     const fallback = initialInvestigation(graph.roots, sources);
-
-    // Safe migration from the pre-BM-1 flat version-2 interaction structure.
-    if (value.version === 2) {
-      const expanded = Array.isArray(value.expanded) ? value.expanded : [];
-      const activeSources = Array.isArray(value.activeSources) ? value.activeSources : [];
-      const activeRelationships = Array.isArray(value.activeRelationships) ? value.activeRelationships : [];
-      return {
-        ...fallback,
-        query: typeof value.query === "string" ? value.query : "",
-        inspectorOpen: value.inspectorOpen !== false,
-        orientation: value.orientation === "DOWN" ? "DOWN" : "RIGHT",
-        activeSources: new Set(activeSources.filter((item): item is string => typeof item === "string" && sources.includes(item))),
-        activeRelationships: new Set(activeRelationships.filter((item): item is RelationshipKind => typeof item === "string")) as Set<RelationshipKind>,
-        interaction: {
-          ...fallback.interaction,
-          selection: validSelection(value.selection, graph),
-          expansion: {
-            expanded: new Set(expanded.filter((item): item is string => typeof item === "string" && Boolean(graph.byId[item]))),
-            focusRoot: typeof value.focusRoot === "string" && graph.byId[value.focusRoot] ? value.focusRoot : null,
-          },
-          viewport: value.viewport && typeof value.viewport === "object" ? value.viewport as InvestigationState["interaction"]["viewport"] : fallback.interaction.viewport,
-        },
-      };
-    }
-
-    if (value.version === 3 && value.interaction && typeof value.interaction === "object") {
-      value.version = VERSION;
-      value.layoutRevision = LATTICE_LAYOUT_REVISION;
-      value.interaction = { ...(value.interaction as Record<string, unknown>), pinnedPositions: {} };
-    }
 
     if (value.version !== VERSION || value.layoutRevision !== LATTICE_LAYOUT_REVISION || !value.interaction || typeof value.interaction !== "object") return null;
     const restored = value as unknown as Omit<InvestigationState, "activeSources" | "activeRelationships"> & {
@@ -108,3 +87,4 @@ export function loadInvestigation(id: string, graph: InvestigationGraph, sources
     return null;
   }
 }
+

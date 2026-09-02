@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useReducer, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   IconAlertTriangle,
   IconArrowLeft,
@@ -17,12 +17,15 @@ import {
   investigationReducer,
 } from "../state/investigation-reducer";
 import {
+  clearInvestigation,
   loadInvestigation,
   saveInvestigation,
 } from "../persistence/investigation-store";
 import { RelationshipCanvas } from "../components/RelationshipCanvas";
 import { LatticeFlowProvider } from "../canvas/LatticeFlowProvider";
 import { EntityInspector } from "../components/EntityInspector";
+import { IntelligenceInspector } from "../components/IntelligenceInspector";
+import { IntelligenceLegend } from "../components/IntelligenceLegend";
 import { RelationshipInspector } from "../components/RelationshipInspector";
 import { InvestigationToolbar } from "../components/InvestigationToolbar";
 import type {
@@ -52,6 +55,7 @@ type RecentInvestigation = ReturnType<
 >[number];
 
 export function LatticeNextWorkspace() {
+  const router = useRouter();
   const params = useSearchParams();
   const handoffId = params.get("handoff");
   const investigationId = params.get("investigation");
@@ -66,8 +70,14 @@ export function LatticeNextWorkspace() {
   const [handoff] = useState<HandoffReadResult | null>(() => handoffId ? readHandoff(handoffId) : null);
   const [restored] = useState<CanonicalInvestigation | null>(() => investigationId ? loadCanonicalInvestigation(investigationId) : null);
 
+  const startNewInvestigation = useCallback(() => {
+    setDirect(null);
+    setMessage(null);
+    router.replace("/lattice");
+  }, [router]);
+
   if (direct) {
-    return <Investigation handoffId={direct.handoffId} handoff={direct} />;
+    return <Investigation handoffId={direct.handoffId} handoff={direct} onStartNew={startNewInvestigation} />;
   }
 
   if (handoffId) {
@@ -75,6 +85,7 @@ export function LatticeNextWorkspace() {
       <Investigation
         handoffId={handoff.value.handoffId}
         handoff={handoff.value}
+        onStartNew={startNewInvestigation}
       />
     ) : (
       <Recovery
@@ -189,8 +200,10 @@ function Restored({ canonical }: { canonical: CanonicalInvestigation }) {
 function Investigation({
   handoffId,
   handoff,
+  onStartNew,
 }: {
   handoffId: string;
+  onStartNew: () => void;
   handoff:
     | Extract<HandoffReadResult, { ok: true }>["value"]
     | LatticeHandoff;
@@ -213,6 +226,12 @@ function Investigation({
   useEffect(() => {
     saveInvestigation(handoffId, state);
   }, [handoffId, state]);
+
+  const startNewInvestigation = useCallback(() => {
+    dispatch({ type: "start-new-investigation" });
+    clearInvestigation(handoffId);
+    onStartNew();
+  }, [handoffId, onStartNew]);
 
   useEffect(() => {
     const existing = loadCanonicalInvestigation(`lattice-${handoff.handoffId}`);
@@ -261,13 +280,14 @@ function Investigation({
     <main className="min-h-[calc(100vh-64px)] bg-[#050914] p-3 text-white sm:p-4">
       <header className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950/75 px-4 py-3">
         <div className="flex items-center gap-3">
-          <Link
-            href="/lattice"
+          <button
+            type="button"
+            onClick={startNewInvestigation}
             aria-label="New investigation"
             className="rounded-lg border border-slate-700 p-2 text-slate-400"
           >
             <IconArrowLeft className="h-4 w-4" />
-          </Link>
+          </button>
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[.18em] text-cyan-400">
               Lattice investigation
@@ -281,9 +301,9 @@ function Investigation({
         <div className="flex gap-3 text-xs text-slate-500">
           <span>{domain.entities.length} entities</span>
           <span>{domain.relationships.length} relationships</span>
-          <Link href="/lattice" className="text-cyan-300">
+          <button type="button" onClick={startNewInvestigation} className="text-cyan-300">
             New investigation
-          </Link>
+          </button>
         </div>
       </header>
 
@@ -380,7 +400,7 @@ function Investigation({
             target={domain.byId[relationship.to]}
           />
         ) : (
-          <EntityInspector entity={entity} relationships={related} />
+          domain.metadata?.contractVersion ? <IntelligenceInspector graph={domain} entity={entity} /> : <EntityInspector entity={entity} relationships={related} />
         )}
       </section>
     </main>
@@ -414,9 +434,3 @@ function Recovery({ message }: { message: string }) {
     </main>
   );
 }
-
-
-
-
-
-
