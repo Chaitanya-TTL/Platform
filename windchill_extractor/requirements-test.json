@@ -1,0 +1,128 @@
+{
+  "source": "windchill",
+  "query": {
+    "type": "part-name",
+    "value": "Stearing",
+    "matchMode": "exact"
+  },
+  "part": {
+    "id": "OR:wt.part.WTPart:1710308",
+    "number": "0000003865",
+    "name": "Stearing",
+    "revision": "A",
+    "version": "A.1 (Design)",
+    "latest": true,
+    "state": "In Work",
+    "view": "Design",
+    "source": "Buy",
+    "defaultUnit": "each",
+    "organization": "TTL",
+    "folder": "/WCI INTEG Prod",
+    "changeStatus": "Pending change exists",
+    "checkoutState": "Working copy, checked-out to you",
+    "customAttributes": {
+      "chemical": "Iron-based alloy",
+      "material": "Mild Steel",
+      "dimension": "20 x 30 x 40",
+      "weight": "2.50 kg"
+    }
+  },
+  "requirementSpecifications": [
+    {
+      "id": "OR:wt.doc.WTDocument:1710229",
+      "number": "0000011519",
+      "name": "Stearing Requirements Specification",
+      "revision": "A",
+      "version": "A.2",
+      "state": "In Work",
+      "description": "POC requirements specification for the Stearing component,\r\nWindchill Part 0000003865. Contains material, chemical,\r\nweight, and dimensional requirements for API extraction\r\nand traceability validation.",
+      "primaryContent": {
+        "id": "OR:wt.content.ApplicationData:1710231",
+        "fileName": "0000011519_Stearing Requirements Specifi.doc",
+        "fileSize": 64000,
+        "mimeType": "application/msword",
+        "description": null,
+        "downloadAvailable": true,
+        "platformDownloadUrl": "/api/windchill/content/primary?documentId=OR%3Awt.doc.WTDocument%3A1710229"
+      },
+      "attachments": [
+        {
+          "id": "OR:wt.content.ApplicationData:1710232",
+          "fileName": "Stearing_Requirements_Specification.docx",
+          "fileSize": 39931,
+          "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "description": "Stearing Requirements Specification",
+          "downloadAvailable": true,
+          "platformDownloadUrl": "/api/windchill/content/attachment?documentId=OR%3Awt.doc.WTDocument%3A1710229&contentId=OR%3Awt.content.ApplicationData%3A1710232"
+        }
+      ],
+      "requirements": [
+        {
+          "id": "OR:wt.doc.WTDocument:1710245",
+          "number": "0000011520",
+          "requirementId": "REQ-STEER-001",
+          "title": "Material Requirement",
+          "name": "REQ-STEER-001 - Material Requirement",
+          "revision": "A",
+          "version": "A.1",
+          "state": "In Work",
+          "description": "The Stearing component shall use Mild Steel.",
+          "category": "Material"
+        },
+        {
+          "id": "OR:wt.doc.WTDocument:1710262",
+          "number": "0000011521",
+          "requirementId": "REQ-STEER-002",
+          "title": "Chemical Material Requirement",
+          "name": "REQ-STEER-002 - Chemical Material Requirement",
+          "revision": "A",
+          "version": "A.1",
+          "state": "In Work",
+          "description": "The Stearing component shall use an iron-based alloy.",
+          "category": "Chemical Material"
+        },
+        {
+          "id": "OR:wt.doc.WTDocument:1710277",
+          "number": "0000011522",
+          "requirementId": "REQ-STEER-003",
+          "title": "Maximum Weight Requirement",
+          "name": "REQ-STEER-003 - Maximum Weight Requirement",
+          "revision": "A",
+          "version": "A.1",
+          "state": "In Work",
+          "description": "The Stearing component shall have a maximum weight of 2.50 kg.",
+          "category": "Weight"
+        },
+        {
+          "id": "OR:wt.doc.WTDocument:1710292",
+          "number": "0000011523",
+          "requirementId": "REQ-STEER-004",
+          "title": "Dimensional Requirement",
+          "name": "REQ-STEER-004 - Dimensional Requirement",
+          "revision": "A",
+          "version": "A.1",
+          "state": "In Work",
+          "description": "The Stearing component shall conform to dimensions of 20 x 30 x 40.",
+          "category": "Dimension"
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "specificationCount": 1,
+    "requirementCount": 4,
+    "primaryContentCount": 1,
+    "attachmentCount": 1,
+    "downloadableFileCount": 2,
+    "categories": [
+      "Chemical Material",
+      "Dimension",
+      "Material",
+      "Weight"
+    ]
+  },
+  "warnings": [],
+  "status": "success",
+  "dataStatus": "poc-synthetic",
+  "extractedAt": "2026-09-02T08:44:44.907437+00:00"
+}

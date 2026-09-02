@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "test:lattice": "vitest run features/lattice-next/tests"
+    "test:lattice": "vitest run features/lattice-next/tests",
+    "test:windchill": "vitest run tests/windchill-platform.test.ts"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.7",

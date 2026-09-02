@@ -5,6 +5,7 @@ import type {
   RelationshipKind,
 } from "../domain/model";
 import type { RelationshipProjection } from "../contracts/projection";
+import { projectIntelligenceExperience } from "../projection/intelligence-domain-projection";
 export type ProjectionOptions = {
   expanded: ReadonlySet<string>;
   selection: InvestigationSelection;
@@ -18,6 +19,7 @@ export function projectVisibleGraph(
   core: InvestigationGraphCore,
   options: ProjectionOptions,
 ): RelationshipProjection {
+  if (domain.metadata?.contractVersion) return projectIntelligenceExperience(domain,{expanded:options.expanded,selectedId:options.selection.type==="entity"?options.selection.id:undefined});
   const visible = new Set<string>(),
     allowed = (id: string) =>
       domain.byId[id]?.source === "unified" ||
@@ -55,8 +57,8 @@ export function projectVisibleGraph(
       label: entity.name,
       subtitle:
         entity.source === "unified"
-          ? `${entity.representationSources?.length ?? 0} selected source representations Â· investigation subject`
-          : `${entity.provenance.sourceLabel} Â· ${entity.kind}`,
+          ? `${entity.representationSources?.length ?? 0} selected source representations · investigation subject`
+          : `${entity.provenance.sourceLabel} · ${entity.kind}`,
       kind: entity.kind,
       source: entity.source,
       level: entity.level,
@@ -92,11 +94,11 @@ export function projectVisibleGraph(
         relationship.label ??
         (relationship.kind === "contains"
           ? relationship.quantity
-            ? `Contains Â· Qty ${relationship.quantity}`
+            ? `Contains · Qty ${relationship.quantity}`
             : "Contains"
           : relationship.verified
-            ? "Same product Â· Verified"
-            : `Likely match Â· ${Math.round((relationship.confidence ?? 0) * 100)}%`);
+            ? "Same product · Verified"
+            : `Likely match · ${Math.round((relationship.confidence ?? 0) * 100)}%`);
       return {
         id: relationship.id,
         source: relationship.from,
@@ -122,7 +124,3 @@ export function projectVisibleGraph(
         .join("|"),
   };
 }
-
-
-
-

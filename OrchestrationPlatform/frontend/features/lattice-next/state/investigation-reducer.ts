@@ -1,3 +1,4 @@
+
 import type { XYPosition } from "@xyflow/react";
 import type { LayoutOrientation, RendererViewport } from "../contracts/projection";
 import type { RelationshipKind } from "../domain/model";
@@ -31,7 +32,8 @@ export type InvestigationAction =
   | { type: "relationship"; value: RelationshipKind }
   | { type: "expand-many"; ids: string[] }
   | { type: "collapse-many"; ids: string[] }
-  | { type: "orientation"; value: LayoutOrientation };
+  | { type: "orientation"; value: LayoutOrientation }
+  | { type: "start-new-investigation" };
 
 export function initialInvestigation(roots: string[], sources: string[]): InvestigationState {
   return {
@@ -47,6 +49,16 @@ export function initialInvestigation(roots: string[], sources: string[]): Invest
 
 export function investigationReducer(state: InvestigationState, action: InvestigationAction): InvestigationState {
   switch (action.type) {
+    case "start-new-investigation":
+      return {
+        ...state,
+        query: "",
+        inspectorOpen: false,
+        interaction: {
+          ...createInteractionState([]),
+          viewport: { x: 0, y: 0, zoom: 1 },
+        },
+      };
     case "select-entity":
       return { ...state, interaction: { ...state.interaction, selection: { type: "entity", id: action.id } }, inspectorOpen: true };
     case "select-relationship":
@@ -108,6 +120,7 @@ export function investigationReducer(state: InvestigationState, action: Investig
     }
   }
 }
+
 
 
 

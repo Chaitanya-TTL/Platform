@@ -1,4 +1,3 @@
-
 "use client";
 import { useState, type FormEvent, type ReactNode } from "react";
 import { motion } from "motion/react";
@@ -13,15 +12,16 @@ interface SAPFormProps { onSubmit: (jobId: string, request?: { materialId: strin
 export function SAPForm({ onSubmit, isLoading }: SAPFormProps) {
   const [materialQuery, setMaterialQuery] = useState("");
   const [plant, setPlant] = useState("1001");
+  const [storageLocation, setStorageLocation] = useState("1D");
   const [includeImpact, setIncludeImpact] = useState(true);
   const [error, setError] = useState("");
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault(); setError("");
-    const value = materialQuery.trim(), plantValue = plant.trim() || "1001";
+    const value = materialQuery.trim(), plantValue = plant.trim() || "1001", storageValue = storageLocation.trim();
     if (!value) { setError("Enter an SAP material description or material number to continue."); return; }
     try {
       toast.loading(includeImpact ? "Starting SAP material analysis..." : "Starting SAP BOM extraction...", { id: "sap-start" });
-      const result = await startSapExtraction({ materialQuery: value, plant: plantValue, includeSapBusinessImpact: includeImpact });
+      const result = await startSapExtraction({ materialQuery: value, plant: plantValue, storageLocation: storageValue, includeSapBusinessImpact: includeImpact });
       if (!result.jobId) throw new Error("The request started without a tracking reference.");
       toast.success(includeImpact ? "SAP material analysis started" : "SAP BOM extraction started", { id: "sap-start", description: `${value} · Plant ${plantValue}` });
       onSubmit(result.jobId, { materialId: value, plant: plantValue, includeImpact });
@@ -32,7 +32,7 @@ export function SAPForm({ onSubmit, isLoading }: SAPFormProps) {
   };
   return <motion.form onSubmit={handleSubmit} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.18 }}>
     <SourceRequestPanel title="Retrieve SAP material evidence" description="Enter a material description or material number, then choose the extraction scope." error={error}>
-      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_128px]"><SourceField label="Material description or number"><input value={materialQuery} onChange={(e) => { setMaterialQuery(e.target.value); setError(""); }} placeholder="Brake Disc or PLM001007" disabled={isLoading} className={sourceInputClass}/></SourceField><SourceField label="Plant"><input value={plant} onChange={(e) => setPlant(e.target.value)} placeholder="1001" disabled={isLoading} className={sourceInputClass}/></SourceField></div>
+      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_128px]"><SourceField label="Material description or number"><input value={materialQuery} onChange={(e) => { setMaterialQuery(e.target.value); setError(""); }} placeholder="Brake Disc or PLM001007" disabled={isLoading} className={sourceInputClass}/></SourceField><SourceField label="Plant"><input value={plant} onChange={(e) => setPlant(e.target.value)} placeholder="1001" disabled={isLoading} className={sourceInputClass}/></SourceField><SourceField label="Storage location"><input value={storageLocation} onChange={(e) => setStorageLocation(e.target.value)} placeholder="1D or blank for plant scope" disabled={isLoading} className={sourceInputClass}/></SourceField></div>
       <div className="mt-4 flex flex-col gap-3 border-t border-slate-200 pt-4 dark:border-slate-800 sm:flex-row sm:items-end sm:justify-between">
         <div><span className="block text-xs font-semibold text-slate-600 dark:text-slate-300">Request scope</span><div className="mt-2 inline-flex rounded-lg border border-slate-300 bg-slate-50 p-1 dark:border-slate-700 dark:bg-slate-900"><ScopeButton active={!includeImpact} disabled={isLoading} icon={<IconHierarchy3 className="h-4 w-4"/>} onClick={() => setIncludeImpact(false)}>BOM structure</ScopeButton><ScopeButton active={includeImpact} disabled={isLoading} icon={<IconChartDots3 className="h-4 w-4"/>} onClick={() => setIncludeImpact(true)}>Operational impact</ScopeButton></div><p className="mt-2 max-w-xl text-xs leading-5 text-slate-500">{includeImpact ? "Includes available stock, valuation, movement, and accounting evidence." : "Retrieves the maintained material BOM for the selected plant."}</p></div>
         <StatefulButtonDemo isLoading={isLoading} disabled={isLoading} idleLabel={includeImpact ? "Analyze material" : "Retrieve BOM"} loadingLabel="Starting"/>

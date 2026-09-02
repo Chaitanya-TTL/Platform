@@ -1,0 +1,3 @@
+import { INTELLIGENCE_DOMAINS } from "../projection/intelligence-domain-registry";
+import { SOURCE_TOKENS } from "../presentation/intelligence-tokens";
+export function IntelligenceLegend(){return <div className="lattice-intelligence-legend" aria-label="Intelligence legend"><div><b>Sources</b>{Object.entries(SOURCE_TOKENS).filter(([key])=>!["platform","unified"].includes(key)).map(([key,value])=><span key={key} data-tone={value.accent}>{value.label}</span>)}</div><div><b>Intelligence</b>{INTELLIGENCE_DOMAINS.map(domain=><span key={domain.id} data-tone={domain.accent}>{domain.title}</span>)}</div></div>}

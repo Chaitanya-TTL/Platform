@@ -9,6 +9,7 @@ import {
   IconSearch,
   IconX,
 } from "@tabler/icons-react";
+import { WindchillPartIntelligence } from "./windchill/WindchillPartIntelligence";
 
 type WindchillPartSearchResult = {
   partId: string;
@@ -78,6 +79,7 @@ export function WindchillForm({
   const busy = isRunning || isVersionLoading || isChangeLoading || searching;
   if (loaded && !editing) {
     return (
+      <div>
       <div className="flex flex-col gap-3 border-y border-slate-800 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-[.16em] text-slate-600">Current Windchill product</p>
@@ -88,6 +90,8 @@ export function WindchillForm({
           <button type="button" onClick={() => { setEditing(true); setQuery(""); setSelected(null); setResults([]); setSearched(false); }} className="h-9 rounded-lg border border-slate-700 px-3 text-xs font-semibold text-slate-400 hover:bg-slate-800 hover:text-white">Change product</button>
           <button type="button" onClick={onOpenReview} className="h-9 rounded-lg bg-slate-100 px-4 text-xs font-semibold text-slate-950 hover:bg-white">Open Change Review</button>
         </div>
+      </div>
+      <WindchillPartIntelligence query={selected?.number || query} />
       </div>
     );
   }
