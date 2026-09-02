@@ -1,0 +1,1 @@
+import{describe,expect,it}from"vitest";import type{SapMaterialHistory}from"../types/sap-operational-impact";describe("SAP history contract",()=>{it("keeps years separate",()=>{const h={events:[{documentYear:"2016",fiFiscalYear:"2017"}]} as SapMaterialHistory;expect(h.events[0].documentYear).toBe("2016");expect(h.events[0].fiFiscalYear).toBe("2017")})});

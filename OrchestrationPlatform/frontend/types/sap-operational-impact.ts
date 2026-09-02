@@ -1,14 +1,9 @@
 import type { SapBusinessImpact } from "@/lib/api";
-export type SapEvidenceAvailability = "confirmed" | "referenced" | "not-found" | "unavailable";
-export interface SapDocumentReference { availability: SapEvidenceAvailability; reference: string; fiscalYear: string; detailsVerified: boolean; }
-export interface SapAccountingLine { lineItem: string; glAccount: string; direction: string; signedAmount: number | null; currency: string; text: string; accountName: string; businessArea: string; profitCenter: string; productionOrder: string; }
-export interface SapAccountingDocument { availability: SapEvidenceAvailability; companyCode: string; documentNumber: string; fiscalYear: string; postingPeriod: string; currency: string; postingDate: string; lines: SapAccountingLine[]; }
-export interface SapMaterialMovement {
-  materialDocument: string; materialDocumentYear: string; item: string; movementType: string; movementDescription: string; direction: string;
-  quantity: number | null; signedQuantity: number | null; unit: string; localAmount: number | null; signedLocalAmount: number | null; currency: string;
-  plant: string; storageLocation: string; productionOrder: string; businessArea: string; profitCenter: string; materialItemGlAccount: string;
-  postingDate: string; documentDate: string; createdDate: string; createdTime: string; sourceTransaction: string;
-  accountingDocument: SapAccountingDocument; controllingReference: SapDocumentReference; materialLedgerReference: SapDocumentReference; evidenceConfidence: "confirmed" | "reconstructed" | "unverified";
-}
-export interface SapMaterialHistory { requestedMaterialId: string; materialId: string; internalMaterialId: string; plant: string; status: string; movements: SapMaterialMovement[]; warnings: string[]; extractedAt: string; }
-export interface SapOperationalImpact { schemaVersion: string; sourceMaterialId: string; plant: string; status: string; currentState: SapBusinessImpact | null; history: SapMaterialHistory | null; warnings: string[]; generatedAt: string; }
+export interface SapHistoryMaterial { materialId:string; internalMaterialId:string; description:string; plant:string; storageLocation:string; }
+export interface SapHistoryCurrentState { physicalStock:number|null; valuatedQuantity:number|null; inventoryValue:number|null; priceControl:string; movingAveragePrice:number|null; standardPrice:number|null; priceUnit:number|null; valuationClass:string; }
+export interface SapHistorySummary { movementCount:number; accountingLineCount:number; netQuantityDelta:number; netInventoryValueDelta:number; quantityReconciledToCurrentValuation:boolean|null; valueReconciledToCurrentInventory:boolean|null; historicalBeforeAfterMethod:string; }
+export interface SapHistoryAccountingLine { line:string; glAccount:string; debitCredit:string; amount:number|null; currency:string; quantity:number|null; unit:string; productionOrder:string; profitCenter:string; businessArea:string; }
+export interface SapHistoryAccountingDocument { companyCode:string; accountingDocument:string; fiscalYear:string; documentType:string; postingDate:string; ledger:string; lines:SapHistoryAccountingLine[]; }
+export interface SapHistoryEvent { materialDocument:string; documentYear:string; documentItem:string; postingDate:string; documentDate:string; createdDate:string; createdTime:string; movementType:string; sourceTransaction:string; quantityDelta:number|null; unit:string; inventoryValueDelta:number|null; currency:string; beforeQuantity:number; afterQuantity:number; beforeInventoryValue:number; afterInventoryValue:number; plant:string; storageLocation:string; productionOrder:string; purchaseOrder:string; purchaseOrderItem:string; companyCode:string; fiFiscalYear:string; profitCenter:string; businessArea:string; accountingDocuments:SapHistoryAccountingDocument[]; }
+export interface SapMaterialHistory { requestedInput:string; resolutionMode:string; material:SapHistoryMaterial; currentState:SapHistoryCurrentState; historySummary:SapHistorySummary; events:SapHistoryEvent[]; storageLocations:Record<string,string>[]; warnings:string[]; systemId:string; client:string; extractedAt:string; }
+export interface SapOperationalImpact { schemaVersion:string; sourceMaterialId:string; plant:string; status:string; currentState:SapBusinessImpact|null; history:SapMaterialHistory|null; warnings:string[]; generatedAt:string; }

@@ -10,7 +10,7 @@ export const revalidate = 0;
 
 const execFileAsync = promisify(execFile);
 
-type Operation = "extract" | "versions" | "structure" | "compare" | "change-impact" | "search";
+type Operation = "extract" | "versions" | "structure" | "compare" | "change-impact" | "search" | "requirements";
 
 async function fileExists(candidate: string) {
   try {
@@ -56,7 +56,7 @@ async function findScriptDir(startDir: string) {
 
 function operationOf(request: NextRequest): Operation {
   const value = request.nextUrl.searchParams.get("operation");
-  return value === "versions" || value === "structure" || value === "compare" || value === "change-impact" || value === "search"
+  return value === "versions" || value === "structure" || value === "compare" || value === "change-impact" || value === "search" || value === "requirements"
     ? value
     : "extract";
 }
@@ -66,10 +66,10 @@ export async function GET(request: NextRequest) {
   const partId = params.get("partId")?.trim();
   const query = params.get("query")?.trim();
   const operation = operationOf(request);
-  if (operation === "search" && !query) {
+  if ((operation === "search" || operation === "requirements") && !query) {
     return NextResponse.json({ error: "query is required." }, { status: 400 });
   }
-  if (operation !== "search" && !partId) {
+  if (operation !== "search" && operation !== "requirements" && !partId) {
     return NextResponse.json({ error: "partId is required." }, { status: 400 });
   }
 
@@ -96,7 +96,7 @@ export async function GET(request: NextRequest) {
       { status: 500 },
     );
   }
-  const scriptPath = path.resolve(scriptDir, "extractor.py");
+  const scriptPath = path.resolve(scriptDir, operation === "requirements" ? "requirements_extractor.py" : "extractor.py");
   const python = await findPythonExecutable(scriptDir);
   if (!(await fileExists(scriptPath)) || !python) {
     return NextResponse.json(
@@ -107,15 +107,10 @@ export async function GET(request: NextRequest) {
 
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "windchill-"));
   const outputPath = path.join(tempDir, "result.json");
-  const args = [
-    scriptPath,
-    "--operation",
-    operation,
-    "--part-id",
-    partId ?? "",
-    "--output",
-    outputPath,
-  ];
+  const queryType = params.get("queryType") || "part-name";
+  const args = operation === "requirements"
+    ? [scriptPath, "--operation", "requirements", "--query-type", queryType, "--query", query ?? "", "--output", outputPath]
+    : [scriptPath, "--operation", operation, "--part-id", partId ?? "", "--output", outputPath];
   if (query) args.push("--query", query);
   if (version) args.push("--version", version);
   if (fromVersion) args.push("--from-version", fromVersion);

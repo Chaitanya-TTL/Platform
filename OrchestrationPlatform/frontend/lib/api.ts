@@ -1,4 +1,3 @@
-
 import type { SapOperationalImpact } from "@/types/sap-operational-impact";
 
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5212/api";
@@ -48,7 +47,7 @@ export function startPipeline(request: { teamcenterQuery: string }) {
 export function startConfigitExtraction(request: { workItemId: string; productModelCode: string }) {
   return postPipeline({ kind: "configit", ...request });
 }
-export function startSapExtraction(request: { materialQuery?: string; materialId?: string; plant?: string; bomUsage?: string; alternative?: string; includeSapBusinessImpact?: boolean }) {
+export function startSapExtraction(request: { materialQuery?: string; materialId?: string; plant?: string; storageLocation?: string; bomUsage?: string; alternative?: string; includeSapBusinessImpact?: boolean }) {
   const materialQuery = request.materialQuery?.trim() || request.materialId?.trim() || "";
   return postPipeline({ kind: "sap", ...request, materialQuery });
 }
