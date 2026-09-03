@@ -10,6 +10,9 @@ import {
 } from "@tabler/icons-react";
 import { readHandoff } from "../persistence/handoff-store";
 import { buildInvestigation } from "../engines/build-investigation";
+import { buildIntelligenceInvestigation } from "../engines/build-intelligence-investigation";
+import { investigateWindchill } from "../infrastructure/windchill-intelligence-client";
+import type { EngineeringIntelligenceInvestigationV1 } from "../contracts/intelligence-v1";
 import { createInvestigationGraphCore } from "../engines/investigation-graph";
 import { projectVisibleGraph } from "../engines/project-visible-graph";
 import {
@@ -61,6 +64,7 @@ export function LatticeNextWorkspace() {
   const investigationId = params.get("investigation");
 
   const [direct, setDirect] = useState<LatticeHandoff | null>(null);
+  const [directCanonical, setDirectCanonical] = useState<EngineeringIntelligenceInvestigationV1 | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [recent, setRecent] = useState<RecentInvestigation[]>([]);
 
@@ -72,12 +76,13 @@ export function LatticeNextWorkspace() {
 
   const startNewInvestigation = useCallback(() => {
     setDirect(null);
+    setDirectCanonical(null);
     setMessage(null);
     router.replace("/lattice");
   }, [router]);
 
   if (direct) {
-    return <Investigation handoffId={direct.handoffId} handoff={direct} onStartNew={startNewInvestigation} />;
+    return <Investigation handoffId={direct.handoffId} handoff={direct} canonical={directCanonical} onStartNew={startNewInvestigation} />;
   }
 
   if (handoffId) {
@@ -170,6 +175,13 @@ export function LatticeNextWorkspace() {
             }),
           );
 
+          try {
+            const canonical = await investigateWindchill(next, controller.signal);
+            setDirectCanonical(canonical);
+          } catch (error) {
+            setMessage(error instanceof Error ? `${error.message} Showing structure-only compatibility view.` : "Windchill intelligence unavailable. Showing structure-only compatibility view.");
+            setDirectCanonical(null);
+          }
           setDirect(next);
         }}
       />
@@ -201,14 +213,16 @@ function Investigation({
   handoffId,
   handoff,
   onStartNew,
+  canonical,
 }: {
   handoffId: string;
   onStartNew: () => void;
+  canonical?: EngineeringIntelligenceInvestigationV1 | null;
   handoff:
     | Extract<HandoffReadResult, { ok: true }>["value"]
     | LatticeHandoff;
 }) {
-  const domain = useMemo(() => buildInvestigation(handoff), [handoff]);
+  const domain = useMemo(() => canonical ? buildIntelligenceInvestigation(canonical) : buildInvestigation(handoff), [canonical, handoff]);
   const core = useMemo(() => createInvestigationGraphCore(domain), [domain]);
   const sources = useMemo(
     () => [...new Set(domain.entities.map((entity) => entity.source))],

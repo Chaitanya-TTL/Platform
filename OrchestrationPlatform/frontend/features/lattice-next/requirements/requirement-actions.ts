@@ -1,0 +1,1 @@
+export type RequirementAction={kind:"open-requirements-explorer"|"open-requirement-timeline"|"open-primary-content"|"open-attachment";requirementId:string;href?:string};export const safeRequirementHref=(v?:string)=>v?.startsWith("/api/windchill/content/")?v:undefined;

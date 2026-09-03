@@ -5,7 +5,7 @@ public static class EngineeringEntityKinds { public const string Part="part", Pa
 public static class EngineeringRelationshipFamilies { public const string Structure="structure", Requirement="requirement", Change="change", Configuration="configuration", Operation="operation", CostAndInventory="cost-and-inventory", Correspondence="correspondence", Evidence="evidence"; }
 public static class EngineeringRelationshipKinds { public const string Contains="contains", RepresentedBy="represented-by", Satisfies="satisfies", GovernedBy="governed-by", AffectedBy="affected-by", Supersedes="supersedes", ConfiguredBy="configured-by", SelectedOption="selected-option", ProducedBy="produced-by", StockedAt="stocked-at", ReferencedIn="referenced-in", CorrespondsTo="corresponds-to", SupportedBy="supported-by"; }
 
-public enum IntelligenceAuthority { SourceAuthoritative, BackendDerived, FrontendDerived, Hardcoded, Mocked }
+public enum IntelligenceAuthority { SourceAuthoritative, BackendDerived, FrontendDerived, PocSynthetic, Hardcoded, Mocked, Unavailable }
 public enum IntelligenceAssertionKind { Fact, Inference, Finding }
 public enum SourceExtractionStatus { Available, Partial, Unavailable, Failed, Cancelled, TimedOut, CapabilityLimited, NotObserved }
 public enum IdentityQuality { Native, DeterministicDerived, Provisional }
