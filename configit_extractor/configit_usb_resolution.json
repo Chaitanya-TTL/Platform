@@ -1,0 +1,31 @@
+{
+  "packageResolution": {
+    "requestedPackagePath": "usb",
+    "logicalPackagePath": "usb",
+    "resolvedPackagePath": "usb~e13d4abd-2ba6-4360-90f5-8e1847a90389",
+    "versionId": "e13d4abd-2ba6-4360-90f5-8e1847a90389",
+    "state": "Published",
+    "openedAt": "2026-08-25T06:52:44.8268287Z",
+    "publishingStartedAt": "2026-08-25T06:52:49.0623355Z",
+    "publishedAt": "2026-08-25T06:53:02.3215941Z",
+    "sourceCreatedAt": "2026-08-25T06:52:52.5369954Z",
+    "visibility": "Visible",
+    "withSource": true,
+    "resolutionMode": "latest-version"
+  },
+  "productResolution": {
+    "totalProducts": 10,
+    "retrievedProducts": 10,
+    "configurableProductCount": 1,
+    "selectedProductId": "USB_DRIVE_002380",
+    "selectedProductName": "USB_DRIVE_002380",
+    "selectedProductDescription": "",
+    "selectedProductCapabilities": {
+      "configuration": true,
+      "solutionSpace": true,
+      "conflicts": true,
+      "explain": false
+    },
+    "selectionMethod": "single-configuration-capable-product"
+  }
+}

@@ -1,0 +1,129 @@
+{
+  "productId": "USB_DRIVE_002380",
+  "packagePath": "usb~e13d4abd-2ba6-4360-90f5-8e1847a90389",
+  "generatedDate": "2026-08-25T08:50:04.154Z",
+  "bom": [
+    {
+      "id": "USB_DRIVE_002380",
+      "name": "USB_DRIVE_002380",
+      "quantity": {},
+      "attributes": {
+        "Quantity": {}
+      },
+      "children": [
+        {
+          "id": "Body Casing_002381",
+          "name": "Body Casing_002381",
+          "quantity": "1 EA",
+          "attributes": {
+            "Quantity": "1 EA"
+          },
+          "children": []
+        },
+        {
+          "id": "PCB_002382",
+          "name": "PCB_002382",
+          "quantity": "1 EA",
+          "attributes": {
+            "Quantity": "1 EA"
+          },
+          "children": []
+        },
+        {
+          "id": "Storage_002383",
+          "name": "Storage_002383",
+          "quantity": "1 EA",
+          "attributes": {
+            "Quantity": "1 EA"
+          },
+          "children": [
+            {
+              "id": "16GB_002384",
+              "name": "16GB_002384",
+              "quantity": "1 EA",
+              "attributes": {
+                "Quantity": "1 EA"
+              },
+              "children": []
+            },
+            {
+              "id": "64GB_002385",
+              "name": "64GB_002385",
+              "quantity": "1 EA",
+              "attributes": {
+                "Quantity": "1 EA"
+              },
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": "Type_002386",
+          "name": "Type_002386",
+          "quantity": "1 EA",
+          "attributes": {
+            "Quantity": "1 EA"
+          },
+          "children": [
+            {
+              "id": "USB 2.0_002387",
+              "name": "USB 2.0_002387",
+              "quantity": "1 EA",
+              "attributes": {
+                "Quantity": "1 EA"
+              },
+              "children": []
+            },
+            {
+              "id": "USB 3.0_002390",
+              "name": "USB 3.0_002390",
+              "quantity": "1 EA",
+              "attributes": {
+                "Quantity": "1 EA"
+              },
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": "Connector_002389",
+          "name": "Connector_002389",
+          "quantity": "1 EA",
+          "attributes": {
+            "Quantity": "1 EA"
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "packageResolution": {
+    "requestedPackagePath": "usb",
+    "logicalPackagePath": "usb",
+    "resolvedPackagePath": "usb~e13d4abd-2ba6-4360-90f5-8e1847a90389",
+    "versionId": "e13d4abd-2ba6-4360-90f5-8e1847a90389",
+    "state": "Published",
+    "openedAt": "2026-08-25T06:52:44.8268287Z",
+    "publishingStartedAt": "2026-08-25T06:52:49.0623355Z",
+    "publishedAt": "2026-08-25T06:53:02.3215941Z",
+    "sourceCreatedAt": "2026-08-25T06:52:52.5369954Z",
+    "visibility": "Visible",
+    "withSource": true,
+    "resolutionMode": "latest-version"
+  },
+  "productResolution": {
+    "totalProducts": 10,
+    "retrievedProducts": 10,
+    "configurableProductCount": 1,
+    "selectedProductId": "USB_DRIVE_002380",
+    "selectedProductName": "USB_DRIVE_002380",
+    "selectedProductDescription": "",
+    "selectedProductCapabilities": {
+      "configuration": true,
+      "solutionSpace": true,
+      "conflicts": true,
+      "explain": false
+    },
+    "selectionMethod": "single-configuration-capable-product"
+  }
+}
