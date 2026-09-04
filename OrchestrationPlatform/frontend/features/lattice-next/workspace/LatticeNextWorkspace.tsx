@@ -12,6 +12,7 @@ import { readHandoff } from "../persistence/handoff-store";
 import { buildInvestigation } from "../engines/build-investigation";
 import { buildIntelligenceInvestigation } from "../engines/build-intelligence-investigation";
 import { investigateWindchill } from "../infrastructure/windchill-intelligence-client";
+import { investigateSap } from "../infrastructure/sap-intelligence-client";
 import type { EngineeringIntelligenceInvestigationV1 } from "../contracts/intelligence-v1";
 import { createInvestigationGraphCore } from "../engines/investigation-graph";
 import { projectVisibleGraph } from "../engines/project-visible-graph";
@@ -176,10 +177,10 @@ export function LatticeNextWorkspace() {
           );
 
           try {
-            const canonical = await investigateWindchill(next, controller.signal);
+            const canonical = next.sources.some(item => item.source === "sap") ? await investigateSap(next, controller.signal) : await investigateWindchill(next, controller.signal);
             setDirectCanonical(canonical);
           } catch (error) {
-            setMessage(error instanceof Error ? `${error.message} Showing structure-only compatibility view.` : "Windchill intelligence unavailable. Showing structure-only compatibility view.");
+            setMessage(error instanceof Error ? `${error.message} Showing structure-only compatibility view.` : "Source intelligence unavailable. Showing structure-only compatibility view.");
             setDirectCanonical(null);
           }
           setDirect(next);
