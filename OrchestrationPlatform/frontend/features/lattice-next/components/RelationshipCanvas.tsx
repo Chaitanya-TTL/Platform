@@ -82,6 +82,14 @@ function RelationshipCanvasInner({ projection, orientation, pinnedPositions, vie
   }, [escapePressed]);
 
   useEffect(() => {
+    const handleFit = () => void fitView({ padding: .18, duration: 320 });
+    const handleCollapse = () => nodesRef.current.filter(node => node.id.startsWith("projection:domain:") && node.data.expanded).forEach(node => callbacks.current.onToggle(node.id));
+    window.addEventListener("lattice:fit-view", handleFit);
+    window.addEventListener("lattice:collapse-all", handleCollapse);
+    return () => { window.removeEventListener("lattice:fit-view", handleFit); window.removeEventListener("lattice:collapse-all", handleCollapse); };
+  }, [fitView]);
+
+  useEffect(() => {
     void setViewport(viewport, { duration: 0 });
     // Restore persisted camera at mount only. Live motion remains internal until move-end.
     // eslint-disable-next-line react-hooks/exhaustive-deps

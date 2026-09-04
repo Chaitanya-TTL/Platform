@@ -1,46 +1,50 @@
 ﻿PLATFORM FULL REPOSITORY AUDIT BUNDLE
-Generated: 2026-09-02 14:58:40
+Generated: 2026-09-03 14:47:29
 Repository: C:\Users\skk932045\OneDrive - Tata Technologies\Desktop\Platform
 Branch: copy-main
-HEAD: 9293b8b16f9c8328094c5d0819b68bd3b074a792
-Source files included: 465
+HEAD: 21ea3f0af6d792e2924da0537b97e1d66e8fb9f7
+Source files included: 474
 
 ===== GIT STATUS =====
 ## copy-main...origin/copy-main
- M OrchestrationPlatform/frontend/app/api/bom-windchill/route.ts
- M OrchestrationPlatform/frontend/components/WindchillForm.tsx
- M OrchestrationPlatform/frontend/package.json
- M SAP-BOM-Extractor/src/SapMaterialImpactExtractor.java
-?? OrchestrationPlatform/frontend/app/api/windchill/
-?? OrchestrationPlatform/frontend/components/windchill/WindchillPartIntelligence.tsx
-?? OrchestrationPlatform/frontend/lib/windchill/
-?? OrchestrationPlatform/frontend/tests/
-?? OrchestrationPlatform/frontend/types/windchill-requirements.ts
-?? SAP-BOM-Extractor/src/SapMaterialHistoryProbe.java
+ M OrchestrationPlatform/Orchestration.API.Tests/obj/Debug/net10.0/Orchestration.API.Tests.AssemblyInfo.cs
+ M OrchestrationPlatform/Orchestration.API.Tests/obj/Debug/net10.0/Orchestration.API.Tests.AssemblyInfoInputs.cache
+ M OrchestrationPlatform/Orchestration.API.Tests/obj/Debug/net10.0/Orchestration.API.Tests.csproj.AssemblyReference.cache
+ M OrchestrationPlatform/Orchestration.API/Engineering/Controllers/EngineeringIntelligenceController.cs
+ M OrchestrationPlatform/Orchestration.API/Engineering/Intelligence/EngineeringIntelligenceInvestigationContracts.cs
+ M OrchestrationPlatform/frontend/features/lattice-next/components/IntelligenceInspector.tsx
+ M OrchestrationPlatform/frontend/features/lattice-next/contracts/intelligence-v1.ts
+ M OrchestrationPlatform/frontend/features/lattice-next/domain/model.ts
+ M OrchestrationPlatform/frontend/features/lattice-next/workspace/LatticeNextWorkspace.tsx
+ M SAP-BOM-Extractor/dev_jco_rfc.trc
+ D TeamCenter-to-Configit-soa_client/backend/samples/HelloTeamcenter/tc_extraction.json.search.json
+ D full-repo.txt
+?? OrchestrationPlatform/frontend/features/lattice-next/components/RequirementInspectorSections.tsx
+?? OrchestrationPlatform/frontend/features/lattice-next/infrastructure/intelligence-api-client.ts
+?? OrchestrationPlatform/frontend/features/lattice-next/requirements/
+?? OrchestrationPlatform/frontend/features/lattice-next/tests/intelligence-runtime-client.test.ts
+?? OrchestrationPlatform/frontend/features/lattice-next/tests/intelligence-runtime-fallback.test.ts
+?? OrchestrationPlatform/frontend/features/lattice-next/tests/requirements-domain-provider.test.ts
+?? OrchestrationPlatform/frontend/features/lattice-next/tests/requirements-projection.test.ts
+?? OrchestrationPlatform/frontend/lib/windchill-requirements.ts
+?? codebase.txt
 ?? platform-restored-source-v3.txt
-?? windchill_extractor/attachment-test.docx
-?? windchill_extractor/attachment-test.json
-?? windchill_extractor/primary-test.doc
-?? windchill_extractor/primary-test.json
-?? windchill_extractor/requirements-test.json
-?? windchill_extractor/requirements_extractor.py
-?? windchill_extractor/test_requirements_extractor.py
 
 ===== TOP-LEVEL CONTENTS =====
 
-Mode   Length  LastWriteTime       Name                               
-----   ------  -------------       ----                               
-d--h--         02-09-2026 14:58:41 .git                               
-d-----         19-08-2026 14:20:59 audits                             
-d-----         24-08-2026 11:51:10 configit_extractor                 
-d-----         26-08-2026 15:54:22 OrchestrationPlatform              
-d-----         02-09-2026 10:53:13 SAP-BOM-Extractor                  
-d-----         25-08-2026 12:01:16 TeamCenter-to-Configit-soa_client  
-d-----         02-09-2026 14:51:44 windchill_extractor                
--a---- 1165    24-08-2026 12:12:52 .gitignore                         
--a---- 2886953 02-09-2026 12:25:19 platform-full-repo-audit-bundle.txt
--a---- 1291    02-09-2026 14:58:41 platform-restored-source-v3.txt    
--a---- 9389    24-08-2026 12:11:27 windchill api.py                   
+Mode   Length  LastWriteTime       Name                             
+----   ------  -------------       ----                             
+d--h--         03-09-2026 14:47:30 .git                             
+d-----         19-08-2026 14:20:59 audits                           
+d-----         24-08-2026 11:51:10 configit_extractor               
+d-----         26-08-2026 15:54:22 OrchestrationPlatform            
+d-----         03-09-2026 12:39:08 SAP-BOM-Extractor                
+d-----         25-08-2026 12:01:16 TeamCenter-to-Configit-soa_client
+d-----         02-09-2026 14:51:44 windchill_extractor              
+-a---- 1165    24-08-2026 12:12:52 .gitignore                       
+-a---- 2943278 03-09-2026 11:38:25 codebase.txt                     
+-a---- 2197    03-09-2026 14:47:30 platform-restored-source-v3.txt  
+-a---- 9389    24-08-2026 12:11:27 windchill api.py                 
 
 
 
@@ -54,7 +58,7 @@ SAP-BOM-Extractor
 TeamCenter-to-Configit-soa_client
 windchill_extractor
 .gitignore
-platform-full-repo-audit-bundle.txt
+codebase.txt
 platform-restored-source-v3.txt
 windchill api.py
 audits\CEO_Platform_Review_Issue_Register_2026-08-14.xlsx
@@ -137,6 +141,7 @@ OrchestrationPlatform\frontend\app\page.tsx
 OrchestrationPlatform\frontend\app\api\bom
 OrchestrationPlatform\frontend\app\api\bom-configit
 OrchestrationPlatform\frontend\app\api\bom-windchill
+OrchestrationPlatform\frontend\app\api\engineering
 OrchestrationPlatform\frontend\app\api\item-explorer
 OrchestrationPlatform\frontend\app\api\pipeline
 OrchestrationPlatform\frontend\app\api\windchill
@@ -247,6 +252,7 @@ OrchestrationPlatform\frontend\features\lattice-next\layout
 OrchestrationPlatform\frontend\features\lattice-next\persistence
 OrchestrationPlatform\frontend\features\lattice-next\presentation
 OrchestrationPlatform\frontend\features\lattice-next\projection
+OrchestrationPlatform\frontend\features\lattice-next\requirements
 OrchestrationPlatform\frontend\features\lattice-next\state
 OrchestrationPlatform\frontend\features\lattice-next\tests
 OrchestrationPlatform\frontend\features\lattice-next\workspace
@@ -266,6 +272,7 @@ OrchestrationPlatform\frontend\features\lattice-next\components\InvestigationToo
 OrchestrationPlatform\frontend\features\lattice-next\components\PremiumNodes.tsx
 OrchestrationPlatform\frontend\features\lattice-next\components\RelationshipCanvas.tsx
 OrchestrationPlatform\frontend\features\lattice-next\components\RelationshipInspector.tsx
+OrchestrationPlatform\frontend\features\lattice-next\components\RequirementInspectorSections.tsx
 OrchestrationPlatform\frontend\features\lattice-next\components\ResolutionProgressPanel.tsx
 OrchestrationPlatform\frontend\features\lattice-next\contracts\handoff.ts
 OrchestrationPlatform\frontend\features\lattice-next\contracts\intelligence-v1.ts
@@ -300,6 +307,7 @@ OrchestrationPlatform\frontend\features\lattice-next\identity\identity-resolutio
 OrchestrationPlatform\frontend\features\lattice-next\identity\identity-scoring.ts
 OrchestrationPlatform\frontend\features\lattice-next\infrastructure\elk-layout-adapter.ts
 OrchestrationPlatform\frontend\features\lattice-next\infrastructure\hybrid-layout-planner.ts
+OrchestrationPlatform\frontend\features\lattice-next\infrastructure\intelligence-api-client.ts
 OrchestrationPlatform\frontend\features\lattice-next\infrastructure\react-flow-adapter.ts
 OrchestrationPlatform\frontend\features\lattice-next\layout\branch-decomposition.ts
 OrchestrationPlatform\frontend\features\lattice-next\layout\elk-branch-builder.ts
@@ -322,6 +330,8 @@ OrchestrationPlatform\frontend\features\lattice-next\projection\intelligence-dom
 OrchestrationPlatform\frontend\features\lattice-next\projection\intelligence-domain-registry.ts
 OrchestrationPlatform\frontend\features\lattice-next\projection\intelligence-projection-types.ts
 OrchestrationPlatform\frontend\features\lattice-next\projection\intelligence-visibility-policy.ts
+OrchestrationPlatform\frontend\features\lattice-next\requirements\requirement-actions.ts
+OrchestrationPlatform\frontend\features\lattice-next\requirements\requirement-presentation.ts
 OrchestrationPlatform\frontend\features\lattice-next\state\investigation-reducer.ts
 OrchestrationPlatform\frontend\features\lattice-next\state\lattice-interaction-state.ts
 OrchestrationPlatform\frontend\features\lattice-next\tests\fixtures.ts
@@ -334,6 +344,8 @@ OrchestrationPlatform\frontend\features\lattice-next\tests\intelligence-investig
 OrchestrationPlatform\frontend\features\lattice-next\tests\intelligence-large-graph-policy.test.ts
 OrchestrationPlatform\frontend\features\lattice-next\tests\intelligence-partial-source.test.ts
 OrchestrationPlatform\frontend\features\lattice-next\tests\intelligence-progressive-disclosure.test.ts
+OrchestrationPlatform\frontend\features\lattice-next\tests\intelligence-runtime-client.test.ts
+OrchestrationPlatform\frontend\features\lattice-next\tests\intelligence-runtime-fallback.test.ts
 OrchestrationPlatform\frontend\features\lattice-next\tests\intelligence-token-registry.test.ts
 OrchestrationPlatform\frontend\features\lattice-next\tests\intelligence-validation.test.ts
 OrchestrationPlatform\frontend\features\lattice-next\tests\investigation-reducer.test.ts
@@ -344,6 +356,8 @@ OrchestrationPlatform\frontend\features\lattice-next\tests\performance-policy.te
 OrchestrationPlatform\frontend\features\lattice-next\tests\radial-connection-geometry.test.ts
 OrchestrationPlatform\frontend\features\lattice-next\tests\radial-layout.test.ts
 OrchestrationPlatform\frontend\features\lattice-next\tests\radial-route-adapter.test.ts
+OrchestrationPlatform\frontend\features\lattice-next\tests\requirements-domain-provider.test.ts
+OrchestrationPlatform\frontend\features\lattice-next\tests\requirements-projection.test.ts
 OrchestrationPlatform\frontend\features\lattice-next\tests\route-fidelity.test.ts
 OrchestrationPlatform\frontend\features\lattice-next\tests\semantic-zoom.test.ts
 OrchestrationPlatform\frontend\features\lattice-next\tests\universal-layout.test.ts
@@ -388,6 +402,7 @@ OrchestrationPlatform\frontend\lib\types.ts
 OrchestrationPlatform\frontend\lib\user-facing-errors.ts
 OrchestrationPlatform\frontend\lib\utils.ts
 OrchestrationPlatform\frontend\lib\windchill-change-review.ts
+OrchestrationPlatform\frontend\lib\windchill-requirements.ts
 OrchestrationPlatform\frontend\lib\windchill-revision.ts
 OrchestrationPlatform\frontend\lib\excel-engine\column-mapper.ts
 OrchestrationPlatform\frontend\lib\excel-engine\diagnostics.ts
@@ -408,6 +423,7 @@ OrchestrationPlatform\frontend\public\next.svg
 OrchestrationPlatform\frontend\public\vercel.svg
 OrchestrationPlatform\frontend\public\window.svg
 OrchestrationPlatform\frontend\public\images\TTL_Logo.png
+OrchestrationPlatform\frontend\tests\sap-material-history.test.ts
 OrchestrationPlatform\frontend\tests\windchill-platform.test.ts
 OrchestrationPlatform\frontend\types\bom-comparison.ts
 OrchestrationPlatform\frontend\types\bom-constellation-interaction.ts
@@ -1468,7 +1484,6 @@ TeamCenter-to-Configit-soa_client\backend\samples\HelloTeamcenter\HelloTeamcente
 TeamCenter-to-Configit-soa_client\backend\samples\HelloTeamcenter\PLMXML.xml
 TeamCenter-to-Configit-soa_client\backend\samples\HelloTeamcenter\PLMXMLRULES.txt
 TeamCenter-to-Configit-soa_client\backend\samples\HelloTeamcenter\rebuild-java17-direct.bat
-TeamCenter-to-Configit-soa_client\backend\samples\HelloTeamcenter\tc_extraction.json.search.json
 TeamCenter-to-Configit-soa_client\backend\samples\HelloTeamcenter\.settings\org.eclipse.core.resources.prefs
 TeamCenter-to-Configit-soa_client\backend\samples\HelloTeamcenter\Extraction Documentation\README.md
 TeamCenter-to-Configit-soa_client\backend\samples\HelloTeamcenter\src\com
@@ -2378,8 +2393,8 @@ OrchestrationPlatform\frontend\components\platform-shell\PlatformShell.tsx | 108
 OrchestrationPlatform\frontend\components\QuickStartModal.tsx | 6592 bytes
 OrchestrationPlatform\frontend\components\RequirementContextBanner.tsx | 2193 bytes
 OrchestrationPlatform\frontend\components\SapBusinessImpactPanel.tsx | 22754 bytes
-OrchestrationPlatform\frontend\components\SAPForm.tsx | 4669 bytes
-OrchestrationPlatform\frontend\components\SapOperationalImpactPanel.tsx | 14704 bytes
+OrchestrationPlatform\frontend\components\SAPForm.tsx | 5031 bytes
+OrchestrationPlatform\frontend\components\SapOperationalImpactPanel.tsx | 7999 bytes
 OrchestrationPlatform\frontend\components\SourceBomPanel.tsx | 33067 bytes
 OrchestrationPlatform\frontend\components\source-workflow\RemoveSourceDialog.tsx | 2740 bytes
 OrchestrationPlatform\frontend\components\source-workflow\SourceRequestPanel.tsx | 1891 bytes
@@ -2393,10 +2408,10 @@ OrchestrationPlatform\frontend\components\windchill\WindchillChangeContextRail.t
 OrchestrationPlatform\frontend\components\windchill\WindchillChangeMapView.tsx | 3045 bytes
 OrchestrationPlatform\frontend\components\windchill\WindchillChangeReviewWorkspace.tsx | 19014 bytes
 OrchestrationPlatform\frontend\components\windchill\WindchillChangeWorkspace.tsx | 3285 bytes
-OrchestrationPlatform\frontend\components\windchill\WindchillPartIntelligence.tsx | 4656 bytes
+OrchestrationPlatform\frontend\components\windchill\WindchillPartIntelligence.tsx | 6703 bytes
 OrchestrationPlatform\frontend\components\windchill\WindchillRevisionComparison.tsx | 6682 bytes
 OrchestrationPlatform\frontend\components\windchill\WindchillRevisionWorkspace.tsx | 2337 bytes
-OrchestrationPlatform\frontend\components\WindchillForm.tsx | 9456 bytes
+OrchestrationPlatform\frontend\components\WindchillForm.tsx | 9445 bytes
 OrchestrationPlatform\frontend\data\hardcoded-part-requirements.json | 19362 bytes
 OrchestrationPlatform\frontend\ecosystem.config.cjs | 807 bytes
 OrchestrationPlatform\frontend\eslint.config.mjs | 465 bytes
@@ -2408,16 +2423,17 @@ OrchestrationPlatform\frontend\features\lattice-next\canvas\lattice-flow-types.t
 OrchestrationPlatform\frontend\features\lattice-next\canvas\lattice-node-actions.ts | 303 bytes
 OrchestrationPlatform\frontend\features\lattice-next\components\EngineeringNode.tsx | 2222 bytes
 OrchestrationPlatform\frontend\features\lattice-next\components\EntityInspector.tsx | 2660 bytes
-OrchestrationPlatform\frontend\features\lattice-next\components\IntelligenceInspector.tsx | 2527 bytes
+OrchestrationPlatform\frontend\features\lattice-next\components\IntelligenceInspector.tsx | 2768 bytes
 OrchestrationPlatform\frontend\features\lattice-next\components\IntelligenceLegend.tsx | 610 bytes
 OrchestrationPlatform\frontend\features\lattice-next\components\IntelligentRelationshipEdge.tsx | 6234 bytes
 OrchestrationPlatform\frontend\features\lattice-next\components\InvestigationToolbar.tsx | 2284 bytes
 OrchestrationPlatform\frontend\features\lattice-next\components\PremiumNodes.tsx | 8605 bytes
 OrchestrationPlatform\frontend\features\lattice-next\components\RelationshipCanvas.tsx | 14162 bytes
 OrchestrationPlatform\frontend\features\lattice-next\components\RelationshipInspector.tsx | 2180 bytes
+OrchestrationPlatform\frontend\features\lattice-next\components\RequirementInspectorSections.tsx | 1026 bytes
 OrchestrationPlatform\frontend\features\lattice-next\components\ResolutionProgressPanel.tsx | 2589 bytes
 OrchestrationPlatform\frontend\features\lattice-next\contracts\handoff.ts | 3155 bytes
-OrchestrationPlatform\frontend\features\lattice-next\contracts\intelligence-v1.ts | 3215 bytes
+OrchestrationPlatform\frontend\features\lattice-next\contracts\intelligence-v1.ts | 3307 bytes
 OrchestrationPlatform\frontend\features\lattice-next\contracts\projection.ts | 1151 bytes
 OrchestrationPlatform\frontend\features\lattice-next\discovery\capability-matrix.ts | 3102 bytes
 OrchestrationPlatform\frontend\features\lattice-next\discovery\contracts.ts | 3678 bytes
@@ -2433,7 +2449,7 @@ OrchestrationPlatform\frontend\features\lattice-next\discovery\source-adapters\a
 OrchestrationPlatform\frontend\features\lattice-next\discovery\source-adapters\base.ts | 373 bytes
 OrchestrationPlatform\frontend\features\lattice-next\discovery\structure-resolution-orchestrator.ts | 1876 bytes
 OrchestrationPlatform\frontend\features\lattice-next\discovery\structure-resolver.ts | 8519 bytes
-OrchestrationPlatform\frontend\features\lattice-next\domain\model.ts | 2654 bytes
+OrchestrationPlatform\frontend\features\lattice-next\domain\model.ts | 2729 bytes
 OrchestrationPlatform\frontend\features\lattice-next\engines\assemble-investigation.ts | 730 bytes
 OrchestrationPlatform\frontend\features\lattice-next\engines\build-intelligence-investigation.ts | 7251 bytes
 OrchestrationPlatform\frontend\features\lattice-next\engines\build-investigation.ts | 4082 bytes
@@ -2448,6 +2464,7 @@ OrchestrationPlatform\frontend\features\lattice-next\identity\identity-resolutio
 OrchestrationPlatform\frontend\features\lattice-next\identity\identity-scoring.ts | 2176 bytes
 OrchestrationPlatform\frontend\features\lattice-next\infrastructure\elk-layout-adapter.ts | 1793 bytes
 OrchestrationPlatform\frontend\features\lattice-next\infrastructure\hybrid-layout-planner.ts | 11457 bytes
+OrchestrationPlatform\frontend\features\lattice-next\infrastructure\intelligence-api-client.ts | 935 bytes
 OrchestrationPlatform\frontend\features\lattice-next\infrastructure\react-flow-adapter.ts | 4645 bytes
 OrchestrationPlatform\frontend\features\lattice-next\lattice-next.css | 10316 bytes
 OrchestrationPlatform\frontend\features\lattice-next\layout\branch-decomposition.ts | 3047 bytes
@@ -2471,6 +2488,8 @@ OrchestrationPlatform\frontend\features\lattice-next\projection\intelligence-dom
 OrchestrationPlatform\frontend\features\lattice-next\projection\intelligence-domain-registry.ts | 2471 bytes
 OrchestrationPlatform\frontend\features\lattice-next\projection\intelligence-projection-types.ts | 700 bytes
 OrchestrationPlatform\frontend\features\lattice-next\projection\intelligence-visibility-policy.ts | 1098 bytes
+OrchestrationPlatform\frontend\features\lattice-next\requirements\requirement-actions.ts | 268 bytes
+OrchestrationPlatform\frontend\features\lattice-next\requirements\requirement-presentation.ts | 838 bytes
 OrchestrationPlatform\frontend\features\lattice-next\state\investigation-reducer.ts | 5703 bytes
 OrchestrationPlatform\frontend\features\lattice-next\state\lattice-interaction-state.ts | 1311 bytes
 OrchestrationPlatform\frontend\features\lattice-next\tests\fixtures.ts | 1146 bytes
@@ -2483,6 +2502,8 @@ OrchestrationPlatform\frontend\features\lattice-next\tests\intelligence-investig
 OrchestrationPlatform\frontend\features\lattice-next\tests\intelligence-large-graph-policy.test.ts | 332 bytes
 OrchestrationPlatform\frontend\features\lattice-next\tests\intelligence-partial-source.test.ts | 2189 bytes
 OrchestrationPlatform\frontend\features\lattice-next\tests\intelligence-progressive-disclosure.test.ts | 1366 bytes
+OrchestrationPlatform\frontend\features\lattice-next\tests\intelligence-runtime-client.test.ts | 551 bytes
+OrchestrationPlatform\frontend\features\lattice-next\tests\intelligence-runtime-fallback.test.ts | 512 bytes
 OrchestrationPlatform\frontend\features\lattice-next\tests\intelligence-token-registry.test.ts | 367 bytes
 OrchestrationPlatform\frontend\features\lattice-next\tests\intelligence-validation.test.ts | 1865 bytes
 OrchestrationPlatform\frontend\features\lattice-next\tests\investigation-reducer.test.ts | 3027 bytes
@@ -2493,14 +2514,16 @@ OrchestrationPlatform\frontend\features\lattice-next\tests\performance-policy.te
 OrchestrationPlatform\frontend\features\lattice-next\tests\radial-connection-geometry.test.ts | 3693 bytes
 OrchestrationPlatform\frontend\features\lattice-next\tests\radial-layout.test.ts | 1015 bytes
 OrchestrationPlatform\frontend\features\lattice-next\tests\radial-route-adapter.test.ts | 1701 bytes
+OrchestrationPlatform\frontend\features\lattice-next\tests\requirements-domain-provider.test.ts | 424 bytes
+OrchestrationPlatform\frontend\features\lattice-next\tests\requirements-projection.test.ts | 615 bytes
 OrchestrationPlatform\frontend\features\lattice-next\tests\route-fidelity.test.ts | 2151 bytes
 OrchestrationPlatform\frontend\features\lattice-next\tests\semantic-zoom.test.ts | 450 bytes
 OrchestrationPlatform\frontend\features\lattice-next\tests\universal-layout.test.ts | 4993 bytes
-OrchestrationPlatform\frontend\features\lattice-next\tests\windchill-requirements-platform.test.ts | 1012 bytes
-OrchestrationPlatform\frontend\features\lattice-next\workspace\LatticeNextWorkspace.tsx | 16471 bytes
+OrchestrationPlatform\frontend\features\lattice-next\tests\windchill-requirements-platform.test.ts | 1182 bytes
+OrchestrationPlatform\frontend\features\lattice-next\workspace\LatticeNextWorkspace.tsx | 16470 bytes
 OrchestrationPlatform\frontend\fonts\fonts.css | 743 bytes
 OrchestrationPlatform\frontend\fonts\static\dm-sans.ts | 781 bytes
-OrchestrationPlatform\frontend\lib\api.ts | 6356 bytes
+OrchestrationPlatform\frontend\lib\api.ts | 6381 bytes
 OrchestrationPlatform\frontend\lib\bom-comparison.ts | 15181 bytes
 OrchestrationPlatform\frontend\lib\bom-constellation-analysis.ts | 3046 bytes
 OrchestrationPlatform\frontend\lib\bom-constellation-export.ts | 1922 bytes
@@ -2536,14 +2559,16 @@ OrchestrationPlatform\frontend\lib\utils.ts | 164 bytes
 OrchestrationPlatform\frontend\lib\windchill\content-runner.ts | 1080 bytes
 OrchestrationPlatform\frontend\lib\windchill\requirements.ts | 592 bytes
 OrchestrationPlatform\frontend\lib\windchill-change-review.ts | 3526 bytes
+OrchestrationPlatform\frontend\lib\windchill-requirements.ts | 835 bytes
 OrchestrationPlatform\frontend\lib\windchill-revision.ts | 675 bytes
 OrchestrationPlatform\frontend\next.config.ts | 132 bytes
-OrchestrationPlatform\frontend\next-env.d.ts | 296 bytes
+OrchestrationPlatform\frontend\next-env.d.ts | 288 bytes
 OrchestrationPlatform\frontend\next-test-mode-build.txt | 7494 bytes
 OrchestrationPlatform\frontend\package.json | 1344 bytes
 OrchestrationPlatform\frontend\package-lock.json | 374166 bytes
 OrchestrationPlatform\frontend\postcss.config.mjs | 94 bytes
 OrchestrationPlatform\frontend\README.md | 1450 bytes
+OrchestrationPlatform\frontend\tests\sap-material-history.test.ts | 355 bytes
 OrchestrationPlatform\frontend\tests\windchill-platform.test.ts | 764 bytes
 OrchestrationPlatform\frontend\tsconfig.json | 666 bytes
 OrchestrationPlatform\frontend\types\bom-comparison.ts | 2193 bytes
@@ -2557,7 +2582,7 @@ OrchestrationPlatform\frontend\types\bom-visualization.ts | 1176 bytes
 OrchestrationPlatform\frontend\types\excel-bom.ts | 3989 bytes
 OrchestrationPlatform\frontend\types\item-explorer.ts | 1969 bytes
 OrchestrationPlatform\frontend\types\requirement-trace.ts | 1863 bytes
-OrchestrationPlatform\frontend\types\sap-operational-impact.ts | 2032 bytes
+OrchestrationPlatform\frontend\types\sap-operational-impact.ts | 2393 bytes
 OrchestrationPlatform\frontend\types\windchill-change-impact.ts | 1832 bytes
 OrchestrationPlatform\frontend\types\windchill-requirements.ts | 1457 bytes
 OrchestrationPlatform\frontend\types\windchill-revision.ts | 1658 bytes
@@ -2614,7 +2639,7 @@ OrchestrationPlatform\Orchestration.API\Engineering\Contracts\TeamcenterStageEvi
 OrchestrationPlatform\Orchestration.API\Engineering\Controllers\EngineeringCapabilitiesController.cs | 685 bytes
 OrchestrationPlatform\Orchestration.API\Engineering\Controllers\EngineeringDiscoveryController.cs | 742 bytes
 OrchestrationPlatform\Orchestration.API\Engineering\Controllers\EngineeringExtractionController.cs | 811 bytes
-OrchestrationPlatform\Orchestration.API\Engineering\Controllers\EngineeringIntelligenceController.cs | 638 bytes
+OrchestrationPlatform\Orchestration.API\Engineering\Controllers\EngineeringIntelligenceController.cs | 637 bytes
 OrchestrationPlatform\Orchestration.API\Engineering\Controllers\EngineeringJobsController.cs | 1085 bytes
 OrchestrationPlatform\Orchestration.API\Engineering\Controllers\FederatedCandidateSelectionsController.cs | 1103 bytes
 OrchestrationPlatform\Orchestration.API\Engineering\Controllers\FederatedEngineeringDiscoveryController.cs | 1008 bytes
@@ -2632,7 +2657,7 @@ OrchestrationPlatform\Orchestration.API\Engineering\Federation\FederatedExtracti
 OrchestrationPlatform\Orchestration.API\Engineering\Intelligence\EngineeringFindingEvaluator.cs | 2450 bytes
 OrchestrationPlatform\Orchestration.API\Engineering\Intelligence\EngineeringIntelligenceIdentityFactory.cs | 1250 bytes
 OrchestrationPlatform\Orchestration.API\Engineering\Intelligence\EngineeringIntelligenceInvestigationAssembler.cs | 6200 bytes
-OrchestrationPlatform\Orchestration.API\Engineering\Intelligence\EngineeringIntelligenceInvestigationContracts.cs | 5381 bytes
+OrchestrationPlatform\Orchestration.API\Engineering\Intelligence\EngineeringIntelligenceInvestigationContracts.cs | 5408 bytes
 OrchestrationPlatform\Orchestration.API\Engineering\Intelligence\EngineeringIntelligenceInvestigationValidator.cs | 2203 bytes
 OrchestrationPlatform\Orchestration.API\Engineering\Intelligence\EvidenceCompletenessEvaluator.cs | 1609 bytes
 OrchestrationPlatform\Orchestration.API\Engineering\Intelligence\TypedSourceEvidenceMapper.cs | 2001 bytes
@@ -2673,9 +2698,9 @@ SAP-BOM-Extractor\src\SapBomExtractor.java | 10652 bytes
 SAP-BOM-Extractor\src\SapConnectionTest.java | 6389 bytes
 SAP-BOM-Extractor\src\SapMaterialCatalogExtractor.java | 22008 bytes
 SAP-BOM-Extractor\src\SapMaterialHistoryExtractor.java | 17171 bytes
-SAP-BOM-Extractor\src\SapMaterialHistoryProbe.java | 16019 bytes
+SAP-BOM-Extractor\src\SapMaterialHistoryProbe.java | 16253 bytes
 SAP-BOM-Extractor\src\SapMaterialImpactExecutionProbe.java | 10327 bytes
-SAP-BOM-Extractor\src\SapMaterialImpactExtractor.java | 27322 bytes
+SAP-BOM-Extractor\src\SapMaterialImpactExtractor.java | 20221 bytes
 SAP-BOM-Extractor\src\SapMaterialImpactProbe.java | 5935 bytes
 TeamCenter-to-Configit-soa_client\.gitignore | 551 bytes
 TeamCenter-to-Configit-soa_client\backend\samples\ConfigitAceIntegration\Abstractions\IAceModelService.cs | 1141 bytes
@@ -2727,7 +2752,6 @@ TeamCenter-to-Configit-soa_client\backend\samples\HelloTeamcenter\src\com\teamce
 TeamCenter-to-Configit-soa_client\backend\samples\HelloTeamcenter\src\com\teamcenter\hello\PLMXMLExport.java | 56417 bytes
 TeamCenter-to-Configit-soa_client\backend\samples\HelloTeamcenter\src\com\teamcenter\hello\TeamcenterSearch.java | 13386 bytes
 TeamCenter-to-Configit-soa_client\backend\samples\HelloTeamcenter\src\com\teamcenter\hello\TeamcenterSearchResult.java | 1193 bytes
-TeamCenter-to-Configit-soa_client\backend\samples\HelloTeamcenter\tc_extraction.json.search.json | 299 bytes
 TeamCenter-to-Configit-soa_client\backend\samples\ImportExport\build.xml | 7037 bytes
 TeamCenter-to-Configit-soa_client\backend\samples\ImportExport\ReadMe.txt | 2243 bytes
 TeamCenter-to-Configit-soa_client\backend\samples\ImportExport\src\com\teamcenter\clientx\AppXExceptionHandler.java | 4328 bytes
@@ -15249,7 +15273,6 @@ function DetailCard({
 
 ===== FILE: .\OrchestrationPlatform\frontend\components\SAPForm.tsx =====
 
-
 "use client";
 import { useState, type FormEvent, type ReactNode } from "react";
 import { motion } from "motion/react";
@@ -15264,15 +15287,16 @@ interface SAPFormProps { onSubmit: (jobId: string, request?: { materialId: strin
 export function SAPForm({ onSubmit, isLoading }: SAPFormProps) {
   const [materialQuery, setMaterialQuery] = useState("");
   const [plant, setPlant] = useState("1001");
+  const [storageLocation, setStorageLocation] = useState("1D");
   const [includeImpact, setIncludeImpact] = useState(true);
   const [error, setError] = useState("");
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault(); setError("");
-    const value = materialQuery.trim(), plantValue = plant.trim() || "1001";
+    const value = materialQuery.trim(), plantValue = plant.trim() || "1001", storageValue = storageLocation.trim();
     if (!value) { setError("Enter an SAP material description or material number to continue."); return; }
     try {
       toast.loading(includeImpact ? "Starting SAP material analysis..." : "Starting SAP BOM extraction...", { id: "sap-start" });
-      const result = await startSapExtraction({ materialQuery: value, plant: plantValue, includeSapBusinessImpact: includeImpact });
+      const result = await startSapExtraction({ materialQuery: value, plant: plantValue, storageLocation: storageValue, includeSapBusinessImpact: includeImpact });
       if (!result.jobId) throw new Error("The request started without a tracking reference.");
       toast.success(includeImpact ? "SAP material analysis started" : "SAP BOM extraction started", { id: "sap-start", description: `${value} · Plant ${plantValue}` });
       onSubmit(result.jobId, { materialId: value, plant: plantValue, includeImpact });
@@ -15283,7 +15307,7 @@ export function SAPForm({ onSubmit, isLoading }: SAPFormProps) {
   };
   return <motion.form onSubmit={handleSubmit} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.18 }}>
     <SourceRequestPanel title="Retrieve SAP material evidence" description="Enter a material description or material number, then choose the extraction scope." error={error}>
-      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_128px]"><SourceField label="Material description or number"><input value={materialQuery} onChange={(e) => { setMaterialQuery(e.target.value); setError(""); }} placeholder="Brake Disc or PLM001007" disabled={isLoading} className={sourceInputClass}/></SourceField><SourceField label="Plant"><input value={plant} onChange={(e) => setPlant(e.target.value)} placeholder="1001" disabled={isLoading} className={sourceInputClass}/></SourceField></div>
+      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_128px]"><SourceField label="Material description or number"><input value={materialQuery} onChange={(e) => { setMaterialQuery(e.target.value); setError(""); }} placeholder="Brake Disc or PLM001007" disabled={isLoading} className={sourceInputClass}/></SourceField><SourceField label="Plant"><input value={plant} onChange={(e) => setPlant(e.target.value)} placeholder="1001" disabled={isLoading} className={sourceInputClass}/></SourceField><SourceField label="Storage location"><input value={storageLocation} onChange={(e) => setStorageLocation(e.target.value)} placeholder="1D or blank for plant scope" disabled={isLoading} className={sourceInputClass}/></SourceField></div>
       <div className="mt-4 flex flex-col gap-3 border-t border-slate-200 pt-4 dark:border-slate-800 sm:flex-row sm:items-end sm:justify-between">
         <div><span className="block text-xs font-semibold text-slate-600 dark:text-slate-300">Request scope</span><div className="mt-2 inline-flex rounded-lg border border-slate-300 bg-slate-50 p-1 dark:border-slate-700 dark:bg-slate-900"><ScopeButton active={!includeImpact} disabled={isLoading} icon={<IconHierarchy3 className="h-4 w-4"/>} onClick={() => setIncludeImpact(false)}>BOM structure</ScopeButton><ScopeButton active={includeImpact} disabled={isLoading} icon={<IconChartDots3 className="h-4 w-4"/>} onClick={() => setIncludeImpact(true)}>Operational impact</ScopeButton></div><p className="mt-2 max-w-xl text-xs leading-5 text-slate-500">{includeImpact ? "Includes available stock, valuation, movement, and accounting evidence." : "Retrieves the maintained material BOM for the selected plant."}</p></div>
         <StatefulButtonDemo isLoading={isLoading} disabled={isLoading} idleLabel={includeImpact ? "Analyze material" : "Retrieve BOM"} loadingLabel="Starting"/>
@@ -15296,56 +15320,28 @@ function ScopeButton({ active, disabled, icon, children, onClick }: { active: bo
 
 ===== FILE: .\OrchestrationPlatform\frontend\components\SapOperationalImpactPanel.tsx =====
 
-/* eslint-disable react-hooks/set-state-in-effect */
 "use client";
-import { useEffect, useMemo, useState } from "react";
-import { motion } from "motion/react";
-import { IconBuildingWarehouse, IconCash, IconFileInvoice, IconHistory, IconPackage, IconRefresh } from "@tabler/icons-react";
-import { toast } from "sonner";
-import { ApiError, getSapOperationalImpact } from "@/lib/api";
-import type { SapMaterialMovement, SapOperationalImpact } from "@/types/sap-operational-impact";
-import { OutcomeNotice, RetryButton } from "@/components/feedback/OutcomeNotice";
-import { TechnicalDetails } from "@/components/feedback/TechnicalDetails";
-import { userFacingError } from "@/lib/user-facing-errors";
+import { useEffect, useState } from "react";
+import { IconArrowDown, IconArrowUp, IconBuildingBank, IconCoins, IconPackage, IconRefresh } from "@tabler/icons-react";
+import { getSapOperationalImpact } from "@/lib/api";
+import type { SapHistoryEvent, SapOperationalImpact } from "@/types/sap-operational-impact";
 
-const wait=(ms:number)=>new Promise((resolve)=>window.setTimeout(resolve,ms));
-const number=(value:number|null|undefined)=>value==null?"Not available":new Intl.NumberFormat("en-IN",{maximumFractionDigits:3}).format(value);
-const quantity=(value:number|null|undefined,unit="")=>value==null?"Not available":`${number(value)}${unit?` ${unit}`:""}`;
-const money=(value:number|null|undefined,currency="INR")=>value==null?"Not available":new Intl.NumberFormat("en-IN",{style:"currency",currency:currency||"INR",maximumFractionDigits:2}).format(value);
-const date=(value:string)=>{if(!value)return "Not available";const compact=value.replace(/\D/g,"");if(compact.length===8)return `${compact.slice(6,8)} ${new Date(Number(compact.slice(0,4)),Number(compact.slice(4,6))-1,1).toLocaleString("en",{month:"short"})} ${compact.slice(0,4)}`;return value;};
-
-export function SapOperationalImpactPanel({jobId,active}:{jobId:string|null;active:boolean}){
- const [data,setData]=useState<SapOperationalImpact|null>(null),[error,setError]=useState(""),[loading,setLoading]=useState(false),[retry,setRetry]=useState(0),[selectedKey,setSelectedKey]=useState<string|null>(null);
- useEffect(()=>{if(!jobId||!active){setData(null);setSelectedKey(null);return;}let cancelled=false;setLoading(true);setError("");setData(null);void(async()=>{for(let attempt=0;attempt<60&&!cancelled;attempt++){try{const result=await getSapOperationalImpact(jobId);if(cancelled)return;setData(result);const first=result.history?.movements?.[0];setSelectedKey(first?`${first.materialDocument}-${first.materialDocumentYear}-${first.item}`:null);setLoading(false);const partial=result.status!=="complete"||result.warnings.length>0;toast[partial?"warning":"success"](partial?"SAP operational impact completed with warnings":"SAP operational impact ready",{id:"sap-operational-impact",description:"Current stock, movement and financial evidence are available."});return;}catch(cause){if(cause instanceof ApiError&&cause.status===404&&attempt<59){await wait(2000);continue;}if(!cancelled){const outcome=userFacingError("sap",cause,cause instanceof ApiError?cause.status:undefined);setError(outcome.message);setLoading(false);}return;}}})();return()=>{cancelled=true;};},[jobId,active,retry]);
- const movements=useMemo(()=>[...(data?.history?.movements??[])].sort((a,b)=>`${b.postingDate}${b.createdTime}`.localeCompare(`${a.postingDate}${a.createdTime}`)),[data]);
- const selected=movements.find((item)=>`${item.materialDocument}-${item.materialDocumentYear}-${item.item}`===selectedKey)??movements[0]??null;
- const current=data?.currentState?.materials?.find((item)=>item.materialId===data.sourceMaterialId)??data?.currentState?.materials?.[0]??null;
- if(!active||!jobId)return null;
- if(loading)return <section className="mt-5 rounded-2xl border border-slate-800 bg-slate-950/90 p-6 text-slate-200"><div className="flex items-center gap-3"><IconRefresh className="h-5 w-5 animate-spin text-cyan-400"/><div><p className="text-sm font-semibold">Building SAP operational trace</p><p className="mt-1 text-sm text-slate-400">Loading current state, material movements and financial evidence.</p></div></div><div className="mt-5 grid gap-3 md:grid-cols-4">{Array.from({length:4}).map((_,i)=><div key={i} className="h-24 animate-pulse rounded-xl bg-slate-900"/>)}</div></section>;
- if(error)return <div className="mt-5"><OutcomeNotice tone="error" title="SAP operational impact is unavailable" message={error} actions={<RetryButton onClick={()=>setRetry((v)=>v+1)} label="Retry trace"/>}/></div>;
- if(!data)return null;
- return <motion.section initial={{opacity:0,y:8}} animate={{opacity:1,y:0}} transition={{duration:.22}} className="mt-5 overflow-hidden rounded-2xl border border-slate-800 bg-slate-950/95 text-slate-100">
-  <header className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-800 px-5 py-5"><div><p className="text-xs font-semibold uppercase tracking-[.14em] text-cyan-400">SAP operational evidence</p><h3 className="mt-1.5 text-xl font-semibold">Stock, valuation and transaction trace</h3><p className="mt-1.5 text-sm text-slate-400">Material {data.sourceMaterialId} · Plant {data.plant}</p></div><EvidenceBadge value={data.status}/></header>
-  <div className="grid gap-px border-b border-slate-800 bg-slate-800 sm:grid-cols-2 xl:grid-cols-4"><Metric icon={<IconPackage/>} label="Unrestricted stock" value={quantity(current?.stock.unrestricted,current?.baseUnit)} note="Current physical stock"/><Metric icon={<IconBuildingWarehouse/>} label="Inventory value" value={money(current?.inventory.totalStockValue,current?.organization.currency)} note="Current SAP valuation"/><Metric icon={<IconCash/>} label="Effective unit cost" value={money(current?.cost.effectiveUnitCost,current?.organization.currency)} note={`Price control ${current?.cost.priceControl||"not available"}`}/><Metric icon={<IconHistory/>} label="Movements" value={String(movements.length)} note="Historical material documents"/></div>
-  {current?<div className="border-b border-slate-800 px-5 py-5"><div className="flex items-center justify-between gap-4"><div><h4 className="font-semibold">Current state</h4><p className="mt-1 text-xs text-slate-500">Confirmed stock and valuation at extraction time.</p></div><EvidenceBadge value={current.status==="complete"?"confirmed":"partial_success"}/></div><dl className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Fact label="Material" value={`${current.materialId} · ${current.description||"Description unavailable"}`}/><Fact label="Organization" value={`Plant ${current.organization.plant||"-"} · Company ${current.organization.companyCode||"-"}`}/><Fact label="Valuated quantity" value={quantity(current.inventory.valuatedQuantity,current.baseUnit)}/><Fact label="Moving average price" value={money(current.cost.movingAveragePrice,current.organization.currency)}/><Fact label="Standard price" value={money(current.cost.standardPrice,current.organization.currency)}/><Fact label="Price unit" value={number(current.cost.priceUnit)}/><Fact label="Valuation class" value={current.cost.valuationClass}/><Fact label="Reconciliation" value={current.checks?.valuationReconciled===true?"Reconciled":current.checks?.valuationReconciled===false?"Difference detected":"Not available"}/></dl></div>:null}
-  <div className="grid min-h-[540px] xl:grid-cols-[minmax(0,1.1fr)_minmax(420px,.9fr)]">
-   <div className="border-b border-slate-800 xl:border-b-0 xl:border-r"><div className="flex items-center justify-between border-b border-slate-800 px-5 py-4"><div><h4 className="font-semibold">Movement history</h4><p className="mt-1 text-xs text-slate-400">Select a material document to inspect its operational and financial trace.</p></div><span className="text-xs text-slate-500">{movements.length} records</span></div>
-    {movements.length?<div className="overflow-x-auto"><table className="min-w-full text-sm"><thead className="bg-slate-900/70 text-left text-[11px] uppercase tracking-wide text-slate-500"><tr>{["Posting date","Movement","Document / item","Quantity","Value"].map((x)=><th key={x} className="px-4 py-3 font-semibold">{x}</th>)}</tr></thead><tbody className="divide-y divide-slate-800">{movements.map((movement)=>{const key=`${movement.materialDocument}-${movement.materialDocumentYear}-${movement.item}`,chosen=key===selectedKey;return <tr key={key} onClick={()=>setSelectedKey(key)} className={`cursor-pointer transition ${chosen?"bg-cyan-500/[.09]":"hover:bg-slate-900/70"}`}><td className="whitespace-nowrap px-4 py-3 text-slate-300">{date(movement.postingDate)}</td><td className="px-4 py-3"><span className="font-semibold text-slate-100">{movement.movementType||"-"}</span><span className="mt-0.5 block text-xs text-slate-500">{movement.movementDescription||"Material movement"}</span></td><td className="px-4 py-3"><span className="font-medium">{movement.materialDocument}</span><span className="text-slate-500"> / {movement.item}</span><span className="mt-0.5 block text-xs text-slate-500">Year {movement.materialDocumentYear}</span></td><td className={`whitespace-nowrap px-4 py-3 font-semibold ${(movement.signedQuantity??0)<0?"text-rose-300":"text-emerald-300"}`}>{quantity(movement.signedQuantity,movement.unit)}</td><td className={`whitespace-nowrap px-4 py-3 font-semibold ${(movement.signedLocalAmount??0)<0?"text-rose-300":"text-emerald-300"}`}>{money(movement.signedLocalAmount,movement.currency||current?.organization.currency)}</td></tr>;})}</tbody></table></div>:<div className="p-6"><OutcomeNotice tone="info" title="No material movements returned" message="Current stock and valuation remain available. SAP did not return historical movement rows for this material and plant."/></div>}
-   </div>
-   <div className="bg-slate-900/25 p-5">{selected?<MovementTrace movement={selected}/>:<div className="flex min-h-[300px] items-center justify-center text-center text-sm text-slate-500">Select a movement to inspect its trace.</div>}</div>
-  </div>
-  {(data.warnings.length||data.history?.warnings?.length)?<div className="border-t border-slate-800 p-5"><OutcomeNotice compact tone="warning" title="SAP returned partial evidence" message="Confirmed information is shown. Referenced or unavailable details are labelled separately." technicalDetails={[...data.warnings,...(data.history?.warnings??[])].join("\n")}/></div>:null}
- </motion.section>;
+export function SapOperationalImpactPanel({jobId,active}:{jobId:string|null;active:boolean}) {
+ const [data,setData]=useState<SapOperationalImpact|null>(null),[error,setError]=useState(""),[loading,setLoading]=useState(false);
+ async function load(){if(!jobId||!active)return;setLoading(true);setError("");for(let i=0;i<60;i++){try{setData(await getSapOperationalImpact(jobId));setLoading(false);return}catch(e){const status=(e as {status?:number}).status;if(status===404&&i<59){await new Promise(r=>setTimeout(r,2000));continue}setError(e instanceof Error?e.message:"SAP operational impact unavailable");break}}setLoading(false)}
+ useEffect(()=>{void load()},[jobId,active]);if(!active||!jobId)return null;if(loading&&!data)return <Box>Reconstructing SAP movement and financial history...</Box>;if(error&&!data)return <Box><span className="text-rose-300">{error}</span><button onClick={load} className="ml-3 underline">Retry</button></Box>;
+ const h=data?.history;if(!h)return <Box>Current SAP evidence is available, but no accessible movement history was returned.</Box>;const c=h.currentState,s=h.historySummary,m=h.material;
+ return <section className="mt-4 space-y-4 rounded-2xl border border-slate-800 bg-slate-950/45 p-4 text-slate-100">
+  <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-[10px] font-bold uppercase tracking-[.2em] text-cyan-400">SAP material intelligence</p><h3 className="mt-1 text-lg font-semibold">{m.materialId} · {m.description}</h3><p className="text-xs text-slate-500">Plant {m.plant} · Storage {m.storageLocation||"Plant scope"} · {h.systemId}/{h.client}</p></div><button onClick={load} className="flex items-center gap-2 text-xs text-slate-400"><IconRefresh className="h-4 w-4"/>Refresh</button></div>
+  <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-slate-800 bg-slate-800 md:grid-cols-4"><Metric label="Physical stock" value={`${n(c.physicalStock)} EA`} icon={<IconPackage/>}/><Metric label="Valuated quantity" value={`${n(c.valuatedQuantity)} EA`} icon={<IconPackage/>}/><Metric label="Inventory value" value={`${money(c.inventoryValue)} INR`} icon={<IconCoins/>}/><Metric label="Moving average" value={`${money(c.movingAveragePrice)} INR`} icon={<IconCoins/>}/><Metric label="Price control" value={c.priceControl||"—"}/><Metric label="Price unit" value={n(c.priceUnit)}/><Metric label="Valuation class" value={c.valuationClass||"—"}/><Metric label="Movements / G/L lines" value={`${s.movementCount} / ${s.accountingLineCount}`}/></div>
+  <div className={`rounded-xl border p-3 text-sm ${s.quantityReconciledToCurrentValuation&&s.valueReconciledToCurrentInventory?"border-emerald-500/25 bg-emerald-500/10 text-emerald-200":"border-amber-500/25 bg-amber-500/10 text-amber-200"}`}><strong>{s.quantityReconciledToCurrentValuation&&s.valueReconciledToCurrentInventory?"Reconciled":"Reconciliation attention required"}</strong><p className="mt-1 text-xs opacity-80">History totals: {signed(s.netQuantityDelta)} EA and {signed(s.netInventoryValueDelta)} INR. Quantity: {yn(s.quantityReconciledToCurrentValuation)} · Value: {yn(s.valueReconciledToCurrentInventory)}</p></div>
+  {(data?.warnings||[]).concat(h.warnings||[]).map(w=><div key={w} className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-200">{w}</div>)}
+  <div><h4 className="text-sm font-semibold">Material movement timeline</h4><p className="mt-1 text-xs text-slate-500">Chronological MATDOC reconstruction with ACDOCA financial correlation.</p></div>
+  <div className="space-y-3">{h.events.map(e=><EventCard key={`${e.documentYear}-${e.materialDocument}-${e.documentItem}`} event={e}/>)}</div>
+ </section>
 }
-function MovementTrace({movement}:{movement:SapMaterialMovement}){const accounting=movement.accountingDocument;return <div className="space-y-5"><div><div className="flex items-center justify-between gap-3"><div><p className="text-[11px] font-semibold uppercase tracking-[.14em] text-cyan-400">Transaction trace</p><h4 className="mt-1 text-lg font-semibold">{movement.materialDocument} / {movement.item}</h4></div><EvidenceBadge value={movement.evidenceConfidence}/></div><dl className="mt-4 grid gap-3 sm:grid-cols-2"><Fact label="Source transaction" value={movement.sourceTransaction}/><Fact label="Production order" value={movement.productionOrder}/><Fact label="Movement" value={`${movement.movementType}${movement.movementDescription?` · ${movement.movementDescription}`:""}`}/><Fact label="Posting date" value={date(movement.postingDate)}/><Fact label="Plant / location" value={`${movement.plant||"-"} / ${movement.storageLocation||"-"}`}/><Fact label="Business area" value={movement.businessArea}/><Fact label="Profit center" value={movement.profitCenter}/><Fact label="Material-item G/L" value={movement.materialItemGlAccount}/></dl></div>
- <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-4"><div className="flex items-center gap-2"><IconFileInvoice className="h-5 w-5 text-cyan-400"/><h5 className="font-semibold">Financial trace</h5></div>{accounting.availability==="confirmed"?<><p className="mt-2 text-sm text-slate-400">Document {accounting.documentNumber} · Company code {accounting.companyCode} · FI fiscal year {accounting.fiscalYear} · Period {accounting.postingPeriod}</p><div className="mt-4 space-y-2">{accounting.lines.length?accounting.lines.map((line)=><div key={`${line.lineItem}-${line.glAccount}`} className="flex items-center justify-between gap-4 rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-3"><div className="min-w-0"><p className="font-semibold">{line.glAccount||"G/L unavailable"}</p><p className="truncate text-xs text-slate-500">{line.accountName||line.text||line.direction}</p></div><span className={`shrink-0 font-semibold ${(line.signedAmount??0)<0?"text-rose-300":"text-emerald-300"}`}>{money(line.signedAmount,line.currency||accounting.currency)}</span></div>):<p className="text-sm text-slate-500">The accounting document was found, but no line items were returned.</p>}</div></>:<p className="mt-3 text-sm text-slate-400">No linked FI document was returned for this movement.</p>}</div>
- <div className="grid gap-3 sm:grid-cols-2"><Reference title="Controlling reference" value={movement.controllingReference}/><Reference title="Material Ledger reference" value={movement.materialLedgerReference}/></div>
- <TechnicalDetails details={`Material document year: ${movement.materialDocumentYear}\nFI fiscal year: ${accounting.fiscalYear||"Not available"}\nEvidence confidence: ${movement.evidenceConfidence}`} />
- </div>}
-function Metric({icon,label,value,note}:{icon:React.ReactNode;label:string;value:string;note:string}){return <div className="bg-slate-950 px-5 py-4"><span className="text-cyan-400 [&_svg]:h-4 [&_svg]:w-4">{icon}</span><p className="mt-2 text-xs font-semibold uppercase tracking-[.12em] text-slate-500">{label}</p><p className="mt-2 text-xl font-semibold">{value}</p><p className="mt-1 text-xs text-slate-500">{note}</p></div>}
-function Fact({label,value}:{label:string;value?:string}){return <div className="rounded-lg border border-slate-800 bg-slate-950/50 px-3 py-3"><dt className="text-[11px] uppercase tracking-wide text-slate-500">{label}</dt><dd className="mt-1.5 break-words text-sm font-medium text-slate-200">{value||"Not available"}</dd></div>}
-function Reference({title,value}:{title:string;value:SapMaterialMovement["controllingReference"]}){return <div className="rounded-xl border border-slate-800 bg-slate-950/55 p-4"><p className="text-xs font-semibold text-slate-300">{title}</p><p className="mt-2 text-sm text-slate-100">{value.reference||"Not found"}</p><p className="mt-1 text-xs text-slate-500">{value.availability==="referenced"?"Reference confirmed; detailed line items were not verified.":"No reference returned."}</p></div>}
-function EvidenceBadge({value}:{value:string}){const good=value==="complete"||value==="confirmed",warn=value==="partial_success"||value==="referenced"||value==="reconstructed";return <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${good?"border-emerald-500/30 bg-emerald-500/10 text-emerald-300":warn?"border-amber-500/30 bg-amber-500/10 text-amber-300":"border-slate-700 bg-slate-900 text-slate-400"}`}>{value.replace(/_/g," ")}</span>}
+function EventCard({event:e}:{event:SapHistoryEvent}){const positive=(e.quantityDelta??0)>=0,label=e.movementType==="101"?"Goods receipt":e.movementType==="261"?"Production-order goods issue":e.movementType==="561"?"Initial stock entry":"Material movement";return <article className="rounded-xl border border-slate-800 bg-slate-900/55 p-4"><div className="flex flex-wrap justify-between gap-3"><div className="flex gap-3"><span className={`mt-0.5 rounded-lg p-2 ${positive?"bg-emerald-500/10 text-emerald-300":"bg-orange-500/10 text-orange-300"}`}>{positive?<IconArrowUp className="h-4 w-4"/>:<IconArrowDown className="h-4 w-4"/>}</span><div><p className="text-xs text-slate-500">{e.postingDate} · {e.createdTime}</p><h5 className="font-semibold">Movement {e.movementType} · {label}</h5><p className="mt-1 text-xs text-slate-400">Material document {e.materialDocument} / {e.documentYear} / {e.documentItem} · {e.sourceTransaction}</p></div></div><div className={`text-right text-sm font-semibold ${positive?"text-emerald-300":"text-orange-300"}`}><p>{signed(e.quantityDelta)} {e.unit}</p><p>{signed(e.inventoryValueDelta)} {e.currency}</p></div></div><div className="mt-3 grid gap-2 text-xs sm:grid-cols-2"><Flow title="Stock" before={e.beforeQuantity} delta={e.quantityDelta} after={e.afterQuantity} unit={e.unit}/><Flow title="Inventory value" before={e.beforeInventoryValue} delta={e.inventoryValueDelta} after={e.afterInventoryValue} unit={e.currency}/></div><div className="mt-3 flex flex-wrap gap-2 text-[11px] text-slate-400">{e.purchaseOrder&&<Tag>PO {e.purchaseOrder} / {e.purchaseOrderItem}</Tag>}{e.productionOrder&&<Tag>Production order {e.productionOrder}</Tag>}<Tag>Company {e.companyCode}</Tag><Tag>Profit center {e.profitCenter}</Tag><Tag>Business area {e.businessArea}</Tag></div>{e.accountingDocuments.map(d=><details key={`${d.accountingDocument}-${d.fiscalYear}`} className="mt-3 rounded-lg border border-slate-800 bg-slate-950/60 p-3"><summary className="cursor-pointer text-xs font-semibold"><IconBuildingBank className="mr-2 inline h-4 w-4 text-cyan-400"/>Accounting document {d.accountingDocument} · FY {d.fiscalYear} · {d.documentType} · Ledger {d.ledger}</summary><div className="mt-3 space-y-1">{d.lines.map(l=><div key={l.line} className="grid grid-cols-[70px_1fr_auto] gap-2 rounded bg-slate-900 px-3 py-2 text-xs"><span>Line {l.line}</span><span>G/L {l.glAccount} · {l.debitCredit==="S"?"Debit":"Credit"}</span><span className={(l.amount??0)>=0?"text-emerald-300":"text-orange-300"}>{signed(l.amount)} {l.currency}</span></div>)}</div></details>)}</article>}
+function Box({children}:{children:React.ReactNode}){return <div className="mt-4 rounded-xl border border-slate-800 p-4 text-sm text-slate-400">{children}</div>}function Metric({label,value,icon}:{label:string;value:string;icon?:React.ReactNode}){return <div className="bg-slate-950 p-4">{icon&&<span className="text-cyan-400 [&_svg]:h-4 [&_svg]:w-4">{icon}</span>}<p className="mt-1 text-[10px] uppercase text-slate-500">{label}</p><p className="mt-1 text-lg font-semibold">{value}</p></div>}function Flow({title,before,delta,after,unit}:{title:string;before:number;delta:number|null;after:number;unit:string}){return <div className="rounded-lg bg-slate-950 p-3"><p className="text-slate-500">{title}</p><p className="mt-1 text-slate-200">{n(before)} → {n(after)} {unit} <span className="text-slate-500">· Delta {signed(delta)}</span></p></div>}function Tag({children}:{children:React.ReactNode}){return <span className="rounded border border-slate-700 px-2 py-1">{children}</span>}function n(v:number|null|undefined){return v==null?"—":String(v)}function money(v:number|null|undefined){return v==null?"—":new Intl.NumberFormat("en-IN").format(v)}function signed(v:number|null|undefined){return v==null?"—":`${v>0?"+":""}${new Intl.NumberFormat("en-IN").format(v)}`}function yn(v:boolean|null){return v==null?"Not verified":v?"Matched":"Mismatch"}
 
 
 ===== FILE: .\OrchestrationPlatform\frontend\components\SourceBomPanel.tsx =====
@@ -17135,8 +17131,195 @@ export function WindchillChangeWorkspace({ result, filter, onFilterChange, onClo
 
 ===== FILE: .\OrchestrationPlatform\frontend\components\windchill\WindchillPartIntelligence.tsx =====
 
-"use client";import{useEffect,useState}from"react";import{IconDownload,IconFileDescription,IconRefresh}from"@tabler/icons-react";import type{WindchillRequirementsResponse}from"@/types/windchill-requirements";import{formatFileSize,requirementQuery,trustedDownload}from"@/lib/windchill/requirements";
-export function WindchillPartIntelligence({query,partOid}:{query:string;partOid?:string}){const[data,setData]=useState<WindchillRequirementsResponse|null>(null),[error,setError]=useState(""),[loading,setLoading]=useState(true);async function load(){setLoading(true);setError("");try{const q=requirementQuery(query,partOid),r=await fetch(`/api/bom-windchill?operation=requirements&queryType=${q.type}&query=${encodeURIComponent(q.value)}`,{cache:"no-store"}),p=await r.json();if(!r.ok)throw new Error(p.error||"Unable to load Windchill intelligence");if(p.status==="selection_required")throw new Error(`Multiple latest parts matched. Select by number: ${p.candidates.map((x:{number:string})=>x.number).join(", ")}`);setData(p)}catch(e){setError(e instanceof Error?e.message:"Unable to load Windchill intelligence")}finally{setLoading(false)}}useEffect(()=>{void load()},[query,partOid]);if(loading)return <div className="mt-4 rounded-xl border border-slate-800 p-4 text-sm text-slate-400">Loading attributes, requirements, documents, and change context...</div>;if(error)return <div className="mt-4 rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-200">{error}<button onClick={load} className="ml-3 underline">Retry</button></div>;if(!data)return null;const attrs=data.part.customAttributes;return <section className="mt-4 space-y-4"><div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4"><div className="flex flex-wrap items-center gap-2"><h3 className="font-semibold text-white">{data.part.number} · {data.part.name}</h3><span className="rounded-full border border-amber-400/30 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-300">POC / Synthetic</span><span className="rounded-full border border-slate-700 px-2 py-0.5 text-[10px] uppercase text-slate-400">{data.status}</span></div><div className="mt-3 grid grid-cols-2 gap-2 text-xs md:grid-cols-4">{[["Version",data.part.version],["State",data.part.state],["View",data.part.view],["Source",data.part.source],["Material",attrs.material],["Chemical",attrs.chemical],["Weight",attrs.weight],["Dimension",attrs.dimension],["Change",data.part.changeStatus],["Checkout",data.part.checkoutState],["Unit",data.part.defaultUnit],["Folder",data.part.folder]].map(([k,v])=><div key={k} className="rounded-lg bg-slate-950/60 p-2"><p className="text-[10px] uppercase text-slate-500">{k}</p><p className="mt-1 text-slate-200">{v||"Not supplied"}</p></div>)}</div></div>{data.warnings.length?<div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-200">{data.warnings.map(w=><p key={w}>{w}</p>)}</div>:null}<div className="text-xs text-slate-500">Part → Described By → Requirements Specification → Contains → Requirement Documents</div>{data.requirementSpecifications.map(s=><details open key={s.id} className="rounded-xl border border-slate-800 bg-slate-950/40 p-4"><summary className="cursor-pointer font-semibold text-slate-100">{s.number} · {s.name} · {s.version}</summary><p className="mt-2 text-xs leading-5 text-slate-400">{s.description}</p><div className="mt-3 space-y-2">{s.requirements.map(r=><article key={r.id} className="rounded-lg border border-slate-800 bg-slate-900/60 p-3"><div className="flex justify-between"><div><p className="text-xs font-bold text-cyan-300">{r.requirementId}</p><p className="text-sm font-semibold text-white">{r.title}</p></div><span className="text-[10px] text-slate-400">{r.category}</span></div><p className="mt-2 text-xs text-slate-400">{r.description}</p><p className="mt-2 text-[10px] text-slate-600">Document {r.number} · {r.version} · {r.state}</p></article>)}</div><div className="mt-4 border-t border-slate-800 pt-3"><p className="mb-2 flex items-center gap-2 text-xs font-bold uppercase text-slate-500"><IconFileDescription className="h-4 w-4"/>Documents</p>{[...(s.primaryContent?[s.primaryContent]:[]),...s.attachments].map(f=><a key={f.id} href={trustedDownload(f.platformDownloadUrl)} className="mb-2 flex justify-between rounded-lg bg-slate-900 px-3 py-2 text-xs text-slate-300"><span>{f.fileName} · {formatFileSize(f.fileSize)}</span><IconDownload className="h-4 w-4"/></a>)}</div></details>)}<button onClick={load} className="flex items-center gap-2 text-xs text-slate-500"><IconRefresh className="h-4 w-4"/>Refresh Windchill intelligence</button></section>}
+/* eslint-disable react-hooks/set-state-in-effect */
+"use client";
+import { useEffect, useState } from "react";
+import {
+  IconDownload,
+  IconFileDescription,
+  IconRefresh,
+} from "@tabler/icons-react";
+import {
+  formatFileSize,
+  requirementQuery,
+  trustedDownload,
+} from "@/lib/windchill/requirements";
+import { WindchillRequirementsResponse } from "@/types/windchill-requirements";
+export function WindchillPartIntelligence({
+  query,
+  partOid,
+}: {
+  query: string;
+  partOid?: string;
+}) {
+  const [data, setData] = useState<WindchillRequirementsResponse | null>(null),
+    [error, setError] = useState(""),
+    [loading, setLoading] = useState(true);
+  async function load() {
+    setLoading(true);
+    setError("");
+    try {
+      const q = requirementQuery(query, partOid),
+        r = await fetch(
+          `/api/bom-windchill?operation=requirements&queryType=${q.type}&query=${encodeURIComponent(q.value)}`,
+          { cache: "no-store" },
+        ),
+        p = await r.json();
+      if (!r.ok)
+        throw new Error(p.error || "Unable to load Windchill intelligence");
+      if (p.status === "selection_required")
+        throw new Error(
+          `Multiple latest parts matched. Select by number: ${p.candidates.map((x: { number: string }) => x.number).join(", ")}`,
+        );
+      setData(p);
+    } catch (e) {
+      setError(
+        e instanceof Error
+          ? e.message
+          : "Unable to load Windchill intelligence",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+  useEffect(() => {
+    void load();
+  }, [query, partOid]);
+  if (loading)
+    return (
+      <div className="mt-4 rounded-xl border border-slate-800 p-4 text-sm text-slate-400">
+        Loading attributes, requirements, documents, and change context...
+      </div>
+    );
+  if (error)
+    return (
+      <div className="mt-4 rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-200">
+        {error}
+        <button onClick={load} className="ml-3 underline">
+          Retry
+        </button>
+      </div>
+    );
+  if (!data) return null;
+  const attrs = data.part.customAttributes;
+  return (
+    <section className="mt-4 space-y-4">
+      <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className="font-semibold text-white">
+            {data.part.number} · {data.part.name}
+          </h3>
+          <span className="rounded-full border border-amber-400/30 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-300">
+            POC / Synthetic
+          </span>
+          <span className="rounded-full border border-slate-700 px-2 py-0.5 text-[10px] uppercase text-slate-400">
+            {data.status}
+          </span>
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-2 text-xs md:grid-cols-4">
+          {[
+            ["Version", data.part.version],
+            ["State", data.part.state],
+            ["View", data.part.view],
+            ["Source", data.part.source],
+            ["Material", attrs.material],
+            ["Chemical", attrs.chemical],
+            ["Weight", attrs.weight],
+            ["Dimension", attrs.dimension],
+            ["Change", data.part.changeStatus],
+            ["Checkout", data.part.checkoutState],
+            ["Unit", data.part.defaultUnit],
+            ["Folder", data.part.folder],
+          ].map(([k, v]) => (
+            <div key={k} className="rounded-lg bg-slate-950/60 p-2">
+              <p className="text-[10px] uppercase text-slate-500">{k}</p>
+              <p className="mt-1 text-slate-200">{v || "Not supplied"}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+      {data.warnings.length ? (
+        <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-200">
+          {data.warnings.map((w) => (
+            <p key={w}>{w}</p>
+          ))}
+        </div>
+      ) : null}
+      <div className="text-xs text-slate-500">
+        Part → Described By → Requirements Specification → Contains →
+        Requirement Documents
+      </div>
+      {data.requirementSpecifications.map((s) => (
+        <details
+          open
+          key={s.id}
+          className="rounded-xl border border-slate-800 bg-slate-950/40 p-4"
+        >
+          <summary className="cursor-pointer font-semibold text-slate-100">
+            {s.number} · {s.name} · {s.version}
+          </summary>
+          <p className="mt-2 text-xs leading-5 text-slate-400">
+            {s.description}
+          </p>
+          <div className="mt-3 space-y-2">
+            {s.requirements.map((r) => (
+              <article
+                key={r.id}
+                className="rounded-lg border border-slate-800 bg-slate-900/60 p-3"
+              >
+                <div className="flex justify-between">
+                  <div>
+                    <p className="text-xs font-bold text-cyan-300">
+                      {r.requirementId}
+                    </p>
+                    <p className="text-sm font-semibold text-white">
+                      {r.title}
+                    </p>
+                  </div>
+                  <span className="text-[10px] text-slate-400">
+                    {r.category}
+                  </span>
+                </div>
+                <p className="mt-2 text-xs text-slate-400">{r.description}</p>
+                <p className="mt-2 text-[10px] text-slate-600">
+                  Document {r.number} · {r.version} · {r.state}
+                </p>
+              </article>
+            ))}
+          </div>
+          <div className="mt-4 border-t border-slate-800 pt-3">
+            <p className="mb-2 flex items-center gap-2 text-xs font-bold uppercase text-slate-500">
+              <IconFileDescription className="h-4 w-4" />
+              Documents
+            </p>
+            {[
+              ...(s.primaryContent ? [s.primaryContent] : []),
+              ...s.attachments,
+            ].map((f) => (
+              <a
+                key={f.id}
+                href={trustedDownload(f.platformDownloadUrl)}
+                className="mb-2 flex justify-between rounded-lg bg-slate-900 px-3 py-2 text-xs text-slate-300"
+              >
+                <span>
+                  {f.fileName} · {formatFileSize(f.fileSize)}
+                </span>
+                <IconDownload className="h-4 w-4" />
+              </a>
+            ))}
+          </div>
+        </details>
+      ))}
+      <button
+        onClick={load}
+        className="flex items-center gap-2 text-xs text-slate-500"
+      >
+        <IconRefresh className="h-4 w-4" />
+        Refresh Windchill intelligence
+      </button>
+    </section>
+  );
+}
 
 
 ===== FILE: .\OrchestrationPlatform\frontend\components\windchill\WindchillRevisionComparison.tsx =====
@@ -17311,12 +17494,12 @@ import { useMemo, useState } from "react";
 import { motion } from "motion/react";
 import { toast } from "sonner";
 import { userFacingError } from "@/lib/user-facing-errors";
-import { WindchillPartIntelligence } from "@/components/windchill/WindchillPartIntelligence";
 import {
   IconArrowRight,
   IconSearch,
   IconX,
 } from "@tabler/icons-react";
+import { WindchillPartIntelligence } from "./windchill/WindchillPartIntelligence";
 
 type WindchillPartSearchResult = {
   partId: string;
@@ -18383,9 +18566,10 @@ function Metric({label,value}:{label:string;value:string|number}){return <div cl
 
 ===== FILE: .\OrchestrationPlatform\frontend\features\lattice-next\components\IntelligenceInspector.tsx =====
 
+import { RequirementInspectorSections } from "./RequirementInspectorSections";
 import type { EngineeringEntity,EngineeringRelationship,InvestigationGraph } from "../domain/model";
 import { sourceToken } from "../presentation/intelligence-tokens";
-export function IntelligenceInspector({graph,entity}:{graph:InvestigationGraph;entity:EngineeringEntity|null}){if(!entity)return <aside className="flex h-full items-center justify-center border-l border-slate-800 p-6 text-sm text-slate-500">Select intelligence to inspect.</aside>;const relationships=graph.relationships.filter(r=>r.from===entity.id||r.to===entity.id),evidenceIds=[...new Set([...(entity.evidenceIds??[]),...relationships.flatMap(r=>r.evidenceIds??[])])],evidence=evidenceIds.map(id=>graph.metadata?.evidence?.[id]).filter(Boolean),token=sourceToken(entity.source);return <aside className="h-full overflow-auto border-l border-slate-800 bg-slate-950/80 p-5 text-slate-200" aria-label={`${entity.name} intelligence inspector`}><header><p className="text-[10px] font-bold uppercase tracking-[.16em] text-slate-500">{entity.canonicalKind??entity.kind}</p><h2 className="mt-2 text-lg font-semibold">{entity.name}</h2><span className={`mt-2 inline-flex rounded-full border px-2 py-1 text-[10px] tone-${token.accent}`}>{token.label}</span></header><Section title="Summary"><p>{entity.sourceStatus?`Source status: ${entity.sourceStatus}`:"Canonical engineering intelligence"}</p></Section><Section title="Properties"><dl>{Object.entries(entity.attributes).map(([key,value])=><div key={key} className="flex justify-between gap-3 border-b border-slate-800 py-2"><dt className="text-slate-500">{key}</dt><dd className="text-right">{String(value)}</dd></div>)}</dl></Section><Section title="Relationships"><p>{relationships.length} connected relationship{relationships.length===1?"":"s"}</p></Section>{evidence.length?<Section title="Evidence">{evidence.map(item=><p key={item!.id}>{item!.summary}</p>)}</Section>:null}<Section title="Provenance"><p>{entity.provenance.sourceLabel}</p>{entity.provenance.nativeId?<p>{entity.provenance.nativeId}</p>:null}</Section>{entity.temporal?<Section title="Temporal context"><p>{entity.temporal.freshness??"unknown freshness"}</p><p>{entity.temporal.capturedAt??entity.temporal.assembledAt}</p></Section>:null}</aside>}
+export function IntelligenceInspector({graph,entity}:{graph:InvestigationGraph;entity:EngineeringEntity|null}){if(!entity)return <aside className="flex h-full items-center justify-center border-l border-slate-800 p-6 text-sm text-slate-500">Select intelligence to inspect.</aside>;const relationships=graph.relationships.filter(r=>r.from===entity.id||r.to===entity.id),evidenceIds=[...new Set([...(entity.evidenceIds??[]),...relationships.flatMap(r=>r.evidenceIds??[])])],evidence=evidenceIds.map(id=>graph.metadata?.evidence?.[id]).filter(Boolean),token=sourceToken(entity.source);return <aside className="h-full overflow-auto border-l border-slate-800 bg-slate-950/80 p-5 text-slate-200" aria-label={`${entity.name} intelligence inspector`}><header><p className="text-[10px] font-bold uppercase tracking-[.16em] text-slate-500">{entity.canonicalKind??entity.kind}</p><h2 className="mt-2 text-lg font-semibold">{entity.name}</h2><span className={`mt-2 inline-flex rounded-full border px-2 py-1 text-[10px] tone-${token.accent}`}>{token.label}</span></header><Section title="Summary"><p>{entity.sourceStatus?`Source status: ${entity.sourceStatus}`:"Canonical engineering intelligence"}</p></Section><Section title="Properties"><dl>{Object.entries(entity.attributes).map(([key,value])=><div key={key} className="flex justify-between gap-3 border-b border-slate-800 py-2"><dt className="text-slate-500">{key}</dt><dd className="text-right">{String(value)}</dd></div>)}</dl></Section><Section title="Relationships"><p>{relationships.length} connected relationship{relationships.length===1?"":"s"}</p></Section>{evidence.length?<Section title="Evidence">{evidence.map(item=><p key={item!.id}>{item!.summary}</p>)}</Section>:null}{["requirement","requirement-revision","document"].includes(entity.canonicalKind??entity.kind)?<RequirementInspectorSections graph={graph} entity={entity}/>:null}<Section title="Provenance"><p>{entity.provenance.sourceLabel}</p>{entity.provenance.nativeId?<p>{entity.provenance.nativeId}</p>:null}</Section>{entity.temporal?<Section title="Temporal context"><p>{entity.temporal.freshness??"unknown freshness"}</p><p>{entity.temporal.capturedAt??entity.temporal.assembledAt}</p></Section>:null}</aside>}
 function Section({title,children}:{title:string;children:React.ReactNode}){return <section className="mt-6 text-xs leading-5"><h3 className="text-[10px] font-bold uppercase tracking-[.14em] text-slate-500">{title}</h3><div className="mt-2 space-y-2 text-slate-300">{children}</div></section>}
 
 
@@ -18925,6 +19109,10 @@ function Endpoint({label,value,detail}:{label:string;value:string;detail:string}
 
 
 
+===== FILE: .\OrchestrationPlatform\frontend\features\lattice-next\components\RequirementInspectorSections.tsx =====
+
+import type{EngineeringEntity,InvestigationGraph}from"../domain/model";import{orderedRequirementRevisions,requirementAuthority}from"../requirements/requirement-presentation";export function RequirementInspectorSections({graph,entity}:{graph:InvestigationGraph;entity:EngineeringEntity}){const ids=new Set(graph.relationships.flatMap(r=>r.from===entity.id?[r.to]:r.to===entity.id?[r.from]:[]));const revisions=orderedRequirementRevisions(graph.entities.filter(e=>ids.has(e.id)));return <section className="mt-6 border-t border-slate-800 pt-5 text-xs"><h3 className="font-bold uppercase tracking-[.14em] text-cyan-400">Requirement intelligence</h3><p className="mt-2">Authority: {requirementAuthority(entity)}</p><p>Status: {String(entity.attributes.status??"Not supplied")}</p>{revisions.map((x,i)=><p key={x.id} className={i?"text-slate-500":"text-emerald-300"}>{x.name}{i?" · Historical":" · Current"}</p>)}<p className="mt-2 text-slate-500">Use the existing Requirement Explorer or timeline for deep detail.</p></section>}
+
 ===== FILE: .\OrchestrationPlatform\frontend\features\lattice-next\components\ResolutionProgressPanel.tsx =====
 
 "use client";
@@ -18999,7 +19187,7 @@ export function createHandoff(input: Omit<LatticeHandoff, "version" | "handoffId
 ===== FILE: .\OrchestrationPlatform\frontend\features\lattice-next\contracts\intelligence-v1.ts =====
 
 export const ENGINEERING_INTELLIGENCE_CONTRACT_VERSION = "1.0" as const;
-export type IntelligenceAuthority="source-authoritative"|"backend-derived"|"frontend-derived"|"hardcoded"|"mocked";
+export type IntelligenceAuthority="source-authoritative"|"backend-derived"|"frontend-derived"|"poc-synthetic"|"hardcoded"|"mocked"|"unavailable";
 export type IntelligenceAssertionKind="fact"|"inference"|"finding";
 export type SourceExtractionStatus="available"|"partial"|"unavailable"|"failed"|"cancelled"|"timed-out"|"capability-limited"|"not-observed";
 export type TemporalContext={requestedAt?:string;capturedAt?:string;assembledAt:string;effectiveAt?:string;validFrom?:string;validTo?:string;freshness:"current"|"stale"|"unknown"|"not-applicable"};
@@ -19008,7 +19196,7 @@ export type IntelligenceProperty={type:string;text?:string;number?:number;boolea
 export type IntelligenceEntity={id:string;kind:string;displayName:string;identityQuality:"native"|"deterministic-derived"|"provisional";assertion:IntelligenceAssertionKind;properties:Record<string,IntelligenceProperty>;provenance:EngineeringProvenance;temporal:TemporalContext};
 export type IntelligenceRelationship={id:string;kind:string;family:string;sourceEntityId:string;targetEntityId:string;assertion:IntelligenceAssertionKind;confidence?:string;evidenceIds:string[];properties:Record<string,IntelligenceProperty>;provenance:EngineeringProvenance;temporal:TemporalContext};
 export type EngineeringIntelligenceInvestigationV1={contractVersion:typeof ENGINEERING_INTELLIGENCE_CONTRACT_VERSION;investigationId:string;subject:{id:string;displayName:string;preferredProductId?:string;candidateIds:string[];confidence:string;reasons:string[];provenance:EngineeringProvenance;temporal:TemporalContext};entities:IntelligenceEntity[];relationships:IntelligenceRelationship[];evidence:Array<{id:string;kind:string;summary:string;source:string;provenance:EngineeringProvenance;temporal:TemporalContext}>;findings:Array<{id:string;kind:string;title:string;summary:string;subjectEntityIds:string[];evidenceIds:string[];provenance:EngineeringProvenance;temporal:TemporalContext}>;sources:Array<{entityId:string;source:string;status:SourceExtractionStatus;provenance:EngineeringProvenance}>;identityClusters:Array<{id:string;preferredEntityId?:string;entityIds:string[];confidence:string;reasons:string[];evidenceIds:string[]}>;temporal:TemporalContext;summary:{entityCount:number;relationshipCount:number;evidenceCount:number;findingCount:number;availableSourceCount:number;partialSourceCount:number;status:string}};
-export function isEngineeringIntelligenceInvestigationV1(value:unknown):value is EngineeringIntelligenceInvestigationV1{if(!value||typeof value!=="object")return false;const v=value as Record<string,unknown>;return v.contractVersion===ENGINEERING_INTELLIGENCE_CONTRACT_VERSION&&typeof v.investigationId==="string"&&!!v.subject&&Array.isArray(v.entities)&&Array.isArray(v.relationships)&&Array.isArray(v.evidence)&&Array.isArray(v.findings)&&Array.isArray(v.sources)&&Array.isArray(v.identityClusters);}
+export function isEngineeringIntelligenceInvestigationV1(value:unknown):value is EngineeringIntelligenceInvestigationV1{if(!value||typeof value!=="object")return false;const v=value as EngineeringIntelligenceInvestigationV1;return v.contractVersion===ENGINEERING_INTELLIGENCE_CONTRACT_VERSION&&Array.isArray(v.entities)&&Array.isArray(v.relationships)&&(!("evidence" in v)||Array.isArray(v.evidence))&&(!("findings" in v)||Array.isArray(v.findings))&&(!("sources" in v)||Array.isArray(v.sources))&&(!("identityClusters" in v)||Array.isArray(v.identityClusters));}
 
 
 ===== FILE: .\OrchestrationPlatform\frontend\features\lattice-next\contracts\projection.ts =====
@@ -19968,6 +20156,10 @@ export type RelationshipKind =
   | "corresponds-to"
   | "comparison"
   | "requirement"
+  | "described-by"
+  | "traced-to"
+  | "allocated-to"
+  | "implemented-by"
   | "business-impact"
   | "affected-by"
   | "supersedes"
@@ -20841,6 +21033,10 @@ export async function hybridLayout(
 
 
 
+===== FILE: .\OrchestrationPlatform\frontend\features\lattice-next\infrastructure\intelligence-api-client.ts =====
+
+import type{EngineeringIntelligenceInvestigationV1}from"../contracts/intelligence-v1";import{isEngineeringIntelligenceInvestigationV1}from"../contracts/intelligence-v1";export class IntelligenceRuntimeError extends Error{constructor(public code:string,public status:number,message:string){super(message)}}export async function assembleCanonicalInvestigation(input:unknown,signal?:AbortSignal){const r=await fetch("/api/engineering/intelligence/assemble",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(input),signal});const v=await r.json().catch(()=>null);if(!r.ok)throw new IntelligenceRuntimeError(v?.code||"assembly-failed",r.status,v?.message||v?.detail||v?.title||v?.error||"Canonical assembly failed.");if(!isEngineeringIntelligenceInvestigationV1(v))throw new IntelligenceRuntimeError("invalid-contract",502,"Canonical V1 response is invalid.");return v as EngineeringIntelligenceInvestigationV1}
+
 ===== FILE: .\OrchestrationPlatform\frontend\features\lattice-next\infrastructure\react-flow-adapter.ts =====
 
 
@@ -21601,6 +21797,14 @@ export function visibilityBudget(level:DomainExpansionLevel,total:number):Visibi
 export function graphScalePolicy(nodes:number,relationships:number){const density=nodes?relationships/nodes:0;return nodes>500||density>8?{labels:false,maxPerDomain:12,deferEvidence:true}:nodes>150||density>4?{labels:true,maxPerDomain:24,deferEvidence:true}:{labels:true,maxPerDomain:60,deferEvidence:false};}
 
 
+===== FILE: .\OrchestrationPlatform\frontend\features\lattice-next\requirements\requirement-actions.ts =====
+
+export type RequirementAction={kind:"open-requirements-explorer"|"open-requirement-timeline"|"open-primary-content"|"open-attachment";requirementId:string;href?:string};export const safeRequirementHref=(v?:string)=>v?.startsWith("/api/windchill/content/")?v:undefined;
+
+===== FILE: .\OrchestrationPlatform\frontend\features\lattice-next\requirements\requirement-presentation.ts =====
+
+import type{EngineeringEntity,EngineeringRelationship}from"../domain/model";export const isRequirementEntity=(e:EngineeringEntity)=>["requirement","requirement-revision","document"].includes(e.canonicalKind??e.kind);export const requirementAuthority=(e:EngineeringEntity)=>String(e.attributes.authority??e.attributes.Authority??e.provenance.sourceLabel);export const requirementAssociation=(r:EngineeringRelationship)=>({exact:r.verified===true||r.confidence===1,label:r.verified?"Exact trace":"Inferred trace",confidence:r.confidence});export const orderedRequirementRevisions=(e:EngineeringEntity[])=>[...e].filter(x=>x.canonicalKind==="requirement-revision").sort((a,b)=>String(b.attributes.effectiveAt??b.temporal?.capturedAt??"").localeCompare(String(a.attributes.effectiveAt??a.temporal?.capturedAt??""))||a.id.localeCompare(b.id));
+
 ===== FILE: .\OrchestrationPlatform\frontend\features\lattice-next\state\investigation-reducer.ts =====
 
 
@@ -21852,6 +22056,14 @@ import {expect,it} from "vitest";import {projectIntelligenceExperience} from "..
 const entities=[{id:"s",sourceNodeId:"s",source:"unified",name:"S",kind:"identity",canonicalKind:"part",level:0,attributes:{},provenance:{sourceLabel:"unified"}},...Array.from({length:10},(_,i)=>({id:`r${i}`,sourceNodeId:`r${i}`,source:"platform",name:`R${i}`,kind:"requirement",canonicalKind:"requirement",level:1,attributes:{},provenance:{sourceLabel:"platform"}}))] as any[];const graph={entities,relationships:[],roots:["s"],byId:Object.fromEntries(entities.map(e=>[e.id,e])),relationshipById:{},metadata:{contractVersion:"1.0",sourceStatuses:{}}} as InvestigationGraph;
 it("expands one domain independently with deterministic deferred counts",()=>{const collapsed=projectIntelligenceExperience(graph,{expanded:new Set()}),expanded=projectIntelligenceExperience(graph,{expanded:new Set(["projection:domain:requirements"])});expect(collapsed.nodes.filter(n=>n.id.startsWith("r")).length).toBe(6);expect(expanded.nodes.filter(n=>n.id.startsWith("r")).length).toBe(10);expect(collapsed.deferredCounts["projection:domain:requirements"]).toBe(4);expect(expanded.nodes.find(n=>n.id==="projection:domain:changes")).toEqual(collapsed.nodes.find(n=>n.id==="projection:domain:changes"));});
 
+
+===== FILE: .\OrchestrationPlatform\frontend\features\lattice-next\tests\intelligence-runtime-client.test.ts =====
+
+import{describe,expect,it,vi}from"vitest";import{assembleCanonicalInvestigation}from"../infrastructure/intelligence-api-client";import{legacyHandoffToIntelligence}from"../engines/legacy-handoff-to-intelligence";import{smallFixture}from"./fixtures";describe("runtime client",()=>{it("validates canonical response",async()=>{const v=legacyHandoffToIntelligence(smallFixture);vi.stubGlobal("fetch",vi.fn(async()=>new Response(JSON.stringify(v),{status:200})));await expect(assembleCanonicalInvestigation(v)).resolves.toEqual(v);vi.unstubAllGlobals()})});
+
+===== FILE: .\OrchestrationPlatform\frontend\features\lattice-next\tests\intelligence-runtime-fallback.test.ts =====
+
+import{describe,expect,it,vi}from"vitest";import{resolveIntelligenceRuntime}from"../infrastructure/intelligence-runtime";import{smallFixture}from"./fixtures";describe("runtime fallback",()=>{it("labels backend outage fallback",async()=>{vi.stubGlobal("fetch",vi.fn(async()=>new Response(JSON.stringify({message:"offline"}),{status:503})));const v=await resolveIntelligenceRuntime(smallFixture);expect(v.mode).toBe("legacy-compatibility");expect(v.warning).toContain("clearly labelled");vi.unstubAllGlobals()})});
 
 ===== FILE: .\OrchestrationPlatform\frontend\features\lattice-next\tests\intelligence-token-registry.test.ts =====
 
@@ -22214,6 +22426,15 @@ describe("radial first-hop route adaptation", () => {
 });
 
 
+===== FILE: .\OrchestrationPlatform\frontend\features\lattice-next\tests\requirements-domain-provider.test.ts =====
+
+import{describe,expect,it}from"vitest";import{RequirementsDomainProvider}from"../../../lib/server/domain-intelligence/requirements-provider";import{smallFixture}from"./fixtures";describe("requirements provider",()=>{it("uses typed domain outcome",()=>{const p=new RequirementsDomainProvider();expect(p.domain).toBe("requirements");expect(p.supports({handoff:smallFixture,requestedDomains:["requirements"]})).toBe(true)})});
+
+
+===== FILE: .\OrchestrationPlatform\frontend\features\lattice-next\tests\requirements-projection.test.ts =====
+
+import{describe,expect,it}from"vitest";import{orderedRequirementRevisions,requirementAssociation}from"../requirements/requirement-presentation";describe("requirements projection",()=>{it("orders actual temporal metadata",()=>{const v=orderedRequirementRevisions([{id:"a",canonicalKind:"requirement-revision",attributes:{effectiveAt:"2024-01-01"}},{id:"b",canonicalKind:"requirement-revision",attributes:{effectiveAt:"2025-01-01"}}] as never);expect(v.map(x=>x.id)).toEqual(["b","a"])});it("distinguishes inferred traces",()=>expect(requirementAssociation({confidence:.72} as never).label).toBe("Inferred trace"))});
+
 ===== FILE: .\OrchestrationPlatform\frontend\features\lattice-next\tests\route-fidelity.test.ts =====
 
 import {describe,expect,it} from "vitest";
@@ -22278,8 +22499,39 @@ describe("production layout invariants",()=>{
 
 ===== FILE: .\OrchestrationPlatform\frontend\features\lattice-next\tests\windchill-requirements-platform.test.ts =====
 
-import {describe,expect,it} from "vitest";import {formatWindchillFileSize,platformWindchillDownloadUrl,windchillRequirementQuery} from "../../../lib/windchill-requirements";
-describe("Windchill requirements platform helpers",()=>{it("selects deterministic query modes",()=>{expect(windchillRequirementQuery("Stearing")).toEqual({type:"part-name",parameter:"partName",value:"Stearing"});expect(windchillRequirementQuery("0000003865").type).toBe("part-number");expect(windchillRequirementQuery("ignored","OR:wt.part.WTPart:1710308").type).toBe("part-oid");});it("accepts only protected platform download routes",()=>{expect(platformWindchillDownloadUrl("/api/engineering/windchill/content/primary?documentId=x")).toBe("/api/windchill/content/primary?documentId=x");expect(()=>platformWindchillDownloadUrl("http://windchill/private")).toThrow(/Untrusted/);});it("formats confirmed file sizes",()=>{expect(formatWindchillFileSize(64000)).toBe("62.5 KB");expect(formatWindchillFileSize(39931)).toBe("39.0 KB");});});
+import { describe, expect, it } from "vitest";
+import {
+  formatWindchillFileSize,
+  platformWindchillDownloadUrl,
+  windchillRequirementQuery,
+} from "../../../lib/windchill-requirements";
+describe("Windchill requirements platform helpers", () => {
+  it("selects deterministic query modes", () => {
+    expect(windchillRequirementQuery("Stearing")).toEqual({
+      type: "part-name",
+      parameter: "partName",
+      value: "Stearing",
+    });
+    expect(windchillRequirementQuery("0000003865").type).toBe("part-number");
+    expect(
+      windchillRequirementQuery("ignored", "OR:wt.part.WTPart:1710308").type,
+    ).toBe("part-oid");
+  });
+  it("accepts only protected platform download routes", () => {
+    expect(
+      platformWindchillDownloadUrl(
+        "/api/engineering/windchill/content/primary?documentId=x",
+      ),
+    ).toBe("/api/windchill/content/primary?documentId=x");
+    expect(() =>
+      platformWindchillDownloadUrl("http://windchill/private"),
+    ).toThrow(/Untrusted/);
+  });
+  it("formats confirmed file sizes", () => {
+    expect(formatWindchillFileSize(64000)).toBe("62.5 KB");
+    expect(formatWindchillFileSize(39931)).toBe("39.0 KB");
+  });
+});
 
 
 ===== FILE: .\OrchestrationPlatform\frontend\features\lattice-next\workspace\LatticeNextWorkspace.tsx =====
@@ -22721,7 +22973,6 @@ function Recovery({ message }: { message: string }) {
   );
 }
 
-
 ===== FILE: .\OrchestrationPlatform\frontend\fonts\fonts.css =====
 
 /* Legacy CSS entrypoint retained for non-Next surfaces. The application uses next/font/local. */
@@ -22754,7 +23005,6 @@ export const dmSans = localFont({
 
 
 ===== FILE: .\OrchestrationPlatform\frontend\lib\api.ts =====
-
 
 import type { SapOperationalImpact } from "@/types/sap-operational-impact";
 
@@ -22805,7 +23055,7 @@ export function startPipeline(request: { teamcenterQuery: string }) {
 export function startConfigitExtraction(request: { workItemId: string; productModelCode: string }) {
   return postPipeline({ kind: "configit", ...request });
 }
-export function startSapExtraction(request: { materialQuery?: string; materialId?: string; plant?: string; bomUsage?: string; alternative?: string; includeSapBusinessImpact?: boolean }) {
+export function startSapExtraction(request: { materialQuery?: string; materialId?: string; plant?: string; storageLocation?: string; bomUsage?: string; alternative?: string; includeSapBusinessImpact?: boolean }) {
   const materialQuery = request.materialQuery?.trim() || request.materialId?.trim() || "";
   return postPipeline({ kind: "sap", ...request, materialQuery });
 }
@@ -25485,6 +25735,15 @@ export function relatedNoticeNumbers(record: ReviewImpactRecord) {
 }
 
 
+===== FILE: .\OrchestrationPlatform\frontend\lib\windchill-requirements.ts =====
+
+import { requirementQuery, formatFileSize, trustedDownload } from "./windchill/requirements";
+export { requirementQuery, formatFileSize, trustedDownload };
+export const windchillRequirementQuery = (value: string, oid?: string) => { const result = requirementQuery(value, oid); return { type: result.type, parameter: result.type === "part-oid" ? "partOid" : result.type === "part-number" ? "partNumber" : "partName", value: result.value }; };
+export const formatWindchillFileSize = formatFileSize;
+export const platformWindchillDownloadUrl = (value: string) => { if (value.startsWith("/api/windchill/content/")) return value; if (value.startsWith("/api/engineering/windchill/content/")) return value.replace("/api/engineering/windchill/content/", "/api/windchill/content/"); throw new Error("Untrusted Windchill download URL"); };
+
+
 ===== FILE: .\OrchestrationPlatform\frontend\lib\windchill-revision.ts =====
 
 import type { TreeNodeData } from "@/types/bom-comparison";
@@ -25522,8 +25781,8 @@ export default nextConfig;
 
 /// <reference types="next" />
 /// <reference types="next/image-types/global" />
-import "./.next/dev/types/routes.d.ts";
-import "./.next/dev/types/root-params.d.ts";
+import "./.next/types/routes.d.ts";
+import "./.next/types/root-params.d.ts";
 
 // NOTE: This file should not be edited
 // see https://nextjs.org/docs/app/api-reference/config/typescript for more information.
@@ -36480,6 +36739,10 @@ The easiest way to deploy your Next.js app is to use the [Vercel Platform](https
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
 
 
+===== FILE: .\OrchestrationPlatform\frontend\tests\sap-material-history.test.ts =====
+
+import{describe,expect,it}from"vitest";import type{SapMaterialHistory}from"../types/sap-operational-impact";describe("SAP history contract",()=>{it("keeps years separate",()=>{const h={events:[{documentYear:"2016",fiFiscalYear:"2017"}]} as SapMaterialHistory;expect(h.events[0].documentYear).toBe("2016");expect(h.events[0].fiFiscalYear).toBe("2017")})});
+
 ===== FILE: .\OrchestrationPlatform\frontend\tests\windchill-platform.test.ts =====
 
 import{describe,expect,it}from"vitest";import{formatFileSize,requirementQuery,trustedDownload}from"../lib/windchill/requirements";describe("Windchill Platform intelligence",()=>{it("selects name number and oid queries",()=>{expect(requirementQuery("Stearing").type).toBe("part-name");expect(requirementQuery("0000003865").type).toBe("part-number");expect(requirementQuery("x","OR:wt.part.WTPart:123").type).toBe("part-oid")});it("allows only Platform download routes",()=>{expect(trustedDownload("/api/windchill/content/primary?documentId=x")).toContain("primary");expect(()=>trustedDownload("http://windchill/private")).toThrow()});it("formats Windchill sizes",()=>{expect(formatFileSize(64000)).toBe("62.5 KB");expect(formatFileSize(39931)).toBe("39.0 KB")})});
@@ -37088,19 +37351,14 @@ export type RequirementTraceSnapshot = {
 ===== FILE: .\OrchestrationPlatform\frontend\types\sap-operational-impact.ts =====
 
 import type { SapBusinessImpact } from "@/lib/api";
-export type SapEvidenceAvailability = "confirmed" | "referenced" | "not-found" | "unavailable";
-export interface SapDocumentReference { availability: SapEvidenceAvailability; reference: string; fiscalYear: string; detailsVerified: boolean; }
-export interface SapAccountingLine { lineItem: string; glAccount: string; direction: string; signedAmount: number | null; currency: string; text: string; accountName: string; businessArea: string; profitCenter: string; productionOrder: string; }
-export interface SapAccountingDocument { availability: SapEvidenceAvailability; companyCode: string; documentNumber: string; fiscalYear: string; postingPeriod: string; currency: string; postingDate: string; lines: SapAccountingLine[]; }
-export interface SapMaterialMovement {
-  materialDocument: string; materialDocumentYear: string; item: string; movementType: string; movementDescription: string; direction: string;
-  quantity: number | null; signedQuantity: number | null; unit: string; localAmount: number | null; signedLocalAmount: number | null; currency: string;
-  plant: string; storageLocation: string; productionOrder: string; businessArea: string; profitCenter: string; materialItemGlAccount: string;
-  postingDate: string; documentDate: string; createdDate: string; createdTime: string; sourceTransaction: string;
-  accountingDocument: SapAccountingDocument; controllingReference: SapDocumentReference; materialLedgerReference: SapDocumentReference; evidenceConfidence: "confirmed" | "reconstructed" | "unverified";
-}
-export interface SapMaterialHistory { requestedMaterialId: string; materialId: string; internalMaterialId: string; plant: string; status: string; movements: SapMaterialMovement[]; warnings: string[]; extractedAt: string; }
-export interface SapOperationalImpact { schemaVersion: string; sourceMaterialId: string; plant: string; status: string; currentState: SapBusinessImpact | null; history: SapMaterialHistory | null; warnings: string[]; generatedAt: string; }
+export interface SapHistoryMaterial { materialId:string; internalMaterialId:string; description:string; plant:string; storageLocation:string; }
+export interface SapHistoryCurrentState { physicalStock:number|null; valuatedQuantity:number|null; inventoryValue:number|null; priceControl:string; movingAveragePrice:number|null; standardPrice:number|null; priceUnit:number|null; valuationClass:string; }
+export interface SapHistorySummary { movementCount:number; accountingLineCount:number; netQuantityDelta:number; netInventoryValueDelta:number; quantityReconciledToCurrentValuation:boolean|null; valueReconciledToCurrentInventory:boolean|null; historicalBeforeAfterMethod:string; }
+export interface SapHistoryAccountingLine { line:string; glAccount:string; debitCredit:string; amount:number|null; currency:string; quantity:number|null; unit:string; productionOrder:string; profitCenter:string; businessArea:string; }
+export interface SapHistoryAccountingDocument { companyCode:string; accountingDocument:string; fiscalYear:string; documentType:string; postingDate:string; ledger:string; lines:SapHistoryAccountingLine[]; }
+export interface SapHistoryEvent { materialDocument:string; documentYear:string; documentItem:string; postingDate:string; documentDate:string; createdDate:string; createdTime:string; movementType:string; sourceTransaction:string; quantityDelta:number|null; unit:string; inventoryValueDelta:number|null; currency:string; beforeQuantity:number; afterQuantity:number; beforeInventoryValue:number; afterInventoryValue:number; plant:string; storageLocation:string; productionOrder:string; purchaseOrder:string; purchaseOrderItem:string; companyCode:string; fiFiscalYear:string; profitCenter:string; businessArea:string; accountingDocuments:SapHistoryAccountingDocument[]; }
+export interface SapMaterialHistory { requestedInput:string; resolutionMode:string; material:SapHistoryMaterial; currentState:SapHistoryCurrentState; historySummary:SapHistorySummary; events:SapHistoryEvent[]; storageLocations:Record<string,string>[]; warnings:string[]; systemId:string; client:string; extractedAt:string; }
+export interface SapOperationalImpact { schemaVersion:string; sourceMaterialId:string; plant:string; status:string; currentState:SapBusinessImpact|null; history:SapMaterialHistory|null; warnings:string[]; generatedAt:string; }
 
 
 ===== FILE: .\OrchestrationPlatform\frontend\types\windchill-change-impact.ts =====
@@ -39373,7 +39631,6 @@ public sealed class EngineeringIntelligenceController(IEngineeringIntelligenceIn
  [HttpPost("assemble")]public IActionResult Assemble([FromBody]UnifiedProductIntelligence input){try{return Ok(assembler.Assemble(input));}catch(InvalidOperationException ex){return UnprocessableEntity(new{code="intelligence-investigation-invalid",message=ex.Message});}}
 }
 
-
 ===== FILE: .\OrchestrationPlatform\Orchestration.API\Engineering\Controllers\EngineeringJobsController.cs =====
 
 using Microsoft.AspNetCore.Mvc;using Orchestration.API.Engineering.Services;
@@ -39932,7 +40189,7 @@ public static class EngineeringEntityKinds { public const string Part="part", Pa
 public static class EngineeringRelationshipFamilies { public const string Structure="structure", Requirement="requirement", Change="change", Configuration="configuration", Operation="operation", CostAndInventory="cost-and-inventory", Correspondence="correspondence", Evidence="evidence"; }
 public static class EngineeringRelationshipKinds { public const string Contains="contains", RepresentedBy="represented-by", Satisfies="satisfies", GovernedBy="governed-by", AffectedBy="affected-by", Supersedes="supersedes", ConfiguredBy="configured-by", SelectedOption="selected-option", ProducedBy="produced-by", StockedAt="stocked-at", ReferencedIn="referenced-in", CorrespondsTo="corresponds-to", SupportedBy="supported-by"; }
 
-public enum IntelligenceAuthority { SourceAuthoritative, BackendDerived, FrontendDerived, Hardcoded, Mocked }
+public enum IntelligenceAuthority { SourceAuthoritative, BackendDerived, FrontendDerived, PocSynthetic, Hardcoded, Mocked, Unavailable }
 public enum IntelligenceAssertionKind { Fact, Inference, Finding }
 public enum SourceExtractionStatus { Available, Partial, Unavailable, Failed, Cancelled, TimedOut, CapabilityLimited, NotObserved }
 public enum IdentityQuality { Native, DeterministicDerived, Provisional }
@@ -43370,7 +43627,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.time.Instant;
 import java.util.*;
- 
+
 /**
  * Read-only discovery probe for SAP material history.
  *
@@ -43384,47 +43641,47 @@ public class SapMaterialHistoryProbe {
     private static final String CONFIG = "config/sap.properties";
     private static final int MATNR_LENGTH = 18;
     private static final int SAMPLE_LIMIT = 25;
- 
+
     private static final String[] TABLES = {
-        "MATDOC", "MSEG", "MKPF", "BKPF", "BSEG", "ACDOCA"
+            "MATDOC", "MSEG", "MKPF", "BKPF", "BSEG", "ACDOCA"
     };
- 
+
     private static final Map<String, String[]> CANDIDATE_FIELDS = new LinkedHashMap<>();
     static {
         CANDIDATE_FIELDS.put("MATDOC", new String[] {
-            "MATNR", "WERKS", "LGORT", "MBLNR", "MJAHR", "ZEILE", "BUDAT",
-            "BLDAT", "CPUDT", "CPUTM", "BWART", "MENGE", "MEINS", "DMBTR",
-            "WAERS", "SHKZG", "AUFNR", "EBELN", "EBELP", "BKTXT", "SGTXT",
-            "TCODE2", "AWTYP", "AWREF", "AWORG", "BELNR", "BUKRS", "GJAHR",
-            "PRCTR", "GSBER", "KOSTL"
+                "MATNR", "WERKS", "LGORT", "MBLNR", "MJAHR", "ZEILE", "BUDAT",
+                "BLDAT", "CPUDT", "CPUTM", "BWART", "MENGE", "MEINS", "DMBTR",
+                "WAERS", "SHKZG", "AUFNR", "EBELN", "EBELP", "BKTXT", "SGTXT",
+                "TCODE2", "AWTYP", "AWREF", "AWORG", "BELNR", "BUKRS", "GJAHR",
+                "PRCTR", "GSBER", "KOSTL"
         });
         CANDIDATE_FIELDS.put("MSEG", new String[] {
-            "MATNR", "WERKS", "LGORT", "MBLNR", "MJAHR", "ZEILE", "BWART",
-            "MENGE", "MEINS", "DMBTR", "WAERS", "SHKZG", "AUFNR", "EBELN",
-            "EBELP", "SGTXT", "BUDAT_MKPF", "BLDAT_MKPF", "CPUDT_MKPF",
-            "CPUTM_MKPF", "TCODE2", "BELNR", "BUKRS", "GJAHR", "PRCTR", "GSBER"
+                "MATNR", "WERKS", "LGORT", "MBLNR", "MJAHR", "ZEILE", "BWART",
+                "MENGE", "MEINS", "DMBTR", "WAERS", "SHKZG", "AUFNR", "EBELN",
+                "EBELP", "SGTXT", "BUDAT_MKPF", "BLDAT_MKPF", "CPUDT_MKPF",
+                "CPUTM_MKPF", "TCODE2", "BELNR", "BUKRS", "GJAHR", "PRCTR", "GSBER"
         });
         CANDIDATE_FIELDS.put("MKPF", new String[] {
-            "MBLNR", "MJAHR", "BLDAT", "BUDAT", "CPUDT", "CPUTM", "TCODE",
-            "BKTXT", "XBLNR", "USNAM", "VGART"
+                "MBLNR", "MJAHR", "BLDAT", "BUDAT", "CPUDT", "CPUTM", "TCODE",
+                "BKTXT", "XBLNR", "USNAM", "VGART"
         });
         CANDIDATE_FIELDS.put("BKPF", new String[] {
-            "BUKRS", "BELNR", "GJAHR", "BLART", "BLDAT", "BUDAT", "MONAT",
-            "CPUDT", "CPUTM", "TCODE", "AWTYP", "AWKEY", "WAERS", "USNAM", "BKTXT"
+                "BUKRS", "BELNR", "GJAHR", "BLART", "BLDAT", "BUDAT", "MONAT",
+                "CPUDT", "CPUTM", "TCODE", "AWTYP", "AWKEY", "WAERS", "USNAM", "BKTXT"
         });
         CANDIDATE_FIELDS.put("BSEG", new String[] {
-            "BUKRS", "BELNR", "GJAHR", "BUZEI", "BSCHL", "SHKZG", "HKONT",
-            "WRBTR", "DMBTR", "WAERS", "MATNR", "WERKS", "MENGE", "MEINS",
-            "AUFNR", "KOSTL", "PRCTR", "GSBER", "SGTXT", "ZUONR"
+                "BUKRS", "BELNR", "GJAHR", "BUZEI", "BSCHL", "SHKZG", "HKONT",
+                "WRBTR", "DMBTR", "WAERS", "MATNR", "WERKS", "MENGE", "MEINS",
+                "AUFNR", "KOSTL", "PRCTR", "GSBER", "SGTXT", "ZUONR"
         });
         CANDIDATE_FIELDS.put("ACDOCA", new String[] {
-            "RLDNR", "RBUKRS", "GJAHR", "BELNR", "DOCLN", "BLART", "BUDAT",
-            "RACCT", "DRCRK", "HSL", "RHCUR", "WSL", "RWCUR", "MATNR", "WERKS",
-            "MSL", "RUNIT", "AUFNR", "RCNTR", "PRCTR", "RBUSA", "SGTXT",
-            "AWTYP", "AWREF", "AWORG"
+                "RLDNR", "RBUKRS", "GJAHR", "BELNR", "DOCLN", "BLART", "BUDAT",
+                "RACCT", "DRCRK", "HSL", "RHCUR", "WSL", "RWCUR", "MATNR", "WERKS",
+                "MSL", "RUNIT", "AUFNR", "RCNTR", "PRCTR", "RBUSA", "SGTXT",
+                "AWTYP", "AWREF", "AWORG"
         });
     }
- 
+
     public static void main(String[] args) {
         String requested = arg(args, 0, "31");
         String plant = arg(args, 1, "1001");
@@ -43432,7 +43689,7 @@ public class SapMaterialHistoryProbe {
         String output = arg(args, 3, "runtime/probes/material-history-probe.json");
         String material = internalMaterial(requested);
         List<String> warnings = new ArrayList<>();
- 
+
         try {
             Properties properties = loadProperties();
             if (!com.sap.conn.jco.ext.Environment.isDestinationDataProviderRegistered()) {
@@ -43440,17 +43697,18 @@ public class SapMaterialHistoryProbe {
             }
             JCoDestination destination = JCoDestinationManager.getDestination(DESTINATION);
             destination.ping();
- 
+
             List<TableProbe> probes = new ArrayList<>();
             for (String table : TABLES) {
                 probes.add(probeTable(destination, table, material, plant, storageLocation, warnings));
             }
- 
+
             Path path = Paths.get(output).toAbsolutePath().normalize();
-            if (path.getParent() != null) Files.createDirectories(path.getParent());
+            if (path.getParent() != null)
+                Files.createDirectories(path.getParent());
             Files.write(path, json(destination, requested, material, plant, storageLocation, probes, warnings)
                     .getBytes(StandardCharsets.UTF_8));
- 
+
             System.out.println("SAP material history probe completed: " + path);
             System.out.println("Requested material: " + requested + "; internal MATNR: " + material);
             for (TableProbe probe : probes) {
@@ -43458,14 +43716,15 @@ public class SapMaterialHistoryProbe {
                         + ", selectedFields=" + probe.selectedFields.size()
                         + ", sampleRows=" + probe.rows.size());
             }
-            if (!warnings.isEmpty()) System.out.println("Warnings: " + warnings.size());
+            if (!warnings.isEmpty())
+                System.out.println("Warnings: " + warnings.size());
         } catch (Throwable error) {
             System.err.println("SAP material history probe failed: " + error.getMessage());
             error.printStackTrace(System.err);
             System.exit(1);
         }
     }
- 
+
     private static TableProbe probeTable(JCoDestination destination, String table, String material,
             String plant, String storageLocation, List<String> warnings) {
         TableProbe probe = new TableProbe(table);
@@ -43473,15 +43732,16 @@ public class SapMaterialHistoryProbe {
             LinkedHashSet<String> available = discoverFields(destination, table);
             probe.available = true;
             probe.availableFields.addAll(available);
- 
+
             for (String candidate : CANDIDATE_FIELDS.get(table)) {
-                if (available.contains(candidate)) probe.selectedFields.add(candidate);
+                if (available.contains(candidate))
+                    probe.selectedFields.add(candidate);
             }
             if (probe.selectedFields.isEmpty()) {
                 probe.message = "No candidate fields were found in table metadata.";
                 return probe;
             }
- 
+
             List<String> filters = filtersFor(table, available, material, plant, storageLocation);
             probe.filters.addAll(filters);
             probe.rows.addAll(readTable(destination, table,
@@ -43494,31 +43754,36 @@ public class SapMaterialHistoryProbe {
         }
         return probe;
     }
- 
+
     private static LinkedHashSet<String> discoverFields(JCoDestination destination, String table) throws Exception {
         JCoFunction function = destination.getRepository().getFunction("DDIF_FIELDINFO_GET");
-        if (function == null) throw new Exception("DDIF_FIELDINFO_GET unavailable");
+        if (function == null)
+            throw new Exception("DDIF_FIELDINFO_GET unavailable");
         set(function.getImportParameterList(), "TABNAME", table);
         set(function.getImportParameterList(), "LANGU", "E");
         set(function.getImportParameterList(), "ALL_TYPES", "X");
         function.execute(destination);
- 
+
         JCoTable rows = function.getTableParameterList().getTable("DFIES_TAB");
         LinkedHashSet<String> names = new LinkedHashSet<>();
         for (int i = 0; i < rows.getNumRows(); i++) {
             rows.setRow(i);
             String name = clean(rows.getString("FIELDNAME"));
-            if (!name.isEmpty()) names.add(name);
+            if (!name.isEmpty())
+                names.add(name);
         }
-        if (names.isEmpty()) throw new Exception("No metadata fields returned");
+        if (names.isEmpty())
+            throw new Exception("No metadata fields returned");
         return names;
     }
- 
+
     private static List<String> filtersFor(String table, Set<String> fields, String material,
             String plant, String storageLocation) {
         List<String> result = new ArrayList<>();
-        if (fields.contains("MATNR")) result.add("MATNR = '" + sql(material) + "'");
-        if (fields.contains("WERKS") && !plant.isEmpty()) result.add(prefix(result) + "WERKS = '" + sql(plant) + "'");
+        if (fields.contains("MATNR"))
+            result.add("MATNR = '" + sql(material) + "'");
+        if (fields.contains("WERKS") && !plant.isEmpty())
+            result.add(prefix(result) + "WERKS = '" + sql(plant) + "'");
         if (fields.contains("LGORT") && !storageLocation.isEmpty()) {
             result.add(prefix(result) + "LGORT = '" + sql(storageLocation) + "'");
         }
@@ -43526,26 +43791,28 @@ public class SapMaterialHistoryProbe {
         // Avoid broad reads from those tables during this discovery probe.
         if (("MKPF".equals(table) || "BKPF".equals(table)) && result.isEmpty()) {
             result.add("MBLNR = '0000000000'");
-            if ("BKPF".equals(table)) result.set(0, "BELNR = '0000000000'");
+            if ("BKPF".equals(table))
+                result.set(0, "BELNR = '0000000000'");
         }
         if (("BSEG".equals(table) || "ACDOCA".equals(table)) && result.isEmpty()) {
             result.add("MATNR = '" + sql(material) + "'");
         }
         return result;
     }
- 
+
     private static String prefix(List<String> current) {
         return current.isEmpty() ? "" : "AND ";
     }
- 
+
     private static List<Map<String, String>> readTable(JCoDestination destination, String table,
             String[] fields, List<String> filters, int limit) throws Exception {
         JCoFunction function = destination.getRepository().getFunction("RFC_READ_TABLE");
-        if (function == null) throw new Exception("RFC_READ_TABLE unavailable");
+        if (function == null)
+            throw new Exception("RFC_READ_TABLE unavailable");
         set(function.getImportParameterList(), "QUERY_TABLE", table);
         set(function.getImportParameterList(), "DELIMITER", "|");
         setInt(function.getImportParameterList(), "ROWCOUNT", limit);
- 
+
         JCoTable fieldTable = function.getTableParameterList().getTable("FIELDS");
         for (String field : fields) {
             fieldTable.appendRow();
@@ -43557,7 +43824,7 @@ public class SapMaterialHistoryProbe {
             optionTable.setValue("TEXT", filter);
         }
         function.execute(destination);
- 
+
         JCoTable data = function.getTableParameterList().getTable("DATA");
         List<Map<String, String>> result = new ArrayList<>();
         for (int i = 0; i < data.getNumRows(); i++) {
@@ -43571,7 +43838,7 @@ public class SapMaterialHistoryProbe {
         }
         return result;
     }
- 
+
     private static String json(JCoDestination destination, String requested, String material,
             String plant, String storageLocation, List<TableProbe> probes, List<String> warnings) throws JCoException {
         StringBuilder out = new StringBuilder();
@@ -43585,18 +43852,20 @@ public class SapMaterialHistoryProbe {
         out.append(field("generatedAt", Instant.now().toString())).append(',');
         out.append("\"readOnly\":true,\"tables\":[");
         for (int i = 0; i < probes.size(); i++) {
-            if (i > 0) out.append(',');
+            if (i > 0)
+                out.append(',');
             out.append(probes.get(i).json());
         }
         out.append("],\"warnings\":[");
         for (int i = 0; i < warnings.size(); i++) {
-            if (i > 0) out.append(',');
+            if (i > 0)
+                out.append(',');
             out.append('"').append(esc(warnings.get(i))).append('"');
         }
         out.append("]}");
         return out.toString();
     }
- 
+
     private static String internalMaterial(String value) {
         String cleaned = clean(value);
         if (cleaned.matches("\\d+") && cleaned.length() < MATNR_LENGTH) {
@@ -43604,36 +43873,57 @@ public class SapMaterialHistoryProbe {
         }
         return cleaned;
     }
- 
+
     private static void set(JCoParameterList parameters, String name, String value) {
-        if (parameters == null) return;
-        try { parameters.setValue(name, value); } catch (Exception ignored) { }
+        if (parameters == null)
+            return;
+        try {
+            parameters.setValue(name, value);
+        } catch (Exception ignored) {
+        }
     }
- 
+
     private static void setInt(JCoParameterList parameters, String name, int value) {
-        if (parameters == null) return;
-        try { parameters.setValue(name, value); } catch (Exception ignored) { }
+        if (parameters == null)
+            return;
+        try {
+            parameters.setValue(name, value);
+        } catch (Exception ignored) {
+        }
     }
- 
+
     private static String arg(String[] args, int index, String fallback) {
         return args != null && args.length > index && args[index] != null && !args[index].trim().isEmpty()
-                ? args[index].trim() : fallback;
+                ? args[index].trim()
+                : fallback;
     }
- 
-    private static String sql(String value) { return clean(value).replace("'", "''"); }
-    private static String clean(String value) { return value == null ? "" : value.trim(); }
-    private static String field(String name, String value) { return "\"" + esc(name) + "\":\"" + esc(value) + "\""; }
+
+    private static String sql(String value) {
+        return clean(value).replace("'", "''");
+    }
+
+    private static String clean(String value) {
+        return value == null ? "" : value.trim();
+    }
+
+    private static String field(String name, String value) {
+        return "\"" + esc(name) + "\":\"" + esc(value) + "\"";
+    }
+
     private static String esc(String value) {
-        return value == null ? "" : value.replace("\\", "\\\\").replace("\"", "\\\"")
-                .replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t");
+        return value == null ? ""
+                : value.replace("\\", "\\\\").replace("\"", "\\\"")
+                        .replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t");
     }
- 
+
     private static Properties loadProperties() throws Exception {
         Properties properties = new Properties();
-        try (FileInputStream input = new FileInputStream(CONFIG)) { properties.load(input); }
+        try (FileInputStream input = new FileInputStream(CONFIG)) {
+            properties.load(input);
+        }
         return properties;
     }
- 
+
     private static class TableProbe {
         final String table;
         boolean available;
@@ -43642,9 +43932,11 @@ public class SapMaterialHistoryProbe {
         final List<String> selectedFields = new ArrayList<>();
         final List<String> filters = new ArrayList<>();
         final List<Map<String, String>> rows = new ArrayList<>();
- 
-        TableProbe(String table) { this.table = table; }
- 
+
+        TableProbe(String table) {
+            this.table = table;
+        }
+
         String json() {
             StringBuilder out = new StringBuilder();
             out.append('{').append(field("table", table));
@@ -43655,41 +43947,56 @@ public class SapMaterialHistoryProbe {
             out.append(",\"filters\":").append(strings(filters));
             out.append(",\"sampleRows\":[");
             for (int i = 0; i < rows.size(); i++) {
-                if (i > 0) out.append(',');
+                if (i > 0)
+                    out.append(',');
                 out.append(map(rows.get(i)));
             }
             out.append("]}");
             return out.toString();
         }
- 
+
         private static String strings(List<String> values) {
             StringBuilder out = new StringBuilder("[");
             for (int i = 0; i < values.size(); i++) {
-                if (i > 0) out.append(',');
+                if (i > 0)
+                    out.append(',');
                 out.append('"').append(esc(values.get(i))).append('"');
             }
             return out.append(']').toString();
         }
- 
+
         private static String map(Map<String, String> values) {
             StringBuilder out = new StringBuilder("{");
             int index = 0;
             for (Map.Entry<String, String> entry : values.entrySet()) {
-                if (index++ > 0) out.append(',');
+                if (index++ > 0)
+                    out.append(',');
                 out.append(field(entry.getKey(), entry.getValue()));
             }
             return out.append('}').toString();
         }
     }
- 
+
     private static class Provider implements DestinationDataProvider {
         private final Properties properties;
-        Provider(Properties properties) { this.properties = properties; }
-        public Properties getDestinationProperties(String name) { return DESTINATION.equals(name) ? properties : null; }
-        public boolean supportsEvents() { return false; }
-        public void setDestinationDataEventListener(DestinationDataEventListener listener) { }
+
+        Provider(Properties properties) {
+            this.properties = properties;
+        }
+
+        public Properties getDestinationProperties(String name) {
+            return DESTINATION.equals(name) ? properties : null;
+        }
+
+        public boolean supportsEvents() {
+            return false;
+        }
+
+        public void setDestinationDataEventListener(DestinationDataEventListener listener) {
+        }
     }
 }
+
 
 ===== FILE: .\SAP-BOM-Extractor\src\SapMaterialImpactExecutionProbe.java =====
 
@@ -43933,560 +44240,397 @@ public class SapMaterialImpactExecutionProbe {
 ===== FILE: .\SAP-BOM-Extractor\src\SapMaterialImpactExtractor.java =====
 
 import com.sap.conn.jco.*;
-import com.sap.conn.jco.ext.DestinationDataEventListener;
-import com.sap.conn.jco.ext.DestinationDataProvider;
+import com.sap.conn.jco.ext.*;
 import java.io.*;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.time.Instant;
 import java.util.*;
-
-public class SapMaterialHistoryExtractor {
+ 
+public class SapMaterialImpactExtractor {
     private static final String DESTINATION = "S4H_DESTINATION";
     private static final String CONFIG = "config/sap.properties";
-    private static final int MATNR_LENGTH = 18;
-    private static final int PAGE_SIZE = 500;
-
+    private static final int SAP_MATNR_LENGTH = 18;
+ 
     public static void main(String[] args) {
-        String query = arg(args, 0, "31");
+        String requestedMaterial = arg(args, 0, "PLM001008");
         String plant = arg(args, 1, "1001");
-        String storageLocation = arg(args, 2, "");
-        String output = arg(args, 3, "runtime/impact/manual/material-history.json");
+        String output = arg(args, 2, "sap_material_impact.json");
+        String internalMaterial = toInternalMaterialNumber(requestedMaterial);
+        String displayMaterial = toExternalMaterialNumber(internalMaterial);
         List<String> warnings = new ArrayList<>();
-
+ 
         try {
             Properties properties = loadProperties();
             if (!com.sap.conn.jco.ext.Environment.isDestinationDataProviderRegistered()) {
                 com.sap.conn.jco.ext.Environment.registerDestinationDataProvider(new Provider(properties));
             }
+ 
             JCoDestination destination = JCoDestinationManager.getDestination(DESTINATION);
             destination.ping();
-
-            MaterialResolution resolved = resolveMaterial(destination, query);
-            String material = resolved.internalMaterialId;
-
-            List<Map<String, String>> stockRows = readAll(destination, "MARD",
+ 
+            Map<String, String> detail = getDetail(destination, internalMaterial, plant, warnings);
+            Map<String, String> mara = firstRow(readTable(destination, "MARA",
+                    new String[] { "MATNR", "MTART", "MEINS", "XCHPF", "MSTAE" },
+                    options(eq("MATNR", internalMaterial)), warnings));
+            Map<String, String> makt = firstRow(readTable(destination, "MAKT",
+                    new String[] { "MATNR", "SPRAS", "MAKTX" },
+                    options(eq("MATNR", internalMaterial), "AND SPRAS = 'E'"), warnings));
+ 
+            List<Map<String, String>> locations = readTable(destination, "MARD",
                     new String[] { "MATNR", "WERKS", "LGORT", "LABST", "INSME", "EINME", "SPEME", "UMLME", "RETME" },
-                    options(eq("MATNR", material), andEq("WERKS", plant), optionalAndEq("LGORT", storageLocation)),
-                    warnings);
-            Map<String, String> valuation = firstRow(readAll(destination, "MBEW",
-                    new String[] { "MATNR", "BWKEY", "BWTAR", "LBKUM", "SALK3", "VPRSV", "VERPR", "STPRS", "PEINH",
-                            "BKLAS" },
-                    options(eq("MATNR", material), andEq("BWKEY", plant)), warnings));
-
-            List<Map<String, String>> movementRows = readAll(destination, "MATDOC",
-                    new String[] { "MATNR", "WERKS", "LGORT", "MBLNR", "MJAHR", "ZEILE", "BUDAT", "BLDAT", "CPUDT",
-                            "CPUTM", "BWART", "MENGE", "MEINS", "DMBTR", "WAERS", "SHKZG", "AUFNR", "EBELN", "EBELP",
-                            "TCODE2", "BUKRS", "GJAHR", "PRCTR", "GSBER" },
-                    options(eq("MATNR", material), andEq("WERKS", plant), optionalAndEq("LGORT", storageLocation)),
-                    warnings);
-
-            movementRows.sort(Comparator
-                    .comparing((Map<String, String> r) -> first(r, "BUDAT"))
-                    .thenComparing(r -> first(r, "CPUTM"))
-                    .thenComparing(r -> first(r, "MBLNR"))
-                    .thenComparing(r -> first(r, "ZEILE")));
-
-            Map<String, List<Map<String, String>>> accountingByMaterialDocument = new LinkedHashMap<>();
-            List<Map<String, String>> accountingRows = readAll(destination, "ACDOCA",
-                    new String[] { "RLDNR", "RBUKRS", "GJAHR", "BELNR", "DOCLN", "BLART", "BUDAT", "RACCT", "DRCRK",
-                            "HSL", "RHCUR", "WSL", "RWCUR", "MATNR", "WERKS", "MSL", "RUNIT", "AUFNR", "PRCTR", "RBUSA",
-                            "SGTXT", "AWTYP", "AWREF", "AWORG" },
-                    options(eq("MATNR", material), andEq("WERKS", plant)), warnings);
-            for (Map<String, String> row : accountingRows) {
-                String sourceDoc = first(row, "AWREF");
-                if (!sourceDoc.isEmpty())
-                    accountingByMaterialDocument.computeIfAbsent(sourceDoc, k -> new ArrayList<>()).add(row);
+                    options(eq("MATNR", internalMaterial), andEq("WERKS", plant)), warnings);
+ 
+            List<Map<String, String>> valuations = readTable(destination, "MBEW",
+                    new String[] { "MATNR", "BWKEY", "BWTAR", "LBKUM", "SALK3", "VPRSV", "VERPR", "STPRS", "PEINH", "BKLAS" },
+                    options(eq("MATNR", internalMaterial), andEq("BWKEY", plant)), warnings);
+            Map<String, String> valuation = firstRow(valuations);
+ 
+            Map<String, String> valuationArea = firstRow(readTable(destination, "T001K",
+                    new String[] { "BWKEY", "BUKRS" }, options(eq("BWKEY", plant)), warnings));
+            String companyCode = first(valuationArea, "BUKRS");
+            Map<String, String> company = companyCode.isEmpty() ? new LinkedHashMap<>()
+                    : firstRow(readTable(destination, "T001",
+                            new String[] { "BUKRS", "WAERS" }, options(eq("BUKRS", companyCode)), warnings));
+ 
+            String description = first(makt, "MAKTX");
+            if (description.isEmpty()) description = first(detail, "MATL_DESC");
+            String materialType = first(mara, "MTART");
+            if (materialType.isEmpty()) materialType = first(detail, "MATL_TYPE");
+            String unit = first(mara, "MEINS");
+            if (unit.isEmpty()) unit = first(detail, "BASE_UOM", "BASE_UOM_ISO");
+            if (unit.isEmpty()) warnings.add("Base unit was not returned by MARA or material-detail BAPI.");
+ 
+            BigDecimal unrestricted = sum(locations, "LABST");
+            BigDecimal quality = sum(locations, "INSME");
+            BigDecimal restricted = sum(locations, "EINME");
+            BigDecimal blocked = sum(locations, "SPEME");
+            BigDecimal transfer = sum(locations, "UMLME");
+            BigDecimal returnsStock = sum(locations, "RETME");
+            BigDecimal totalPhysical = unrestricted.add(quality).add(restricted).add(blocked).add(transfer).add(returnsStock);
+ 
+            Map<String, String> atp = availability(destination, internalMaterial, plant, unit, warnings);
+ 
+            String priceControl = first(valuation, "VPRSV");
+            String effectivePriceText = "S".equals(priceControl) ? first(valuation, "STPRS")
+                    : "V".equals(priceControl) ? first(valuation, "VERPR") : "";
+            BigDecimal valuatedQuantity = decimal(first(valuation, "LBKUM"));
+            BigDecimal reportedValue = decimal(first(valuation, "SALK3"));
+            BigDecimal effectivePrice = decimal(effectivePriceText);
+            BigDecimal priceUnit = decimal(first(valuation, "PEINH"));
+            BigDecimal calculatedValue = null;
+            Boolean reconciled = null;
+            if (valuatedQuantity != null && effectivePrice != null && priceUnit != null && priceUnit.signum() != 0) {
+                calculatedValue = valuatedQuantity.multiply(effectivePrice).divide(priceUnit, 6, RoundingMode.HALF_UP)
+                        .stripTrailingZeros();
+                if (reportedValue != null) reconciled = calculatedValue.subtract(reportedValue).abs().compareTo(new BigDecimal("0.01")) <= 0;
             }
-
-            BigDecimal runningQuantity = BigDecimal.ZERO;
-            BigDecimal runningValue = BigDecimal.ZERO;
-            List<Event> events = new ArrayList<>();
-            for (Map<String, String> row : movementRows) {
-                BigDecimal quantityDelta = signed(decimal(first(row, "MENGE")), first(row, "SHKZG"));
-                BigDecimal valueDelta = signed(decimal(first(row, "DMBTR")), first(row, "SHKZG"));
-                BigDecimal beforeQuantity = runningQuantity;
-                BigDecimal beforeValue = runningValue;
-                runningQuantity = runningQuantity.add(zero(quantityDelta));
-                runningValue = runningValue.add(zero(valueDelta));
-                Event event = new Event(row, beforeQuantity, runningQuantity, quantityDelta,
-                        beforeValue, runningValue, valueDelta,
-                        accountingByMaterialDocument.getOrDefault(first(row, "MBLNR"), Collections.emptyList()));
-                events.add(event);
-            }
-
-            BigDecimal unrestricted = sum(stockRows, "LABST");
-            BigDecimal currentPhysical = unrestricted.add(sum(stockRows, "INSME")).add(sum(stockRows, "EINME"))
-                    .add(sum(stockRows, "SPEME")).add(sum(stockRows, "UMLME")).add(sum(stockRows, "RETME"));
-            BigDecimal currentValuatedQty = decimal(first(valuation, "LBKUM"));
-            BigDecimal currentValue = decimal(first(valuation, "SALK3"));
-            Boolean quantityReconciled = currentValuatedQty == null ? null
-                    : runningQuantity.compareTo(currentValuatedQty) == 0;
-            Boolean valueReconciled = currentValue == null ? null
-                    : runningValue.subtract(currentValue).abs().compareTo(new BigDecimal("0.01")) <= 0;
-
+ 
+            boolean anyCoreData = !mara.isEmpty() || !makt.isEmpty() || !locations.isEmpty() || !valuations.isEmpty();
+            String status = warnings.isEmpty() ? "complete" : anyCoreData ? "partial_success" : "failed";
+ 
             Path path = Paths.get(output).toAbsolutePath().normalize();
-            if (path.getParent() != null)
-                Files.createDirectories(path.getParent());
-            Files.write(path, buildJson(destination, query, resolved, plant, storageLocation, stockRows,
-                    valuation, events, accountingRows, runningQuantity, runningValue, currentPhysical,
-                    currentValuatedQty, currentValue, quantityReconciled, valueReconciled, warnings)
-                    .getBytes(StandardCharsets.UTF_8));
-
-            System.out.println("SAP material history JSON created: " + path);
-            System.out.println("Resolved: " + resolved.displayMaterialId + " - " + resolved.description);
-            System.out.println("Material movements: " + events.size() + "; accounting lines: " + accountingRows.size());
-            System.out.println("Historical net quantity: " + num(runningQuantity)
-                    + "; current valuated quantity: " + nullableNum(currentValuatedQty));
-            System.out.println("Historical net value: " + num(runningValue)
-                    + "; current inventory value: " + nullableNum(currentValue));
+            if (path.getParent() != null) Files.createDirectories(path.getParent());
+            try (BufferedWriter writer = Files.newBufferedWriter(path, StandardCharsets.UTF_8)) {
+                writer.write("{");
+                writer.write(field("materialId", displayMaterial) + "," + field("internalMaterialId", internalMaterial) + ",");
+                writer.write(field("requestedMaterialId", requestedMaterial) + "," + field("description", description) + ",");
+                writer.write(field("materialType", materialType) + "," + field("baseUnit", unit) + ",");
+                writer.write("\"batchManaged\":" + boolFlag(first(mara, "XCHPF")) + ",");
+                writer.write(field("crossPlantStatus", first(mara, "MSTAE")) + "," + field("status", status) + ",");
+ 
+                writer.write("\"organization\":{" + field("plant", plant) + "," + field("valuationArea", first(valuation, "BWKEY")) + ","
+                        + field("companyCode", companyCode) + "," + field("currency", first(company, "WAERS")) + "},");
+ 
+                writer.write("\"stock\":{\"unrestricted\":" + num(unrestricted)
+                        + ",\"qualityInspection\":" + num(quality)
+                        + ",\"restrictedUse\":" + num(restricted)
+                        + ",\"blocked\":" + num(blocked)
+                        + ",\"inTransfer\":" + num(transfer)
+                        + ",\"returns\":" + num(returnsStock)
+                        + ",\"totalPhysical\":" + num(totalPhysical)
+                        + ",\"atpAvailable\":" + nullableNum(first(atp, "AV_QTY_PLT")) + "},");
+ 
+                writer.write("\"inventory\":{\"valuatedQuantity\":" + nullableNum(first(valuation, "LBKUM"))
+                        + ",\"totalStockValue\":" + nullableNum(first(valuation, "SALK3"))
+                        + "," + field("valuationType", first(valuation, "BWTAR")) + "},");
+ 
+                writer.write("\"cost\":{" + field("priceControl", priceControl)
+                        + ",\"standardPrice\":" + nullableNum(first(valuation, "STPRS"))
+                        + ",\"movingAveragePrice\":" + nullableNum(first(valuation, "VERPR"))
+                        + ",\"priceUnit\":" + nullableNum(first(valuation, "PEINH"))
+                        + ",\"effectiveUnitCost\":" + nullableNum(effectivePriceText)
+                        + "," + field("valuationClass", first(valuation, "BKLAS")) + "},");
+ 
+                writer.write("\"checks\":{\"calculatedInventoryValue\":" + nullableNum(calculatedValue)
+                        + ",\"reportedInventoryValue\":" + nullableNum(reportedValue)
+                        + ",\"valuationReconciled\":" + nullableBoolean(reconciled) + "},");
+ 
+                writer.write("\"storageLocations\":[");
+                for (int i = 0; i < locations.size(); i++) {
+                    if (i > 0) writer.write(',');
+                    Map<String, String> row = locations.get(i);
+                    writer.write("{" + field("storageLocation", first(row, "LGORT"))
+                            + ",\"unrestricted\":" + nullableNum(first(row, "LABST"))
+                            + ",\"qualityInspection\":" + nullableNum(first(row, "INSME"))
+                            + ",\"restrictedUse\":" + nullableNum(first(row, "EINME"))
+                            + ",\"blocked\":" + nullableNum(first(row, "SPEME"))
+                            + ",\"inTransfer\":" + nullableNum(first(row, "UMLME"))
+                            + ",\"returns\":" + nullableNum(first(row, "RETME")) + "}");
+                }
+                writer.write("],");
+ 
+                writer.write("\"warnings\":[");
+                for (int i = 0; i < warnings.size(); i++) {
+                    if (i > 0) writer.write(',');
+                    writer.write("\"" + esc(warnings.get(i)) + "\"");
+                }
+                writer.write("]," + field("extractedAt", Instant.now().toString()) + "}");
+            }
+ 
+            System.out.println("SAP material impact JSON created: " + path);
+            System.out.println("Requested material: " + requestedMaterial + "; internal MATNR: " + internalMaterial);
+            System.out.println("Status: " + status + "; storage locations: " + locations.size()
+                    + "; valuation rows: " + valuations.size());
         } catch (Throwable error) {
-            System.err.println("SAP material history extraction failed: " + error.getMessage());
-            error.printStackTrace(System.err);
+            System.err.println("SAP material impact extraction failed: " + error.getMessage());
+            error.printStackTrace();
             System.exit(1);
         }
     }
-
-    private static MaterialResolution resolveMaterial(JCoDestination destination, String query) throws Exception {
-        String requested = clean(query);
-        String candidate = internalMaterial(requested);
-        List<Map<String, String>> mara = readAllStrict(destination, "MARA", new String[] { "MATNR" },
-                options(eq("MATNR", candidate)));
-        if (mara.size() == 1) {
-            String matnr = first(mara.get(0), "MATNR");
-            return new MaterialResolution(requested, matnr, externalMaterial(matnr), description(destination, matnr),
-                    "exact-material-number");
+ 
+    private static String toInternalMaterialNumber(String value) {
+        String cleaned = clean(value);
+        if (cleaned.matches("\\d+") && cleaned.length() < SAP_MATNR_LENGTH) {
+            return String.format("%" + SAP_MATNR_LENGTH + "s", cleaned).replace(' ', '0');
         }
-        List<Map<String, String>> makt = readAllStrict(destination, "MAKT", new String[] { "MATNR", "SPRAS", "MAKTX" },
-                options("SPRAS = 'E'", "AND MAKTX = '" + sql(requested) + "'"));
-        LinkedHashMap<String, String> unique = new LinkedHashMap<>();
-        for (Map<String, String> row : makt)
-            unique.putIfAbsent(first(row, "MATNR"), first(row, "MAKTX"));
-        unique.remove("");
-        if (unique.isEmpty())
-            throw new Exception("No exact material number or exact English description matched: " + requested);
-        if (unique.size() > 1)
-            throw new Exception("Multiple materials have exact description '" + requested + "'. Use material number: "
-                    + String.join(", ", unique.keySet()));
-        Map.Entry<String, String> match = unique.entrySet().iterator().next();
-        return new MaterialResolution(requested, match.getKey(), externalMaterial(match.getKey()), match.getValue(),
-                "exact-description");
+        return cleaned;
     }
-
-    private static String description(JCoDestination destination, String material) throws Exception {
-        List<Map<String, String>> rows = readAllStrict(destination, "MAKT", new String[] { "MATNR", "SPRAS", "MAKTX" },
-                options(eq("MATNR", material), "AND SPRAS = 'E'"));
-        return rows.isEmpty() ? "" : first(rows.get(0), "MAKTX");
+ 
+    private static String toExternalMaterialNumber(String value) {
+        String cleaned = clean(value);
+        if (cleaned.matches("\\d+")) {
+            String external = cleaned.replaceFirst("^0+(?!$)", "");
+            return external.isEmpty() ? "0" : external;
+        }
+        return cleaned;
     }
-
-    private static List<Map<String, String>> readAllStrict(JCoDestination destination, String table,
-            String[] fields, List<String> filters) throws Exception {
-        return readAllInternal(destination, table, fields, filters, null);
+ 
+    private static Map<String, String> getDetail(JCoDestination destination, String material, String plant,
+            List<String> warnings) throws JCoException {
+        JCoFunction function = destination.getRepository().getFunction("BAPI_MATERIAL_GET_DETAIL");
+        if (function == null) {
+            warnings.add("BAPI_MATERIAL_GET_DETAIL unavailable");
+            return new LinkedHashMap<>();
+        }
+        set(function.getImportParameterList(), "MATERIAL", material);
+        set(function.getImportParameterList(), "PLANT", plant);
+        set(function.getImportParameterList(), "VALUATIONAREA", plant);
+        function.execute(destination);
+        Map<String, String> output = new LinkedHashMap<>();
+        output.putAll(record(structureIfPresent(function.getExportParameterList(), "MATERIAL_GENERAL_DATA")));
+        output.putAll(record(structureIfPresent(function.getExportParameterList(), "MATERIALVALUATIONDATA")));
+        String message = returnMessage(structureIfPresent(function.getExportParameterList(), "RETURN"));
+        if (!message.isEmpty() && !message.startsWith("S ")) warnings.add(message);
+        return output;
     }
-
-    private static List<Map<String, String>> readAll(JCoDestination destination, String table,
-            String[] fields, List<String> filters, List<String> warnings) {
+ 
+    private static Map<String, String> availability(JCoDestination destination, String material, String plant,
+            String unit, List<String> warnings) {
+        Map<String, String> result = new LinkedHashMap<>();
         try {
-            return readAllInternal(destination, table, fields, filters, warnings);
-        } catch (Exception e) {
-            warnings.add(table + " read unavailable: " + clean(e.getMessage()));
-            return new ArrayList<>();
+            JCoFunction function = destination.getRepository().getFunction("BAPI_MATERIAL_AVAILABILITY");
+            if (function == null) {
+                warnings.add("BAPI_MATERIAL_AVAILABILITY unavailable");
+                return result;
+            }
+            set(function.getImportParameterList(), "MATERIAL", material);
+            set(function.getImportParameterList(), "PLANT", plant);
+            if (!unit.isEmpty()) set(function.getImportParameterList(), "UNIT", unit);
+            function.execute(destination);
+            result.put("AV_QTY_PLT", clean(function.getExportParameterList().getString("AV_QTY_PLT")));
+            String message = returnMessage(structureIfPresent(function.getExportParameterList(), "RETURN"));
+            if (!message.isEmpty() && !message.startsWith("S ")) warnings.add(message);
+        } catch (Exception error) {
+            warnings.add("ATP unavailable: " + clean(error.getMessage()));
         }
+        return result;
     }
-
-    private static List<Map<String, String>> readAllInternal(JCoDestination destination, String table,
-            String[] fields, List<String> filters, List<String> warnings) throws Exception {
-        List<Map<String, String>> all = new ArrayList<>();
-        int skip = 0;
-        while (true) {
+ 
+    private static List<Map<String, String>> readTable(JCoDestination destination, String table, String[] fields,
+            List<String> options, List<String> warnings) {
+        List<Map<String, String>> rows = new ArrayList<>();
+        try {
             JCoFunction function = destination.getRepository().getFunction("RFC_READ_TABLE");
-            if (function == null)
-                throw new Exception("RFC_READ_TABLE unavailable");
+            if (function == null) throw new Exception("RFC_READ_TABLE unavailable");
             set(function.getImportParameterList(), "QUERY_TABLE", table);
             set(function.getImportParameterList(), "DELIMITER", "|");
-            setInt(function.getImportParameterList(), "ROWCOUNT", PAGE_SIZE);
-            setInt(function.getImportParameterList(), "ROWSKIPS", skip);
             JCoTable fieldTable = function.getTableParameterList().getTable("FIELDS");
-            for (String field : fields) {
+            for (String name : fields) {
                 fieldTable.appendRow();
-                fieldTable.setValue("FIELDNAME", field);
+                fieldTable.setValue("FIELDNAME", name);
             }
             JCoTable optionTable = function.getTableParameterList().getTable("OPTIONS");
-            for (String filter : filters) {
-                if (!clean(filter).isEmpty()) {
-                    optionTable.appendRow();
-                    optionTable.setValue("TEXT", filter);
-                }
+            for (String option : options) {
+                optionTable.appendRow();
+                optionTable.setValue("TEXT", option);
             }
             function.execute(destination);
             JCoTable data = function.getTableParameterList().getTable("DATA");
-            for (int i = 0; i < data.getNumRows(); i++) {
-                data.setRow(i);
+            for (int rowIndex = 0; rowIndex < data.getNumRows(); rowIndex++) {
+                data.setRow(rowIndex);
                 String[] values = data.getString("WA").split("\\|", -1);
                 Map<String, String> row = new LinkedHashMap<>();
-                for (int j = 0; j < fields.length; j++)
-                    row.put(fields[j], j < values.length ? clean(values[j]) : "");
-                all.add(row);
+                for (int fieldIndex = 0; fieldIndex < fields.length; fieldIndex++) {
+                    row.put(fields[fieldIndex], fieldIndex < values.length ? clean(values[fieldIndex]) : "");
+                }
+                rows.add(row);
             }
-            if (data.getNumRows() < PAGE_SIZE)
-                break;
-            skip += data.getNumRows();
-            if (skip > 100000) {
-                if (warnings != null)
-                    warnings.add(table + " pagination stopped after 100000 rows.");
-                break;
-            }
+        } catch (Exception error) {
+            warnings.add(table + " read unavailable: " + clean(error.getMessage()));
         }
-        return all;
+        return rows;
     }
-
-    private static String buildJson(JCoDestination destination, String query, MaterialResolution r,
-            String plant, String storageLocation, List<Map<String, String>> stockRows,
-            Map<String, String> valuation, List<Event> events, List<Map<String, String>> accountingRows,
-            BigDecimal historyQty, BigDecimal historyValue, BigDecimal currentPhysical,
-            BigDecimal currentValuatedQty, BigDecimal currentValue, Boolean qtyReconciled,
-            Boolean valueReconciled, List<String> warnings) throws JCoException {
-        StringBuilder j = new StringBuilder("{");
-        j.append(field("requestedInput", query)).append(',').append(field("resolutionMode", r.mode)).append(',');
-        j.append("\"material\":{").append(field("materialId", r.displayMaterialId)).append(',')
-                .append(field("internalMaterialId", r.internalMaterialId)).append(',')
-                .append(field("description", r.description))
-                .append(',').append(field("plant", plant)).append(',').append(field("storageLocation", storageLocation))
-                .append("},");
-        j.append("\"currentState\":{").append("\"physicalStock\":").append(num(currentPhysical)).append(',')
-                .append("\"valuatedQuantity\":").append(nullableNum(currentValuatedQty)).append(',')
-                .append("\"inventoryValue\":").append(nullableNum(currentValue)).append(',')
-                .append(field("priceControl", first(valuation, "VPRSV"))).append(',')
-                .append("\"movingAveragePrice\":").append(nullableNum(first(valuation, "VERPR"))).append(',')
-                .append("\"standardPrice\":").append(nullableNum(first(valuation, "STPRS"))).append(',')
-                .append("\"priceUnit\":").append(nullableNum(first(valuation, "PEINH"))).append(',')
-                .append(field("valuationClass", first(valuation, "BKLAS"))).append("},");
-        j.append("\"historySummary\":{").append("\"movementCount\":").append(events.size()).append(',')
-                .append("\"accountingLineCount\":").append(accountingRows.size()).append(',')
-                .append("\"netQuantityDelta\":").append(num(historyQty)).append(',')
-                .append("\"netInventoryValueDelta\":").append(num(historyValue)).append(',')
-                .append("\"quantityReconciledToCurrentValuation\":").append(nullableBoolean(qtyReconciled)).append(',')
-                .append("\"valueReconciledToCurrentInventory\":").append(nullableBoolean(valueReconciled)).append(',')
-                .append(field("historicalBeforeAfterMethod", "running reconstruction from all accessible MATDOC rows"))
-                .append("},");
-        j.append("\"events\":[");
-        for (int i = 0; i < events.size(); i++) {
-            if (i > 0)
-                j.append(',');
-            j.append(events.get(i).json());
-        }
-        j.append("],\"storageLocations\":[");
-        for (int i = 0; i < stockRows.size(); i++) {
-            if (i > 0)
-                j.append(',');
-            j.append(mapJson(stockRows.get(i)));
-        }
-        j.append("],\"warnings\":[");
-        for (int i = 0; i < warnings.size(); i++) {
-            if (i > 0)
-                j.append(',');
-            j.append('"').append(esc(warnings.get(i))).append('"');
-        }
-        j.append("],").append(field("systemId", destination.getAttributes().getSystemID())).append(',')
-                .append(field("client", destination.getAttributes().getClient())).append(',')
-                .append(field("extractedAt", Instant.now().toString())).append('}');
-        return j.toString();
-    }
-
-    private static class Event {
-        final Map<String, String> row;
-        final BigDecimal beforeQty, afterQty, qtyDelta, beforeValue, afterValue, valueDelta;
-        final List<Map<String, String>> accounting;
-
-        Event(Map<String, String> row, BigDecimal beforeQty, BigDecimal afterQty, BigDecimal qtyDelta,
-                BigDecimal beforeValue, BigDecimal afterValue, BigDecimal valueDelta,
-                List<Map<String, String>> accounting) {
-            this.row = row;
-            this.beforeQty = beforeQty;
-            this.afterQty = afterQty;
-            this.qtyDelta = qtyDelta;
-            this.beforeValue = beforeValue;
-            this.afterValue = afterValue;
-            this.valueDelta = valueDelta;
-            this.accounting = accounting;
-        }
-
-        String json() {
-            StringBuilder j = new StringBuilder("{");
-            j.append(field("materialDocument", first(row, "MBLNR"))).append(',')
-                    .append(field("documentYear", first(row, "MJAHR"))).append(',')
-                    .append(field("documentItem", first(row, "ZEILE"))).append(',')
-                    .append(field("postingDate", date(first(row, "BUDAT")))).append(',')
-                    .append(field("documentDate", date(first(row, "BLDAT")))).append(',')
-                    .append(field("createdDate", date(first(row, "CPUDT")))).append(',')
-                    .append(field("createdTime", time(first(row, "CPUTM")))).append(',')
-                    .append(field("movementType", first(row, "BWART"))).append(',')
-                    .append(field("sourceTransaction", first(row, "TCODE2"))).append(',').append("\"quantityDelta\":")
-                    .append(nullableNum(qtyDelta)).append(',')
-                    .append(field("unit", first(row, "MEINS"))).append(',').append("\"inventoryValueDelta\":")
-                    .append(nullableNum(valueDelta)).append(',')
-                    .append(field("currency", first(row, "WAERS"))).append(',').append("\"beforeQuantity\":")
-                    .append(num(beforeQty)).append(',')
-                    .append("\"afterQuantity\":").append(num(afterQty)).append(',').append("\"beforeInventoryValue\":")
-                    .append(num(beforeValue)).append(',')
-                    .append("\"afterInventoryValue\":").append(num(afterValue)).append(',')
-                    .append(field("plant", first(row, "WERKS"))).append(',')
-                    .append(field("storageLocation", first(row, "LGORT"))).append(',')
-                    .append(field("productionOrder", externalNumber(first(row, "AUFNR")))).append(',')
-                    .append(field("purchaseOrder", first(row, "EBELN"))).append(',')
-                    .append(field("purchaseOrderItem", first(row, "EBELP"))).append(',')
-                    .append(field("companyCode", first(row, "BUKRS"))).append(',')
-                    .append(field("fiFiscalYear", first(row, "GJAHR"))).append(',')
-                    .append(field("profitCenter", externalNumber(first(row, "PRCTR")))).append(',')
-                    .append(field("businessArea", first(row, "GSBER"))).append(',')
-                    .append("\"accountingDocuments\":").append(accountingJson(accounting)).append('}');
-            return j.toString();
-        }
-    }
-
-    private static String accountingJson(List<Map<String, String>> rows) {
-        LinkedHashMap<String, List<Map<String, String>>> docs = new LinkedHashMap<>();
-        for (Map<String, String> r : rows) {
-            String key = first(r, "RBUKRS") + "|" + first(r, "BELNR") + "|" + first(r, "GJAHR");
-            docs.computeIfAbsent(key, k -> new ArrayList<>()).add(r);
-        }
-        StringBuilder j = new StringBuilder("[");
-        int d = 0;
-        for (List<Map<String, String>> lines : docs.values()) {
-            if (d++ > 0)
-                j.append(',');
-            Map<String, String> h = lines.get(0);
-            j.append('{').append(field("companyCode", first(h, "RBUKRS"))).append(',')
-                    .append(field("accountingDocument", first(h, "BELNR"))).append(',')
-                    .append(field("fiscalYear", first(h, "GJAHR"))).append(',')
-                    .append(field("documentType", first(h, "BLART"))).append(',')
-                    .append(field("postingDate", date(first(h, "BUDAT")))).append(',')
-                    .append(field("ledger", first(h, "RLDNR"))).append(',').append("\"lines\":[");
-            for (int i = 0; i < lines.size(); i++) {
-                if (i > 0)
-                    j.append(',');
-                Map<String, String> r = lines.get(i);
-                j.append('{').append(field("line", first(r, "DOCLN"))).append(',')
-                        .append(field("glAccount", externalNumber(first(r, "RACCT")))).append(',')
-                        .append(field("debitCredit", first(r, "DRCRK"))).append(',').append("\"amount\":")
-                        .append(sapNumber(first(r, "HSL"))).append(',')
-                        .append(field("currency", first(r, "RHCUR"))).append(',').append("\"quantity\":")
-                        .append(sapNumber(first(r, "MSL"))).append(',')
-                        .append(field("unit", first(r, "RUNIT"))).append(',')
-                        .append(field("productionOrder", externalNumber(first(r, "AUFNR")))).append(',')
-                        .append(field("profitCenter", externalNumber(first(r, "PRCTR")))).append(',')
-                        .append(field("businessArea", first(r, "RBUSA"))).append('}');
-            }
-            j.append("]}");
-        }
-        return j.append(']').toString();
-    }
-
+ 
     private static List<String> options(String... values) {
-        List<String> r = new ArrayList<>();
-        for (String v : values)
-            if (!clean(v).isEmpty())
-                r.add(v);
-        return r;
+        return Arrays.asList(values);
     }
-
-    private static String eq(String f, String v) {
-        return f + " = '" + sql(v) + "'";
+ 
+    private static String eq(String field, String value) {
+        return field + " = '" + sql(value) + "'";
     }
-
-    private static String andEq(String f, String v) {
-        return "AND " + eq(f, v);
+ 
+    private static String andEq(String field, String value) {
+        return "AND " + eq(field, value);
     }
-
-    private static String optionalAndEq(String f, String v) {
-        return clean(v).isEmpty() ? "" : andEq(f, v);
+ 
+    private static JCoStructure structureIfPresent(JCoParameterList list, String name) {
+        if (list == null) return null;
+        try {
+            return list.getStructure(name);
+        } catch (Exception ignored) {
+            return null;
+        }
     }
-
+ 
     private static Map<String, String> firstRow(List<Map<String, String>> rows) {
         return rows.isEmpty() ? new LinkedHashMap<>() : rows.get(0);
     }
-
-    private static String first(Map<String, String> row, String... keys) {
-        for (String k : keys) {
-            String v = clean(row.get(k));
-            if (!v.isEmpty())
-                return v;
+ 
+    private static Map<String, String> record(JCoRecord record) {
+        Map<String, String> result = new LinkedHashMap<>();
+        if (record == null) return result;
+        JCoFieldIterator iterator = record.getFieldIterator();
+        while (iterator.hasNextField()) {
+            JCoField field = iterator.nextField();
+            String value = clean(field.getString());
+            if (!value.isEmpty()) result.put(field.getName(), value);
+        }
+        return result;
+    }
+ 
+    private static String returnMessage(JCoStructure result) {
+        if (result == null) return "";
+        String type = clean(result.getString("TYPE"));
+        String code = clean(result.getString("CODE"));
+        String message = clean(result.getString("MESSAGE"));
+        if ("S".equalsIgnoreCase(type) && message.isEmpty()) return "";
+        if (type.isEmpty() && code.isEmpty() && message.isEmpty()) return "";
+        return (type + " " + code + " " + message).trim();
+    }
+ 
+    private static void set(JCoParameterList parameters, String name, String value) {
+        if (parameters == null) return;
+        try {
+            parameters.setValue(name, value);
+        } catch (Exception ignored) {
+        }
+    }
+ 
+    private static BigDecimal sum(List<Map<String, String>> rows, String key) {
+        BigDecimal total = BigDecimal.ZERO;
+        for (Map<String, String> row : rows) {
+            BigDecimal value = decimal(first(row, key));
+            if (value != null) total = total.add(value);
+        }
+        return total;
+    }
+ 
+    private static BigDecimal decimal(String value) {
+        try {
+            return new BigDecimal(clean(value));
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+ 
+    private static String first(Map<String, String> values, String... keys) {
+        for (String key : keys) {
+            String value = clean(values.get(key));
+            if (!value.isEmpty()) return value;
         }
         return "";
     }
-
-    private static BigDecimal sum(List<Map<String, String>> rows, String key) {
-        BigDecimal n = BigDecimal.ZERO;
-        for (Map<String, String> r : rows)
-            n = n.add(zero(decimal(first(r, key))));
-        return n;
+ 
+    private static String num(BigDecimal value) {
+        return value.stripTrailingZeros().toPlainString();
     }
-
-    private static BigDecimal zero(BigDecimal v) {
-        return v == null ? BigDecimal.ZERO : v;
+ 
+    private static String nullableNum(String value) {
+        BigDecimal parsed = decimal(value);
+        return parsed == null ? "null" : num(parsed);
     }
-
-    private static BigDecimal signed(BigDecimal value, String indicator) {
-        if (value == null)
-            return null;
-        return "H".equalsIgnoreCase(clean(indicator)) ? value.abs().negate() : value.abs();
+ 
+    private static String nullableNum(BigDecimal value) {
+        return value == null ? "null" : num(value);
     }
-
-    private static BigDecimal decimal(String value) {
-        try {
-            return new BigDecimal(clean(value).replace("-", "").trim());
-        } catch (Exception e) {
-            return null;
-        }
+ 
+    private static String nullableBoolean(Boolean value) {
+        return value == null ? "null" : value.toString();
     }
-
-    private static String sapNumber(String value) {
-        String v = clean(value);
-        if (v.isEmpty())
-            return "null";
-        boolean neg = v.endsWith("-");
-        if (neg)
-            v = v.substring(0, v.length() - 1);
-        try {
-            BigDecimal n = new BigDecimal(v);
-            if (neg)
-                n = n.negate();
-            return num(n);
-        } catch (Exception e) {
-            return "null";
-        }
+ 
+    private static String boolFlag(String value) {
+        return "X".equalsIgnoreCase(clean(value)) ? "true" : "false";
     }
-
-    private static String num(BigDecimal v) {
-        return v.stripTrailingZeros().toPlainString();
+ 
+    private static String arg(String[] args, int index, String fallback) {
+        return args != null && args.length > index && args[index] != null && !args[index].trim().isEmpty()
+                ? args[index].trim() : fallback;
     }
-
-    private static String nullableNum(BigDecimal v) {
-        return v == null ? "null" : num(v);
+ 
+    private static String sql(String value) {
+        return clean(value).replace("'", "''");
     }
-
-    private static String nullableNum(String v) {
-        BigDecimal n = decimal(v);
-        return n == null ? "null" : num(n);
+ 
+    private static String field(String name, String value) {
+        return "\"" + esc(name) + "\":\"" + esc(value) + "\"";
     }
-
-    private static String nullableBoolean(Boolean v) {
-        return v == null ? "null" : v.toString();
+ 
+    private static String clean(String value) {
+        return value == null ? "" : value.trim();
     }
-
-    private static String internalMaterial(String v) {
-        String c = clean(v);
-        return c.matches("\\d+") && c.length() < MATNR_LENGTH
-                ? String.format("%" + MATNR_LENGTH + "s", c).replace(' ', '0')
-                : c;
+ 
+    private static String esc(String value) {
+        return value == null ? "" : value.replace("\\", "\\\\").replace("\"", "\\\"")
+                .replace("\n", "\\n").replace("\r", "\\r");
     }
-
-    private static String externalMaterial(String v) {
-        return externalNumber(v);
-    }
-
-    private static String externalNumber(String v) {
-        String c = clean(v);
-        return c.matches("\\d+") ? c.replaceFirst("^0+(?!$)", "") : c;
-    }
-
-    private static String date(String v) {
-        String c = clean(v);
-        return c.matches("\\d{8}") ? c.substring(0, 4) + "-" + c.substring(4, 6) + "-" + c.substring(6, 8) : c;
-    }
-
-    private static String time(String v) {
-        String c = clean(v);
-        return c.matches("\\d{6}") ? c.substring(0, 2) + ":" + c.substring(2, 4) + ":" + c.substring(4, 6) : c;
-    }
-
-    private static String mapJson(Map<String, String> row) {
-        StringBuilder j = new StringBuilder("{");
-        int i = 0;
-        for (Map.Entry<String, String> e : row.entrySet()) {
-            if (i++ > 0)
-                j.append(',');
-            j.append(field(e.getKey(), e.getValue()));
-        }
-        return j.append('}').toString();
-    }
-
-    private static void set(JCoParameterList p, String n, String v) {
-        if (p != null)
-            try {
-                p.setValue(n, v);
-            } catch (Exception ignored) {
-            }
-    }
-
-    private static void setInt(JCoParameterList p, String n, int v) {
-        if (p != null)
-            try {
-                p.setValue(n, v);
-            } catch (Exception ignored) {
-            }
-    }
-
-    private static String arg(String[] a, int i, String f) {
-        return a != null && a.length > i && a[i] != null && !a[i].trim().isEmpty() ? a[i].trim() : f;
-    }
-
-    private static String sql(String v) {
-        return clean(v).replace("'", "''");
-    }
-
-    private static String clean(String v) {
-        return v == null ? "" : v.trim();
-    }
-
-    private static String field(String n, String v) {
-        return "\"" + esc(n) + "\":\"" + esc(v) + "\"";
-    }
-
-    private static String esc(String v) {
-        return v == null ? ""
-                : v.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r").replace("\t",
-                        "\\t");
-    }
-
+ 
     private static Properties loadProperties() throws Exception {
-        Properties p = new Properties();
-        try (FileInputStream in = new FileInputStream(CONFIG)) {
-            p.load(in);
+        Properties properties = new Properties();
+        try (FileInputStream input = new FileInputStream(CONFIG)) {
+            properties.load(input);
         }
-        return p;
+        return properties;
     }
-
-    private static class MaterialResolution {
-        final String requested, internalMaterialId, displayMaterialId, description, mode;
-
-        MaterialResolution(String requested, String internal, String display, String description, String mode) {
-            this.requested = requested;
-            this.internalMaterialId = internal;
-            this.displayMaterialId = display;
-            this.description = description;
-            this.mode = mode;
-        }
-    }
-
+ 
     private static class Provider implements DestinationDataProvider {
-        private final Properties p;
-
-        Provider(Properties p) {
-            this.p = p;
-        }
-
-        public Properties getDestinationProperties(String n) {
-            return DESTINATION.equals(n) ? p : null;
-        }
-
-        public boolean supportsEvents() {
-            return false;
-        }
-
-        public void setDestinationDataEventListener(DestinationDataEventListener l) {
-        }
+        private final Properties properties;
+        Provider(Properties properties) { this.properties = properties; }
+        public Properties getDestinationProperties(String name) { return DESTINATION.equals(name) ? properties : null; }
+        public boolean supportsEvents() { return false; }
+        public void setDestinationDataEventListener(DestinationDataEventListener listener) { }
     }
 }
 
@@ -55881,24 +56025,6 @@ public final class TeamcenterSearchResult {
         public boolean verified;
         transient Item liveItem;
     }
-}
-
-
-===== FILE: .\TeamCenter-to-Configit-soa_client\backend\samples\HelloTeamcenter\tc_extraction.json.search.json =====
-
-{
-  "schemaVersion":"1.0",
-  "source":"teamcenter",
-  "operation":"search",
-  "query":{"originalInput":"Stearing","queryType":"auto"},
-  "status":"empty",
-  "resultCount":0,
-  "truncated":false,
-  "candidates":[
-  ],
-  "warnings":[],
-  "errors":[],
-  "executedAt":"2026-09-02T05:24:02.952298400Z"
 }
 
 
