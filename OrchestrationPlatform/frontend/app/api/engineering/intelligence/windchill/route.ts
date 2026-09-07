@@ -66,8 +66,23 @@ export async function POST(request: NextRequest) {
     const temporal = { assembledAt: observedAt, capturedAt: observedAt, freshness: "current" } as const;
     const addEntity = (entity: IntelligenceEntity) => { if (!entities.some((item) => item.id === entity.id)) entities.push(entity); };
     const addRelationship = (relationship: IntelligenceRelationship) => { if (!relationships.some((item) => item.id === relationship.id)) relationships.push(relationship); };
+    const addProjectedValue = (domain: "physical-attribute" | "product-context", key: string, label: string, value: string | null | undefined) => {
+      if (!value || !String(value).trim()) return;
+      const entityId = `windchill:${domain}:${safe(key)}:${safe(nativeId)}`;
+      addEntity({ id: entityId, kind: domain, displayName: label, identityQuality: "deterministic-derived", assertion: "fact", properties: { value: property(String(value).trim()), attribute: property(key), recordKind: property(domain) }, provenance: provenance("bom-windchill:requirements-part", nativeId), temporal });
+      addRelationship({ id: `windchill:${domain}:${safe(sourceEntityId)}:${safe(entityId)}`, kind: domain === "physical-attribute" ? "has-physical-attribute" : "has-product-context", family: domain, sourceEntityId, targetEntityId: entityId, assertion: "fact", confidence: "verified", evidenceIds: [], properties: {}, provenance: provenance("bom-windchill:requirements-part", nativeId), temporal });
+    };
 
     if (requirements.ok) {
+      const part = requirements.value.part;
+      addProjectedValue("physical-attribute", "material", "Material", part.customAttributes.material);
+      addProjectedValue("physical-attribute", "chemical", "Chemical", part.customAttributes.chemical);
+      addProjectedValue("physical-attribute", "weight", "Weight", part.customAttributes.weight);
+      addProjectedValue("physical-attribute", "dimension", "Dimension", part.customAttributes.dimension);
+      addProjectedValue("product-context", "version", "Version", part.version ?? part.revision);
+      addProjectedValue("product-context", "state", "State", part.state);
+      addProjectedValue("product-context", "view", "View", part.view);
+      addProjectedValue("product-context", "source", "Source", part.source);
       const authority = requirements.value.dataStatus === "poc-synthetic" ? "poc-synthetic" as const : "source-authoritative" as const;
       for (const specification of requirements.value.requirementSpecifications) {
         const specId = `windchill:requirement-specification:${safe(specification.id)}`;

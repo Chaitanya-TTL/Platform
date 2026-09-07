@@ -109,6 +109,7 @@ public sealed class SubprocessExecutor : ISubprocessExecutor
     private async Task<string> ResolveSapMaterialAsync(string dir, string jar, string runtime, string query, string? plant, Func<string, Task> progress, StringBuilder output, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(query)) throw new InvalidOperationException("An SAP material description or material number is required.");
+        if (query.All(char.IsDigit) && query.Length <= 18) return query.PadLeft(18, '0');
         var source = Path.Combine(dir, "src", "SapMaterialCatalogExtractor.java");
         var cls = Path.Combine(dir, "out", "SapMaterialCatalogExtractor.class");
         if (!File.Exists(source)) throw new FileNotFoundException("SAP material catalogue extractor source was not found.", source);

@@ -5,7 +5,17 @@ import { immutableInvestigationGraph } from "./immutable-investigation-graph";
 import { validateIntelligenceInput } from "./validate-intelligence-input";
 
 const sourceOf=(value?:string):EntitySource=>value==="teamcenter"||value==="windchill"||value==="sap"||value==="configit"?value:"platform";
-const scalar=(value:IntelligenceProperty):string|number|boolean|undefined=>value.text??value.number??value.boolean??value.timestamp??value.reference??(value.items?.join(", "));
+const primitive=(value:unknown):string|number|boolean|undefined=>{
+ if(value===null||value===undefined)return undefined;
+ if(typeof value==="string"||typeof value==="number"||typeof value==="boolean")return value;
+ if(Array.isArray(value))return value.map(item=>primitive(item)).filter(item=>item!==undefined).join(", ");
+ if(typeof value==="object"){
+  const record=value as Record<string,unknown>;
+  for(const key of ["displayValue","value","label","text","name","formattedValue"]){const resolved=primitive(record[key]);if(resolved!==undefined&&String(resolved).trim())return resolved;}
+ }
+ return undefined;
+};
+const scalar=(value:IntelligenceProperty):string|number|boolean|undefined=>primitive(value.text)??primitive(value.number)??primitive(value.boolean)??primitive(value.timestamp)??primitive(value.reference)??primitive(value.items);
 const attributes=(properties:Record<string,IntelligenceProperty>)=>Object.fromEntries(Object.entries(properties).sort(([a],[b])=>a.localeCompare(b)).flatMap(([key,value])=>{const resolved=scalar(value);return resolved===undefined?[]:[[key,resolved]]}));
 const confidence=(value?:string)=>value==="verified"?1:value==="deterministic"?.9:value==="probable"?.72:value==="ambiguous"?.45:value==="unresolved"?.2:undefined;
 const kind=(value:string):EntityKind=>value as EntityKind;

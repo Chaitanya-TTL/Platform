@@ -1,50 +1,54 @@
 ﻿PLATFORM FULL REPOSITORY AUDIT BUNDLE
-Generated: 2026-09-03 14:47:29
+Generated: 2026-09-07 15:09:37
 Repository: C:\Users\skk932045\OneDrive - Tata Technologies\Desktop\Platform
 Branch: copy-main
-HEAD: 21ea3f0af6d792e2924da0537b97e1d66e8fb9f7
-Source files included: 474
+HEAD: c64c4da0aa036a3f33c46511bbaec529e5f7c58d
+Source files included: 482
 
 ===== GIT STATUS =====
 ## copy-main...origin/copy-main
  M OrchestrationPlatform/Orchestration.API.Tests/obj/Debug/net10.0/Orchestration.API.Tests.AssemblyInfo.cs
  M OrchestrationPlatform/Orchestration.API.Tests/obj/Debug/net10.0/Orchestration.API.Tests.AssemblyInfoInputs.cache
  M OrchestrationPlatform/Orchestration.API.Tests/obj/Debug/net10.0/Orchestration.API.Tests.csproj.AssemblyReference.cache
- M OrchestrationPlatform/Orchestration.API/Engineering/Controllers/EngineeringIntelligenceController.cs
- M OrchestrationPlatform/Orchestration.API/Engineering/Intelligence/EngineeringIntelligenceInvestigationContracts.cs
+ M OrchestrationPlatform/Orchestration.API/Services/SubprocessExecutor.cs
+ M OrchestrationPlatform/frontend/app/api/engineering/intelligence/sap/route.ts
+ M OrchestrationPlatform/frontend/app/api/engineering/intelligence/windchill/route.ts
+ M OrchestrationPlatform/frontend/features/lattice-next/canvas/lattice-flow-config.ts
+ M OrchestrationPlatform/frontend/features/lattice-next/canvas/lattice-flow-types.ts
  M OrchestrationPlatform/frontend/features/lattice-next/components/IntelligenceInspector.tsx
- M OrchestrationPlatform/frontend/features/lattice-next/contracts/intelligence-v1.ts
+ M OrchestrationPlatform/frontend/features/lattice-next/components/IntelligentRelationshipEdge.tsx
+ M OrchestrationPlatform/frontend/features/lattice-next/components/InvestigationToolbar.tsx
+ M OrchestrationPlatform/frontend/features/lattice-next/components/PremiumNodes.tsx
+ M OrchestrationPlatform/frontend/features/lattice-next/components/RelationshipCanvas.tsx
  M OrchestrationPlatform/frontend/features/lattice-next/domain/model.ts
+ M OrchestrationPlatform/frontend/features/lattice-next/infrastructure/react-flow-adapter.ts
+ M OrchestrationPlatform/frontend/features/lattice-next/lattice-next.css
+ M OrchestrationPlatform/frontend/features/lattice-next/projection/intelligence-domain-projection.ts
+ M OrchestrationPlatform/frontend/features/lattice-next/projection/intelligence-domain-registry.ts
+ M OrchestrationPlatform/frontend/features/lattice-next/projection/intelligence-projection-types.ts
  M OrchestrationPlatform/frontend/features/lattice-next/workspace/LatticeNextWorkspace.tsx
  M SAP-BOM-Extractor/dev_jco_rfc.trc
- D TeamCenter-to-Configit-soa_client/backend/samples/HelloTeamcenter/tc_extraction.json.search.json
- D full-repo.txt
-?? OrchestrationPlatform/frontend/features/lattice-next/components/RequirementInspectorSections.tsx
-?? OrchestrationPlatform/frontend/features/lattice-next/infrastructure/intelligence-api-client.ts
-?? OrchestrationPlatform/frontend/features/lattice-next/requirements/
-?? OrchestrationPlatform/frontend/features/lattice-next/tests/intelligence-runtime-client.test.ts
-?? OrchestrationPlatform/frontend/features/lattice-next/tests/intelligence-runtime-fallback.test.ts
-?? OrchestrationPlatform/frontend/features/lattice-next/tests/requirements-domain-provider.test.ts
-?? OrchestrationPlatform/frontend/features/lattice-next/tests/requirements-projection.test.ts
-?? OrchestrationPlatform/frontend/lib/windchill-requirements.ts
-?? codebase.txt
+ D fullcodebase.txt
+ D latest_codebase.txt
+?? OrchestrationPlatform/frontend/features/lattice-next/components/SapInspectorSections.tsx
+?? OrchestrationPlatform/frontend/features/lattice-next/infrastructure/merge-source-intelligence.ts
+?? OrchestrationPlatform/frontend/features/lattice-next/motion/
 ?? platform-restored-source-v3.txt
 
 ===== TOP-LEVEL CONTENTS =====
 
-Mode   Length  LastWriteTime       Name                             
-----   ------  -------------       ----                             
-d--h--         03-09-2026 14:47:30 .git                             
-d-----         19-08-2026 14:20:59 audits                           
-d-----         24-08-2026 11:51:10 configit_extractor               
-d-----         26-08-2026 15:54:22 OrchestrationPlatform            
-d-----         03-09-2026 12:39:08 SAP-BOM-Extractor                
-d-----         25-08-2026 12:01:16 TeamCenter-to-Configit-soa_client
-d-----         02-09-2026 14:51:44 windchill_extractor              
--a---- 1165    24-08-2026 12:12:52 .gitignore                       
--a---- 2943278 03-09-2026 11:38:25 codebase.txt                     
--a---- 2197    03-09-2026 14:47:30 platform-restored-source-v3.txt  
--a---- 9389    24-08-2026 12:11:27 windchill api.py                 
+Mode   Length LastWriteTime       Name                             
+----   ------ -------------       ----                             
+d--h--        07-09-2026 15:09:37 .git                             
+d-----        19-08-2026 14:20:59 audits                           
+d-----        24-08-2026 11:51:10 configit_extractor               
+d-----        26-08-2026 15:54:22 OrchestrationPlatform            
+d-----        04-09-2026 16:31:22 SAP-BOM-Extractor                
+d-----        25-08-2026 12:01:16 TeamCenter-to-Configit-soa_client
+d-----        02-09-2026 14:51:44 windchill_extractor              
+-a---- 1165   24-08-2026 12:12:52 .gitignore                       
+-a---- 2581   07-09-2026 15:09:37 platform-restored-source-v3.txt  
+-a---- 9389   24-08-2026 12:11:27 windchill api.py                 
 
 
 
@@ -58,7 +62,6 @@ SAP-BOM-Extractor
 TeamCenter-to-Configit-soa_client
 windchill_extractor
 .gitignore
-codebase.txt
 platform-restored-source-v3.txt
 windchill api.py
 audits\CEO_Platform_Review_Issue_Register_2026-08-14.xlsx
@@ -148,6 +151,11 @@ OrchestrationPlatform\frontend\app\api\windchill
 OrchestrationPlatform\frontend\app\api\bom\route.ts
 OrchestrationPlatform\frontend\app\api\bom-configit\route.ts
 OrchestrationPlatform\frontend\app\api\bom-windchill\route.ts
+OrchestrationPlatform\frontend\app\api\engineering\intelligence
+OrchestrationPlatform\frontend\app\api\engineering\intelligence\sap
+OrchestrationPlatform\frontend\app\api\engineering\intelligence\windchill
+OrchestrationPlatform\frontend\app\api\engineering\intelligence\sap\route.ts
+OrchestrationPlatform\frontend\app\api\engineering\intelligence\windchill\route.ts
 OrchestrationPlatform\frontend\app\api\item-explorer\search
 OrchestrationPlatform\frontend\app\api\item-explorer\search\configit
 OrchestrationPlatform\frontend\app\api\item-explorer\search\sap
@@ -249,6 +257,7 @@ OrchestrationPlatform\frontend\features\lattice-next\engines
 OrchestrationPlatform\frontend\features\lattice-next\identity
 OrchestrationPlatform\frontend\features\lattice-next\infrastructure
 OrchestrationPlatform\frontend\features\lattice-next\layout
+OrchestrationPlatform\frontend\features\lattice-next\motion
 OrchestrationPlatform\frontend\features\lattice-next\persistence
 OrchestrationPlatform\frontend\features\lattice-next\presentation
 OrchestrationPlatform\frontend\features\lattice-next\projection
@@ -274,6 +283,7 @@ OrchestrationPlatform\frontend\features\lattice-next\components\RelationshipCanv
 OrchestrationPlatform\frontend\features\lattice-next\components\RelationshipInspector.tsx
 OrchestrationPlatform\frontend\features\lattice-next\components\RequirementInspectorSections.tsx
 OrchestrationPlatform\frontend\features\lattice-next\components\ResolutionProgressPanel.tsx
+OrchestrationPlatform\frontend\features\lattice-next\components\SapInspectorSections.tsx
 OrchestrationPlatform\frontend\features\lattice-next\contracts\handoff.ts
 OrchestrationPlatform\frontend\features\lattice-next\contracts\intelligence-v1.ts
 OrchestrationPlatform\frontend\features\lattice-next\contracts\projection.ts
@@ -308,7 +318,10 @@ OrchestrationPlatform\frontend\features\lattice-next\identity\identity-scoring.t
 OrchestrationPlatform\frontend\features\lattice-next\infrastructure\elk-layout-adapter.ts
 OrchestrationPlatform\frontend\features\lattice-next\infrastructure\hybrid-layout-planner.ts
 OrchestrationPlatform\frontend\features\lattice-next\infrastructure\intelligence-api-client.ts
+OrchestrationPlatform\frontend\features\lattice-next\infrastructure\merge-source-intelligence.ts
 OrchestrationPlatform\frontend\features\lattice-next\infrastructure\react-flow-adapter.ts
+OrchestrationPlatform\frontend\features\lattice-next\infrastructure\sap-intelligence-client.ts
+OrchestrationPlatform\frontend\features\lattice-next\infrastructure\windchill-intelligence-client.ts
 OrchestrationPlatform\frontend\features\lattice-next\layout\branch-decomposition.ts
 OrchestrationPlatform\frontend\features\lattice-next\layout\elk-branch-builder.ts
 OrchestrationPlatform\frontend\features\lattice-next\layout\elk-result-adapter.ts
@@ -321,6 +334,8 @@ OrchestrationPlatform\frontend\features\lattice-next\layout\radial-connection-ge
 OrchestrationPlatform\frontend\features\lattice-next\layout\radial-route-adapter.ts
 OrchestrationPlatform\frontend\features\lattice-next\layout\relationship-router.ts
 OrchestrationPlatform\frontend\features\lattice-next\layout\sector-orchestrator.ts
+OrchestrationPlatform\frontend\features\lattice-next\motion\lattice-motion.ts
+OrchestrationPlatform\frontend\features\lattice-next\motion\node-sizing.ts
 OrchestrationPlatform\frontend\features\lattice-next\persistence\canonical-investigation-store.ts
 OrchestrationPlatform\frontend\features\lattice-next\persistence\handoff-store.ts
 OrchestrationPlatform\frontend\features\lattice-next\persistence\investigation-store.ts
@@ -2337,6 +2352,8 @@ OrchestrationPlatform\frontend\AGENTS.md | 327 bytes
 OrchestrationPlatform\frontend\app\api\bom\route.ts | 1453 bytes
 OrchestrationPlatform\frontend\app\api\bom-configit\route.ts | 2822 bytes
 OrchestrationPlatform\frontend\app\api\bom-windchill\route.ts | 5071 bytes
+OrchestrationPlatform\frontend\app\api\engineering\intelligence\sap\route.ts | 14372 bytes
+OrchestrationPlatform\frontend\app\api\engineering\intelligence\windchill\route.ts | 14191 bytes
 OrchestrationPlatform\frontend\app\api\item-explorer\search\configit\route.ts | 342 bytes
 OrchestrationPlatform\frontend\app\api\item-explorer\search\sap\route.ts | 337 bytes
 OrchestrationPlatform\frontend\app\api\item-explorer\search\teamcenter\route.ts | 344 bytes
@@ -2417,21 +2434,22 @@ OrchestrationPlatform\frontend\ecosystem.config.cjs | 807 bytes
 OrchestrationPlatform\frontend\eslint.config.mjs | 465 bytes
 OrchestrationPlatform\frontend\features\lattice-next\application\LatticeNextFeature.tsx | 148 bytes
 OrchestrationPlatform\frontend\features\lattice-next\canvas\lattice-edge-actions.ts | 140 bytes
-OrchestrationPlatform\frontend\features\lattice-next\canvas\lattice-flow-config.ts | 1297 bytes
+OrchestrationPlatform\frontend\features\lattice-next\canvas\lattice-flow-config.ts | 1428 bytes
 OrchestrationPlatform\frontend\features\lattice-next\canvas\LatticeFlowProvider.tsx | 538 bytes
-OrchestrationPlatform\frontend\features\lattice-next\canvas\lattice-flow-types.ts | 3456 bytes
+OrchestrationPlatform\frontend\features\lattice-next\canvas\lattice-flow-types.ts | 3553 bytes
 OrchestrationPlatform\frontend\features\lattice-next\canvas\lattice-node-actions.ts | 303 bytes
 OrchestrationPlatform\frontend\features\lattice-next\components\EngineeringNode.tsx | 2222 bytes
 OrchestrationPlatform\frontend\features\lattice-next\components\EntityInspector.tsx | 2660 bytes
-OrchestrationPlatform\frontend\features\lattice-next\components\IntelligenceInspector.tsx | 2768 bytes
+OrchestrationPlatform\frontend\features\lattice-next\components\IntelligenceInspector.tsx | 3352 bytes
 OrchestrationPlatform\frontend\features\lattice-next\components\IntelligenceLegend.tsx | 610 bytes
-OrchestrationPlatform\frontend\features\lattice-next\components\IntelligentRelationshipEdge.tsx | 6234 bytes
-OrchestrationPlatform\frontend\features\lattice-next\components\InvestigationToolbar.tsx | 2284 bytes
-OrchestrationPlatform\frontend\features\lattice-next\components\PremiumNodes.tsx | 8605 bytes
-OrchestrationPlatform\frontend\features\lattice-next\components\RelationshipCanvas.tsx | 14162 bytes
+OrchestrationPlatform\frontend\features\lattice-next\components\IntelligentRelationshipEdge.tsx | 4466 bytes
+OrchestrationPlatform\frontend\features\lattice-next\components\InvestigationToolbar.tsx | 4012 bytes
+OrchestrationPlatform\frontend\features\lattice-next\components\PremiumNodes.tsx | 8282 bytes
+OrchestrationPlatform\frontend\features\lattice-next\components\RelationshipCanvas.tsx | 16114 bytes
 OrchestrationPlatform\frontend\features\lattice-next\components\RelationshipInspector.tsx | 2180 bytes
 OrchestrationPlatform\frontend\features\lattice-next\components\RequirementInspectorSections.tsx | 1026 bytes
 OrchestrationPlatform\frontend\features\lattice-next\components\ResolutionProgressPanel.tsx | 2589 bytes
+OrchestrationPlatform\frontend\features\lattice-next\components\SapInspectorSections.tsx | 2466 bytes
 OrchestrationPlatform\frontend\features\lattice-next\contracts\handoff.ts | 3155 bytes
 OrchestrationPlatform\frontend\features\lattice-next\contracts\intelligence-v1.ts | 3307 bytes
 OrchestrationPlatform\frontend\features\lattice-next\contracts\projection.ts | 1151 bytes
@@ -2449,7 +2467,7 @@ OrchestrationPlatform\frontend\features\lattice-next\discovery\source-adapters\a
 OrchestrationPlatform\frontend\features\lattice-next\discovery\source-adapters\base.ts | 373 bytes
 OrchestrationPlatform\frontend\features\lattice-next\discovery\structure-resolution-orchestrator.ts | 1876 bytes
 OrchestrationPlatform\frontend\features\lattice-next\discovery\structure-resolver.ts | 8519 bytes
-OrchestrationPlatform\frontend\features\lattice-next\domain\model.ts | 2729 bytes
+OrchestrationPlatform\frontend\features\lattice-next\domain\model.ts | 3087 bytes
 OrchestrationPlatform\frontend\features\lattice-next\engines\assemble-investigation.ts | 730 bytes
 OrchestrationPlatform\frontend\features\lattice-next\engines\build-intelligence-investigation.ts | 7251 bytes
 OrchestrationPlatform\frontend\features\lattice-next\engines\build-investigation.ts | 4082 bytes
@@ -2465,8 +2483,11 @@ OrchestrationPlatform\frontend\features\lattice-next\identity\identity-scoring.t
 OrchestrationPlatform\frontend\features\lattice-next\infrastructure\elk-layout-adapter.ts | 1793 bytes
 OrchestrationPlatform\frontend\features\lattice-next\infrastructure\hybrid-layout-planner.ts | 11457 bytes
 OrchestrationPlatform\frontend\features\lattice-next\infrastructure\intelligence-api-client.ts | 935 bytes
-OrchestrationPlatform\frontend\features\lattice-next\infrastructure\react-flow-adapter.ts | 4645 bytes
-OrchestrationPlatform\frontend\features\lattice-next\lattice-next.css | 10316 bytes
+OrchestrationPlatform\frontend\features\lattice-next\infrastructure\merge-source-intelligence.ts | 1977 bytes
+OrchestrationPlatform\frontend\features\lattice-next\infrastructure\react-flow-adapter.ts | 5783 bytes
+OrchestrationPlatform\frontend\features\lattice-next\infrastructure\sap-intelligence-client.ts | 840 bytes
+OrchestrationPlatform\frontend\features\lattice-next\infrastructure\windchill-intelligence-client.ts | 791 bytes
+OrchestrationPlatform\frontend\features\lattice-next\lattice-next.css | 17108 bytes
 OrchestrationPlatform\frontend\features\lattice-next\layout\branch-decomposition.ts | 3047 bytes
 OrchestrationPlatform\frontend\features\lattice-next\layout\elk-branch-builder.ts | 2686 bytes
 OrchestrationPlatform\frontend\features\lattice-next\layout\elk-result-adapter.ts | 3333 bytes
@@ -2479,15 +2500,17 @@ OrchestrationPlatform\frontend\features\lattice-next\layout\radial-connection-ge
 OrchestrationPlatform\frontend\features\lattice-next\layout\radial-route-adapter.ts | 818 bytes
 OrchestrationPlatform\frontend\features\lattice-next\layout\relationship-router.ts | 5534 bytes
 OrchestrationPlatform\frontend\features\lattice-next\layout\sector-orchestrator.ts | 2115 bytes
+OrchestrationPlatform\frontend\features\lattice-next\motion\lattice-motion.ts | 1267 bytes
+OrchestrationPlatform\frontend\features\lattice-next\motion\node-sizing.ts | 1112 bytes
 OrchestrationPlatform\frontend\features\lattice-next\persistence\canonical-investigation-store.ts | 1310 bytes
 OrchestrationPlatform\frontend\features\lattice-next\persistence\handoff-store.ts | 1315 bytes
 OrchestrationPlatform\frontend\features\lattice-next\persistence\investigation-store.ts | 3839 bytes
 OrchestrationPlatform\frontend\features\lattice-next\persistence\layout-migrations.ts | 1942 bytes
 OrchestrationPlatform\frontend\features\lattice-next\presentation\intelligence-tokens.ts | 934 bytes
-OrchestrationPlatform\frontend\features\lattice-next\projection\intelligence-domain-projection.ts | 4505 bytes
-OrchestrationPlatform\frontend\features\lattice-next\projection\intelligence-domain-registry.ts | 2471 bytes
-OrchestrationPlatform\frontend\features\lattice-next\projection\intelligence-projection-types.ts | 700 bytes
-OrchestrationPlatform\frontend\features\lattice-next\projection\intelligence-visibility-policy.ts | 1098 bytes
+OrchestrationPlatform\frontend\features\lattice-next\projection\intelligence-domain-projection.ts | 3767 bytes
+OrchestrationPlatform\frontend\features\lattice-next\projection\intelligence-domain-registry.ts | 2728 bytes
+OrchestrationPlatform\frontend\features\lattice-next\projection\intelligence-projection-types.ts | 740 bytes
+OrchestrationPlatform\frontend\features\lattice-next\projection\intelligence-visibility-policy.ts | 997 bytes
 OrchestrationPlatform\frontend\features\lattice-next\requirements\requirement-actions.ts | 268 bytes
 OrchestrationPlatform\frontend\features\lattice-next\requirements\requirement-presentation.ts | 838 bytes
 OrchestrationPlatform\frontend\features\lattice-next\state\investigation-reducer.ts | 5703 bytes
@@ -2514,13 +2537,13 @@ OrchestrationPlatform\frontend\features\lattice-next\tests\performance-policy.te
 OrchestrationPlatform\frontend\features\lattice-next\tests\radial-connection-geometry.test.ts | 3693 bytes
 OrchestrationPlatform\frontend\features\lattice-next\tests\radial-layout.test.ts | 1015 bytes
 OrchestrationPlatform\frontend\features\lattice-next\tests\radial-route-adapter.test.ts | 1701 bytes
-OrchestrationPlatform\frontend\features\lattice-next\tests\requirements-domain-provider.test.ts | 424 bytes
+OrchestrationPlatform\frontend\features\lattice-next\tests\requirements-domain-provider.test.ts | 653 bytes
 OrchestrationPlatform\frontend\features\lattice-next\tests\requirements-projection.test.ts | 615 bytes
 OrchestrationPlatform\frontend\features\lattice-next\tests\route-fidelity.test.ts | 2151 bytes
 OrchestrationPlatform\frontend\features\lattice-next\tests\semantic-zoom.test.ts | 450 bytes
 OrchestrationPlatform\frontend\features\lattice-next\tests\universal-layout.test.ts | 4993 bytes
 OrchestrationPlatform\frontend\features\lattice-next\tests\windchill-requirements-platform.test.ts | 1182 bytes
-OrchestrationPlatform\frontend\features\lattice-next\workspace\LatticeNextWorkspace.tsx | 16470 bytes
+OrchestrationPlatform\frontend\features\lattice-next\workspace\LatticeNextWorkspace.tsx | 18246 bytes
 OrchestrationPlatform\frontend\fonts\fonts.css | 743 bytes
 OrchestrationPlatform\frontend\fonts\static\dm-sans.ts | 781 bytes
 OrchestrationPlatform\frontend\lib\api.ts | 6381 bytes
@@ -2562,7 +2585,7 @@ OrchestrationPlatform\frontend\lib\windchill-change-review.ts | 3526 bytes
 OrchestrationPlatform\frontend\lib\windchill-requirements.ts | 835 bytes
 OrchestrationPlatform\frontend\lib\windchill-revision.ts | 675 bytes
 OrchestrationPlatform\frontend\next.config.ts | 132 bytes
-OrchestrationPlatform\frontend\next-env.d.ts | 288 bytes
+OrchestrationPlatform\frontend\next-env.d.ts | 296 bytes
 OrchestrationPlatform\frontend\next-test-mode-build.txt | 7494 bytes
 OrchestrationPlatform\frontend\package.json | 1344 bytes
 OrchestrationPlatform\frontend\package-lock.json | 374166 bytes
@@ -2639,7 +2662,7 @@ OrchestrationPlatform\Orchestration.API\Engineering\Contracts\TeamcenterStageEvi
 OrchestrationPlatform\Orchestration.API\Engineering\Controllers\EngineeringCapabilitiesController.cs | 685 bytes
 OrchestrationPlatform\Orchestration.API\Engineering\Controllers\EngineeringDiscoveryController.cs | 742 bytes
 OrchestrationPlatform\Orchestration.API\Engineering\Controllers\EngineeringExtractionController.cs | 811 bytes
-OrchestrationPlatform\Orchestration.API\Engineering\Controllers\EngineeringIntelligenceController.cs | 637 bytes
+OrchestrationPlatform\Orchestration.API\Engineering\Controllers\EngineeringIntelligenceController.cs | 638 bytes
 OrchestrationPlatform\Orchestration.API\Engineering\Controllers\EngineeringJobsController.cs | 1085 bytes
 OrchestrationPlatform\Orchestration.API\Engineering\Controllers\FederatedCandidateSelectionsController.cs | 1103 bytes
 OrchestrationPlatform\Orchestration.API\Engineering\Controllers\FederatedEngineeringDiscoveryController.cs | 1008 bytes
@@ -2691,7 +2714,7 @@ OrchestrationPlatform\Orchestration.API\Services\ProcessRunner.cs | 2214 bytes
 OrchestrationPlatform\Orchestration.API\Services\SapCapabilityProbeService.cs | 3861 bytes
 OrchestrationPlatform\Orchestration.API\Services\SapExecutionValidationService.cs | 3741 bytes
 OrchestrationPlatform\Orchestration.API\Services\SapMaterialCatalogService.cs | 4287 bytes
-OrchestrationPlatform\Orchestration.API\Services\SubprocessExecutor.cs | 18583 bytes
+OrchestrationPlatform\Orchestration.API\Services\SubprocessExecutor.cs | 18674 bytes
 OrchestrationPlatform\scripts\teamcenter\collect-teamcenter-runtime-evidence.ps1 | 4454 bytes
 SAP-BOM-Extractor\sap_bom_extraction.json | 519 bytes
 SAP-BOM-Extractor\src\SapBomExtractor.java | 10652 bytes
@@ -6371,6 +6394,176 @@ export async function GET(request: NextRequest) {
     );
   } finally {
     await fs.rm(tempDir, { recursive: true, force: true });
+  }
+}
+
+
+===== FILE: .\OrchestrationPlatform\frontend\app\api\engineering\intelligence\sap\route.ts =====
+
+import { NextResponse } from "next/server";
+import type { LatticeHandoff } from "@/features/lattice-next/contracts/handoff";
+import type { EngineeringIntelligenceInvestigationV1, IntelligenceEntity, IntelligenceRelationship, IntelligenceProperty, IntelligenceAuthority } from "@/features/lattice-next/contracts/intelligence-v1";
+const API=(process.env.ORCHESTRATION_API_URL||process.env.NEXT_PUBLIC_API_URL||"http://localhost:5212").replace(/\/$/,"");
+type R=Record<string,unknown>; type Outcome={ok:boolean;value?:R;message?:string};
+const rec=(v:unknown):v is R=>Boolean(v)&&typeof v==="object"&&!Array.isArray(v); const arr=(v:unknown):R[]=>Array.isArray(v)?v.filter(rec):[]; const str=(v:unknown)=>typeof v==="string"?v.trim():""; const num=(v:unknown)=>typeof v==="number"&&Number.isFinite(v)?v:undefined; const bool=(v:unknown)=>typeof v==="boolean"?v:undefined; const safe=(v:string)=>v.trim().toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")||"unknown"; const now=()=>new Date().toISOString();
+const temporal=(captured?:string)=>({capturedAt:captured||undefined,assembledAt:now(),freshness:"current" as const}); const provenance=(nativeId:string,provider:string,authority:IntelligenceAuthority="source-authoritative",captured?:string)=>({source:"sap" as const,provider,nativeId,observedAt:captured||now(),authority});
+function props(input:R):Record<string,IntelligenceProperty>{const out:Record<string,IntelligenceProperty>={};for(const [k,v] of Object.entries(input)){if(v===null||v===undefined||v==="")continue;if(typeof v==="string")out[k]={type:"text",text:v};else if(typeof v==="number")out[k]={type:"number",number:v};else if(typeof v==="boolean")out[k]={type:"boolean",boolean:v};else if(Array.isArray(v)&&v.every(x=>typeof x==="string"))out[k]={type:"list",items:v as string[]}}return out}
+async function request(path:string,init:RequestInit,signal:AbortSignal):Promise<Outcome>{try{const r=await fetch(`${API}${path}`,{...init,signal,cache:"no-store"});const value=await r.json().catch(()=>null);return r.ok&&rec(value)?{ok:true,value}:{ok:false,message:rec(value)?str(value.message)||str(value.error)||`${path} returned ${r.status}`:`${path} returned ${r.status}`}}catch(e){return{ok:false,message:e instanceof Error?e.message:`${path} failed`}}}
+const get=(p:string,s:AbortSignal)=>request(p,{},s); const post=(p:string,b:unknown,s:AbortSignal)=>request(p,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(b)},s);
+async function ensureJob(source:LatticeHandoff["sources"][number],materialId:string,plant:string,signal:AbortSignal){if(source.jobId)return source.jobId;const started=await post("/api/pipeline/start",{kind:"sap",materialId,plant,bomUsage:str(source.root.attributes?.["BOM Usage"])||"3",alternative:str(source.root.attributes?.["Alternative"])||"1"},signal);if(!started.ok)throw new Error(started.message||"SAP pipeline could not start.");const id=str(started.value?.jobId);if(!id)throw new Error("SAP pipeline did not return a job ID.");for(let i=0;i<45;i++){await new Promise(r=>setTimeout(r,2000));const b=await get(`/api/pipeline/bom/${encodeURIComponent(id)}`,signal);if(b.ok)return id}throw new Error("SAP pipeline did not complete within the investigation window.")}
+export async function POST(req:Request){const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),120000);try{const body=await req.json() as {handoff?:LatticeHandoff};const handoff=body.handoff;if(!handoff)throw new Error("SAP investigation handoff is required.");const source=handoff.sources.find(x=>x.source==="sap");if(!source)throw new Error("No SAP source is present in the investigation.");const materialId=source.nativeId||str(source.root.attributes?.["Item ID"])||source.root.id;const plant=str(source.root.attributes?.Plant)||"1001";const jobId=await ensureJob(source,materialId,plant,controller.signal);const [bom,business,operational,capability,validation]=await Promise.all([get(`/api/pipeline/bom/${encodeURIComponent(jobId)}`,controller.signal),get(`/api/pipeline/sap-impact/${encodeURIComponent(jobId)}`,controller.signal),get(`/api/pipeline/sap-operational-impact/${encodeURIComponent(jobId)}`,controller.signal),post("/api/sap-capabilities/probe",{materialId,plant},controller.signal),post("/api/sap-impact-validation/run",{materialId,plant},controller.signal)]);
+const assembled=now(),subjectId=`sap:material:${safe(materialId)}`,entities:IntelligenceEntity[]=[],relationships:IntelligenceRelationship[]=[],evidence:EngineeringIntelligenceInvestigationV1["evidence"]=[],findings:EngineeringIntelligenceInvestigationV1["findings"]=[];const addEntity=(kind:string,id:string,name:string,p:R,provider:string,captured?:string,authority:IntelligenceAuthority="source-authoritative")=>{if(entities.some(x=>x.id===id))return id;entities.push({id,kind,displayName:name||id,identityQuality:"native",assertion:"fact",properties:props(p),provenance:provenance(str(p.materialId)||str(p.documentNumber)||str(p.orderNumber)||id,provider,authority,captured),temporal:temporal(captured)});return id};const link=(kind:string,family:string,a:string,b:string,provider:string,evidenceIds:string[]=[])=>{if(a===b||relationships.some(x=>x.kind===kind&&x.sourceEntityId===a&&x.targetEntityId===b))return;relationships.push({id:`sap:rel:${safe(kind)}:${safe(a)}:${safe(b)}`,kind,family,sourceEntityId:a,targetEntityId:b,assertion:"fact",confidence:"verified",evidenceIds,properties:{},provenance:provenance(`${a}:${b}`,provider),temporal:temporal()})};
+
+const finalBom=rec(bom.value?.finalBom)?bom.value!.finalBom as R:{};const root=rec(finalBom.bomRoot)?finalBom.bomRoot as R:rec(finalBom.bomRootNode)?finalBom.bomRootNode as R:source.root as unknown as R;function mapBom(n:R,parent?:string,path="0"){const native=str(n.itemId)||str(n.id)||`${materialId}-${path}`;const id=path==="0"?subjectId:`sap:occurrence:${safe(native)}:${safe(path)}`;if(path!=="0")addEntity("part-occurrence",id,str(n.name)||native,{...n,recordKind:"sap-bom-occurrence",materialId:native,parentMaterialId:parent},"sap-bom-extractor");if(parent&&id!==subjectId)link("contains","structure",parent,id,"sap-bom-extractor");arr(n.children).forEach((c,i)=>mapBom(c,id,`${path}.${i}`))}mapBom(root);
+const impact=rec(business.value?.sapImpact)?business.value!.sapImpact as R:{};for(const m of arr(impact.materials)){const mid=str(m.materialId)||str(m.internalMaterialId)||materialId;if(mid===materialId){const masterId=addEntity("material-master",`sap:material-master:${safe(mid)}`,str(m.description)||`${mid} material master`,{...m,recordKind:"sap-material-master"},"sap-material-impact",str(m.extractedAt));link("describes","structure",subjectId,masterId,"sap-material-impact")}const midId=mid===materialId?subjectId:addEntity("material",`sap:material:${safe(mid)}`,str(m.description)||mid,{...m,recordKind:"sap-material"},"sap-material-impact",str(m.extractedAt));if(midId!==subjectId)link("operationally-impacts","cost-and-inventory",subjectId,midId,"sap-material-impact");const org=rec(m.organization)?m.organization:{};const pcode=str(org.plant)||plant;if(pcode){const pid=addEntity("plant",`sap:plant:${safe(pcode)}`,`Plant ${pcode}`,{...org,recordKind:"sap-plant"},"sap-material-impact");link("stocked-at","cost-and-inventory",midId,pid,"sap-material-impact");const stock=rec(m.stock)?m.stock:{};if(Object.keys(stock).length)addEntity("stock-position",`sap:stock:${safe(mid)}:${safe(pcode)}`,`Stock at ${pcode}`,{...stock,materialId:mid,plant:pcode,recordKind:"sap-stock-position",factType:"source-fact"},"sap-material-impact");const sid=`sap:stock:${safe(mid)}:${safe(pcode)}`;if(entities.some(x=>x.id===sid))link("has-stock-position","cost-and-inventory",pid,sid,"sap-material-impact");const inventory=rec(m.inventory)?m.inventory:{};const cost=rec(m.cost)?m.cost:{};const checks=rec(m.checks)?m.checks:{};if(Object.keys(inventory).length||Object.keys(cost).length){const vid=addEntity("valuation-context",`sap:valuation:${safe(mid)}:${safe(pcode)}`,`Valuation at ${pcode}`,{...inventory,...cost,...checks,materialId:mid,plant:pcode,recordKind:"sap-valuation-context",factType:"source-fact-and-derived-checks"},"sap-material-impact");link("valued-at","cost-and-inventory",midId,vid,"sap-material-impact")}}for(const s of arr(m.storageLocations)){const code=str(s.storageLocation)||str(s.location)||str(s.storageLocationId);if(!code)continue;const id=addEntity("storage-location",`sap:storage:${safe(pcode)}:${safe(code)}`,`Storage ${code}`,{...s,plant:pcode,recordKind:"sap-storage-location"},"sap-material-impact");link("stored-in","cost-and-inventory",midId,id,"sap-material-impact")}for(const w of Array.isArray(m.warnings)?m.warnings:[]){const eid=`sap:evidence:warning:${safe(mid)}:${evidence.length}`;evidence.push({id:eid,kind:"sap-warning",summary:String(w),source:"sap",provenance:provenance(mid,"sap-material-impact","backend-derived"),temporal:temporal()});findings.push({id:`sap:finding:${safe(mid)}:${findings.length}`,kind:"sap-operational-warning",title:"SAP impact requires attention",summary:String(w),subjectEntityIds:[midId],evidenceIds:[eid],provenance:provenance(mid,"sap-material-impact","backend-derived"),temporal:temporal()})}}
+const op=rec(operational.value?.sapOperationalImpact)?operational.value!.sapOperationalImpact as R:{};const history=rec(op.history)?op.history:{};const historyMaterial=str(history.materialId)||materialId;for(const mv of arr(history.movements)){const document=str(mv.materialDocument)||`${historyMaterial}-${relationships.length}`;const movementId=addEntity("material-movement",`sap:movement:${safe(document)}:${safe(str(mv.item))}`,str(mv.movementDescription)||`Movement ${str(mv.movementType)}`,{...mv,materialId:historyMaterial,recordKind:"sap-material-movement",factType:"source-fact"},"sap-material-history",str(mv.postingDate));link("moved-through","operation",subjectId,movementId,"sap-material-history");const movementPlant=str(mv.plant);if(movementPlant){const pid=addEntity("plant",`sap:plant:${safe(movementPlant)}`,`Plant ${movementPlant}`,{plant:movementPlant,recordKind:"sap-plant"},"sap-material-history");link("occurred-at","operation",movementId,pid,"sap-material-history")}const storage=str(mv.storageLocation);if(storage){const sid=addEntity("storage-location",`sap:storage:${safe(movementPlant||plant)}:${safe(storage)}`,`Storage ${storage}`,{plant:movementPlant||plant,storageLocation:storage,recordKind:"sap-storage-location"},"sap-material-history");link("occurred-at","operation",movementId,sid,"sap-material-history")}const order=str(mv.productionOrder);if(order){const oid=addEntity("production-order",`sap:production-order:${safe(order)}`,`Production order ${order}`,{orderNumber:order,materialId:historyMaterial,plant:movementPlant,recordKind:"sap-production-order",evidenceState:str(mv.evidenceConfidence)||"referenced"},"sap-material-history");link(str(mv.direction).toLowerCase().includes("receipt")?"produced-by":"consumed-by","operation",subjectId,oid,"sap-material-history");link("referenced-by","operation",movementId,oid,"sap-material-history")}const accounting=rec(mv.accountingDocument)?mv.accountingDocument:{};const accountingNumber=str(accounting.documentNumber);if(accountingNumber){const aid=addEntity("accounting-document",`sap:accounting:${safe(accountingNumber)}:${safe(str(accounting.fiscalYear))}`,`Accounting document ${accountingNumber}`,{...accounting,accountingLineCount:arr(accounting.lines).length,recordKind:"sap-accounting-document",evidenceState:str(accounting.availability)||str(mv.evidenceConfidence)||"confirmed"},"sap-material-history");link("referenced-in","cost-and-inventory",movementId,aid,"sap-material-history")}}for(const warning of Array.isArray(history.warnings)?history.warnings:[]){const eid=`sap:evidence:history-warning:${evidence.length}`;evidence.push({id:eid,kind:"sap-history-warning",summary:String(warning),source:"sap",provenance:provenance(materialId,"sap-material-history","backend-derived"),temporal:temporal()});findings.push({id:`sap:finding:history:${findings.length}`,kind:"sap-operational-warning",title:"SAP history requires attention",summary:String(warning),subjectEntityIds:[subjectId],evidenceIds:[eid],provenance:provenance(materialId,"sap-material-history","backend-derived"),temporal:temporal()})}
+const operationOutcomes=[{name:"business impact",o:business},{name:"operational history",o:operational},{name:"capability probe",o:capability},{name:"execution validation",o:validation}];for(const x of operationOutcomes){const eid=`sap:evidence:${safe(x.name)}:${safe(materialId)}`;evidence.push({id:eid,kind:`sap-${safe(x.name)}`,summary:x.o.ok?`${x.name} completed.`:`${x.name} unavailable: ${x.o.message}`,source:"sap",provenance:provenance(materialId,`sap-${safe(x.name)}`,x.o.ok?"source-authoritative":"unavailable"),temporal:temporal()});if(!x.o.ok)findings.push({id:`sap:finding:${safe(x.name)}:${safe(materialId)}`,kind:"incomplete-extraction",title:`${x.name} unavailable`,summary:x.o.message||`${x.name} did not complete.`,subjectEntityIds:[subjectId],evidenceIds:[eid],provenance:provenance(materialId,"sap-lattice-intelligence","backend-derived"),temporal:temporal()})}
+const result:EngineeringIntelligenceInvestigationV1={contractVersion:"1.0",investigationId:`sap-${safe(handoff.handoffId)}`,subject:{id:subjectId,displayName:handoff.subjectLabel,preferredProductId:materialId,candidateIds:[materialId],confidence:"verified",reasons:["Selected SAP material","Existing SAP pipeline and Java/JCo acquisition reused"],provenance:provenance(materialId,"sap-engineering-discovery"),temporal:temporal(source.capturedAt)},entities,relationships,evidence,findings,sources:[{entityId:subjectId,source:"sap",status:findings.length?"partial":"available",provenance:provenance(materialId,"sap-lattice-intelligence")}],identityClusters:[],temporal:{requestedAt:handoff.createdAt,capturedAt:source.capturedAt,assembledAt:assembled,freshness:"current"},summary:{entityCount:entities.length,relationshipCount:relationships.length,evidenceCount:evidence.length,findingCount:findings.length,availableSourceCount:1,partialSourceCount:findings.length?1:0,status:findings.length?"partial-success":"success"}};return NextResponse.json(result)}catch(e){return NextResponse.json({message:e instanceof Error?e.message:"SAP intelligence failed."},{status:500})}finally{clearTimeout(timer)}}
+
+
+===== FILE: .\OrchestrationPlatform\frontend\app\api\engineering\intelligence\windchill\route.ts =====
+
+import { NextRequest, NextResponse } from "next/server";
+import { legacyHandoffToIntelligence } from "@/features/lattice-next/engines/legacy-handoff-to-intelligence";
+import type { LatticeHandoff } from "@/features/lattice-next/contracts/handoff";
+import type { EngineeringIntelligenceInvestigationV1, IntelligenceEntity, IntelligenceRelationship } from "@/features/lattice-next/contracts/intelligence-v1";
+import type { WindchillRequirementsResponse } from "@/types/windchill-requirements";
+import type { WindchillVersionList, WindchillRevisionComparisonResult } from "@/types/windchill-revision";
+import type { WindchillChangeImpactResult } from "@/types/windchill-change-impact";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+type RequestBody = { handoff: LatticeHandoff };
+type CallResult<T> = { ok: true; value: T } | { ok: false; message: string };
+const property = (text: unknown) => ({ type: "text", text: text == null ? undefined : String(text) } as const);
+const safe = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+async function call<T>(origin: string, path: string, signal: AbortSignal): Promise<CallResult<T>> {
+  try {
+    const response = await fetch(`${origin}${path}`, { cache: "no-store", signal });
+    const value = await response.json().catch(() => null);
+    if (!response.ok) return { ok: false, message: value?.error ?? value?.message ?? `${response.status} ${response.statusText}` };
+    return { ok: true, value: value as T };
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : "Windchill operation failed." };
+  }
+}
+
+export async function POST(request: NextRequest) {
+  const body = await request.json() as RequestBody;
+  if (!body?.handoff?.sources?.length) return NextResponse.json({ code: "invalid-handoff", message: "A valid investigation handoff is required." }, { status: 400 });
+  const windchill = body.handoff.sources.find((source) => source.source === "windchill");
+  if (!windchill) return NextResponse.json(legacyHandoffToIntelligence(body.handoff));
+
+  const canonical = legacyHandoffToIntelligence(body.handoff);
+  const observedAt = new Date().toISOString();
+  const nativeId = windchill.nativeId ?? windchill.root.id;
+  const queryType = /^OR:wt\.part\.WTPart:\d+$/i.test(nativeId) ? "part-oid" : /^\d+$/.test(nativeId) ? "part-number" : "part-name";
+  const query = queryType === "part-name" ? body.handoff.subjectLabel : nativeId;
+  const encodedId = encodeURIComponent(nativeId);
+  const encodedQuery = encodeURIComponent(query);
+  const origin = request.nextUrl.origin;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10 * 60 * 1000);
+
+  try {
+    const [requirements, versions, impact] = await Promise.all([
+      call<WindchillRequirementsResponse>(origin, `/api/bom-windchill?operation=requirements&queryType=${queryType}&query=${encodedQuery}`, controller.signal),
+      call<WindchillVersionList>(origin, `/api/bom-windchill?operation=versions&partId=${encodedId}`, controller.signal),
+      call<WindchillChangeImpactResult>(origin, `/api/bom-windchill?operation=change-impact&partId=${encodedId}`, controller.signal),
+    ]);
+
+    let comparison: CallResult<WindchillRevisionComparisonResult> = { ok: false, message: "Fewer than two revisions are available." };
+    if (versions.ok && versions.value.versions.length >= 2) {
+      const ordered = [...versions.value.versions];
+      const from = ordered[ordered.length - 2];
+      const to = ordered.find((version) => version.latest) ?? ordered[ordered.length - 1];
+      comparison = await call<WindchillRevisionComparisonResult>(origin, `/api/bom-windchill?operation=compare&partId=${encodedId}&from=${encodeURIComponent(from.label)}&to=${encodeURIComponent(to.label)}`, controller.signal);
+    }
+
+    const entities: IntelligenceEntity[] = [...canonical.entities];
+    const relationships: IntelligenceRelationship[] = [...canonical.relationships];
+    const evidence = [...canonical.evidence];
+    const findings = [...canonical.findings];
+    const sourceEntityId = canonical.sources.find((source) => source.source === "windchill")?.entityId ?? canonical.subject.id;
+    const provenance = (provider: string, id?: string, authority: "source-authoritative" | "backend-derived" | "poc-synthetic" = "source-authoritative") => ({ source: "windchill", provider, nativeId: id, observedAt, authority });
+    const temporal = { assembledAt: observedAt, capturedAt: observedAt, freshness: "current" } as const;
+    const addEntity = (entity: IntelligenceEntity) => { if (!entities.some((item) => item.id === entity.id)) entities.push(entity); };
+    const addRelationship = (relationship: IntelligenceRelationship) => { if (!relationships.some((item) => item.id === relationship.id)) relationships.push(relationship); };
+    const addProjectedValue = (domain: "physical-attribute" | "product-context", key: string, label: string, value: string | null | undefined) => {
+      if (!value || !String(value).trim()) return;
+      const entityId = `windchill:${domain}:${safe(key)}:${safe(nativeId)}`;
+      addEntity({ id: entityId, kind: domain, displayName: label, identityQuality: "deterministic-derived", assertion: "fact", properties: { value: property(String(value).trim()), attribute: property(key), recordKind: property(domain) }, provenance: provenance("bom-windchill:requirements-part", nativeId), temporal });
+      addRelationship({ id: `windchill:${domain}:${safe(sourceEntityId)}:${safe(entityId)}`, kind: domain === "physical-attribute" ? "has-physical-attribute" : "has-product-context", family: domain, sourceEntityId, targetEntityId: entityId, assertion: "fact", confidence: "verified", evidenceIds: [], properties: {}, provenance: provenance("bom-windchill:requirements-part", nativeId), temporal });
+    };
+
+    if (requirements.ok) {
+      const part = requirements.value.part;
+      addProjectedValue("physical-attribute", "material", "Material", part.customAttributes.material);
+      addProjectedValue("physical-attribute", "chemical", "Chemical", part.customAttributes.chemical);
+      addProjectedValue("physical-attribute", "weight", "Weight", part.customAttributes.weight);
+      addProjectedValue("physical-attribute", "dimension", "Dimension", part.customAttributes.dimension);
+      addProjectedValue("product-context", "version", "Version", part.version ?? part.revision);
+      addProjectedValue("product-context", "state", "State", part.state);
+      addProjectedValue("product-context", "view", "View", part.view);
+      addProjectedValue("product-context", "source", "Source", part.source);
+      const authority = requirements.value.dataStatus === "poc-synthetic" ? "poc-synthetic" as const : "source-authoritative" as const;
+      for (const specification of requirements.value.requirementSpecifications) {
+        const specId = `windchill:requirement-specification:${safe(specification.id)}`;
+        addEntity({ id: specId, kind: "requirement", displayName: specification.name, assertion: "fact", properties: { number: property(specification.number), revision: property(specification.revision), version: property(specification.version), status: property(specification.state), description: property(specification.description), recordKind: property("specification") }, provenance: provenance("bom-windchill:requirements", specification.id, authority), temporal });
+        addRelationship({ id: `windchill:described-by:${safe(sourceEntityId)}:${safe(specId)}`, kind: "described-by", family: "requirement", sourceEntityId, targetEntityId: specId, assertion: "fact", confidence: "verified", evidenceIds: [], properties: {}, provenance: provenance("bom-windchill:requirements", specification.id, authority), temporal });
+        const files = [specification.primaryContent, ...specification.attachments].filter(Boolean);
+        for (const file of files) {
+          const fileValue = file!;
+          const evidenceId = `windchill:evidence:${safe(fileValue.id)}`;
+          evidence.push({ id: evidenceId, kind: "document", summary: fileValue.fileName, source: "windchill", provenance: provenance("windchill-content", fileValue.id, authority), temporal });
+        }
+        for (const requirement of specification.requirements) {
+          const requirementId = `windchill:requirement:${safe(requirement.id)}`;
+          addEntity({ id: requirementId, kind: "requirement", displayName: requirement.name, assertion: "fact", properties: { number: property(requirement.number), requirementId: property(requirement.requirementId), revision: property(requirement.version), status: property(requirement.state), description: property(requirement.description), category: property(requirement.category), recordKind: property("requirement") }, provenance: provenance("bom-windchill:requirements", requirement.id, authority), temporal });
+          addRelationship({ id: `windchill:contains-requirement:${safe(specId)}:${safe(requirementId)}`, kind: "contains", family: "requirement", sourceEntityId: specId, targetEntityId: requirementId, assertion: "fact", confidence: "verified", evidenceIds: [], properties: {}, provenance: provenance("bom-windchill:requirements", requirement.id, authority), temporal });
+        }
+      }
+    }
+
+    if (versions.ok) {
+      const revisionIds = versions.value.versions.map((version) => {
+        const id = `windchill:part-revision:${safe(version.partId)}:${safe(version.label)}`;
+        addEntity({ id, kind: "change-task", displayName: `${version.name ?? body.handoff.subjectLabel} ${version.display}`, assertion: "fact", properties: { revision: property(version.revision), version: property(version.label), latest: { type: "boolean", boolean: version.latest }, number: property(version.number), view: property(version.view), recordKind: property("part-revision") }, provenance: provenance("bom-windchill:versions", version.partId), temporal });
+        return id;
+      });
+      for (let index = 1; index < revisionIds.length; index += 1) addRelationship({ id: `windchill:supersedes:${safe(revisionIds[index])}:${safe(revisionIds[index - 1])}`, kind: "supersedes", family: "change", sourceEntityId: revisionIds[index], targetEntityId: revisionIds[index - 1], assertion: "fact", confidence: "verified", evidenceIds: [], properties: {}, provenance: provenance("bom-windchill:versions"), temporal });
+    }
+
+    if (impact.ok) {
+      for (const notice of impact.value.changeNotices) {
+        const noticeNativeId = notice.id ?? notice.number ?? notice.name ?? crypto.randomUUID();
+        const noticeId = `windchill:change-notice:${safe(noticeNativeId)}`;
+        addEntity({ id: noticeId, kind: "change-notice", displayName: notice.name ?? notice.number ?? "Windchill change notice", assertion: "fact", properties: { number: property(notice.number), status: property(notice.state), description: property(notice.descriptionSummary ?? notice.description), createdOn: property(notice.createdOn), resolutionDate: property(notice.resolutionDate), affectedParts: { type: "number", number: notice.affectedParts.length }, recordKind: property("change-notice") }, provenance: provenance("bom-windchill:change-impact", noticeNativeId), temporal });
+        addRelationship({ id: `windchill:affected-by:${safe(sourceEntityId)}:${safe(noticeId)}`, kind: "affected-by", family: "change", sourceEntityId, targetEntityId: noticeId, assertion: "fact", confidence: "verified", evidenceIds: [], properties: {}, provenance: provenance("bom-windchill:change-impact", noticeNativeId), temporal });
+        for (const task of notice.tasks) {
+          const taskId = `windchill:change-task:${safe(task.id)}`;
+          addEntity({ id: taskId, kind: "change-task", displayName: task.name ?? task.number ?? "Windchill change task", assertion: "fact", properties: { number: property(task.number), status: property(task.state), description: property(task.description), resolutionDate: property(task.resolutionDate), recordKind: property("change-task") }, provenance: provenance("bom-windchill:change-impact", task.id), temporal });
+          addRelationship({ id: `windchill:implements:${safe(noticeId)}:${safe(taskId)}`, kind: "implements", family: "change", sourceEntityId: noticeId, targetEntityId: taskId, assertion: "fact", confidence: "verified", evidenceIds: [], properties: {}, provenance: provenance("bom-windchill:change-impact", task.id), temporal });
+        }
+      }
+    }
+
+    if (comparison.ok) {
+      for (const change of comparison.value.changes.filter((item) => item.status !== "unchanged")) {
+        const evidenceId = `windchill:revision-difference:${safe(change.itemId)}:${safe(change.status)}`;
+        evidence.push({ id: evidenceId, kind: "revision-difference", summary: `${change.status}: ${change.itemId}`, source: "windchill", provenance: provenance("bom-windchill:compare", change.itemId, "backend-derived"), temporal });
+      }
+    }
+
+    const warnings = [requirements, versions, impact, comparison].filter((item) => !item.ok).map((item) => !item.ok ? item.message : "");
+    if (warnings.length) findings.push({ id: `windchill:finding:partial:${safe(nativeId)}`, kind: "incomplete-extraction", title: "Windchill intelligence is partially available", summary: warnings.join(" | "), subjectEntityIds: [canonical.subject.id], evidenceIds: [], provenance: provenance("windchill-investigation", nativeId, "backend-derived"), temporal });
+
+    const result: EngineeringIntelligenceInvestigationV1 = { ...canonical, subject: { ...canonical.subject, reasons: [...canonical.subject.reasons, "Windchill structure, requirements, versions, revision comparison and change-impact APIs reused"], provenance: provenance("windchill-platform-api-investigation", nativeId, "backend-derived"), temporal }, entities, relationships, evidence, findings, temporal, summary: { ...canonical.summary, entityCount: entities.length, relationshipCount: relationships.length, evidenceCount: evidence.length, findingCount: findings.length, status: warnings.length ? "partial-success" : "success" } };
+    return NextResponse.json(result);
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -18441,12 +18634,49 @@ import type { LatticeEdgeAction } from "./lattice-flow-types"; export type Latti
 
 ===== FILE: .\OrchestrationPlatform\frontend\features\lattice-next\canvas\lattice-flow-config.ts =====
 
-import type { DefaultEdgeOptions, FitViewOptions, NodeTypes, EdgeTypes, SnapGrid } from "@xyflow/react";
-import { InvestigationSubjectNode, PremiumEngineeringNode, SourceRepresentationNodeView } from "../components/PremiumNodes";
-import IntelligentRelationshipEdge from "../components/IntelligentRelationshipEdge";
+import type {
+  DefaultEdgeOptions,
+  FitViewOptions,
+  NodeTypes,
+  EdgeTypes,
+  SnapGrid,
+} from "@xyflow/react";
+import {
+  InvestigationSubjectNode,
+  PremiumEngineeringNode,
+  SourceRepresentationNodeView,
+} from "../components/PremiumNodes";
 import type { LatticeFlowNode } from "./lattice-flow-types";
-export const LATTICE_NODE_TYPES={subject:InvestigationSubjectNode,"source-representation":SourceRepresentationNodeView,"engineering-item":PremiumEngineeringNode,evidence:PremiumEngineeringNode,change:PremiumEngineeringNode,requirement:PremiumEngineeringNode,"pending-source":SourceRepresentationNodeView,"unavailable-source":SourceRepresentationNodeView,cluster:PremiumEngineeringNode} satisfies NodeTypes;
-export const LATTICE_EDGE_TYPES={"lattice-edge":IntelligentRelationshipEdge} satisfies EdgeTypes;export const LATTICE_FIT_VIEW_OPTIONS:FitViewOptions<LatticeFlowNode>={padding:.16,minZoom:.2,maxZoom:1.8,duration:320,interpolate:"smooth"};export const LATTICE_DEFAULT_EDGE_OPTIONS:DefaultEdgeOptions={selectable:true,focusable:true,interactionWidth:22};export const LATTICE_SNAP_GRID:SnapGrid=[16,16];export const LATTICE_PAN_BUTTONS=[1,2] as const;export const LATTICE_PRO_OPTIONS={hideAttribution:true} as const;
+import { IntelligentRelationshipEdge } from "../components/IntelligentRelationshipEdge";
+export const LATTICE_NODE_TYPES = {
+  subject: InvestigationSubjectNode,
+  "source-representation": SourceRepresentationNodeView,
+  "engineering-item": PremiumEngineeringNode,
+  evidence: PremiumEngineeringNode,
+  change: PremiumEngineeringNode,
+  requirement: PremiumEngineeringNode,
+  "pending-source": SourceRepresentationNodeView,
+  "unavailable-source": SourceRepresentationNodeView,
+  cluster: PremiumEngineeringNode,
+} satisfies NodeTypes;
+export const LATTICE_EDGE_TYPES = {
+  "lattice-edge": IntelligentRelationshipEdge,
+} satisfies EdgeTypes;
+export const LATTICE_FIT_VIEW_OPTIONS: FitViewOptions<LatticeFlowNode> = {
+  padding: 0.16,
+  minZoom: 0.2,
+  maxZoom: 1.8,
+  duration: 320,
+  interpolate: "smooth",
+};
+export const LATTICE_DEFAULT_EDGE_OPTIONS: DefaultEdgeOptions = {
+  selectable: true,
+  focusable: true,
+  interactionWidth: 22,
+};
+export const LATTICE_SNAP_GRID: SnapGrid = [16, 16];
+export const LATTICE_PAN_BUTTONS = [1, 2] as const;
+export const LATTICE_PRO_OPTIONS = { hideAttribution: true } as const;
 
 
 ===== FILE: .\OrchestrationPlatform\frontend\features\lattice-next\canvas\LatticeFlowProvider.tsx =====
@@ -18471,14 +18701,13 @@ export function LatticeFlowProvider({ children }: PropsWithChildren) {
 
 ===== FILE: .\OrchestrationPlatform\frontend\features\lattice-next\canvas\lattice-flow-types.ts =====
 
-
 import type { Edge, Node, Viewport, XYPosition } from "@xyflow/react";
 import type { EntityKind, RelationshipKind } from "../domain/model";
 import type { CardinalDirection, LayoutPort, LayoutRoute } from "../layout/layout-contract";
 export type LatticeNodeCategory = "subject" | "source-representation" | "engineering-item" | "evidence" | "change" | "requirement" | "pending-source" | "unavailable-source" | "cluster";
 export type RelationshipFamily = "structure" | "requirement" | "change" | "evidence" | "correspondence" | "operational" | "configuration";
 export type ResolutionState = "idle" | "resolving" | "ready" | "partial" | "warning" | "failed";
-export type LatticeNodeDataBase = Record<string, unknown> & { category:LatticeNodeCategory; label:string; subtitle:string; source:string; level:number; selected:boolean; expanded:boolean; hasChildren:boolean; hiddenChildren:number; entityKind?:EntityKind; nativeIdentifier?:string; revision?:string; completeness:number; resolutionState:ResolutionState; matchConfidence?:number; childCount:number; lastCapturedAt?:string; participatingSystems:number; coverageSummary:string; relationshipFamilies:RelationshipFamily[]; orientation:"RIGHT"|"DOWN"; activeResolution:boolean; pinned:boolean; evidenceSummary?:string; entering?:boolean; revealIndex?:number; dimmed?:boolean; groupLabel?:string; layoutDirection?:CardinalDirection; radialHandles?:LayoutPort[]; };
+export type LatticeNodeDataBase = Record<string, unknown> & { category:LatticeNodeCategory; label:string; subtitle:string; source:string; level:number; selected:boolean; expanded:boolean; hasChildren:boolean; hiddenChildren:number; entityKind?:EntityKind; nativeIdentifier?:string; revision?:string; completeness:number; resolutionState:ResolutionState; matchConfidence?:number; childCount:number; lastCapturedAt?:string; participatingSystems:number; coverageSummary:string; relationshipFamilies:RelationshipFamily[]; orientation:"RIGHT"|"DOWN"; activeResolution:boolean; pinned:boolean; evidenceSummary?:string; entering?:boolean; revealIndex?:number; dimmed?:boolean; groupLabel?:string; attributes?:Record<string,string|number|boolean>; geometryRevision?:number; routeSettled?:boolean; layoutDirection?:CardinalDirection; radialHandles?:LayoutPort[]; };
 export type LatticeSubjectNode=Node<LatticeNodeDataBase & {category:"subject"},"subject">;
 export type SourceRepresentationNode=Node<LatticeNodeDataBase & {category:"source-representation"},"source-representation">;
 export type EngineeringItemNode=Node<LatticeNodeDataBase & {category:"engineering-item";entityKind:EntityKind},"engineering-item">;
@@ -18495,7 +18724,6 @@ export type LatticeEdgeAction="inspect-evidence"|"trace"|"hide-family"|"compare-
 export type LatticeEdgeDataBase=Record<string,unknown>&{category:LatticeEdgeCategory;relationshipKind:RelationshipKind;label?:string;fullLabel?:string;confidence?:number;direction:"forward"|"inferred"|"bidirectional"|"pending"|"blocked";importance:"primary"|"normal"|"low"|"background";animation:EdgeAnimationState;authoritative:boolean;layoutRoute?:LayoutRoute;branchId?:string;radialAngle?:number;};
 export type LatticeFlowEdge=Edge<LatticeEdgeDataBase,"lattice-edge">;
 export type LatticePinnedPositions=Readonly<Record<string,XYPosition>>; export type LatticeViewportState=Viewport;
-
 
 
 ===== FILE: .\OrchestrationPlatform\frontend\features\lattice-next\canvas\lattice-node-actions.ts =====
@@ -18566,11 +18794,12 @@ function Metric({label,value}:{label:string;value:string|number}){return <div cl
 
 ===== FILE: .\OrchestrationPlatform\frontend\features\lattice-next\components\IntelligenceInspector.tsx =====
 
+import { SapInspectorSections } from "./SapInspectorSections";
 import { RequirementInspectorSections } from "./RequirementInspectorSections";
 import type { EngineeringEntity,EngineeringRelationship,InvestigationGraph } from "../domain/model";
 import { sourceToken } from "../presentation/intelligence-tokens";
-export function IntelligenceInspector({graph,entity}:{graph:InvestigationGraph;entity:EngineeringEntity|null}){if(!entity)return <aside className="flex h-full items-center justify-center border-l border-slate-800 p-6 text-sm text-slate-500">Select intelligence to inspect.</aside>;const relationships=graph.relationships.filter(r=>r.from===entity.id||r.to===entity.id),evidenceIds=[...new Set([...(entity.evidenceIds??[]),...relationships.flatMap(r=>r.evidenceIds??[])])],evidence=evidenceIds.map(id=>graph.metadata?.evidence?.[id]).filter(Boolean),token=sourceToken(entity.source);return <aside className="h-full overflow-auto border-l border-slate-800 bg-slate-950/80 p-5 text-slate-200" aria-label={`${entity.name} intelligence inspector`}><header><p className="text-[10px] font-bold uppercase tracking-[.16em] text-slate-500">{entity.canonicalKind??entity.kind}</p><h2 className="mt-2 text-lg font-semibold">{entity.name}</h2><span className={`mt-2 inline-flex rounded-full border px-2 py-1 text-[10px] tone-${token.accent}`}>{token.label}</span></header><Section title="Summary"><p>{entity.sourceStatus?`Source status: ${entity.sourceStatus}`:"Canonical engineering intelligence"}</p></Section><Section title="Properties"><dl>{Object.entries(entity.attributes).map(([key,value])=><div key={key} className="flex justify-between gap-3 border-b border-slate-800 py-2"><dt className="text-slate-500">{key}</dt><dd className="text-right">{String(value)}</dd></div>)}</dl></Section><Section title="Relationships"><p>{relationships.length} connected relationship{relationships.length===1?"":"s"}</p></Section>{evidence.length?<Section title="Evidence">{evidence.map(item=><p key={item!.id}>{item!.summary}</p>)}</Section>:null}{["requirement","requirement-revision","document"].includes(entity.canonicalKind??entity.kind)?<RequirementInspectorSections graph={graph} entity={entity}/>:null}<Section title="Provenance"><p>{entity.provenance.sourceLabel}</p>{entity.provenance.nativeId?<p>{entity.provenance.nativeId}</p>:null}</Section>{entity.temporal?<Section title="Temporal context"><p>{entity.temporal.freshness??"unknown freshness"}</p><p>{entity.temporal.capturedAt??entity.temporal.assembledAt}</p></Section>:null}</aside>}
-function Section({title,children}:{title:string;children:React.ReactNode}){return <section className="mt-6 text-xs leading-5"><h3 className="text-[10px] font-bold uppercase tracking-[.14em] text-slate-500">{title}</h3><div className="mt-2 space-y-2 text-slate-300">{children}</div></section>}
+export function IntelligenceInspector({graph,entity}:{graph:InvestigationGraph;entity:EngineeringEntity|null}){if(!entity)return <aside className="flex h-full items-center justify-center border-l border-slate-800 p-6 text-sm text-slate-500">Select intelligence to inspect.</aside>;const relationships=graph.relationships.filter(r=>r.from===entity.id||r.to===entity.id),evidenceIds=[...new Set([...(entity.evidenceIds??[]),...relationships.flatMap(r=>r.evidenceIds??[])])],evidence=evidenceIds.map(id=>graph.metadata?.evidence?.[id]).filter(Boolean),token=sourceToken(entity.source);return <LayoutGroup id="lattice-inspector"><AnimatePresence mode="wait"><motion.aside key={entity.id} initial={{opacity:0,x:8}} animate={{opacity:1,x:0}} exit={{opacity:0,x:8}} transition={{duration:.16}} layout="position" className="h-full overflow-auto border-l border-slate-800 bg-slate-950/80 p-5 text-slate-200" aria-label={`${entity.name} intelligence inspector`}><header className="relative"><motion.span layoutId="lattice-selected-accent" className="lattice-inspector-accent"/><p className="text-[10px] font-bold uppercase tracking-[.16em] text-slate-500">{entity.canonicalKind??entity.kind}</p><h2 className="mt-2 text-lg font-semibold">{entity.name}</h2><span className={`mt-2 inline-flex rounded-full border px-2 py-1 text-[10px] tone-${token.accent}`}>{token.label}</span></header><Section title="Summary"><p>{entity.sourceStatus?`Source status: ${entity.sourceStatus}`:"Canonical engineering intelligence"}</p></Section><Section title="Properties"><dl>{Object.entries(entity.attributes).map(([key,value])=><div key={key} className="flex justify-between gap-3 border-b border-slate-800 py-2"><dt className="text-slate-500">{key}</dt><dd className="text-right">{String(value)}</dd></div>)}</dl></Section><Section title="Relationships"><p>{relationships.length} connected relationship{relationships.length===1?"":"s"}</p></Section>{evidence.length?<Section title="Evidence">{evidence.map(item=><p key={item!.id}>{item!.summary}</p>)}</Section>:null}{["requirement","requirement-revision","document"].includes(entity.canonicalKind??entity.kind)?<RequirementInspectorSections graph={graph} entity={entity}/>:null}{entity.source==="sap"?<SapInspectorSections graph={graph} entity={entity}/>:null}<Section title="Provenance"><p>{entity.provenance.sourceLabel}</p>{entity.provenance.nativeId?<p>{entity.provenance.nativeId}</p>:null}</Section>{entity.temporal?<Section title="Temporal context"><p>{entity.temporal.freshness??"unknown freshness"}</p><p>{entity.temporal.capturedAt??entity.temporal.assembledAt}</p></Section>:null}</motion.aside></AnimatePresence></LayoutGroup>}
+function Section({title,children}:{title:string;children:React.ReactNode}){return <motion.section layout="position" initial={{opacity:0,y:3}} animate={{opacity:1,y:0}} className="mt-6 text-xs leading-5"><h3 className="text-[10px] font-bold uppercase tracking-[.14em] text-slate-500">{title}</h3><div className="mt-2 space-y-2 text-slate-300">{children}</div></motion.section>}
 
 
 ===== FILE: .\OrchestrationPlatform\frontend\features\lattice-next\components\IntelligenceLegend.tsx =====
@@ -18583,265 +18812,58 @@ export function IntelligenceLegend(){return <div className="lattice-intelligence
 ===== FILE: .\OrchestrationPlatform\frontend\features\lattice-next\components\IntelligentRelationshipEdge.tsx =====
 
 "use client";
-
-import { memo } from "react";
-import {
-  BaseEdge,
-  EdgeLabelRenderer,
-  EdgeToolbar,
-  getBezierPath,
-  getSmoothStepPath,
-  getStraightPath,
-  useStore,
-  type EdgeProps,
-  type Position,
-} from "@xyflow/react";
-import {
-  IconArrowsExchange,
-  IconEye,
-  IconFilterOff,
-  IconListDetails,
-  IconRoute,
-} from "@tabler/icons-react";
-import type {
-  LatticeEdgeCategory,
-  LatticeFlowEdge,
-} from "../canvas/lattice-flow-types";
-
-const palette: Record<LatticeEdgeCategory, string> = {
-  structure: "#94a3b8",
-  correspondence: "#38bdf8",
-  requirement: "#22d3ee",
-  "change-impact": "#f59e0b",
-  "operational-impact": "#34d399",
-  configuration: "#e879f9",
-  evidence: "#94a3b8",
-  pending: "#64748b",
-  unavailable: "#fb7185",
-};
-
-type RouteArguments = {
-  sourceX: number;
-  sourceY: number;
-  targetX: number;
-  targetY: number;
-  sourcePosition: Position;
-  targetPosition: Position;
-};
-
-function route(args: RouteArguments, category: LatticeEdgeCategory) {
-  if (category === "structure" || category === "configuration") {
-    return getSmoothStepPath({
-      ...args,
-      borderRadius: category === "configuration" ? 4 : 12,
-      offset: 24,
-    });
-  }
-
-  if (
-    category === "evidence" &&
-    Math.hypot(args.targetX - args.sourceX, args.targetY - args.sourceY) < 220
-  ) {
-    return getStraightPath(args);
-  }
-
-  if (category === "change-impact" || category === "operational-impact") {
-    const middleX = (args.sourceX + args.targetX) / 2;
-    const middleY = (args.sourceY + args.targetY) / 2;
-    return [
-      `M ${args.sourceX} ${args.sourceY} Q ${middleX} ${middleY - 34} ${args.targetX} ${args.targetY}`,
-      middleX,
-      middleY - 17,
-    ] as const;
-  }
-
-  return getBezierPath({
-    ...args,
-    curvature: category === "correspondence" ? 0.34 : 0.22,
-  });
-}
-
-function IntelligentRelationshipEdge({
-  id,
-  sourceX,
-  sourceY,
-  targetX,
-  targetY,
-  sourcePosition,
-  targetPosition,
-  selected,
-  data,
-}: EdgeProps<LatticeFlowEdge>) {
-  const zoom = useStore((state) => state.transform[2]);
-  const edgeData = data ?? {
-    category: "evidence" as const,
-    relationshipKind: "represented-by" as const,
-    direction: "forward" as const,
-    importance: "normal" as const,
-    animation: "settled" as const,
-    authoritative: true,
-  };
-  const routed = edgeData.layoutRoute;
-  const routePoints = routed ? [routed.start, ...routed.bends, routed.end] : [];
-  const routedPath = routePoints.length > 1
-    ? `M ${routePoints.map((point) => `${point.x} ${point.y}`).join(" L ")}`
-    : null;
-  const routedLabelPoint = routed?.label ?? (routePoints.length
-    ? routePoints[Math.floor(routePoints.length / 2)]
-    : null);
-  const fallback = route(
-    { sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition },
-    edgeData.category,
-  );
-  const [path, labelX, labelY] = routedPath && routedLabelPoint
-    ? [routedPath, routedLabelPoint.x, routedLabelPoint.y] as const
-    : fallback;
-
-  const color = palette[edgeData.category];
-  const width = selected
-    ? 1.75
-    : edgeData.importance === "primary"
-      ? 1.45
-      : edgeData.importance === "low"
-        ? 1.05
-        : 1.3;
-  const dash =
-    edgeData.category === "evidence"
-      ? "2 5"
-      : edgeData.category === "pending"
-        ? "8 8"
-        : edgeData.category === "unavailable"
-          ? "7 5"
-          : undefined;
-  const markerId = `lattice-marker-${id.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
-  const markerUrl = `url(#${markerId})`;
-  const showLabel = selected || (edgeData.importance === "primary" ? zoom >= 0.42 : edgeData.importance === "low" || edgeData.importance === "background" ? zoom >= 0.82 : zoom >= 0.58);
-
-  return (
-    <>
-      <defs>
-        <marker
-          id={markerId}
-          markerWidth="8"
-          markerHeight="8"
-          refX="7.2"
-          refY="4"
-          orient="auto-start-reverse"
-          markerUnits="userSpaceOnUse"
-        >
-          <path
-            d={edgeData.direction === "inferred" ? "M 1 1 L 7 4 L 1 7" : "M 1 1 L 7 4 L 1 7 Z"}
-            fill={edgeData.direction === "inferred" ? "none" : color}
-            stroke={color}
-            strokeWidth="1"
-          />
-        </marker>
-      </defs>
-      <BaseEdge
-        id={id}
-        path={path}
-        markerStart={
-          edgeData.direction === "bidirectional" ? markerUrl : undefined
-        }
-        markerEnd={markerUrl}
-        interactionWidth={18}
-        style={{
-          stroke: color,
-          strokeWidth: width,
-          strokeDasharray: dash,
-          opacity:
-            edgeData.importance === "background"
-              ? 0.3
-              : edgeData.importance === "low"
-                ? 0.55
-                : 1,
-        }}
-        className={`lattice-intelligent-edge edge-${edgeData.category} animation-${edgeData.animation}`}
-      />
-      {showLabel ? (
-        <EdgeLabelRenderer>
-          <button
-            type="button"
-            data-edge-action="open-details"
-            data-edge-id={id}
-            className={`lattice-edge-label nodrag nopan ${selected ? "is-selected" : ""}`}
-            style={{
-              transform: `translate(-50%,-50%) translate(${labelX}px,${labelY}px)`,
-              pointerEvents: "all",
-            }}
-          >
-            {selected ? edgeData.fullLabel : edgeData.label}
-          </button>
-        </EdgeLabelRenderer>
-      ) : null}
-      <EdgeToolbar edgeId={id} x={labelX} y={labelY} isVisible={selected}>
-        <div className="lattice-edge-toolbar nodrag nopan nowheel">
-          <button data-edge-action="inspect-evidence" data-edge-id={id} title="Inspect evidence"><IconEye /></button>
-          <button data-edge-action="trace" data-edge-id={id} title="Trace from here"><IconRoute /></button>
-          <button data-edge-action="hide-family" data-edge-id={id} title="Hide relationship type"><IconFilterOff /></button>
-          <button data-edge-action="compare-endpoints" data-edge-id={id} title="Compare endpoints"><IconArrowsExchange /></button>
-          <button data-edge-action="open-details" data-edge-id={id} title="Open relationship details"><IconListDetails /></button>
-        </div>
-      </EdgeToolbar>
-    </>
-  );
-}
-
-export default memo(IntelligentRelationshipEdge);
+import { memo, useEffect, useState } from "react";
+import { EdgeLabelRenderer,getBezierPath,getSmoothStepPath,getStraightPath,useStore,type EdgeProps,type Position } from "@xyflow/react";
+import { AnimatePresence,motion,useReducedMotion } from "motion/react";
+import type { LatticeEdgeCategory,LatticeFlowEdge } from "../canvas/lattice-flow-types";
+import { latticeMotion } from "../motion/lattice-motion";
+const palette:Record<LatticeEdgeCategory,string>={structure:"#94a3b8",correspondence:"#38bdf8",requirement:"#22d3ee","change-impact":"#f59e0b","operational-impact":"#34d399",configuration:"#e879f9",evidence:"#94a3b8",pending:"#64748b",unavailable:"#fb7185"};
+type RouteArguments={sourceX:number;sourceY:number;targetX:number;targetY:number;sourcePosition:Position;targetPosition:Position};
+function route(args:RouteArguments,category:LatticeEdgeCategory){if(category==="structure"||category==="configuration")return getSmoothStepPath({...args,borderRadius:10,offset:28});if(category==="evidence"&&Math.hypot(args.targetX-args.sourceX,args.targetY-args.sourceY)<220)return getStraightPath(args);if(category==="change-impact"||category==="operational-impact"){const x=(args.sourceX+args.targetX)/2,y=(args.sourceY+args.targetY)/2;return[`M ${args.sourceX} ${args.sourceY} Q ${x} ${y-30} ${args.targetX} ${args.targetY}`,x,y-15] as const}return getBezierPath({...args,curvature:category==="correspondence"?0.34:0.22})}
+function EdgeView({id,sourceX,sourceY,targetX,targetY,sourcePosition,targetPosition,selected,data}:EdgeProps<LatticeFlowEdge>){const zoom=useStore(state=>state.transform[2]);const reduced=useReducedMotion();const[moving,setMoving]=useState(false);useEffect(()=>{const handler=(event:Event)=>setMoving(Boolean((event as CustomEvent).detail?.active));window.addEventListener("lattice:geometry-motion",handler);return()=>window.removeEventListener("lattice:geometry-motion",handler)},[]);const edgeData=data??{category:"evidence",relationshipKind:"represented-by",direction:"forward",importance:"normal",animation:"settled",authoritative:true};const points=edgeData.layoutRoute?[edgeData.layoutRoute.start,...edgeData.layoutRoute.bends,edgeData.layoutRoute.end]:[];const routedPath=points.length>1?`M ${points.map(point=>`${point.x} ${point.y}`).join(" L ")}`:null;const labelPoint=edgeData.layoutRoute?.label??points[Math.floor(points.length/2)];const fallback=route({sourceX,sourceY,targetX,targetY,sourcePosition,targetPosition},edgeData.category);const[path,labelX,labelY]=routedPath&&labelPoint?[routedPath,labelPoint.x,labelPoint.y] as const:fallback;const color=palette[edgeData.category];const markerId=`lattice-marker-${id.replace(/[^a-zA-Z0-9_-]/g,"-")}`;const label=String(edgeData.fullLabel??edgeData.label??"").trim();const showLabel=Boolean(label)&&!moving&&(selected||zoom>=(edgeData.importance==="primary"?0.42:0.58));return <><defs><marker id={markerId} markerWidth="8" markerHeight="8" refX="7.2" refY="4" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><motion.path d={edgeData.direction==="inferred"?"M 1 1 L 7 4 L 1 7":"M 1 1 L 7 4 L 1 7 Z"} fill={edgeData.direction==="inferred"?"none":color} stroke={color} strokeWidth="1" initial={{opacity:reduced?1:0}} animate={{opacity:1}} transition={{delay:reduced?0:0.2,duration:0.08}}/></marker></defs><motion.path d={path} fill="none" stroke={color} strokeWidth={selected?1.8:edgeData.importance==="primary"?1.5:1.25} strokeDasharray={edgeData.category==="evidence"?"2 5":edgeData.category==="pending"?"8 8":undefined} markerStart={edgeData.direction==="bidirectional"?`url(#${markerId})`:undefined} markerEnd={`url(#${markerId})`} className={`react-flow__edge-path lattice-intelligent-edge edge-${edgeData.category}`} initial={reduced?{opacity:1,pathLength:1}:{opacity:0.35,pathLength:0}} animate={{opacity:edgeData.importance==="low"?0.56:1,pathLength:1}} transition={reduced?{duration:0}:latticeMotion.edge}/><AnimatePresence>{showLabel?<EdgeLabelRenderer><motion.button initial={{opacity:0,scale:0.98,y:2}} animate={{opacity:1,scale:1,y:0}} exit={{opacity:0,scale:0.98,y:2}} transition={latticeMotion.label} type="button" data-edge-action="open-details" data-edge-id={id} className={`lattice-edge-label nodrag nopan ${selected?"is-selected":""}`} style={{transform:`translate(-50%,-50%) translate(${labelX}px,${labelY}px)`}}>{label}</motion.button></EdgeLabelRenderer>:null}</AnimatePresence></>}
+export const IntelligentRelationshipEdge=memo(EdgeView);
 
 
 ===== FILE: .\OrchestrationPlatform\frontend\features\lattice-next\components\InvestigationToolbar.tsx =====
 
 "use client";
-import { IconLayoutDistributeHorizontal,IconPinnedOff } from "@tabler/icons-react";
-import type { RelationshipKind } from "../domain/model";
-const kinds:RelationshipKind[]=["contains","represented-by","corresponds-to","comparison","requirement","business-impact"];
-export function InvestigationToolbar({sources,activeSources,onSource,activeKinds,onKind,focused,onClearFocus,pinnedCount,onResetLayout,onResetSelected,canResetSelected}:{sources:string[];activeSources:ReadonlySet<string>;onSource:(v:string)=>void;activeKinds:ReadonlySet<RelationshipKind>;onKind:(v:RelationshipKind)=>void;focused:boolean;onClearFocus:()=>void;pinnedCount:number;onResetLayout:()=>void;onResetSelected:()=>void;canResetSelected:boolean}){return <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-slate-800 bg-slate-950/75 p-2 text-xs"><span className="px-1 text-slate-500">Sources</span>{sources.map(source=><button key={source} aria-pressed={activeSources.has(source)} onClick={()=>onSource(source)} className={`rounded-md border px-2 py-1.5 ${activeSources.has(source)?"border-cyan-500/40 bg-cyan-500/10 text-cyan-200":"border-slate-800 text-slate-500"}`}>{source}</button>)}<span className="ml-2 px-1 text-slate-500">Relationships</span>{kinds.map(kind=><button key={kind} aria-pressed={activeKinds.has(kind)} onClick={()=>onKind(kind)} className={`rounded-md border px-2 py-1.5 capitalize ${activeKinds.has(kind)?"border-slate-600 bg-slate-800 text-slate-200":"border-slate-800 text-slate-600"}`}>{kind.replaceAll("-"," ")}</button>)}<div className="ml-auto flex gap-2">{canResetSelected?<button onClick={onResetSelected} className="inline-flex items-center gap-1 rounded-md border border-slate-700 px-2 py-1.5 text-slate-300"><IconPinnedOff className="h-3.5 w-3.5"/>Reset node</button>:null}<button onClick={onResetLayout} disabled={!pinnedCount} className="inline-flex items-center gap-1 rounded-md border border-slate-700 px-2 py-1.5 text-slate-300 disabled:opacity-40"><IconLayoutDistributeHorizontal className="h-3.5 w-3.5"/>Reset layout{pinnedCount?` (${pinnedCount})`:""}</button>{focused?<button onClick={onClearFocus} className="rounded-md border border-cyan-500/40 px-2 py-1.5 text-cyan-200">Return to full context</button>:null}</div></div>}
-
-
+import{AnimatePresence,LayoutGroup,motion}from"motion/react";import{IconAdjustmentsHorizontal,IconFocus2,IconLayoutDistributeHorizontal,IconPinnedOff,IconSearch,IconZoomReset}from"@tabler/icons-react";import type{RelationshipKind}from"../domain/model";
+const meaningful=(source:string)=>!["platform","unified"].includes(source.toLowerCase());
+export function InvestigationToolbar({sources,activeSources,onSource,activeKinds,onKind,focused,onClearFocus,pinnedCount,onResetLayout,onResetSelected,canResetSelected}:{sources:string[];activeSources:ReadonlySet<string>;onSource:(v:string)=>void;activeKinds:ReadonlySet<RelationshipKind>;onKind:(v:RelationshipKind)=>void;focused:boolean;onClearFocus:()=>void;pinnedCount:number;onResetLayout:()=>void;onResetSelected:()=>void;canResetSelected:boolean}){const visible=sources.filter(meaningful);const focus=()=>{if(focused){onClearFocus();return}document.querySelector<HTMLButtonElement>('[data-node-action="focus"]')?.click()};const fit=()=>window.dispatchEvent(new CustomEvent("lattice:fit-view"));const collapse=()=>window.dispatchEvent(new CustomEvent("lattice:collapse-all"));return <LayoutGroup id="lattice-toolbar"><motion.div layout="position" initial={{opacity:0,y:-4}} animate={{opacity:1,y:0}} className="lattice-command-bar mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-slate-800 bg-slate-950/85 p-2 text-xs"><div className="inline-flex items-center gap-1.5 px-1 text-slate-400"><IconSearch className="h-3.5 w-3.5"/><span>Investigate</span></div>{visible.map(source=><motion.button whileHover={{y:-1}} whileTap={{scale:.97}} whileFocus={{outline:"2px solid #94a3b8"}} key={source} aria-pressed={activeSources.has(source)} onClick={()=>onSource(source)} className={`lattice-command-chip ${activeSources.has(source)?"is-active":""}`}>{activeSources.has(source)?<motion.span layoutId="lattice-toolbar-active" className="lattice-toolbar-active"/>:null}<span>{source}</span></motion.button>)}<span className="mx-1 h-5 w-px bg-slate-800"/><motion.button whileHover={{y:-1}} whileTap={{scale:.97}} whileFocus={{outline:"2px solid #94a3b8"}} onClick={focus} className={`lattice-command-control ${focused?"is-active":""}`}><IconFocus2 className="h-3.5 w-3.5"/>{focused?"Exit focus":"Focus mode"}</motion.button><motion.button whileHover={{y:-1}} whileTap={{scale:.97}} whileFocus={{outline:"2px solid #94a3b8"}} onClick={collapse} className="lattice-command-control"><IconAdjustmentsHorizontal className="h-3.5 w-3.5"/>Collapse all</motion.button><motion.button whileHover={{y:-1}} whileTap={{scale:.97}} whileFocus={{outline:"2px solid #94a3b8"}} onClick={fit} className="lattice-command-control"><IconZoomReset className="h-3.5 w-3.5"/>Fit graph</motion.button><div className="ml-auto flex gap-2">{canResetSelected?<motion.button whileHover={{y:-1}} whileTap={{scale:.97}} whileFocus={{outline:"2px solid #94a3b8"}} onClick={onResetSelected} className="lattice-command-control"><IconPinnedOff className="h-3.5 w-3.5"/>Reset node</motion.button>:null}<motion.button whileHover={{y:-1}} whileTap={{scale:.97}} whileFocus={{outline:"2px solid #94a3b8"}} onClick={onResetLayout} disabled={!pinnedCount} className="lattice-command-control disabled:opacity-35"><IconLayoutDistributeHorizontal className="h-3.5 w-3.5"/>Reset layout{pinnedCount?` (${pinnedCount})`:""}</motion.button></div><details className="relative"><summary className="lattice-command-control cursor-pointer list-none"><IconAdjustmentsHorizontal className="h-3.5 w-3.5"/>Relationships</summary><div className="absolute right-0 top-9 z-40 grid min-w-48 gap-1 rounded-lg border border-slate-700 bg-slate-950 p-2 shadow-2xl">{[...activeKinds].map(kind=><motion.button whileHover={{y:-1}} whileTap={{scale:.97}} whileFocus={{outline:"2px solid #94a3b8"}} key={kind} onClick={()=>onKind(kind)} className="rounded-md px-2 py-1.5 text-left capitalize text-slate-300 hover:bg-slate-800">{kind.replaceAll("-"," ")}</motion.button>)}</div></details></motion.div></LayoutGroup>}
 
 
 ===== FILE: .\OrchestrationPlatform\frontend\features\lattice-next\components\PremiumNodes.tsx =====
 
 "use client";
 import { memo, useEffect, type ComponentType, type ReactNode } from "react";
-import { Handle, NodeResizeControl, NodeToolbar, Position, useStore, useUpdateNodeInternals, type NodeProps } from "@xyflow/react";
-import { IconArrowsSplit, IconBox, IconChevronRight, IconFocus2, IconHierarchy3, IconInfoCircle, IconPinned, IconPinnedOff, IconRoute, IconStack2, IconX } from "@tabler/icons-react";
+import { Handle, NodeToolbar, Position, useStore, useUpdateNodeInternals, type NodeProps } from "@xyflow/react";
+import { LayoutGroup, motion, useMotionValue, useReducedMotion, useTransform } from "motion/react";
+import { IconAlertTriangle, IconAtom, IconBox, IconChevronRight, IconClipboardCheck, IconFlask, IconFocus2, IconGitCompare, IconHierarchy3, IconInfoCircle, IconPinnedOff, IconRulerMeasure, IconScale, IconVersions, IconX } from "@tabler/icons-react";
 import type { LatticeFlowNode, RelationshipFamily } from "../canvas/lattice-flow-types";
 import type { LatticeNodeAction } from "../canvas/lattice-node-actions";
-const tones:Record<string,string>={teamcenter:"cyan",windchill:"violet",sap:"emerald",configit:"fuchsia",unified:"slate"};
+import { directionVector, nodeVariants, valueVariants } from "../motion/lattice-motion";
+const tones: Record<string,string> = { teamcenter:"cyan", windchill:"violet", sap:"emerald", configit:"fuchsia", unified:"slate" };
 export type NodeZoomTier="far"|"working"|"close";
-export const nodeZoomTier=(zoom:number):NodeZoomTier=>zoom<.58?"far":zoom<1.08?"working":"close";
+export const nodeZoomTier=(zoom:number):NodeZoomTier=>zoom<0.58?"far":zoom<1.08?"working":"close";
 const actions:{action:LatticeNodeAction;label:string;icon:ComponentType<{className?:string}>}[]=[{action:"focus",label:"Focus branch",icon:IconFocus2},{action:"expand-one",label:"Expand one level",icon:IconChevronRight},{action:"collapse-descendants",label:"Collapse branch",icon:IconX},{action:"open-details",label:"Open details",icon:IconInfoCircle},{action:"reset-position",label:"Reset position",icon:IconPinnedOff}];
-function Toolbar({id,data}:{id:string;data:LatticeFlowNode["data"]}){const relevant=actions.filter(item=>data.hasChildren||!["expand-one","expand-branch","collapse-descendants"].includes(item.action));return <NodeToolbar isVisible={data.selected} position={Position.Top} offset={12}><div className="lattice-node-toolbar nodrag nopan nowheel" role="toolbar" aria-label={`Actions for ${data.label}`}>{relevant.map(({action,label,icon:Icon})=><button key={action} type="button" data-node-action={action} data-node-id={id} title={label} aria-label={label} className="nodrag nopan nowheel"><Icon className="h-3.5 w-3.5"/></button>)}</div></NodeToolbar>}
+function Toolbar({id,data}:{id:string;data:LatticeFlowNode["data"]}){return <NodeToolbar isVisible={data.selected} position={Position.Top} offset={10}><motion.div initial={{opacity:0,y:4}} animate={{opacity:1,y:0}} exit={{opacity:0,y:4}} className="lattice-node-toolbar nodrag nopan nowheel" role="toolbar" aria-label={`Actions for ${data.label}`}>{actions.filter(item=>data.hasChildren||!["expand-one","collapse-descendants"].includes(item.action)).map(({action,label,icon:Icon})=><motion.button whileHover={{y:-1}} whileTap={{scale:0.96}} whileFocus={{outline:"2px solid #94a3b8"}} key={action} type="button" data-node-action={action} data-node-id={id} title={label} aria-label={label}><Icon className="h-3.5 w-3.5"/></motion.button>)}</motion.div></NodeToolbar>}
 const handlePosition={NORTH:Position.Top,EAST:Position.Right,SOUTH:Position.Bottom,WEST:Position.Left} as const;
-function DynamicHandles({id,data}:{id:string;data:LatticeFlowNode["data"]}){
-  const update=useUpdateNodeInternals();
-  const families=data.relationshipFamilies.length?data.relationshipFamilies:["structure" as RelationshipFamily];
-  const radial=data.radialHandles??[];
-  const radialKey=radial.map(handle=>`${handle.id}:${handle.side}:${handle.offsetPercent??50}`).sort().join("|");
-  const familyKey=families.join("|");
-  const direction=data.layoutDirection??data.orientation;
-  useEffect(()=>{update(id)},[id,update,direction,familyKey,radialKey]);
-  const input=direction==="RIGHT"?Position.Left:direction==="LEFT"?Position.Right:direction==="DOWN"?Position.Top:Position.Bottom;
-  const output=direction==="RIGHT"?Position.Right:direction==="LEFT"?Position.Left:direction==="DOWN"?Position.Bottom:Position.Top;
-  const horizontal=direction==="RIGHT"||direction==="LEFT";
-  return <>
-    {families.map((family,index)=>{const offset=`${((index+1)/(families.length+1))*100}%`;return <span key={family}><Handle id={`in:${family}`} type="target" position={input} style={horizontal?{top:offset}:{left:offset}} className={`lattice-handle family-${family}`}/><Handle id={`out:${family}`} type="source" position={output} style={horizontal?{top:offset}:{left:offset}} className={`lattice-handle family-${family}`}/></span>})}
-    {radial.map(handle=>{const position=handlePosition[handle.side];const offset=`${handle.offsetPercent??50}%`;const style=position===Position.Top||position===Position.Bottom?{left:offset}:{top:offset};const type=handle.id.startsWith("radial-source:")?"source":"target";return <Handle key={handle.id} id={handle.id} type={type} position={position} style={style} className="lattice-handle lattice-radial-handle"/>})}
-  </>;
-}
-function Ring({value}:{value:number}){const safe=Math.max(0,Math.min(100,Math.round(value)));return <span className="lattice-completeness" style={{background:`conic-gradient(#22d3ee ${safe*3.6}deg,#1e293b 0)`}} aria-label={`${safe}% complete`}><span>{safe}</span></span>}
-function Chrome({id,data,children,resizable=false}:{id:string;data:LatticeFlowNode["data"];children:ReactNode;resizable?:boolean}){return <>{resizable?<NodeResizeControl minWidth={272} minHeight={100} maxWidth={560} maxHeight={420} position="bottom-right" className="lattice-resize nodrag nopan"/>:null}<Toolbar id={id} data={data}/><DynamicHandles id={id} data={data}/>{children}</>}
-function Subject({id,data}:NodeProps<LatticeFlowNode>){const tier=useStore(state=>nodeZoomTier(state.transform[2]));return <article className={`lattice-premium-node lattice-subject-node tone-slate ${data.selected?"is-selected":""} ${data.activeResolution?"is-resolving":""} ${data.dimmed?"is-dimmed":""}`} data-zoom-tier={tier} data-dimmed={data.dimmed} aria-label={`Investigation subject ${data.label}, ${data.resolutionState}`}><Chrome id={id} data={data}><div className="subject-mark"><IconHierarchy3/></div><div className="node-copy"><p className="node-eyebrow">Investigation subject</p><h3>{data.label}</h3><p className="node-identifier">{data.nativeIdentifier||data.subtitle}</p>{tier!=="far"?<div className="node-metrics"><span>{data.coverageSummary}</span><span>{data.participatingSystems} systems</span><span>{data.resolutionState}</span></div>:null}{tier==="close"?<p className="node-evidence">{data.evidenceSummary}</p>:null}</div><Ring value={data.completeness}/>{data.hasChildren?<button type="button" data-expand-node={id} className="lattice-disclosure nodrag nopan" aria-label={data.expanded?"Collapse branch":`Expand ${data.hiddenChildren} hidden descendants`}>{data.expanded?"Expanded":`+ ${data.hiddenChildren}`}</button>:null}</Chrome></article>}
-function Source({id,data}:NodeProps<LatticeFlowNode>){const tier=useStore(state=>nodeZoomTier(state.transform[2]));const tone=data.resolutionState==="failed"?"rose":data.resolutionState==="warning"||data.resolutionState==="partial"?"amber":tones[data.source]??"slate";return <article className={`lattice-premium-node lattice-source-node tone-${tone} ${data.selected?"is-selected":""} ${data.dimmed?"is-dimmed":""}`} data-zoom-tier={tier} data-dimmed={data.dimmed} aria-label={`${data.source} representation ${data.label}`}><Chrome id={id} data={data}><div className="source-rail"/><div className="source-icon"><IconStack2/></div><div className="node-copy"><div className="node-heading"><span>{data.source}</span>{tier!=="far"&&data.resolutionState!=="ready"?<span>{data.resolutionState}</span>:null}</div><h3 title={data.label}>{data.label}</h3>{tier!=="far"?<p className="node-identifier">{data.nativeIdentifier||"Identifier unavailable"}{data.revision?` · Rev ${data.revision}`:""}</p>:null}{tier==="close"&&data.hasChildren?<p className="node-related">{data.childCount} direct {data.childCount===1?"child":"children"}</p>:null}</div>{data.hasChildren?<button type="button" data-expand-node={id} className="lattice-disclosure nodrag nopan nowheel" aria-expanded={data.expanded} aria-label={data.expanded?"Collapse branch":`Expand ${data.hiddenChildren} direct children`}>{data.expanded?"Collapse":`Expand ${data.hiddenChildren}`}</button>:null}</Chrome></article>}
-function Entity({id,data}:NodeProps<LatticeFlowNode>){const tier=useStore(state=>nodeZoomTier(state.transform[2]));const Icon=data.entityKind==="assembly"?IconStack2:IconBox;return <article className={`lattice-premium-node lattice-entity-node tone-${tones[data.source]??"slate"} ${data.selected?"is-selected":""} ${data.dimmed?"is-dimmed":""}`} data-zoom-tier={tier} data-dimmed={data.dimmed} aria-label={`${data.entityKind??data.category} ${data.label}`}><Chrome id={id} data={data}><div className="source-icon"><Icon/></div><div className="node-copy"><div className="node-heading"><span>{data.source}</span>{tier!=="far"?<span>{data.entityKind??data.category}</span>:null}</div><h3 title={data.label}>{data.label}</h3>{tier!=="far"?<p className="node-identifier">{data.nativeIdentifier||data.subtitle}</p>:null}{tier==="close"&&data.hasChildren?<p className="node-related">{data.childCount} direct {data.childCount===1?"child":"children"}</p>:null}</div>{data.hasChildren?<button type="button" data-expand-node={id} className="lattice-disclosure nodrag nopan nowheel" aria-expanded={data.expanded} aria-label={data.expanded?"Collapse branch":`Expand ${data.hiddenChildren} direct children`}>{data.expanded?"Collapse":`Expand ${data.hiddenChildren}`}</button>:null}</Chrome></article>}
-export const InvestigationSubjectNode=memo(Subject);export const SourceRepresentationNodeView=memo(Source);export const PremiumEngineeringNode=memo(Entity);
+function Handles({data}:{data:LatticeFlowNode["data"]}){const families=(data.relationshipFamilies?.length?data.relationshipFamilies:["structure"]) as RelationshipFamily[];return <>{data.radialHandles?.length?data.radialHandles.map(port=><Handle key={port.id} id={port.id} type={port.role} position={handlePosition[port.side]} className={`lattice-handle family-${port.family}`}/>):families.flatMap(family=>[<Handle key={`in:${family}`} id={`in:${family}`} type="target" position={Position.Left} className={`lattice-handle family-${family}`}/>,<Handle key={`out:${family}`} id={`out:${family}`} type="source" position={Position.Right} className={`lattice-handle family-${family}`}/>])}</>}
+function Chrome({id,data,children}:{id:string;data:LatticeFlowNode["data"];children:ReactNode}){const update=useUpdateNodeInternals();useEffect(()=>{let second=0;const first=requestAnimationFrame(()=>{update(id);second=requestAnimationFrame(()=>update(id))});return()=>{cancelAnimationFrame(first);if(second)cancelAnimationFrame(second)}},[id,data.geometryRevision,data.expanded,update]);return <><Toolbar id={id} data={data}/><Handles data={data}/>{children}</>}
+const icons:Record<string,ComponentType<{className?:string}>>={material:IconAtom,chemical:IconFlask,weight:IconScale,dimension:IconRulerMeasure,version:IconVersions,state:IconInfoCircle,view:IconHierarchy3,source:IconBox};
+function Shell({id,data,children,className=""}:{id:string;data:LatticeFlowNode["data"];children:ReactNode;className?:string}){const reduced=useReducedMotion();const direction=directionVector(data.layoutDirection);return <motion.article custom={direction} variants={nodeVariants} initial={reduced?{opacity:0}:{opacity:0,scale:0.98,x:direction.x*8,y:direction.y*8}} animate="visible" exit="exit" layout="position" layoutDependency={data.geometryRevision} onAnimationStart={()=>window.dispatchEvent(new CustomEvent("lattice:geometry-motion",{detail:{active:true,id}}))} onAnimationComplete={()=>window.dispatchEvent(new CustomEvent("lattice:geometry-motion",{detail:{active:false,id}}))} onLayoutAnimationStart={()=>window.dispatchEvent(new CustomEvent("lattice:geometry-motion",{detail:{active:true,id}}))} onLayoutAnimationComplete={()=>window.dispatchEvent(new CustomEvent("lattice:geometry-motion",{detail:{active:false,id}}))} whileHover={reduced?undefined:{y:-1,scale:1.006} as never} className={`lattice-premium-node ${className} ${data.selected?"is-selected":""} ${data.dimmed?"is-dimmed":""}`} style={{"--accent-strength":data.selected?1:0.62,"--border-opacity":data.selected?0.9:0.46} as never}><Chrome id={id} data={data}>{children}</Chrome></motion.article>}
+function Subject({id,data}:NodeProps<LatticeFlowNode>){return <Shell id={id} data={data} className="lattice-subject-node"><div className="source-icon"><IconHierarchy3/></div><h2>{data.label}</h2></Shell>}
+const domainIcons:Record<string,ComponentType<{className?:string}>>={"physical-attributes":IconAtom,"product-context":IconInfoCircle,requirements:IconClipboardCheck,changes:IconGitCompare};
+function Domain({id,data}:NodeProps<LatticeFlowNode>){const domain=id.replace("projection:domain:","");const Icon=domainIcons[domain]??IconHierarchy3;return <Shell id={id} data={data} className={`lattice-domain-node domain-${domain}`}><div className="source-icon"><Icon/></div><h3>{data.label}</h3>{data.hasChildren?<motion.button whileHover={{y:-1}} whileTap={{scale:0.96}} whileFocus={{outline:"2px solid #94a3b8"}} type="button" data-expand-node={id} className="lattice-disclosure nodrag nopan nowheel" aria-expanded={data.expanded}>{data.expanded?"Collapse":"Explore"}</motion.button>:null}</Shell>}
+function Entity({id,data}:NodeProps<LatticeFlowNode>){if(id.startsWith("projection:domain:"))return <Domain id={id} data={data}/>;const zoom=useStore(state=>state.transform[2]);const tier=nodeZoomTier(zoom);const zoomValue=useMotionValue(zoom);useEffect(()=>zoomValue.set(zoom),[zoom,zoomValue]);const valueOpacity=useTransform(zoomValue,[0.5,0.66],[0,1]);const kind=String(data.entityKind??data.category);const key=String(data.attributes?.attributeKey??data.label).toLowerCase();const Icon=icons[key]??(kind==="requirement"?IconClipboardCheck:kind==="change-notice"?IconAlertTriangle:kind==="change-task"?IconGitCompare:IconBox);const value=typeof data.attributes?.value==="string"&&data.attributes.value.trim()?data.attributes.value:"Unavailable";const requirementId=typeof data.attributes?.requirementId==="string"?data.attributes.requirementId:(kind==="requirement"&&data.nativeIdentifier?data.nativeIdentifier:undefined);const title=requirementId&&data.label.startsWith(requirementId)?data.label.slice(requirementId.length).replace(/^\s*[-–—:]\s*/,""):data.label;return <Shell id={id} data={data} className={`lattice-entity-node tone-${tones[data.source]??"slate"}`}><LayoutGroup id={`node-${id}`}><div className="source-icon"><Icon/></div><div className="node-copy">{requirementId?<><span className="node-identifier">{requirementId}</span><h3>{title||data.label}</h3></>:<><span className="node-field">{data.label}</span>{kind!=="physical-attribute"&&kind!=="product-context"&&!data.attributes?.value?<h3>{data.label}</h3>:null}</>}{(kind==="physical-attribute"||kind==="product-context"||data.attributes?.value)?<motion.p variants={valueVariants} initial="hidden" animate="visible" style={{opacity:tier==="far"?0:valueOpacity}} className={`node-value ${value==="Unavailable"?"is-unavailable":""}`}>{value}</motion.p>:null}</div></LayoutGroup>{data.hasChildren?<motion.button whileTap={{scale:0.96}} type="button" data-expand-node={id} className="lattice-disclosure nodrag nopan nowheel" aria-expanded={data.expanded}>{data.expanded?"Collapse":"Explore"}</motion.button>:null}</Shell>}
+export const InvestigationSubjectNode=memo(Subject);export const SourceRepresentationNodeView=memo(Entity);export const PremiumEngineeringNode=memo(Entity);
 
 
 ===== FILE: .\OrchestrationPlatform\frontend\features\lattice-next\components\RelationshipCanvas.tsx =====
 
 "use client";
+
+import { MotionConfig, useAnimate, useReducedMotion } from "motion/react";
 
 import "@xyflow/react/dist/style.css";
 import "../lattice-next.css";
@@ -18925,11 +18947,37 @@ function RelationshipCanvasInner({ projection, orientation, pinnedPositions, vie
   }, [escapePressed]);
 
   useEffect(() => {
+    const handleFit = () => void fitView({ padding: .18, duration: reducedMotion ? 0 : 320 });
+    const handleCollapse = () => nodesRef.current.filter(node => node.id.startsWith("projection:domain:") && node.data.expanded).forEach(node => callbacks.current.onToggle(node.id));
+    window.addEventListener("lattice:fit-view", handleFit);
+    window.addEventListener("lattice:collapse-all", handleCollapse);
+    return () => { window.removeEventListener("lattice:fit-view", handleFit); window.removeEventListener("lattice:collapse-all", handleCollapse); };
+  }, [fitView]);
+
+  useEffect(() => {
     void setViewport(viewport, { duration: 0 });
     // Restore persisted camera at mount only. Live motion remains internal until move-end.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+
+  useEffect(() => {
+    const handleGeometry = (event: Event) => {
+      const detail = (event as CustomEvent<{active:boolean;id:string}>).detail;
+      if (!detail) return;
+      detail.active ? geometryBusy.current.add(detail.id) : geometryBusy.current.delete(detail.id);
+      void animate(".lattice-edge-label", { opacity: geometryBusy.current.size ? 0 : 1 }, { duration: reducedMotion ? 0 : geometryBusy.current.size ? 0.08 : 0.14 });
+      if (!geometryBusy.current.size) {
+        if (settlementFrame.current) cancelAnimationFrame(settlementFrame.current);
+        settlementFrame.current = requestAnimationFrame(() => requestAnimationFrame(() => {
+          layoutSequence.current += 1;
+          window.dispatchEvent(new CustomEvent("lattice:routes-settled"));
+        }));
+      }
+    };
+    window.addEventListener("lattice:geometry-motion", handleGeometry);
+    return () => { window.removeEventListener("lattice:geometry-motion", handleGeometry); if (settlementFrame.current) cancelAnimationFrame(settlementFrame.current); };
+  }, [animate, reducedMotion]);
 
   useEffect(() => {
     const element = canvasRef.current;
@@ -19000,10 +19048,11 @@ function RelationshipCanvasInner({ projection, orientation, pinnedPositions, vie
   const handleNodeDragStop = useCallback((_: MouseEvent | TouchEvent, node: LatticeFlowNode) => callbacks.current.onPinPosition(node.id, node.position), []);
   const handlePaneClick = useCallback(() => callbacks.current.onClearTransient(), []);
   const selectedNodes = nodes.filter((node) => node.selected && node.data.category !== "cluster");
-  const fitSelected = useCallback(() => { if (selectedNodes.length) void fitView({ nodes: selectedNodes, padding: 0.28, duration: 360, interpolate: "smooth" }); }, [fitView, selectedNodes]);
+  const fitSelected = useCallback(() => { if (selectedNodes.length) void fitView({ nodes: selectedNodes, padding: 0.28, duration: reducedMotion ? 0 : 360, interpolate: "smooth" }); }, [fitView, selectedNodes]);
 
   return (
-    <div ref={canvasRef} className="lattice-flow h-full" onClick={(event) => {
+    <MotionConfig reducedMotion="user" transition={{ type: "spring", stiffness: 280, damping: 30, mass: 0.8 }}>
+    <div ref={(node) => { canvasRef.current = node; motionScope.current = node; }} className="lattice-flow h-full" onClick={(event) => {
       const target = event.target as HTMLElement;
       const edgeActionElement=target.closest<HTMLElement>("[data-edge-action]");
       if(edgeActionElement?.dataset.edgeAction&&edgeActionElement.dataset.edgeId){
@@ -19095,6 +19144,7 @@ function RelationshipCanvasInner({ projection, orientation, pinnedPositions, vie
       </ReactFlow>
       <span className="sr-only" aria-live="polite">{nodes.length} visible nodes and {edges.length} visible relationships</span>
     </div>
+    </MotionConfig>
   );
 }
 
@@ -19123,6 +19173,14 @@ export function ResolutionProgressPanel({items,onCancel,onRetry}:{items:Resoluti
 function StateIcon({state}:{state:ResolutionUpdate["state"]}){if(state==="ready")return <IconCheck className="h-4 w-4 shrink-0 text-emerald-400"/>;if(["failed","timed-out","cancelled"].includes(state))return <IconX className="h-4 w-4 shrink-0 text-rose-400"/>;if(state==="queued")return <IconClock className="h-4 w-4 shrink-0 text-slate-400"/>;return <IconLoader2 className="h-4 w-4 shrink-0 animate-spin text-cyan-400"/>}
 
 
+
+
+===== FILE: .\OrchestrationPlatform\frontend\features\lattice-next\components\SapInspectorSections.tsx =====
+
+import type { InvestigationGraph } from "../engines/investigation-graph";
+function value(v:unknown){if(!v||typeof v!=="object")return String(v??"");const x=v as {text?:string;number?:number;boolean?:boolean;timestamp?:string;items?:string[]};return x.text??x.number??x.boolean??x.timestamp??x.items?.join(", ")??""}
+const groups:Record<string,string[]>={material:["materialId","description","materialType","baseUnit","batchManaged","crossPlantStatus","plant","jobId"],"part-occurrence":["materialId","parentMaterialId","sequence","qty","itemCategory","plant"],"stock-position":["plant","physicalStock","valuatedQuantity","unrestrictedStock","qualityInspectionStock","blockedStock","stockInTransit","baseUnit"],"valuation-context":["plant","valuationClass","priceControl","movingAveragePrice","standardPrice","priceUnit","currency","inventoryValue","quantityMatches","valueMatches"],"material-movement":["movementType","movementLabel","direction","postingDate","quantity","unit","plant","storageLocation","materialDocument","productionOrder"],"production-order":["orderNumber","plant","materialId","evidenceState"],"accounting-document":["documentNumber","fiscalYear","postingDate","currency","accountingLineCount","evidenceState"],plant:["plant","companyCode","valuationArea"],"storage-location":["plant","storageLocation","unrestrictedStock","qualityInspectionStock","blockedStock"]};
+export function SapInspectorSections({graph,entity}:{graph:InvestigationGraph;entity:InvestigationGraph["entities"][number]}){if(entity.source!=="sap")return null;const keys=groups[entity.canonicalKind??entity.kind]??[];const rows=keys.map(k=>[k,entity.attributes[k]] as const).filter(([,v])=>v!==undefined);return <><section className="mt-6 text-xs leading-5"><h3 className="text-[10px] font-bold uppercase tracking-[.14em] text-emerald-400">SAP context</h3><dl className="mt-2">{rows.map(([k,v])=><div key={k} className="flex justify-between gap-3 border-b border-slate-800 py-2"><dt className="text-slate-500">{k.replace(/([A-Z])/g," $1")}</dt><dd className="text-right text-slate-200">{String(value(v))}</dd></div>)}</dl></section><section className="mt-6 text-xs leading-5"><h3 className="text-[10px] font-bold uppercase tracking-[.14em] text-slate-500">SAP evidence</h3><p className="mt-2 text-slate-300">{graph.relationships.filter(r=>r.source===entity.id||r.target===entity.id).length} connected records preserve plant, document and operational context.</p></section></>}
 
 
 ===== FILE: .\OrchestrationPlatform\frontend\features\lattice-next\contracts\handoff.ts =====
@@ -20149,7 +20207,7 @@ export async function resolveSelectedStructure(result:NormalizedSearchResult,sig
 
 import type { SourceType } from "@/types/bom-comparison";
 export type EntitySource = SourceType | "unified" | "platform";
-export type EntityKind = "assembly" | "component" | "identity" | "source-representation" | "finding" | "evidence" | "part" | "part-occurrence" | "material" | "requirement" | "requirement-revision" | "change-notice" | "change-task" | "production-order" | "configuration-feature" | "configuration-option" | "document" | "accounting-document" | "plant" | "storage-location";
+export type EntityKind = "assembly" | "component" | "identity" | "source-representation" | "finding" | "evidence" | "part" | "part-occurrence" | "material" | "requirement" | "requirement-revision" | "change-notice" | "change-task" | "production-order" | "configuration-feature" | "configuration-option" | "document" | "accounting-document" | "plant" | "storage-location" | "material-master" | "stock-position" | "valuation-context" | "material-movement" | "physical-attribute" | "product-context";
 export type RelationshipKind =
   | "contains"
   | "represented-by"
@@ -20168,7 +20226,18 @@ export type RelationshipKind =
   | "produced-by"
   | "stocked-at"
   | "referenced-in"
-  | "supported-by";
+  | "supported-by"
+  | "has-stock-position"
+  | "valued-at"
+  | "stored-in"
+  | "moved-through"
+  | "consumed-by"
+  | "occurred-at"
+  | "referenced-by"
+  | "describes"
+  | "operationally-impacts"
+  | "has-physical-attribute"
+  | "has-product-context";
 export type RelationshipEvidence = {
   sourceLabel: string;
   reason: string;
@@ -21037,12 +21106,20 @@ export async function hybridLayout(
 
 import type{EngineeringIntelligenceInvestigationV1}from"../contracts/intelligence-v1";import{isEngineeringIntelligenceInvestigationV1}from"../contracts/intelligence-v1";export class IntelligenceRuntimeError extends Error{constructor(public code:string,public status:number,message:string){super(message)}}export async function assembleCanonicalInvestigation(input:unknown,signal?:AbortSignal){const r=await fetch("/api/engineering/intelligence/assemble",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(input),signal});const v=await r.json().catch(()=>null);if(!r.ok)throw new IntelligenceRuntimeError(v?.code||"assembly-failed",r.status,v?.message||v?.detail||v?.title||v?.error||"Canonical assembly failed.");if(!isEngineeringIntelligenceInvestigationV1(v))throw new IntelligenceRuntimeError("invalid-contract",502,"Canonical V1 response is invalid.");return v as EngineeringIntelligenceInvestigationV1}
 
+===== FILE: .\OrchestrationPlatform\frontend\features\lattice-next\infrastructure\merge-source-intelligence.ts =====
+
+import type { EngineeringIntelligenceInvestigationV1, IntelligenceEntity } from "../contracts/intelligence-v1";
+export function mergeSourceIntelligence(parts:EngineeringIntelligenceInvestigationV1[]):EngineeringIntelligenceInvestigationV1{if(!parts.length)throw new Error("No source intelligence was returned.");if(parts.length===1)return parts[0];const base=parts[0],dedupe=<T extends{id:string}>(items:T[])=>[...new Map(items.map(x=>[x.id,x])).values()];const secondarySubjects:IntellicenceEntityFix[]=parts.slice(1).filter(x=>x.subject.id!==base.subject.id).map(x=>({id:x.subject.id,kind:"source-representation",displayName:x.subject.displayName,identityQuality:"native",assertion:"fact",properties:{preferredProductId:{type:"text",text:x.subject.preferredProductId??""},sourceRole:{type:"text",text:"participating-subject"}},provenance:x.subject.provenance,temporal:x.subject.temporal}));const entities=dedupe([...secondarySubjects,...parts.flatMap(x=>x.entities)]),relationships=dedupe(parts.flatMap(x=>x.relationships)),evidence=dedupe(parts.flatMap(x=>x.evidence)),findings=dedupe(parts.flatMap(x=>x.findings)),sources=dedupe(parts.flatMap(x=>x.sources));return{...base,investigationId:`federated-${parts.map(x=>x.investigationId).join("-")}`,subject:{...base.subject,candidateIds:[...new Set(parts.flatMap(x=>x.subject.candidateIds))],reasons:[...new Set(parts.flatMap(x=>x.subject.reasons))]},entities,relationships,evidence,findings,sources,identityClusters:dedupe(parts.flatMap(x=>x.identityClusters)),temporal:{...base.temporal,assembledAt:new Date().toISOString()},summary:{entityCount:entities.length,relationshipCount:relationships.length,evidenceCount:evidence.length,findingCount:findings.length,availableSourceCount:sources.filter(x=>x.status==="available").length,partialSourceCount:sources.filter(x=>x.status!=="available").length,status:sources.every(x=>x.status==="available")?"success":"partial-success"}}}
+type IntellicenceEntityFix=IntelligenceEntity;
+
+
 ===== FILE: .\OrchestrationPlatform\frontend\features\lattice-next\infrastructure\react-flow-adapter.ts =====
 
-
+import { projectedNodeDimensions } from "../motion/node-sizing";
 import type { LayoutOrientation, RelationshipProjection } from "../contracts/projection";
 import type { UniversalLayoutResult } from "../layout/layout-contract";
 import type { LatticeEdgeCategory,LatticeFlowEdge,LatticeFlowNode,LatticeNodeCategory,LatticePinnedPositions,RelationshipFamily,ResolutionState } from "../canvas/lattice-flow-types";
+const relationshipLabel=(kind:string,source:string,target:string)=>{if(target.includes("physical-attributes"))return "physical properties";if(target.includes("product-context"))return "product context";if(target.includes("requirements"))return "defined by";if(target.includes("changes"))return "changed through";if(kind==="described-by")return "described by";if(kind==="supersedes")return "supersedes";if(kind==="affected-by")return "affected by";if(kind==="contains"&&target.includes("requirement"))return "contains requirement";if(kind==="requirement")return "defined by";return undefined};
 const relationshipFamily=(kind:RelationshipProjection["edges"][number]["kind"]):RelationshipFamily=>kind==="contains"?"structure":kind==="requirement"?"requirement":kind==="business-impact"?"operational":kind==="corresponds-to"||kind==="comparison"?"correspondence":"evidence";
 const edgeCategory=(kind:RelationshipProjection["edges"][number]["kind"]):LatticeEdgeCategory=>kind==="contains"?"structure":kind==="corresponds-to"||kind==="comparison"?"correspondence":kind==="requirement"?"requirement":kind==="business-impact"?"operational-impact":"evidence";
 function resolution(value?:string):ResolutionState{return value==="failed"?"failed":value==="partial"?"partial":value==="warning"?"warning":value==="resolving"||value==="extracting"?"resolving":"ready"}
@@ -21050,11 +21127,43 @@ export function toReactFlow(projection:RelationshipProjection,positions:Record<s
  const branchDirection=new Map(layout?.branches.flatMap(branch=>branch.nodeIds.map(id=>[id,branch.direction] as const))??[]);
  const incoming=new Map<string,RelationshipProjection["edges"]>();const outgoing=new Map<string,RelationshipProjection["edges"]>();
  for(const edge of projection.edges){incoming.set(edge.target,[...(incoming.get(edge.target)??[]),edge]);outgoing.set(edge.source,[...(outgoing.get(edge.source)??[]),edge])}
- const flowNodes=projection.nodes.map(node=>{const represented=(incoming.get(node.id)??[]).some(edge=>edge.kind==="represented-by");const category:LatticeNodeCategory=node.level===0?"subject":represented?"source-representation":"engineering-item";const attributes=node.attributes??{};const completeness=Number(attributes.Completeness??attributes.completeness??(node.resolutionState==="partial"?65:100));const families=[...new Set([...(incoming.get(node.id)??[]),...(outgoing.get(node.id)??[])].map(edge=>relationshipFamily(edge.kind)))];return {id:node.id,type:category,position:pinned[node.id]??positions[node.id]??{x:node.level*320,y:0},origin:category==="subject"?[0.5,0.5]:[0,0.5],selected:node.selected,data:{category,label:node.label,subtitle:node.subtitle,source:node.source,level:node.level,selected:node.selected,expanded:node.expanded,hasChildren:node.hasChildren,hiddenChildren:node.hiddenChildren,entityKind:node.kind,nativeIdentifier:node.nativeIdentifier,revision:node.revision,completeness,resolutionState:resolution(node.resolutionState),matchConfidence:node.matchConfidence===undefined?undefined:Math.round(node.matchConfidence*100),childCount:node.childCount,lastCapturedAt:node.capturedAt,participatingSystems:node.provenanceSources?.length??1,coverageSummary:`${node.relationshipCount} relationships`,relationshipFamilies:families.length?families:["structure"],orientation,activeResolution:node.resolutionState==="resolving"||node.resolutionState==="extracting",pinned:Boolean(pinned[node.id]),evidenceSummary:node.subtitle,dimmed:node.dimmed,layoutDirection:branchDirection.get(node.id),radialHandles:layout?Object.values(layout.ports).filter(port=>port.nodeId===node.id&&Boolean(port.branchId)):undefined}} as LatticeFlowNode});
- const flowEdges=projection.edges.map(edge=>{const category=edgeCategory(edge.kind);const family=relationshipFamily(edge.kind);const radial=layout?.radialConnections[edge.id];return {id:edge.id,source:edge.source,target:edge.target,sourceHandle:radial?.source.id??`out:${family}`,targetHandle:radial?.target.id??`in:${family}`,type:"lattice-edge",selectable:true,focusable:true,deletable:false,reconnectable:false,selected:edge.selected,interactionWidth:26,ariaLabel:`${edge.fullLabel??edge.label??edge.kind} relationship`,data:{category,relationshipKind:edge.kind,label:edge.label,fullLabel:edge.fullLabel,confidence:edge.confidence,direction:edge.kind==="corresponds-to"?"bidirectional":(edge.confidence??1)<.7?"inferred":"forward",importance:edge.kind==="contains"?"primary":(edge.confidence??1)<.65?"low":"normal",animation:edge.selected?"selected":"settled",authoritative:true,branchId:radial?.branchId,radialAngle:radial?.angle,layoutRoute:(!pinned[edge.source]&&!pinned[edge.target])?layout?.routes[edge.id]:undefined}} as LatticeFlowEdge});
+ const flowNodes=projection.nodes.map((node,index)=>{const represented=(incoming.get(node.id)??[]).some(edge=>edge.kind==="represented-by");const domain=node.id.startsWith("projection:domain:");const category:LatticeNodeCategory=node.level===0?"subject":domain?"cluster":represented?"source-representation":node.kind==="requirement"?"requirement":node.kind==="change-notice"||node.kind==="change-task"?"change":node.kind==="finding"||node.kind==="document"?"evidence":"engineering-item";const attributes=node.attributes??{};const completeness=Number(attributes.Completeness??attributes.completeness??(node.resolutionState==="partial"?65:100));const families=[...new Set([...(incoming.get(node.id)??[]),...(outgoing.get(node.id)??[])].map(edge=>relationshipFamily(edge.kind)))];return {id:node.id,type:category,position:pinned[node.id]??positions[node.id]??{x:node.level*320,y:0},origin:category==="subject"?[0.5,0.5]:[0,0.5],selected:node.selected,data:{category,label:node.label,subtitle:node.subtitle,source:node.source,level:node.level,selected:node.selected,expanded:node.expanded,hasChildren:node.hasChildren,hiddenChildren:node.hiddenChildren,entityKind:node.kind,nativeIdentifier:node.nativeIdentifier,revision:node.revision,completeness,resolutionState:resolution(node.resolutionState),matchConfidence:node.matchConfidence===undefined?undefined:Math.round(node.matchConfidence*100),childCount:node.childCount,lastCapturedAt:node.capturedAt,participatingSystems:node.provenanceSources?.length??1,coverageSummary:`${node.relationshipCount} relationships`,relationshipFamilies:families.length?families:["structure"],orientation,activeResolution:node.resolutionState==="resolving"||node.resolutionState==="extracting",pinned:Boolean(pinned[node.id]),evidenceSummary:node.subtitle,attributes:node.attributes,entering:true,revealIndex:index,geometryRevision:dimensions.width*1000+dimensions.height,routeSettled:true,dimmed:node.dimmed,layoutDirection:branchDirection.get(node.id),radialHandles:layout?Object.values(layout.ports).filter(port=>port.nodeId===node.id&&Boolean(port.branchId)):undefined}} as LatticeFlowNode});
+ const flowEdges=projection.edges.map(edge=>{const category=edgeCategory(edge.kind);const family=relationshipFamily(edge.kind);const radial=layout?.radialConnections[edge.id];return {id:edge.id,source:edge.source,target:edge.target,sourceHandle:radial?.source.id??`out:${family}`,targetHandle:radial?.target.id??`in:${family}`,type:"lattice-edge",selectable:true,focusable:true,deletable:false,reconnectable:false,selected:edge.selected,interactionWidth:26,ariaLabel:`${edge.fullLabel??edge.label??edge.kind} relationship`,data:{category,relationshipKind:edge.kind,label:edge.label||relationshipLabel(edge.kind,edge.source,edge.target),fullLabel:edge.fullLabel||relationshipLabel(edge.kind,edge.source,edge.target),confidence:edge.confidence,direction:edge.kind==="corresponds-to"?"bidirectional":(edge.confidence??1)<.7?"inferred":"forward",importance:edge.kind==="contains"?"primary":(edge.confidence??1)<.65?"low":"normal",animation:edge.selected?"selected":"settled",authoritative:true,branchId:radial?.branchId,radialAngle:radial?.angle,layoutRoute:(!pinned[edge.source]&&!pinned[edge.target])?layout?.routes[edge.id]:undefined}} as LatticeFlowEdge});
  return {nodes:flowNodes,edges:flowEdges};
 }
 
+
+===== FILE: .\OrchestrationPlatform\frontend\features\lattice-next\infrastructure\sap-intelligence-client.ts =====
+
+import type { LatticeHandoff } from "../contracts/handoff";
+import {
+  isEngineeringIntelligenceInvestigationV1,
+  type EngineeringIntelligenceInvestigationV1,
+} from "../contracts/intelligence-v1";
+export async function investigateSap(
+  handoff: LatticeHandoff,
+  signal?: AbortSignal,
+): Promise<EngineeringIntelligenceInvestigationV1> {
+  const response = await fetch("/api/engineering/intelligence/sap", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ handoff }),
+    signal,
+  });
+  const value = await response.json().catch(() => null);
+  if (!response.ok)
+    throw new Error(value?.message ?? "SAP intelligence failed.");
+  if (!isEngineeringIntelligenceInvestigationV1(value))
+    throw new Error("SAP intelligence returned an invalid canonical contract.");
+  return value;
+}
+
+
+===== FILE: .\OrchestrationPlatform\frontend\features\lattice-next\infrastructure\windchill-intelligence-client.ts =====
+
+import type { LatticeHandoff } from "../contracts/handoff";
+import { isEngineeringIntelligenceInvestigationV1, type EngineeringIntelligenceInvestigationV1 } from "../contracts/intelligence-v1";
+export async function investigateWindchill(handoff:LatticeHandoff,signal?:AbortSignal):Promise<EngineeringIntelligenceInvestigationV1>{const response=await fetch("/api/engineering/intelligence/windchill",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({handoff}),signal});const value=await response.json().catch(()=>null);if(!response.ok)throw new Error(value?.message??value?.error??"Windchill intelligence failed.");if(!isEngineeringIntelligenceInvestigationV1(value))throw new Error("Windchill intelligence returned an invalid canonical contract.");return value}
 
 
 ===== FILE: .\OrchestrationPlatform\frontend\features\lattice-next\lattice-next.css =====
@@ -21115,6 +21224,22 @@ export function toReactFlow(projection:RelationshipProjection,positions:Record<s
   pointer-events: none !important;
 }
 .lattice-intelligence-legend{position:absolute;z-index:15;left:16px;bottom:16px;display:grid;gap:6px;padding:9px 11px;border:1px solid rgba(100,116,139,.22);border-radius:12px;background:rgba(2,6,23,.82);backdrop-filter:blur(10px);font-size:10px;color:#94a3b8}.lattice-intelligence-legend>div{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.lattice-intelligence-legend b{color:#e2e8f0}.lattice-intelligence-legend span{display:inline-flex;align-items:center;gap:4px}.lattice-intelligence-legend span:before{content:"";width:6px;height:6px;border-radius:999px;background:#64748b}.lattice-intelligence-legend span[data-tone="cyan"]:before{background:#22d3ee}.lattice-intelligence-legend span[data-tone="violet"]:before{background:#a78bfa}.lattice-intelligence-legend span[data-tone="emerald"]:before{background:#34d399}.lattice-intelligence-legend span[data-tone="fuchsia"]:before{background:#e879f9}.lattice-intelligence-legend span[data-tone="amber"]:before{background:#f59e0b}.lattice-intelligence-legend span[data-tone="teal"]:before{background:#2dd4bf}
+.lattice-command-bar{backdrop-filter:blur(14px)}.lattice-command-chip,.lattice-command-control{display:inline-flex;align-items:center;gap:.375rem;border:1px solid rgb(51 65 85);border-radius:.5rem;padding:.42rem .65rem;color:rgb(148 163 184);transition:all .16s ease}.lattice-command-chip:hover,.lattice-command-control:hover{border-color:rgb(71 85 105);background:rgb(15 23 42);color:rgb(226 232 240)}.lattice-command-chip.is-active,.lattice-command-control.is-active{border-color:rgb(6 182 212 / .48);background:rgb(6 182 212 / .1);color:rgb(165 243 252)}.lattice-domain-node{min-width:230px;border-color:var(--domain-border,rgb(71 85 105));background:linear-gradient(145deg,var(--domain-wash,rgb(15 23 42 / .94)),rgb(2 6 23 / .97));box-shadow:0 18px 45px rgb(0 0 0 / .22),inset 3px 0 0 var(--domain-accent,rgb(100 116 139))}.lattice-domain-node .domain-icon{display:grid;height:38px;width:38px;place-items:center;border-radius:10px;background:var(--domain-icon-bg,rgb(30 41 59));color:var(--domain-accent,rgb(148 163 184))}.lattice-domain-node .domain-icon svg{height:19px;width:19px}.domain-structure{--domain-accent:#60a5fa;--domain-border:rgb(96 165 250 / .34);--domain-wash:rgb(30 58 138 / .12);--domain-icon-bg:rgb(59 130 246 / .12)}.domain-requirements{--domain-accent:#22d3ee;--domain-border:rgb(34 211 238 / .35);--domain-wash:rgb(8 145 178 / .1);--domain-icon-bg:rgb(34 211 238 / .12)}.domain-changes{--domain-accent:#f59e0b;--domain-border:rgb(245 158 11 / .35);--domain-wash:rgb(180 83 9 / .1);--domain-icon-bg:rgb(245 158 11 / .12)}.domain-evidence{--domain-accent:#94a3b8;--domain-border:rgb(148 163 184 / .3);--domain-wash:rgb(71 85 105 / .09);--domain-icon-bg:rgb(148 163 184 / .1)}.lattice-entity-node.domain-requirements{border-color:rgb(34 211 238 / .32);box-shadow:inset 3px 0 0 #22d3ee,0 16px 38px rgb(0 0 0 / .18)}.lattice-entity-node.domain-changes{border-color:rgb(245 158 11 / .32);box-shadow:inset 3px 0 0 #f59e0b,0 16px 38px rgb(0 0 0 / .18)}.source-pill{border:1px solid rgb(139 92 246 / .35);border-radius:999px;padding:.08rem .35rem;color:#c4b5fd!important}
+.lattice-entity-node.tone-emerald{border-color:rgb(16 185 129 / .34);box-shadow:inset 3px 0 0 #10b981,0 16px 38px rgb(0 0 0 / .18)}
+.lattice-entity-node.tone-emerald .source-icon{background:rgb(16 185 129 / .12);color:#6ee7b7}
+.domain-operations{--domain-accent:#34d399;--domain-border:rgb(52 211 153 / .35);--domain-wash:rgb(6 95 70 / .1);--domain-icon-bg:rgb(52 211 153 / .12)}
+.domain-cost-inventory{--domain-accent:#fbbf24;--domain-border:rgb(251 191 36 / .35);--domain-wash:rgb(146 64 14 / .1);--domain-icon-bg:rgb(251 191 36 / .12)}
+
+/* Lattice enterprise productization */
+.lattice-premium-node{--node-accent:#64748b;--accent-strength:.62;--border-opacity:.46;box-sizing:border-box;width:100%;height:100%;display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:12px;border:1px solid color-mix(in srgb,var(--node-accent) calc(var(--border-opacity)*100%),#263248);border-left:2px solid color-mix(in srgb,var(--node-accent) calc(var(--accent-strength)*100%),#334155);background:rgba(13,21,35,.985);box-shadow:0 7px 18px rgba(0,0,0,.22),inset 0 1px 0 rgba(255,255,255,.025);color:#e8eef8;transform-origin:center;will-change:transform,opacity;transition:border-color .14s ease,box-shadow .14s ease,background-color .14s ease}
+.lattice-premium-node.is-selected{--border-opacity:.9;box-shadow:0 10px 28px rgba(0,0,0,.3),0 0 0 1px color-mix(in srgb,var(--node-accent) 35%,transparent)}.lattice-premium-node.is-dimmed{opacity:.34}
+.lattice-premium-node .source-icon{width:34px;height:34px;flex:0 0 34px;display:grid;place-items:center;border-radius:9px;border:1px solid color-mix(in srgb,var(--node-accent) 40%,#334155);background:color-mix(in srgb,var(--node-accent) 10%,#111a2a);color:color-mix(in srgb,var(--node-accent) 78%,#e2e8f0)}.lattice-premium-node .source-icon svg{width:17px;height:17px;stroke-width:1.7}
+.lattice-premium-node h2,.lattice-premium-node h3,.lattice-premium-node p{margin:0}.lattice-premium-node h2{font-size:17px;line-height:1.25;font-weight:650;letter-spacing:-.015em}.lattice-premium-node h3{font-size:13px;line-height:1.38;font-weight:620;letter-spacing:-.005em;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;white-space:normal}.node-copy{min-width:0;flex:1;display:grid;gap:4px;align-content:center}.node-field,.node-identifier{font-size:9.5px;line-height:1.2;font-weight:750;letter-spacing:.105em;text-transform:uppercase;color:#9aa8bc}.node-identifier{color:#c4cee0}.node-value{font-size:13px;line-height:1.35;font-weight:560;color:#f2f6fc;white-space:normal;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}.node-value.is-unavailable{color:#94a3b8;font-style:italic;font-weight:500}
+.lattice-subject-node{padding:18px 20px;border-radius:13px}.domain-physical-attributes{--node-accent:#14b8a6}.domain-product-context{--node-accent:#818cf8}.domain-requirements{--node-accent:#22d3ee}.domain-changes{--node-accent:#f59e0b}.tone-violet{--node-accent:#8b7cf6}.tone-cyan{--node-accent:#38bdf8}.tone-emerald{--node-accent:#34d399}.tone-fuchsia{--node-accent:#e879f9}.tone-slate{--node-accent:#94a3b8}
+.lattice-disclosure{position:absolute;right:10px;bottom:-11px;height:22px;padding:0 10px;border-radius:999px;border:1px solid #334155;background:#07101d;color:#b7c3d6;font-size:9px;font-weight:700;letter-spacing:.025em}.lattice-disclosure:hover{border-color:color-mix(in srgb,var(--node-accent) 50%,#475569);color:#fff}.lattice-edge-label{border:1px solid rgba(71,85,105,.78);border-radius:999px;background:rgba(5,12,23,.94);box-shadow:0 4px 14px rgba(0,0,0,.2);padding:3px 8px;color:#aebbd0;font-size:9px;font-weight:650;line-height:1;letter-spacing:.015em;white-space:nowrap;pointer-events:all}.lattice-edge-label:empty{display:none}.lattice-handle{width:7px!important;height:7px!important;border:1px solid #64748b!important;background:#07101d!important;opacity:.85}.lattice-node-toolbar,.lattice-command-bar{backdrop-filter:blur(10px)}
+@media(prefers-reduced-motion:reduce){.lattice-premium-node,.lattice-edge-label,.lattice-command-bar{transition:none!important;animation:none!important}}
+
+.lattice-command-chip,.lattice-command-control{position:relative;overflow:hidden}.lattice-toolbar-active{position:absolute;inset:2px;border-radius:8px;background:rgba(56,189,248,.12);border:1px solid rgba(56,189,248,.3);z-index:0}.lattice-command-chip>span:last-child,.lattice-command-control>*{position:relative;z-index:1}.lattice-inspector-accent{position:absolute;left:-8px;top:0;bottom:0;width:2px;border-radius:2px;background:#8b7cf6}.react-flow__node.dragging .lattice-premium-node{transform:translateY(-1px) scale(1.004);box-shadow:0 14px 32px rgba(0,0,0,.34)}
 
 
 ===== FILE: .\OrchestrationPlatform\frontend\features\lattice-next\layout\branch-decomposition.ts =====
@@ -21566,6 +21691,45 @@ export function collisionFreeRadius(base: number, angle: number, local: Bounds, 
 }
 
 
+===== FILE: .\OrchestrationPlatform\frontend\features\lattice-next\motion\lattice-motion.ts =====
+
+import type { Transition, Variants } from "motion/react";
+export const latticeMotion = {
+  position: { type: "spring", stiffness: 280, damping: 30, mass: 0.8 } as Transition,
+  enter: { duration: 0.2, ease: [0.2, 0.8, 0.2, 1] } as Transition,
+  exit: { duration: 0.16, ease: [0.4, 0, 1, 1] } as Transition,
+  value: { duration: 0.16, ease: "easeOut" } as Transition,
+  label: { duration: 0.14, ease: "easeOut" } as Transition,
+  edge: { duration: 0.26, ease: [0.2, 0.8, 0.2, 1] } as Transition,
+};
+export const nodeVariants: Variants = {
+  hidden: ({ x, y }: { x: number; y: number }) => ({ opacity: 0, scale: 0.98, x: x * 8, y: y * 8 }),
+  visible: (index = 0) => ({ opacity: 1, scale: 1, x: 0, y: 0, transition: { ...latticeMotion.enter, delay: Math.min(index, 4) * 0.024 } }),
+  exit: ({ x, y }: { x: number; y: number }) => ({ opacity: 0, scale: 0.985, x: x * 5, y: y * 5, transition: latticeMotion.exit }),
+};
+export const valueVariants: Variants = { hidden: { opacity: 0, y: 3 }, visible: { opacity: 1, y: 0, transition: { ...latticeMotion.value, delay: 0.035 } } };
+export const directionVector = (direction?: string) => direction === "EAST" ? { x: -1, y: 0 } : direction === "WEST" ? { x: 1, y: 0 } : direction === "NORTH" ? { x: 0, y: 1 } : { x: 0, y: -1 };
+
+
+===== FILE: .\OrchestrationPlatform\frontend\features\lattice-next\motion\node-sizing.ts =====
+
+import type { ProjectedNode } from "../contracts/projection";
+const MIN_WIDTH = 196;
+const MAX_WIDTH = 440;
+const textWidth = (value: string) => Math.ceil([...value].reduce((sum, char) => sum + (char.charCodeAt(0) > 255 ? 10 : 7.4), 0));
+export function projectedNodeDimensions(node: ProjectedNode) {
+  const value = typeof node.attributes?.value === "string" ? node.attributes.value : "";
+  const identifier = typeof node.attributes?.requirementId === "string" ? node.attributes.requirementId : node.nativeIdentifier ?? "";
+  const longest = [node.label, node.subtitle, value, identifier].reduce((a, b) => textWidth(String(b)) > textWidth(String(a)) ? String(b) : String(a), "");
+  const width = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, textWidth(longest) + 88));
+  const available = width - 88;
+  const titleLines = textWidth(node.label) > available ? 2 : 1;
+  const valueLines = !value ? 0 : textWidth(value) > available ? 2 : 1;
+  const height = node.id.startsWith("projection:domain:") ? 76 : node.level === 0 ? 112 : Math.max(76, 60 + (titleLines - 1) * 18 + valueLines * 18);
+  return { width, height };
+}
+
+
 ===== FILE: .\OrchestrationPlatform\frontend\features\lattice-next\persistence\canonical-investigation-store.ts =====
 
 import type { CanonicalInvestigation } from "../discovery/investigation";
@@ -21745,17 +21909,18 @@ import type { ProjectedEdge,ProjectedNode } from "../contracts/projection";
 import { INTELLIGENCE_DOMAINS,domainForEntity,domainForRelationship } from "./intelligence-domain-registry";
 import { domainLevel,graphScalePolicy,visibilityBudget } from "./intelligence-visibility-policy";
 import type { IntelligenceProjection,IntelligenceProjectionOptions } from "./intelligence-projection-types";
-
 const domainNodeId=(id:string)=>`projection:domain:${id}`;
+const WINDCHILL_DOMAINS=new Set(["physical-attributes","product-context","requirements","changes"]);
 export function projectIntelligenceExperience(graph:InvestigationGraph,options:IntelligenceProjectionOptions):IntelligenceProjection{
  const subject=graph.entities.find(entity=>entity.kind==="identity")??graph.byId[graph.roots[0]];if(!subject)return{nodes:[],edges:[],structuralKey:"empty",domainIds:[],deferredCounts:{}};
+ const windchillInvestigation=subject.source==="windchill"||graph.entities.some(entity=>entity.source==="windchill");
  const scale=graphScalePolicy(graph.entities.length,graph.relationships.length),nodes:ProjectedNode[]=[],edges:ProjectedEdge[]=[],deferred:Record<string,number>={};
- const projectEntity=(entity:typeof graph.entities[number]):ProjectedNode=>({id:entity.id,label:entity.name,subtitle:entity.canonicalKind??entity.kind,kind:entity.kind,source:entity.source,level:entity.level,selected:options.selectedId===entity.id,expanded:options.expanded.has(entity.id),hasChildren:false,hiddenChildren:0,nativeIdentifier:entity.sourceNodeId,attributes:entity.attributes,relationshipCount:graph.relationships.filter(r=>r.from===entity.id||r.to===entity.id).length,childCount:0,resolutionState:entity.sourceStatus,dimmed:false});
+ const projectEntity=(entity:typeof graph.entities[number]):ProjectedNode=>({id:entity.id,label:entity.name,subtitle:String(entity.attributes.value??entity.attributes.title??entity.canonicalKind??entity.kind),kind:entity.kind,source:entity.source,level:entity.level,selected:options.selectedId===entity.id,expanded:options.expanded.has(entity.id),hasChildren:false,hiddenChildren:0,nativeIdentifier:entity.sourceNodeId,attributes:entity.attributes,relationshipCount:graph.relationships.filter(r=>r.from===entity.id||r.to===entity.id).length,childCount:0,resolutionState:entity.sourceStatus,dimmed:false});
  nodes.push(projectEntity(subject));
- const sourceRepresentations=graph.entities.filter(entity=>entity.canonicalKind==="source-representation").sort((a,b)=>a.id.localeCompare(b.id));nodes.push(...sourceRepresentations.map(projectEntity));for(const entity of sourceRepresentations)edges.push({id:`projection:source:${entity.id}`,source:subject.id,target:entity.id,kind:"represented-by",selected:false,label:"represented by"});
- for(const definition of INTELLIGENCE_DOMAINS){const members=graph.entities.filter(entity=>entity.id!==subject.id&&domainForEntity(entity.canonicalKind??entity.kind)===definition.id&&entity.canonicalKind!=="source-representation").sort((a,b)=>a.id.localeCompare(b.id));const related=graph.relationships.filter(rel=>domainForRelationship(rel.family)===definition.id);const findingCount=members.filter(entity=>entity.kind==="finding").length;const sourceProblem=definition.id==="cross-source"&&Object.values(graph.metadata?.sourceStatuses??{}).some(status=>status!=="available");const available=members.length>0||related.length>0||definition.id==="cross-source"||definition.id==="structure";if(!available)continue;const id=domainNodeId(definition.id),level=domainLevel(id,options.expanded),budget=visibilityBudget(level,members.length),limit=Math.min(budget.entities,scale.maxPerDomain),shown=members.slice(0,limit);deferred[id]=Math.max(0,members.length-shown.length);nodes.push({id,label:definition.title,subtitle:definition.description,kind:"identity",source:"unified",level:1,selected:options.selectedId===id,expanded:level!=="summary",hasChildren:members.length>0,hiddenChildren:deferred[id],relationshipCount:related.length,childCount:members.length,attributes:{Domain:definition.id,Entities:members.length,Relationships:related.length,Findings:findingCount,State:sourceProblem?"partial":"available"},resolutionState:sourceProblem?"partial":"available",dimmed:false});edges.push({id:`projection:domain-edge:${definition.id}`,source:subject.id,target:id,kind:"contains",selected:false,label:"has intelligence"});for(const entity of shown){if(!nodes.some(node=>node.id===entity.id))nodes.push(projectEntity(entity));edges.push({id:`projection:member:${definition.id}:${entity.id}`,source:id,target:entity.id,kind:"contains",selected:false,label:"includes"});}}
- const criticalFindings=graph.entities.filter(entity=>entity.kind==="finding").sort((a,b)=>a.id.localeCompare(b.id)).slice(0,options.maxInitialFindings??3);for(const finding of criticalFindings)if(!nodes.some(node=>node.id===finding.id)){nodes.push(projectEntity(finding));edges.push({id:`projection:critical:${finding.id}`,source:subject.id,target:finding.id,kind:"supported-by",selected:false,label:"critical finding"});}
- return{nodes:nodes.sort((a,b)=>a.id.localeCompare(b.id)),edges:edges.sort((a,b)=>a.id.localeCompare(b.id)),structuralKey:nodes.map(n=>n.id).sort().join("|"),domainIds:INTELLIGENCE_DOMAINS.map(d=>d.id),deferredCounts:Object.freeze(deferred)};
+ const definitions=INTELLIGENCE_DOMAINS.filter(definition=>windchillInvestigation?WINDCHILL_DOMAINS.has(definition.id):definition.id!=="cross-source");
+ const available=definitions.map(definition=>{const members=graph.entities.filter(entity=>entity.id!==subject.id&&entity.canonicalKind!=="source-representation"&&domainForEntity(entity.kind)===definition.id);const relations=graph.relationships.filter(relationship=>domainForRelationship(relationship.family??relationship.kind)===definition.id);return{definition,members,relations}}).filter(item=>item.members.length||item.relations.length);
+ for(const {definition,members,relations} of available){const id=domainNodeId(definition.id),level=domainLevel(id,options.expanded),budget=visibilityBudget(level,members.length),shown=level==="summary"?[]:members.slice(0,Math.min(scale.maxPerDomain,budget.entities)),hidden=members.length-shown.length;deferred[definition.id]=hidden;nodes.push({id,label:definition.title,subtitle:"",kind:"identity",source:"platform",level:1,selected:options.selectedId===id,expanded:level!=="summary",hasChildren:members.length>0,hiddenChildren:hidden,attributes:{domain:definition.id,itemCount:members.length,accent:definition.accent},relationshipCount:relations.length,childCount:members.length,resolutionState:"ready",dimmed:false});edges.push({id:`projection:domain-edge:${definition.id}`,source:subject.id,target:id,kind:"contains",selected:false});for(const entity of shown){if(!nodes.some(node=>node.id===entity.id))nodes.push(projectEntity(entity));edges.push({id:`projection:member:${definition.id}:${entity.id}`,source:id,target:entity.id,kind:"contains",selected:false});}}
+ return{nodes:nodes.sort((a,b)=>a.id.localeCompare(b.id)),edges:edges.sort((a,b)=>a.id.localeCompare(b.id)),structuralKey:nodes.map(n=>n.id).sort().join("|"),domainIds:available.map(x=>x.definition.id),deferredCounts:Object.freeze(deferred)};
 }
 
 
@@ -21764,24 +21929,25 @@ export function projectIntelligenceExperience(graph:InvestigationGraph,options:I
 import type { IntelligenceDomainId } from "./intelligence-projection-types";
 export type IntelligenceDomainDefinition={id:IntelligenceDomainId;title:string;description:string;entityKinds:readonly string[];relationshipFamilies:readonly string[];priority:number;accent:string};
 export const INTELLIGENCE_DOMAINS:readonly IntelligenceDomainDefinition[]=[
-{id:"structure",title:"Structure",description:"Product structure and occurrences",entityKinds:["part","part-occurrence","assembly","material"],relationshipFamilies:["structure"],priority:1,accent:"slate"},
-{id:"requirements",title:"Requirements",description:"Requirements, revisions and coverage",entityKinds:["requirement","requirement-revision"],relationshipFamilies:["requirement"],priority:2,accent:"cyan"},
-{id:"changes",title:"Changes",description:"Change records, revisions and impact",entityKinds:["change-notice","change-task"],relationshipFamilies:["change"],priority:3,accent:"amber"},
-{id:"configuration",title:"Configuration",description:"Features, options and configuration evidence",entityKinds:["configuration-feature","configuration-option"],relationshipFamilies:["configuration"],priority:4,accent:"fuchsia"},
-{id:"operations",title:"Operations",description:"Production and operational dependencies",entityKinds:["production-order"],relationshipFamilies:["operation"],priority:5,accent:"emerald"},
-{id:"cost-inventory",title:"Cost and inventory",description:"Stock, plant and valuation context",entityKinds:["plant","storage-location","accounting-document"],relationshipFamilies:["cost-and-inventory"],priority:6,accent:"teal"},
-{id:"evidence",title:"Evidence",description:"Supporting evidence and explainable findings",entityKinds:["document","finding"],relationshipFamilies:["evidence"],priority:7,accent:"neutral"},
-{id:"cross-source",title:"Cross-source identity",description:"Source representations and identity confidence",entityKinds:["source-representation"],relationshipFamilies:["correspondence"],priority:8,accent:"violet"},
-] as const;
-export const domainDefinition=(id:IntelligenceDomainId)=>INTELLIGENCE_DOMAINS.find(domain=>domain.id===id)!;
-export function domainForEntity(kind:string):IntelligenceDomainId|undefined{return INTELLIGENCE_DOMAINS.find(domain=>domain.entityKinds.includes(kind))?.id;}
-export function domainForRelationship(family?:string):IntelligenceDomainId|undefined{return INTELLIGENCE_DOMAINS.find(domain=>family&&domain.relationshipFamilies.includes(family))?.id;}
+{id:"physical-attributes",title:"Physical Attributes",description:"Material and physical definition",entityKinds:["physical-attribute"],relationshipFamilies:["physical-attribute"],priority:1,accent:"teal"},
+{id:"product-context",title:"Product Context",description:"Version and lifecycle context",entityKinds:["product-context"],relationshipFamilies:["product-context"],priority:2,accent:"indigo"},
+{id:"requirements",title:"Requirements",description:"Requirements and specifications",entityKinds:["requirement","requirement-revision"],relationshipFamilies:["requirement"],priority:3,accent:"cyan"},
+{id:"changes",title:"Changes",description:"Revisions and change impact",entityKinds:["change-notice","change-task"],relationshipFamilies:["change"],priority:4,accent:"amber"},
+{id:"structure",title:"Structure",description:"Product structure and occurrences",entityKinds:["part","part-occurrence","assembly","material","material-master"],relationshipFamilies:["structure"],priority:5,accent:"slate"},
+{id:"configuration",title:"Configuration",description:"Features and configuration evidence",entityKinds:["configuration-feature","configuration-option"],relationshipFamilies:["configuration"],priority:6,accent:"fuchsia"},
+{id:"operations",title:"Operations",description:"Production and operational dependencies",entityKinds:["production-order","material-movement"],relationshipFamilies:["operation"],priority:7,accent:"emerald"},
+{id:"cost-inventory",title:"Cost and inventory",description:"Stock, plant and valuation context",entityKinds:["plant","storage-location","accounting-document","stock-position","valuation-context"],relationshipFamilies:["cost-and-inventory"],priority:8,accent:"teal"},
+{id:"evidence",title:"Evidence",description:"Supporting evidence",entityKinds:["document","finding"],relationshipFamilies:["evidence"],priority:9,accent:"neutral"},
+{id:"cross-source",title:"Cross-source identity",description:"Source representations",entityKinds:["source-representation"],relationshipFamilies:["correspondence"],priority:10,accent:"violet"}
+];
+export const domainForEntity=(kind:string):IntelligenceDomainId|undefined=>INTELLIGENCE_DOMAINS.find(domain=>domain.entityKinds.includes(kind))?.id;
+export const domainForRelationship=(family:string):IntelligenceDomainId|undefined=>INTELLIGENCE_DOMAINS.find(domain=>domain.relationshipFamilies.includes(family))?.id;
 
 
 ===== FILE: .\OrchestrationPlatform\frontend\features\lattice-next\projection\intelligence-projection-types.ts =====
 
 import type { RelationshipProjection } from "../contracts/projection";
-export type IntelligenceDomainId="structure"|"requirements"|"changes"|"configuration"|"operations"|"cost-inventory"|"evidence"|"cross-source";
+export type IntelligenceDomainId="physical-attributes"|"product-context"|"requirements"|"changes"|"structure"|"configuration"|"operations"|"cost-inventory"|"evidence"|"cross-source";
 export type DomainExpansionLevel="collapsed"|"summary"|"expanded"|"deep";
 export type IntelligenceDomainState={domainId:IntelligenceDomainId;level:DomainExpansionLevel};
 export type IntelligenceProjectionOptions={expanded:ReadonlySet<string>;selectedId?:string;maxInitialFindings?:number;maxSummaryEntities?:number;maxExpandedEntities?:number};
@@ -21793,7 +21959,7 @@ export type IntelligenceProjection=RelationshipProjection&{domainIds:Intelligenc
 import type { DomainExpansionLevel } from "./intelligence-projection-types";
 export type VisibilityBudget={entities:number;includeEvidence:boolean;includeSecondary:boolean};
 export function domainLevel(id:string,expanded:ReadonlySet<string>):DomainExpansionLevel{return expanded.has(`${id}:deep`)?"deep":expanded.has(id)?"expanded":"summary";}
-export function visibilityBudget(level:DomainExpansionLevel,total:number):VisibilityBudget{if(level==="deep")return{entities:total,includeEvidence:true,includeSecondary:true};if(level==="expanded")return{entities:Math.min(total,24),includeEvidence:false,includeSecondary:true};if(level==="summary")return{entities:Math.min(total,6),includeEvidence:false,includeSecondary:false};return{entities:0,includeEvidence:false,includeSecondary:false};}
+export function visibilityBudget(level:DomainExpansionLevel,total:number):VisibilityBudget{if(level==="deep")return{entities:total,includeEvidence:true,includeSecondary:true};if(level==="expanded")return{entities:Math.min(total,24),includeEvidence:false,includeSecondary:true};return{entities:0,includeEvidence:false,includeSecondary:false};}
 export function graphScalePolicy(nodes:number,relationships:number){const density=nodes?relationships/nodes:0;return nodes>500||density>8?{labels:false,maxPerDomain:12,deferEvidence:true}:nodes>150||density>4?{labels:true,maxPerDomain:24,deferEvidence:true}:{labels:true,maxPerDomain:60,deferEvidence:false};}
 
 
@@ -22428,7 +22594,7 @@ describe("radial first-hop route adaptation", () => {
 
 ===== FILE: .\OrchestrationPlatform\frontend\features\lattice-next\tests\requirements-domain-provider.test.ts =====
 
-import{describe,expect,it}from"vitest";import{RequirementsDomainProvider}from"../../../lib/server/domain-intelligence/requirements-provider";import{smallFixture}from"./fixtures";describe("requirements provider",()=>{it("uses typed domain outcome",()=>{const p=new RequirementsDomainProvider();expect(p.domain).toBe("requirements");expect(p.supports({handoff:smallFixture,requestedDomains:["requirements"]})).toBe(true)})});
+import{afterEach,describe,expect,it,vi}from"vitest";import{investigateWindchill}from"../infrastructure/windchill-intelligence-client";afterEach(()=>vi.unstubAllGlobals());describe("Windchill investigation client",()=>{it("uses the existing Windchill intelligence middleware",async()=>{vi.stubGlobal("fetch",vi.fn().mockResolvedValue({ok:true,json:async()=>({contractVersion:"1.0",investigationId:"wc",entities:[],relationships:[],evidence:[],findings:[],sources:[],identityClusters:[]})}));await investigateWindchill({}as never);expect(fetch).toHaveBeenCalledWith("/api/engineering/intelligence/windchill",expect.objectContaining({method:"POST"}))})});
 
 
 ===== FILE: .\OrchestrationPlatform\frontend\features\lattice-next\tests\requirements-projection.test.ts =====
@@ -22536,8 +22702,10 @@ describe("Windchill requirements platform helpers", () => {
 
 ===== FILE: .\OrchestrationPlatform\frontend\features\lattice-next\workspace\LatticeNextWorkspace.tsx =====
 
+/* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
+import { AnimatePresence, MotionConfig, motion, useReducedMotion } from "motion/react";
 import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -22548,6 +22716,11 @@ import {
 } from "@tabler/icons-react";
 import { readHandoff } from "../persistence/handoff-store";
 import { buildInvestigation } from "../engines/build-investigation";
+import { buildIntelligenceInvestigation } from "../engines/build-intelligence-investigation";
+import { investigateWindchill } from "../infrastructure/windchill-intelligence-client";
+import { investigateSap } from "../infrastructure/sap-intelligence-client";
+import { mergeSourceIntelligence } from "../infrastructure/merge-source-intelligence";
+import type { EngineeringIntelligenceInvestigationV1 } from "../contracts/intelligence-v1";
 import { createInvestigationGraphCore } from "../engines/investigation-graph";
 import { projectVisibleGraph } from "../engines/project-visible-graph";
 import {
@@ -22599,6 +22772,7 @@ export function LatticeNextWorkspace() {
   const investigationId = params.get("investigation");
 
   const [direct, setDirect] = useState<LatticeHandoff | null>(null);
+  const [directCanonical, setDirectCanonical] = useState<EngineeringIntelligenceInvestigationV1 | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [recent, setRecent] = useState<RecentInvestigation[]>([]);
 
@@ -22610,12 +22784,13 @@ export function LatticeNextWorkspace() {
 
   const startNewInvestigation = useCallback(() => {
     setDirect(null);
+    setDirectCanonical(null);
     setMessage(null);
     router.replace("/lattice");
   }, [router]);
 
   if (direct) {
-    return <Investigation handoffId={direct.handoffId} handoff={direct} onStartNew={startNewInvestigation} />;
+    return <Investigation handoffId={direct.handoffId} handoff={direct} canonical={directCanonical} onStartNew={startNewInvestigation} />;
   }
 
   if (handoffId) {
@@ -22708,6 +22883,13 @@ export function LatticeNextWorkspace() {
             }),
           );
 
+          try {
+            const sourceTasks=[];if(next.sources.some(item=>item.source==="windchill"))sourceTasks.push(investigateWindchill({...next,sources:next.sources.filter(item=>item.source==="windchill")},controller.signal));if(next.sources.some(item=>item.source==="sap"))sourceTasks.push(investigateSap({...next,sources:next.sources.filter(item=>item.source==="sap")},controller.signal));const canonical=mergeSourceIntelligence(await Promise.all(sourceTasks));
+            setDirectCanonical(canonical);
+          } catch (error) {
+            setMessage(error instanceof Error ? `${error.message} Showing structure-only compatibility view.` : "Source intelligence unavailable. Showing structure-only compatibility view.");
+            setDirectCanonical(null);
+          }
           setDirect(next);
         }}
       />
@@ -22739,14 +22921,17 @@ function Investigation({
   handoffId,
   handoff,
   onStartNew,
+  canonical,
 }: {
   handoffId: string;
   onStartNew: () => void;
+  canonical?: EngineeringIntelligenceInvestigationV1 | null;
   handoff:
     | Extract<HandoffReadResult, { ok: true }>["value"]
     | LatticeHandoff;
 }) {
-  const domain = useMemo(() => buildInvestigation(handoff), [handoff]);
+  const reducedMotion = useReducedMotion();
+  const domain = useMemo(() => canonical ? buildIntelligenceInvestigation(canonical) : buildInvestigation(handoff), [canonical, handoff]);
   const core = useMemo(() => createInvestigationGraphCore(domain), [domain]);
   const sources = useMemo(
     () => [...new Set(domain.entities.map((entity) => entity.source))],
@@ -22815,6 +23000,7 @@ function Investigation({
     : [];
 
   return (
+    <MotionConfig reducedMotion="user">
     <main className="min-h-[calc(100vh-64px)] bg-[#050914] p-3 text-white sm:p-4">
       <header className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950/75 px-4 py-3">
         <div className="flex items-center gap-3">
@@ -22942,6 +23128,7 @@ function Investigation({
         )}
       </section>
     </main>
+    </MotionConfig>
   );
 }
 
@@ -22972,6 +23159,7 @@ function Recovery({ message }: { message: string }) {
     </main>
   );
 }
+
 
 ===== FILE: .\OrchestrationPlatform\frontend\fonts\fonts.css =====
 
@@ -25781,8 +25969,8 @@ export default nextConfig;
 
 /// <reference types="next" />
 /// <reference types="next/image-types/global" />
-import "./.next/types/routes.d.ts";
-import "./.next/types/root-params.d.ts";
+import "./.next/dev/types/routes.d.ts";
+import "./.next/dev/types/root-params.d.ts";
 
 // NOTE: This file should not be edited
 // see https://nextjs.org/docs/app/api-reference/config/typescript for more information.
@@ -39631,6 +39819,7 @@ public sealed class EngineeringIntelligenceController(IEngineeringIntelligenceIn
  [HttpPost("assemble")]public IActionResult Assemble([FromBody]UnifiedProductIntelligence input){try{return Ok(assembler.Assemble(input));}catch(InvalidOperationException ex){return UnprocessableEntity(new{code="intelligence-investigation-invalid",message=ex.Message});}}
 }
 
+
 ===== FILE: .\OrchestrationPlatform\Orchestration.API\Engineering\Controllers\EngineeringJobsController.cs =====
 
 using Microsoft.AspNetCore.Mvc;using Orchestration.API.Engineering.Services;
@@ -40916,7 +41105,6 @@ public sealed class SapDocumentReference
 
 ===== FILE: .\OrchestrationPlatform\Orchestration.API\Program.cs =====
 
-
 using Orchestration.API.Models;
 using Orchestration.API.Services;
 using System.Text.Json.Serialization;
@@ -40968,6 +41156,7 @@ app.UseCors("AllowAll");
 app.UseHttpsRedirection();
 app.MapControllers();
 app.Run();
+
 
 ===== FILE: .\OrchestrationPlatform\Orchestration.API\Properties\launchSettings.json =====
 
@@ -42294,6 +42483,7 @@ public sealed class SubprocessExecutor : ISubprocessExecutor
     private async Task<string> ResolveSapMaterialAsync(string dir, string jar, string runtime, string query, string? plant, Func<string, Task> progress, StringBuilder output, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(query)) throw new InvalidOperationException("An SAP material description or material number is required.");
+        if (query.All(char.IsDigit) && query.Length <= 18) return query.PadLeft(18, '0');
         var source = Path.Combine(dir, "src", "SapMaterialCatalogExtractor.java");
         var cls = Path.Combine(dir, "out", "SapMaterialCatalogExtractor.class");
         if (!File.Exists(source)) throw new FileNotFoundException("SAP material catalogue extractor source was not found.", source);

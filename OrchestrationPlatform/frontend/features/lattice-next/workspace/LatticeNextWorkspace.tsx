@@ -1,5 +1,7 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
+import { AnimatePresence, MotionConfig, motion, useReducedMotion } from "motion/react";
 import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -13,6 +15,7 @@ import { buildInvestigation } from "../engines/build-investigation";
 import { buildIntelligenceInvestigation } from "../engines/build-intelligence-investigation";
 import { investigateWindchill } from "../infrastructure/windchill-intelligence-client";
 import { investigateSap } from "../infrastructure/sap-intelligence-client";
+import { mergeSourceIntelligence } from "../infrastructure/merge-source-intelligence";
 import type { EngineeringIntelligenceInvestigationV1 } from "../contracts/intelligence-v1";
 import { createInvestigationGraphCore } from "../engines/investigation-graph";
 import { projectVisibleGraph } from "../engines/project-visible-graph";
@@ -177,7 +180,7 @@ export function LatticeNextWorkspace() {
           );
 
           try {
-            const canonical = next.sources.some(item => item.source === "sap") ? await investigateSap(next, controller.signal) : await investigateWindchill(next, controller.signal);
+            const sourceTasks=[];if(next.sources.some(item=>item.source==="windchill"))sourceTasks.push(investigateWindchill({...next,sources:next.sources.filter(item=>item.source==="windchill")},controller.signal));if(next.sources.some(item=>item.source==="sap"))sourceTasks.push(investigateSap({...next,sources:next.sources.filter(item=>item.source==="sap")},controller.signal));const canonical=mergeSourceIntelligence(await Promise.all(sourceTasks));
             setDirectCanonical(canonical);
           } catch (error) {
             setMessage(error instanceof Error ? `${error.message} Showing structure-only compatibility view.` : "Source intelligence unavailable. Showing structure-only compatibility view.");
@@ -223,6 +226,7 @@ function Investigation({
     | Extract<HandoffReadResult, { ok: true }>["value"]
     | LatticeHandoff;
 }) {
+  const reducedMotion = useReducedMotion();
   const domain = useMemo(() => canonical ? buildIntelligenceInvestigation(canonical) : buildInvestigation(handoff), [canonical, handoff]);
   const core = useMemo(() => createInvestigationGraphCore(domain), [domain]);
   const sources = useMemo(
@@ -292,6 +296,7 @@ function Investigation({
     : [];
 
   return (
+    <MotionConfig reducedMotion="user">
     <main className="min-h-[calc(100vh-64px)] bg-[#050914] p-3 text-white sm:p-4">
       <header className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950/75 px-4 py-3">
         <div className="flex items-center gap-3">
@@ -419,6 +424,7 @@ function Investigation({
         )}
       </section>
     </main>
+    </MotionConfig>
   );
 }
 
