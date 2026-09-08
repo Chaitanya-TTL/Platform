@@ -82,3 +82,8 @@
 .react-flow__node,.lattice-premium-node{backface-visibility:visible;-webkit-font-smoothing:antialiased;text-rendering:geometricPrecision}
 .react-flow__node .lattice-premium-node{transform:none}
 .lattice-intelligent-edge{vector-effect:non-scaling-stroke}
+
+/* Federated SAP domains: semantic parent tones, source-colored leaves. */
+.domain-stock{--node-accent:#14b8a6;--domain-accent:#14b8a6;--domain-border:rgb(20 184 166 / .35);--domain-wash:rgb(13 148 136 / .1);--domain-icon-bg:rgb(20 184 166 / .12)}
+.domain-accounting{--node-accent:#60a5fa;--domain-accent:#60a5fa;--domain-border:rgb(96 165 250 / .35);--domain-wash:rgb(37 99 235 / .1);--domain-icon-bg:rgb(96 165 250 / .12)}
+.domain-history{--node-accent:#fb7185;--domain-accent:#fb7185;--domain-border:rgb(251 113 133 / .35);--domain-wash:rgb(190 24 93 / .1);--domain-icon-bg:rgb(251 113 133 / .12)}

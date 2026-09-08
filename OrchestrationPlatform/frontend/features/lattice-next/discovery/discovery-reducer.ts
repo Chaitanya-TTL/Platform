@@ -10,12 +10,14 @@ export interface DiscoveryState {
   selectedResultIds: Set<string>;
   correspondences: CorrespondenceCandidate[];
   announcement: string;
+  selectedSources: Set<import("./contracts").LatticeSource>;
 }
 
 export type DiscoveryAction =
   | { type: "query"; value: string }
   | { type: "snapshot"; value: FederatedSearchSnapshot | null }
   | { type: "select"; result: NormalizedSearchResult }
+  | { type: "toggle-source"; source: import("./contracts").LatticeSource }
   | { type: "correspondences"; value: CorrespondenceCandidate[] }
   | { type: "review"; id: string; state: "accepted" | "rejected" }
   | { type: "reset" };
@@ -26,6 +28,7 @@ export const initialDiscoveryState: DiscoveryState = {
   selectedResultIds: new Set(),
   correspondences: [],
   announcement: "Discovery ready.",
+  selectedSources: new Set(["windchill", "sap"]),
 };
 
 export function discoveryReducer(
@@ -45,16 +48,26 @@ export function discoveryReducer(
               ),
           ).length
         : 0;
+      const requested = action.value?.request.requestedSources.length ?? state.selectedSources.size;
 
       return {
         ...state,
         snapshot: action.value,
         announcement: action.value?.active
-          ? `${completed} of 4 sources returned.`
+          ? `${completed} of ${requested} selected sources returned.`
           : "Federated search complete.",
       };
     }
 
+    case "toggle-source": {
+      const selectedSources = new Set(state.selectedSources);
+      if (selectedSources.has(action.source)) selectedSources.delete(action.source); else selectedSources.add(action.source);
+      const selectedResultIds = new Set([...state.selectedResultIds].filter((id) => {
+        const result = state.snapshot ? Object.values(state.snapshot.outcomes).flatMap((value) => value.results).find((item) => item.resultId === id) : undefined;
+        return !result || selectedSources.has(result.source);
+      }));
+      return { ...state, selectedSources, selectedResultIds, snapshot: null, announcement: `${action.source} ${selectedSources.has(action.source) ? "included" : "excluded"}. Run a new search.` };
+    }
     case "select": {
       const next = new Set(state.selectedResultIds);
 
@@ -90,5 +103,3 @@ export function discoveryReducer(
       return initialDiscoveryState;
   }
 }
-
-

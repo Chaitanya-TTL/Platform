@@ -654,3 +654,26 @@ COUNTER     2
 	error group: 102
 	key: RFC_ERROR_COMMUNICATION
 
+
+**** Error file opened at 20260908 160909 India Standard Time Rel. 3.0.21 (2020-12-04) [753.1018]
+Error:   >Tue Sep 08 16:09:09,295<    RfcException raised by system [<unknown>]:
+	message: Connect to SAP gateway failed
+	connection parameters: TYPE=A DESTINATION=S4H_DESTINATION ASHOST=172.28.236.11 SYSNR=00 PCS=1
+
+LOCATION    CPIC (TCP/IP) on local host with Unicode
+ERROR       connection to partner '172.28.236.11:3300' broken
+TIME        Tue Sep 08 16:09:09 2026
+RELEASE     753
+COMPONENT   NI (network interface)
+VERSION     40
+RC          -6
+MODULE      D:/depot/bas/753_REL/src/krn/si/gw/gwxx.c
+LINE        1179
+DETAIL      NiIRead: P=172.28.236.11:3300; L=172.28.81.59:59135
+SYSTEM CALL GwRead
+COUNTER     2
+
+	return code: RFC_FAILURE (1)
+	error group: 102
+	key: RFC_ERROR_COMMUNICATION
+

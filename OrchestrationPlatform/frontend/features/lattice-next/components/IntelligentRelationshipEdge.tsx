@@ -4,7 +4,6 @@ import { memo, useEffect, useMemo, useState } from "react";
 import {
   EdgeLabelRenderer,
   getBezierPath,
-  getSmoothStepPath,
   getStraightPath,
   useStore,
   type EdgeProps,
@@ -44,40 +43,13 @@ type ActiveRoute = {
   labelY: number;
 };
 
-function calculateActiveRoute(
-  args: RouteArguments,
-  category: LatticeEdgeCategory,
-): ActiveRoute {
-  if (category === "structure" || category === "configuration") {
-    const [path, labelX, labelY] = getSmoothStepPath({
-      ...args,
-      borderRadius: 16,
-      offset: 34,
-    });
-    return { path, labelX, labelY };
-  }
-
-  if (
-    category === "evidence" &&
-    Math.hypot(args.targetX - args.sourceX, args.targetY - args.sourceY) < 220
-  ) {
-    const [path, labelX, labelY] = getStraightPath(args);
-    return { path, labelX, labelY };
-  }
-
-  const [path, labelX, labelY] = getBezierPath({
-    ...args,
-    curvature:
-      category === "correspondence"
-        ? 0.34
-        : category === "change-impact" || category === "operational-impact"
-          ? 0.28
-          : 0.22,
-  });
-
-  return { path, labelX, labelY };
+function calculateActiveRoute(args:RouteArguments,category:LatticeEdgeCategory):ActiveRoute {
+  const distance=Math.hypot(args.targetX-args.sourceX,args.targetY-args.sourceY);
+  if(category==="evidence"&&distance<180){const [path,labelX,labelY]=getStraightPath(args);return{path,labelX,labelY}}
+  const curvature=distance>760?0.36:distance>460?0.31:distance>260?0.26:0.21;
+  const [path,labelX,labelY]=getBezierPath({...args,curvature:category==="correspondence"?Math.max(curvature,0.34):curvature});
+  return{path,labelX,labelY};
 }
-
 function offsetLabelFromPath(
   sourceX: number,
   sourceY: number,

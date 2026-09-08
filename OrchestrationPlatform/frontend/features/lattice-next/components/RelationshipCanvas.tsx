@@ -52,6 +52,7 @@ export type RelationshipCanvasProps = {
   onViewport: (viewport: RendererViewport) => void;
   onPinPosition: (id: string, position: XYPosition) => void;
   onClearTransient: () => void;
+  onEscape?: () => void;
   onNodeAction: (intent: LatticeNodeActionIntent) => void;
   onEdgeAction: (intent: LatticeEdgeActionIntent) => void;
 };
@@ -62,7 +63,7 @@ function RelationshipCanvasComponent(props: RelationshipCanvasProps) {
 
 export const RelationshipCanvas = memo(RelationshipCanvasComponent);
 
-function RelationshipCanvasInner({ projection, orientation, pinnedPositions, viewport, onSelectEntity, onSelectRelationship, onToggle, onViewport, onPinPosition, onClearTransient, onNodeAction, onEdgeAction }: RelationshipCanvasProps) {
+function RelationshipCanvasInner({ projection, orientation, pinnedPositions, viewport, onSelectEntity, onSelectRelationship, onToggle, onViewport, onPinPosition, onClearTransient, onEscape, onNodeAction, onEdgeAction }: RelationshipCanvasProps) {
   const reducedMotion = useReducedMotion();
   const [motionScope, animate] = useAnimate();
   const geometryBusy = useRef(new Set<string>());
@@ -79,12 +80,12 @@ function RelationshipCanvasInner({ projection, orientation, pinnedPositions, vie
   const visibleCountRef = useRef(initialGraph.nodes.length);
   const nodesRef = useRef(initialGraph.nodes);
   const revealTimerRef = useRef<number | null>(null);
-  const callbacks = useRef({ onSelectEntity, onSelectRelationship, onToggle, onViewport, onPinPosition, onClearTransient, onNodeAction, onEdgeAction });
-  useEffect(() => { callbacks.current = { onSelectEntity, onSelectRelationship, onToggle, onViewport, onPinPosition, onClearTransient, onNodeAction, onEdgeAction }; }, [onSelectEntity, onSelectRelationship, onToggle, onViewport, onPinPosition, onClearTransient, onNodeAction, onEdgeAction]);
+  const callbacks = useRef({ onSelectEntity, onSelectRelationship, onToggle, onViewport, onPinPosition, onClearTransient, onEscape, onNodeAction, onEdgeAction });
+  useEffect(() => { callbacks.current = { onSelectEntity, onSelectRelationship, onToggle, onViewport, onPinPosition, onClearTransient, onEscape, onNodeAction, onEdgeAction }; }, [onSelectEntity, onSelectRelationship, onToggle, onViewport, onPinPosition, onClearTransient, onEscape, onNodeAction, onEdgeAction]);
   const escapePressed = useKeyPress("Escape");
 
   useEffect(() => {
-    if (escapePressed) callbacks.current.onClearTransient();
+    if (escapePressed) (callbacks.current.onEscape ?? callbacks.current.onClearTransient)();
   }, [escapePressed]);
 
   useEffect(() => {
