@@ -1,5 +1,3 @@
-
-
 using System.Diagnostics;
 using System.Text;
 using Microsoft.Extensions.Options;
@@ -38,34 +36,72 @@ public sealed class SubprocessExecutor : ISubprocessExecutor
         await _sapGate.WaitAsync(cancellationToken);
         try
         {
-            var dir = _options.ResolveSapPath(); var jar = Path.Combine(dir, "lib", "sapjco3.jar"); var dll = Path.Combine(dir, "lib", "sapjco3.dll"); var config = Path.Combine(dir, "config", "sap.properties");
-            var bomSource = Path.Combine(dir, "src", "SapBomExtractor.java"); var bomClass = Path.Combine(dir, "out", "SapBomExtractor.class");
-            var impactSource = Path.Combine(dir, "src", "SapMaterialImpactExtractor.java"); var impactClass = Path.Combine(dir, "out", "SapMaterialImpactExtractor.class");
-            var historySource = Path.Combine(dir, "src", "SapMaterialHistoryExtractor.java"); var historyClass = Path.Combine(dir, "out", "SapMaterialHistoryExtractor.class");
+            var dir = _options.ResolveSapPath();
+            var jar = Path.Combine(dir, "lib", "sapjco3.jar");
+            var dll = Path.Combine(dir, "lib", "sapjco3.dll");
+            var config = Path.Combine(dir, "config", "sap.properties");
+            var bomSource = Path.Combine(dir, "src", "SapBomExtractor.java");
+            var bomClass = Path.Combine(dir, "out", "SapBomExtractor.class");
+            var impactSource = Path.Combine(dir, "src", "SapMaterialImpactResilientRunner.java");
+            var impactClass = Path.Combine(dir, "out", "SapMaterialImpactResilientRunner.class");
+            var historySource = Path.Combine(dir, "src", "SapMaterialHistoryResilientRunner.java");
+            var historyClass = Path.Combine(dir, "out", "SapMaterialHistoryResilientRunner.class");
             foreach (var file in new[] { jar, dll, config, bomSource }) if (!File.Exists(file)) throw new FileNotFoundException("Required SAP runtime file was not found.", file);
-            if (request.IncludeSapBusinessImpact && !File.Exists(impactSource)) throw new FileNotFoundException("SAP impact extractor source was not found.", impactSource);
-            if (request.IncludeSapBusinessImpact && !File.Exists(historySource)) throw new FileNotFoundException("SAP history extractor source was not found.", historySource);
-            var runtime = Path.Combine(dir, "runtime", "jobs", SafeSegment(request.JobId ?? Guid.NewGuid().ToString("N"))); Directory.CreateDirectory(runtime);
-            var bomPath = Path.Combine(runtime, "sap_bom_extraction.json"); if (File.Exists(bomPath)) File.Delete(bomPath);
+            if (request.IncludeSapBusinessImpact && !File.Exists(impactSource)) throw new FileNotFoundException("SAP impact resilient runner source was not found.", impactSource);
+            if (request.IncludeSapBusinessImpact && !File.Exists(historySource)) throw new FileNotFoundException("SAP history resilient runner source was not found.", historySource);
+
+            var runtime = Path.Combine(dir, "runtime", "jobs", SafeSegment(request.JobId ?? Guid.NewGuid().ToString("N")));
+            Directory.CreateDirectory(runtime);
             var output = new StringBuilder();
             var materialQuery = request.GetMaterialQuery()?.Trim() ?? "";
-            var resolvedMaterialId = await ResolveSapMaterialAsync(dir, jar, runtime, materialQuery, request.Plant, progress, output, cancellationToken);
+            var plant = string.IsNullOrWhiteSpace(request.Plant) ? "1001" : request.Plant.Trim();
+            const string historyStorageLocation = "1D";
+            var fallbackEligible = IsValidatedFallbackRequest(materialQuery, plant, historyStorageLocation);
+            var sapAvailability = SapAvailability.Unknown;
+            string resolvedMaterialId;
+            try
+            {
+                resolvedMaterialId = await ResolveSapMaterialAsync(dir, jar, runtime, materialQuery, plant, progress, output, cancellationToken);
+                sapAvailability = SapAvailability.Live;
+            }
+            catch (Exception ex) when (fallbackEligible && IsSapUnavailableFailure(ex.Message))
+            {
+                resolvedMaterialId = "31";
+                sapAvailability = SapAvailability.Unavailable;
+                output.AppendLine($"SAP material resolution unavailable: {ex.Message}");
+                output.AppendLine("SAP_MATERIAL_RESOLVED_USING_VALIDATED_FALLBACK: Stearing -> Material 31.");
+                await progress("SAP is unavailable. Using validated fallback mapping for Stearing.");
+            }
             request.MaterialId = resolvedMaterialId;
-            await CompileIfNeeded(bomSource, bomClass, jar, dir, progress, output, cancellationToken); var bomRun = JavaInfo(dir, jar, "SapBomExtractor", resolvedMaterialId, string.IsNullOrWhiteSpace(request.Plant) ? "1001" : request.Plant, string.IsNullOrWhiteSpace(request.BomUsage) ? "3" : request.BomUsage, string.IsNullOrWhiteSpace(request.Alternative) ? "1" : request.Alternative, bomPath);
-            await progress($"Extracting SAP BOM for {resolvedMaterialId}..."); var bomExecuted = await _runner.RunAsync(bomRun, TimeSpan.FromSeconds(Math.Max(30, _options.SapTimeoutSeconds)), progress, cancellationToken); output.Append(bomExecuted.output);
 
+            var bomPath = Path.Combine(runtime, "sap_bom_extraction.json");
+            if (File.Exists(bomPath)) File.Delete(bomPath);
             BomRoot? bom = null;
             string? bomFailure = null;
-            if (bomExecuted.exitCode == 0 && File.Exists(bomPath))
+            if (sapAvailability == SapAvailability.Unavailable)
             {
-                try
-                {
-                    bom = JsonConvert.DeserializeObject<BomRoot>(await File.ReadAllTextAsync(bomPath));
-                    if (bom?.BomRootNode == null) { bom = null; bomFailure = "SAP extractor produced invalid BOM JSON."; }
-                }
-                catch (Exception ex) { bomFailure = $"SAP BOM JSON could not be parsed: {ex.Message}"; }
+                bomFailure = $"SAP_BOM_UNAVAILABLE: SAP BOM extraction was unavailable for material {resolvedMaterialId}.";
+                await progress("SAP live runtime is unavailable. Skipping repeated BOM connection attempt.");
             }
-            else bomFailure = $"SAP BOM extraction was unavailable for material {request.MaterialId}.";
+            else
+            {
+                await CompileIfNeeded(bomSource, bomClass, jar, dir, progress, output, cancellationToken);
+                var bomRun = JavaInfo(dir, jar, "SapBomExtractor", resolvedMaterialId, plant, string.IsNullOrWhiteSpace(request.BomUsage) ? "3" : request.BomUsage, string.IsNullOrWhiteSpace(request.Alternative) ? "1" : request.Alternative, bomPath);
+                await progress($"Extracting SAP BOM for {resolvedMaterialId}...");
+                var bomExecuted = await _runner.RunAsync(bomRun, SapOuterTimeout(), progress, cancellationToken);
+                output.Append(bomExecuted.output);
+                if (IsSapUnavailableFailure(bomExecuted.output)) sapAvailability = SapAvailability.Unavailable;
+                if (bomExecuted.exitCode == 0 && File.Exists(bomPath))
+                {
+                    try
+                    {
+                        bom = JsonConvert.DeserializeObject<BomRoot>(await File.ReadAllTextAsync(bomPath, cancellationToken));
+                        if (bom?.BomRootNode == null) { bom = null; bomFailure = "SAP extractor produced invalid BOM JSON."; }
+                    }
+                    catch (Exception ex) { bomFailure = $"SAP BOM JSON could not be parsed: {ex.Message}"; }
+                }
+                else bomFailure = $"SAP_BOM_UNAVAILABLE: SAP BOM extraction was unavailable for material {resolvedMaterialId}.";
+            }
 
             if (!request.IncludeSapBusinessImpact)
             {
@@ -73,35 +109,78 @@ public sealed class SubprocessExecutor : ISubprocessExecutor
                 return new() { Success = true, Output = output.ToString(), Bom = bom, BomOutputPath = bomPath };
             }
 
-            await CompileIfNeeded(impactSource, impactClass, jar, dir, progress, output, cancellationToken); var requestedMaterial = request.MaterialId?.Trim() ?? "";
+            await CompileIfNeeded(impactSource, impactClass, jar, dir, progress, output, cancellationToken);
             var materials = bom?.BomRootNode != null
                 ? CollectMaterials(bom.BomRootNode).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.OrdinalIgnoreCase).ToList()
-                : new List<string> { requestedMaterial }.Where(x => !string.IsNullOrWhiteSpace(x)).ToList();
-            var result = new SapBusinessImpactResult { SourceMaterialId = requestedMaterial, Plant = string.IsNullOrWhiteSpace(request.Plant) ? "1001" : request.Plant, Status = "in_progress", ExtractedAt = DateTime.UtcNow.ToString("O") };
-            if (bom == null) result.Warnings.Add($"SAP BOM extraction was unavailable for material {requestedMaterial}. Business impact was extracted for the requested material only.");
-            var impactDir = Path.Combine(runtime, "impact-items"); Directory.CreateDirectory(impactDir);
-            for (var i = 0; i < materials.Count; i++)
+                : new List<string> { resolvedMaterialId };
+            var result = new SapBusinessImpactResult { SourceMaterialId = resolvedMaterialId, Plant = plant, Status = "in_progress", ExtractedAt = DateTime.UtcNow.ToString("O") };
+            if (bom == null) result.Warnings.Add($"SAP_BOM_UNAVAILABLE: SAP BOM extraction was unavailable for material {resolvedMaterialId}. Business impact was extracted for the requested material only.");
+            if (sapAvailability == SapAvailability.Unavailable) result.Warnings.Add("SAP_DATA_NOT_LIVE: SAP live runtime was unavailable; validated snapshot evidence was requested.");
+            if (output.ToString().Contains("SAP_MATERIAL_RESOLVED_USING_VALIDATED_FALLBACK", StringComparison.Ordinal)) result.Warnings.Add("SAP_MATERIAL_RESOLVED_USING_VALIDATED_FALLBACK: Stearing was resolved to Material 31 using the approved offline mapping.");
+
+            var impactDir = Path.Combine(runtime, "impact-items");
+            Directory.CreateDirectory(impactDir);
+            foreach (var (material, index) in materials.Select((value, index) => (value, index)))
             {
-                var material = materials[i]; await progress($"Retrieving SAP stock, inventory and cost for {material} ({i + 1}/{materials.Count})...");
-                var itemPath = Path.Combine(impactDir, $"{SafeSegment(material)}.json"); if (File.Exists(itemPath)) File.Delete(itemPath);
-                var run = JavaInfo(dir, jar, "SapMaterialImpactExtractor", material, result.Plant, itemPath);
-                var executed = await _runner.RunAsync(run, TimeSpan.FromSeconds(Math.Max(30, _options.SapTimeoutSeconds)), progress, cancellationToken); output.Append(executed.output);
-                if (executed.exitCode != 0 || !File.Exists(itemPath)) { result.Warnings.Add($"Impact extraction failed for {material}."); continue; }
-                try { var item = JsonConvert.DeserializeObject<SapMaterialImpact>(await File.ReadAllTextAsync(itemPath)); if (item != null) result.Materials.Add(item); else result.Warnings.Add($"Invalid impact JSON for {material}."); }
-                catch (Exception ex) { result.Warnings.Add($"Could not parse impact for {material}: {ex.Message}"); }
+                await progress($"Retrieving SAP stock, inventory and cost for {material} ({index + 1}/{materials.Count})...");
+                var itemPath = Path.Combine(impactDir, $"{SafeSegment(material)}.json");
+                if (File.Exists(itemPath)) File.Delete(itemPath);
+                var impactRun = JavaInfo(dir, jar, "SapMaterialImpactResilientRunner", material, plant, itemPath);
+                if (sapAvailability == SapAvailability.Unavailable) impactRun.Environment["SAP_LIVE_UNAVAILABLE"] = "1";
+                var impactExecuted = await _runner.RunAsync(impactRun, SapOuterTimeout(), progress, cancellationToken);
+                output.Append(impactExecuted.output);
+                if (impactExecuted.exitCode != 0 || !File.Exists(itemPath)) { result.Warnings.Add($"Impact extraction failed for {material}."); continue; }
+                try
+                {
+                    var itemJson = await File.ReadAllTextAsync(itemPath, cancellationToken);
+                    ValidateImpactOutput(itemJson, plant);
+                    var item = JsonConvert.DeserializeObject<SapMaterialImpact>(itemJson);
+                    if (item == null) throw new InvalidDataException("Impact JSON deserialized to null.");
+                    result.Materials.Add(item);
+                    if (IsFallbackJson(itemJson)) result.Warnings.Add("SAP_CURRENT_IMPACT_FALLBACK_USED: Validated SAP current-impact snapshot was used.");
+                }
+                catch (Exception ex) { result.Warnings.Add($"Could not accept impact for {material}: {ex.Message}"); }
             }
             result.Status = result.Materials.Count == materials.Count && result.Materials.All(x => string.Equals(x.Status, "complete", StringComparison.OrdinalIgnoreCase)) ? "complete" : result.Materials.Count > 0 ? "partial_success" : "failed";
             result.ExtractedAt = DateTime.UtcNow.ToString("O");
-            var impactPath = Path.Combine(runtime, "sap_material_impact.json"); await File.WriteAllTextAsync(impactPath, JsonConvert.SerializeObject(result, Formatting.Indented));
-            await CompileIfNeeded(historySource, historyClass, jar, dir, progress, output, cancellationToken); await progress($"Retrieving SAP material movements and financial trace for {requestedMaterial}...");
+            var impactPath = Path.Combine(runtime, "sap_material_impact.json");
+            await File.WriteAllTextAsync(impactPath, JsonConvert.SerializeObject(result, Formatting.Indented), cancellationToken);
+
+            await CompileIfNeeded(historySource, historyClass, jar, dir, progress, output, cancellationToken);
+            await progress($"Retrieving SAP material movements and financial trace for {resolvedMaterialId}...");
             var historyPath = Path.Combine(runtime, "sap_material_history.json");
-            var historyRun = JavaInfo(dir, jar, "SapMaterialHistoryExtractor", requestedMaterial, result.Plant, historyPath);
-            var historyExecuted = await _runner.RunAsync(historyRun, TimeSpan.FromSeconds(Math.Max(30, _options.SapTimeoutSeconds)), progress, cancellationToken); output.Append(historyExecuted.output);
+            if (File.Exists(historyPath)) File.Delete(historyPath);
+            var historyRun = JavaInfo(dir, jar, "SapMaterialHistoryResilientRunner", resolvedMaterialId, plant, historyStorageLocation, historyPath);
+            if (sapAvailability == SapAvailability.Unavailable) historyRun.Environment["SAP_LIVE_UNAVAILABLE"] = "1";
+            var historyExecuted = await _runner.RunAsync(historyRun, SapOuterTimeout(), progress, cancellationToken);
+            output.Append(historyExecuted.output);
             SapMaterialHistoryResult? history = null;
-            if (historyExecuted.exitCode == 0 && File.Exists(historyPath)) { try { history = JsonConvert.DeserializeObject<SapMaterialHistoryResult>(await File.ReadAllTextAsync(historyPath)); } catch (Exception ex) { result.Warnings.Add($"SAP history could not be parsed: {ex.Message}"); } }
+            if (historyExecuted.exitCode == 0 && File.Exists(historyPath))
+            {
+                try
+                {
+                    var historyJson = await File.ReadAllTextAsync(historyPath, cancellationToken);
+                    ValidateHistoryOutput(historyJson, plant, historyStorageLocation);
+                    history = JsonConvert.DeserializeObject<SapMaterialHistoryResult>(historyJson);
+                    if (history == null) throw new InvalidDataException("History JSON deserialized to null.");
+                    if (IsFallbackJson(historyJson)) result.Warnings.Add("SAP_HISTORY_FALLBACK_USED: Validated SAP material-history snapshot was used.");
+                }
+                catch (Exception ex) { result.Warnings.Add($"SAP history could not be accepted: {ex.Message}"); }
+            }
             else result.Warnings.Add("SAP movement history was unavailable. Current stock and valuation remain usable.");
-            var success = bom != null || result.Materials.Count > 0 || history?.Movements.Count > 0;
-            return new() { Success = success, Output = AppendReason(output, bomFailure), Bom = bom, BomOutputPath = bom == null ? null : bomPath, SapImpact = result, SapImpactOutputPath = impactPath, SapHistory = history, SapHistoryOutputPath = history == null ? null : historyPath };
+
+            var success = bom != null || result.Materials.Count > 0 || history?.Events.Count > 0 || history?.Movements.Count > 0;
+            return new()
+            {
+                Success = success,
+                Output = AppendReason(output, bomFailure),
+                Bom = bom,
+                BomOutputPath = bom == null ? null : bomPath,
+                SapImpact = result,
+                SapImpactOutputPath = impactPath,
+                SapHistory = history,
+                SapHistoryOutputPath = history == null ? null : historyPath
+            };
         }
         finally { _sapGate.Release(); }
     }
@@ -109,7 +188,6 @@ public sealed class SubprocessExecutor : ISubprocessExecutor
     private async Task<string> ResolveSapMaterialAsync(string dir, string jar, string runtime, string query, string? plant, Func<string, Task> progress, StringBuilder output, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(query)) throw new InvalidOperationException("An SAP material description or material number is required.");
-        if (query.All(char.IsDigit) && query.Length <= 18) return query.PadLeft(18, '0');
         var source = Path.Combine(dir, "src", "SapMaterialCatalogExtractor.java");
         var cls = Path.Combine(dir, "out", "SapMaterialCatalogExtractor.class");
         if (!File.Exists(source)) throw new FileNotFoundException("SAP material catalogue extractor source was not found.", source);
@@ -137,6 +215,44 @@ public sealed class SubprocessExecutor : ISubprocessExecutor
         return resolved;
     }
 
+
+    private enum SapAvailability { Unknown, Live, Unavailable }
+    private TimeSpan SapOuterTimeout() => TimeSpan.FromSeconds(Math.Max(60, _options.SapTimeoutSeconds));
+    private static bool IsValidatedFallbackRequest(string query, string plant, string storageLocation)
+    {
+        var materialMatch = string.Equals(query, "Stearing", StringComparison.OrdinalIgnoreCase) || query == "31" || query == "000000000000000031";
+        return materialMatch && plant == "1001" && string.Equals(storageLocation, "1D", StringComparison.OrdinalIgnoreCase);
+    }
+    private static bool IsSapUnavailableFailure(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return false;
+        var text = value.ToLowerInvariant();
+        return text.Contains("jco_error_communication") || text.Contains("connection refused") || text.Contains("partner not reached") || text.Contains("connect timed out") || text.Contains("connection timed out") || text.Contains("sap material resolution failed") || text.Contains("sap runtime unavailable");
+    }
+    private static bool IsFallbackJson(string json) => json.Contains("\"dataSource\"", StringComparison.OrdinalIgnoreCase) && json.Contains("fallback-snapshot", StringComparison.OrdinalIgnoreCase);
+    private static void ValidateImpactOutput(string json, string plant)
+    {
+        if (string.IsNullOrWhiteSpace(json)) throw new InvalidDataException("SAP impact output was empty.");
+        var root = JObject.Parse(json);
+        if (!IsFallbackJson(json)) return;
+        if (root["fallback"]?["active"]?.Value<bool>() != true) throw new InvalidDataException("Fallback impact output was not marked active.");
+        var id = root["materialId"]?.ToString() ?? root["internalMaterialId"]?.ToString();
+        if (id is not ("31" or "000000000000000031")) throw new InvalidDataException("Fallback impact material did not match Material 31.");
+        if (root["organization"]?["plant"]?.ToString() != plant) throw new InvalidDataException("Fallback impact plant did not match the request.");
+        if (string.IsNullOrWhiteSpace(root["fallback"]?["snapshotCapturedAt"]?.ToString())) throw new InvalidDataException("Fallback impact snapshot timestamp was missing.");
+    }
+    private static void ValidateHistoryOutput(string json, string plant, string storageLocation)
+    {
+        if (string.IsNullOrWhiteSpace(json)) throw new InvalidDataException("SAP history output was empty.");
+        var root = JObject.Parse(json);
+        if (!IsFallbackJson(json)) return;
+        if (root["fallback"]?["active"]?.Value<bool>() != true) throw new InvalidDataException("Fallback history output was not marked active.");
+        var id = root["material"]?["materialId"]?.ToString() ?? root["materialId"]?.ToString();
+        if (id is not ("31" or "000000000000000031")) throw new InvalidDataException("Fallback history material did not match Material 31.");
+        if (root["material"]?["plant"]?.ToString() != plant) throw new InvalidDataException("Fallback history plant did not match the request.");
+        if (!string.Equals(root["material"]?["storageLocation"]?.ToString(), storageLocation, StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("Fallback history storage location did not match the request.");
+        if (string.IsNullOrWhiteSpace(root["fallback"]?["snapshotCapturedAt"]?.ToString())) throw new InvalidDataException("Fallback history snapshot timestamp was missing.");
+    }
     private static string AppendReason(StringBuilder output, string? reason)
     {
         if (string.IsNullOrWhiteSpace(reason)) return output.ToString();

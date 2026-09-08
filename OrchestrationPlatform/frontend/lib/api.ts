@@ -82,6 +82,10 @@ export function subscribeToProgress(jobId: string, onProgress: (progress: Pipeli
   return () => events.close();
 }
 
+export interface PipelineJobStatus { jobId: string; status: string; terminal: boolean; error?: string | null }
+export async function getPipelineStatus(jobId: string): Promise<PipelineJobStatus> {
+  return expectJson<PipelineJobStatus>(await fetch(`${API_BASE}/pipeline/status/${encodeURIComponent(jobId)}`, { cache: "no-store" }));
+}
 export async function getPipelineBom(jobId: string) {
   return expectJson(await fetch(`${API_BASE}/pipeline/bom/${encodeURIComponent(jobId)}`, { cache: "no-store" }));
 }

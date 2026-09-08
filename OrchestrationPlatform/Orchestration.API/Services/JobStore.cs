@@ -11,6 +11,7 @@ namespace Orchestration.API.Services
         void CompleteJob(string jobId);
         void FailJob(string jobId, string error);
         DateTime? GetJobCreatedTime(string jobId);
+        string? GetJobStatus(string jobId);
     }
 
     public class InMemoryJobStore : IJobStore
@@ -57,6 +58,8 @@ namespace Orchestration.API.Services
                 _logger.LogError($"Job failed: {jobId} - {error}");
             }
         }
+
+        public string? GetJobStatus(string jobId) => _jobs.TryGetValue(jobId, out var job) ? job.status : null;
 
         public DateTime? GetJobCreatedTime(string jobId)
         {
