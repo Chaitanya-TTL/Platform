@@ -1,18 +1,23 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
+import { AnimatePresence, MotionConfig, motion, useReducedMotion } from "motion/react";
 import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   IconAlertTriangle,
   IconArrowLeft,
+  IconChevronLeft,
   IconSearch,
+  IconX,
 } from "@tabler/icons-react";
 import { readHandoff } from "../persistence/handoff-store";
 import { buildInvestigation } from "../engines/build-investigation";
 import { buildIntelligenceInvestigation } from "../engines/build-intelligence-investigation";
 import { investigateWindchill } from "../infrastructure/windchill-intelligence-client";
 import { investigateSap } from "../infrastructure/sap-intelligence-client";
+import { mergeSourceIntelligence } from "../infrastructure/merge-source-intelligence";
 import type { EngineeringIntelligenceInvestigationV1 } from "../contracts/intelligence-v1";
 import { createInvestigationGraphCore } from "../engines/investigation-graph";
 import { projectVisibleGraph } from "../engines/project-visible-graph";
@@ -133,6 +138,7 @@ export function LatticeNextWorkspace() {
               label: result.source,
               root: resolved.root,
               nativeId: result.nativeId,
+              jobId: resolved.jobId,
               capturedAt: new Date().toISOString(),
               completeness: resolved.warning ? "partial" : "complete",
             });
@@ -177,7 +183,7 @@ export function LatticeNextWorkspace() {
           );
 
           try {
-            const canonical = next.sources.some(item => item.source === "sap") ? await investigateSap(next, controller.signal) : await investigateWindchill(next, controller.signal);
+            const sourceTasks=[];if(next.sources.some(item=>item.source==="windchill"))sourceTasks.push(investigateWindchill({...next,sources:next.sources.filter(item=>item.source==="windchill")},controller.signal));if(next.sources.some(item=>item.source==="sap"))sourceTasks.push(investigateSap({...next,sources:next.sources.filter(item=>item.source==="sap")},controller.signal));const canonical=mergeSourceIntelligence(await Promise.all(sourceTasks));
             setDirectCanonical(canonical);
           } catch (error) {
             setMessage(error instanceof Error ? `${error.message} Showing structure-only compatibility view.` : "Source intelligence unavailable. Showing structure-only compatibility view.");
@@ -223,6 +229,7 @@ function Investigation({
     | Extract<HandoffReadResult, { ok: true }>["value"]
     | LatticeHandoff;
 }) {
+  const reducedMotion = useReducedMotion();
   const domain = useMemo(() => canonical ? buildIntelligenceInvestigation(canonical) : buildInvestigation(handoff), [canonical, handoff]);
   const core = useMemo(() => createInvestigationGraphCore(domain), [domain]);
   const sources = useMemo(
@@ -292,6 +299,7 @@ function Investigation({
     : [];
 
   return (
+    <MotionConfig reducedMotion="user">
     <main className="min-h-[calc(100vh-64px)] bg-[#050914] p-3 text-white sm:p-4">
       <header className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950/75 px-4 py-3">
         <div className="flex items-center gap-3">
@@ -370,7 +378,12 @@ function Investigation({
         </div>
       ) : null}
 
-      <section className="grid min-h-[650px] overflow-hidden rounded-xl border border-slate-800 bg-slate-950 lg:grid-cols-[minmax(0,1fr)_340px]">
+      <motion.section
+        layout
+        className="relative grid min-h-[650px] overflow-hidden rounded-xl border border-slate-800 bg-slate-950"
+        style={{ gridTemplateColumns: state.inspectorOpen ? "minmax(0,1fr) 340px" : "minmax(0,1fr)" }}
+        transition={{ type: "spring", stiffness: 300, damping: 32, mass: 0.85 }}
+      >
         <div className="min-h-[520px]">
           <LatticeFlowProvider>
             <RelationshipCanvas
@@ -384,6 +397,7 @@ function Investigation({
               onViewport={(value) => dispatch({ type: "viewport", value })}
               onPinPosition={(id, position) => dispatch({ type: "pin-position", id, position })}
               onClearTransient={() => dispatch({ type: "clear-transient" })}
+              onEscape={() => state.inspectorOpen ? dispatch({ type: "close-inspector" }) : dispatch({ type: "clear-transient" })}
               onNodeAction={({nodeId,action}) => {
                 if(action==="focus") dispatch({type:"focus",id:nodeId});
                 else if(action==="expand-one"&&!state.interaction.expansion.expanded.has(nodeId)) dispatch({type:"toggle",id:nodeId});
@@ -408,17 +422,47 @@ function Investigation({
           </LatticeFlowProvider>
         </div>
 
-        {relationship ? (
-          <RelationshipInspector
-            relationship={relationship}
-            source={domain.byId[relationship.from]}
-            target={domain.byId[relationship.to]}
-          />
-        ) : (
-          domain.metadata?.contractVersion ? <IntelligenceInspector graph={domain} entity={entity} /> : <EntityInspector entity={entity} relationships={related} />
-        )}
-      </section>
+        <AnimatePresence initial={false}>
+          {state.inspectorOpen ? (
+            <motion.aside
+              key="lattice-inspector-panel"
+              id="lattice-inspector-panel"
+              initial={reducedMotion ? { opacity: 1 } : { x: 340, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={reducedMotion ? { opacity: 0 } : { x: 340, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 300, damping: 32, mass: 0.85 }}
+              className="relative min-w-0 overflow-hidden border-l border-slate-800"
+            >
+              <button type="button" onClick={() => dispatch({ type: "close-inspector" })} aria-label="Close details" className="absolute right-3 top-3 z-20 rounded-lg border border-slate-700 bg-slate-950/90 p-1.5 text-slate-400 hover:text-white">
+                <IconX className="h-4 w-4" />
+              </button>
+              {relationship ? (
+                <RelationshipInspector relationship={relationship} source={domain.byId[relationship.from]} target={domain.byId[relationship.to]} />
+              ) : domain.metadata?.contractVersion ? (
+                <IntelligenceInspector graph={domain} entity={entity} />
+              ) : (
+                <EntityInspector entity={entity} relationships={related} />
+              )}
+            </motion.aside>
+          ) : null}
+        </AnimatePresence>
+
+        {!state.inspectorOpen ? (
+          <motion.button
+            initial={reducedMotion ? undefined : { x: 16, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            type="button"
+            onClick={() => dispatch({ type: "open-inspector" })}
+            aria-expanded="false"
+            aria-controls="lattice-inspector-panel"
+            className="absolute right-3 top-3 z-20 inline-flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-950/90 px-3 py-2 text-xs font-semibold text-slate-300 shadow-xl"
+          >
+            <IconChevronLeft className="h-4 w-4" /> Details
+          </motion.button>
+        ) : null}
+      </motion.section>
     </main>
+    </MotionConfig>
   );
 }
 

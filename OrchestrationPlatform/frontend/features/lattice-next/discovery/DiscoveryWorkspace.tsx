@@ -7,6 +7,8 @@ import {
   IconRefresh,
   IconSearch,
   IconTopologyStar3,
+  IconSquare,
+  IconSquareCheckFilled,
 } from "@tabler/icons-react";
 import type {
   LatticeSource,
@@ -44,7 +46,7 @@ export function DiscoveryWorkspace({
   const results = useMemo(
     () =>
       state.snapshot
-        ? Object.values(state.snapshot.outcomes).flatMap((item) => item.results)
+        ? state.snapshot.request.requestedSources.flatMap((source) => state.snapshot!.outcomes[source].results)
         : [],
     [state.snapshot],
   );
@@ -52,7 +54,7 @@ export function DiscoveryWorkspace({
     state.selectedResultIds.has(item.resultId),
   );
   const submit = async () => {
-    if (state.query.trim()) await orchestrator.search(state.query);
+    if (state.query.trim() && state.selectedSources.size) await orchestrator.search(state.query, [...state.selectedSources]);
   };
   return (
     <main className="min-h-[calc(100vh-64px)] bg-[#050914] px-4 py-8 text-white sm:px-8">
@@ -86,7 +88,7 @@ export function DiscoveryWorkspace({
               className="h-11 min-w-0 flex-1 bg-transparent px-3 text-sm outline-none placeholder:text-slate-600"
             />
             <button
-              disabled={!state.query.trim() || Boolean(state.snapshot?.active)}
+              disabled={!state.query.trim() || !state.selectedSources.size || Boolean(state.snapshot?.active)}
               className="rounded-xl bg-cyan-600 px-5 text-sm font-semibold disabled:opacity-45"
             >
               Search connected sources
@@ -110,9 +112,12 @@ export function DiscoveryWorkspace({
               source={source}
               query={state.query}
               outcome={state.snapshot?.outcomes[source] ?? null}
+              included={state.selectedSources.has(source)}
+              searchActive={Boolean(state.snapshot?.active)}
               selected={state.selectedResultIds}
               onSelect={(result) => dispatch({ type: "select", result })}
               onRetry={() => void orchestrator.retry(source)}
+              onToggleSource={() => dispatch({ type: "toggle-source", source })}
             />
           ))}
         </div>
@@ -156,11 +161,11 @@ export function DiscoveryWorkspace({
                     className="rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-2"
                   >
                     <p className="text-xs font-semibold text-slate-200">
-                      {SOURCE_LABELS[item.source]} · {item.displayName}
+                      {SOURCE_LABELS[item.source]} Â· {item.displayName}
                     </p>
                     <p className="mt-1 truncate text-[11px] text-slate-500">
                       {item.nativeId}
-                      {item.revision ? ` · Revision ${item.revision}` : ""}
+                      {item.revision ? ` Â· Revision ${item.revision}` : ""}
                     </p>
                   </div>
                 ))}
@@ -206,20 +211,26 @@ function SourceCard({
   source,
   query,
   outcome,
+  included,
+  searchActive,
   selected,
   onSelect,
   onRetry,
+  onToggleSource,
 }: {
   source: LatticeSource;
   query: string;
   outcome: SourceSearchOutcome | null;
+  included: boolean;
+  searchActive: boolean;
   selected: Set<string>;
   onSelect: (result: NormalizedSearchResult) => void;
   onRetry: () => void;
+  onToggleSource: () => void;
 }) {
   const [expanded, setExpanded] = useState(false),
     [details, setDetails] = useState(false),
-    state = presentOutcome(source, outcome, query),
+    state = presentOutcome(source, included ? outcome : ({ source, status: "not-requested" } as SourceSearchOutcome), query),
     items = outcome?.results ?? [],
     visible = expanded ? items : items.slice(0, 3);
   const tones = {
@@ -229,10 +240,13 @@ function SourceCard({
     configit: "text-fuchsia-300",
   };
   return (
-    <section className="rounded-2xl border border-slate-800 bg-slate-950/65 p-4">
+    <section className={`rounded-2xl border border-slate-800 bg-slate-950/65 p-4 transition ${included ? "" : "opacity-60"}`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
+            <button type="button" disabled={searchActive} onClick={onToggleSource} aria-pressed={included} aria-label={`${included ? "Exclude" : "Include"} ${SOURCE_LABELS[source]}`} className="rounded text-slate-400 disabled:opacity-40">
+              {included ? <IconSquareCheckFilled className="h-5 w-5 text-cyan-400" /> : <IconSquare className="h-5 w-5" />}
+            </button>
             <p className={`text-sm font-semibold ${tones[source]}`}>
               {SOURCE_LABELS[source]}
             </p>
@@ -259,7 +273,7 @@ function SourceCard({
           </button>
         ) : null}
       </div>
-      {visible.length ? (
+      {included && visible.length ? (
         <div className="mt-4 grid gap-2">
           {visible.map((result) => (
             <button
@@ -284,7 +298,7 @@ function SourceCard({
           ))}
         </div>
       ) : null}
-      {items.length > 3 ? (
+      {included && items.length > 3 ? (
         <button
           onClick={() => setExpanded((value) => !value)}
           className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-cyan-300"
@@ -302,7 +316,7 @@ function SourceCard({
           )}
         </button>
       ) : null}
-      {state.technicalDetail ? (
+      {included && state.technicalDetail ? (
         <div className="mt-3">
           <button
             onClick={() => setDetails((value) => !value)}
@@ -324,13 +338,11 @@ function friendlyReference(
   source: LatticeSource,
   result: NormalizedSearchResult,
 ) {
-  const revision = result.revision ? ` · Revision ${result.revision}` : "";
+  const revision = result.revision ? ` Â· Revision ${result.revision}` : "";
   if (source === "windchill")
     return `Part ${result.nativeId.replace(/^OR:wt\.part\.WTPart:/, "")}${revision}`;
   if (source === "sap") return `Material ${result.nativeId}${revision}`;
   if (source === "configit")
-    return `Product ${result.nativeId}${result.version ? ` · Package version ${result.version}` : ""}`;
+    return `Product ${result.nativeId}${result.version ? ` Â· Package version ${result.version}` : ""}`;
   return `Item ${result.nativeId}${revision}`;
 }
-
-

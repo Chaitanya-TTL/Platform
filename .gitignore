@@ -22,7 +22,14 @@ windchill_extractor/windchill_extraction_raw.json
 **/bin/
 **/obj/
 **/out/
-**/runtime/
+**/runtime/*
+ 
+# Keep the SAP fallback directory traversable
+!SAP-BOM-Extractor/runtime/fallback/
+ 
+# Track only approved SAP fallback snapshots
+!SAP-BOM-Extractor/runtime/fallback/sap-material-31-impact-fallback.json
+!SAP-BOM-Extractor/runtime/fallback/sap-material-31-history-fallback.json
 **/__pycache__/
 **/*.pyc
 **/*-run-output.txt

@@ -1,8 +1,10 @@
 "use client";
 
+import { MotionConfig, useAnimate, useReducedMotion } from "motion/react";
+
 import "@xyflow/react/dist/style.css";
 import "../lattice-next.css";
-import { memo, useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import {
   Background,
   Controls,
@@ -50,6 +52,7 @@ export type RelationshipCanvasProps = {
   onViewport: (viewport: RendererViewport) => void;
   onPinPosition: (id: string, position: XYPosition) => void;
   onClearTransient: () => void;
+  onEscape?: () => void;
   onNodeAction: (intent: LatticeNodeActionIntent) => void;
   onEdgeAction: (intent: LatticeEdgeActionIntent) => void;
 };
@@ -60,7 +63,11 @@ function RelationshipCanvasComponent(props: RelationshipCanvasProps) {
 
 export const RelationshipCanvas = memo(RelationshipCanvasComponent);
 
-function RelationshipCanvasInner({ projection, orientation, pinnedPositions, viewport, onSelectEntity, onSelectRelationship, onToggle, onViewport, onPinPosition, onClearTransient, onNodeAction, onEdgeAction }: RelationshipCanvasProps) {
+function RelationshipCanvasInner({ projection, orientation, pinnedPositions, viewport, onSelectEntity, onSelectRelationship, onToggle, onViewport, onPinPosition, onClearTransient, onEscape, onNodeAction, onEdgeAction }: RelationshipCanvasProps) {
+  const reducedMotion = useReducedMotion();
+  const [motionScope, animate] = useAnimate();
+  const geometryBusy = useRef(new Set<string>());
+  const settlementFrame = useRef<number | null>(null);
   const { setViewport, fitView } = useReactFlow<LatticeFlowNode, LatticeFlowEdge>();
   const [initialGraph] = useState(() => toReactFlow(projection, {}, pinnedPositions, orientation));
   const [nodes, setNodes] = useState<LatticeFlowNode[]>(initialGraph.nodes);
@@ -73,21 +80,21 @@ function RelationshipCanvasInner({ projection, orientation, pinnedPositions, vie
   const visibleCountRef = useRef(initialGraph.nodes.length);
   const nodesRef = useRef(initialGraph.nodes);
   const revealTimerRef = useRef<number | null>(null);
-  const callbacks = useRef({ onSelectEntity, onSelectRelationship, onToggle, onViewport, onPinPosition, onClearTransient, onNodeAction, onEdgeAction });
-  useEffect(() => { callbacks.current = { onSelectEntity, onSelectRelationship, onToggle, onViewport, onPinPosition, onClearTransient, onNodeAction, onEdgeAction }; }, [onSelectEntity, onSelectRelationship, onToggle, onViewport, onPinPosition, onClearTransient, onNodeAction, onEdgeAction]);
+  const callbacks = useRef({ onSelectEntity, onSelectRelationship, onToggle, onViewport, onPinPosition, onClearTransient, onEscape, onNodeAction, onEdgeAction });
+  useEffect(() => { callbacks.current = { onSelectEntity, onSelectRelationship, onToggle, onViewport, onPinPosition, onClearTransient, onEscape, onNodeAction, onEdgeAction }; }, [onSelectEntity, onSelectRelationship, onToggle, onViewport, onPinPosition, onClearTransient, onEscape, onNodeAction, onEdgeAction]);
   const escapePressed = useKeyPress("Escape");
 
   useEffect(() => {
-    if (escapePressed) callbacks.current.onClearTransient();
+    if (escapePressed) (callbacks.current.onEscape ?? callbacks.current.onClearTransient)();
   }, [escapePressed]);
 
   useEffect(() => {
-    const handleFit = () => void fitView({ padding: .18, duration: 320 });
+    const handleFit = () => void fitView({ padding: .18, duration: reducedMotion ? 0 : 320 });
     const handleCollapse = () => nodesRef.current.filter(node => node.id.startsWith("projection:domain:") && node.data.expanded).forEach(node => callbacks.current.onToggle(node.id));
     window.addEventListener("lattice:fit-view", handleFit);
     window.addEventListener("lattice:collapse-all", handleCollapse);
     return () => { window.removeEventListener("lattice:fit-view", handleFit); window.removeEventListener("lattice:collapse-all", handleCollapse); };
-  }, [fitView]);
+  }, [fitView, reducedMotion]);
 
   useEffect(() => {
     void setViewport(viewport, { duration: 0 });
@@ -95,6 +102,25 @@ function RelationshipCanvasInner({ projection, orientation, pinnedPositions, vie
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+
+  useEffect(() => {
+    const handleGeometry = (event: Event) => {
+      const detail = (event as CustomEvent<{active:boolean;id:string}>).detail;
+      if (!detail) return;
+      detail.active ? geometryBusy.current.add(detail.id) : geometryBusy.current.delete(detail.id);
+      const labels=Array.from(document.querySelectorAll<HTMLElement>(".lattice-edge-label"));
+      if(labels.length){void animate(labels,{opacity:geometryBusy.current.size?0:1},{duration:reducedMotion?0:geometryBusy.current.size?0.08:0.14});}
+      if (!geometryBusy.current.size) {
+        if (settlementFrame.current) cancelAnimationFrame(settlementFrame.current);
+        settlementFrame.current = requestAnimationFrame(() => requestAnimationFrame(() => {
+          layoutSequence.current += 1;
+          window.dispatchEvent(new CustomEvent("lattice:routes-settled"));
+        }));
+      }
+    };
+    window.addEventListener("lattice:geometry-motion", handleGeometry);
+    return () => { window.removeEventListener("lattice:geometry-motion", handleGeometry); if (settlementFrame.current) cancelAnimationFrame(settlementFrame.current); };
+  }, [animate, reducedMotion]);
 
   useEffect(() => {
     const element = canvasRef.current;
@@ -157,18 +183,19 @@ function RelationshipCanvasInner({ projection, orientation, pinnedPositions, vie
   const onEdgesChange = useCallback((changes: EdgeChange<LatticeFlowEdge>[]) => {
     setEdges((current: LatticeFlowEdge[]) => applyEdgeChanges(changes, current));
   }, []);
-  const handleNodeClick = useCallback((_: React.MouseEvent, node: LatticeFlowNode) => callbacks.current.onSelectEntity(node.id), []);
-  const handleEdgeClick = useCallback((_: React.MouseEvent, edge: LatticeFlowEdge) => callbacks.current.onSelectRelationship(edge.id), []);
-  const handleNodeDoubleClick = useCallback((event: React.MouseEvent, node: LatticeFlowNode) => { if(event.shiftKey) callbacks.current.onNodeAction({nodeId:node.id,action:"collapse-descendants"}); else if(event.altKey) callbacks.current.onNodeAction({nodeId:node.id,action:"expand-branch"}); else callbacks.current.onToggle(node.id); }, []);
+  const handleNodeClick = useCallback((_: ReactMouseEvent, node: LatticeFlowNode) => callbacks.current.onSelectEntity(node.id), []);
+  const handleEdgeClick = useCallback((_: ReactMouseEvent, edge: LatticeFlowEdge) => callbacks.current.onSelectRelationship(edge.id), []);
+  const handleNodeDoubleClick = useCallback((event: ReactMouseEvent, node: LatticeFlowNode) => { if(event.shiftKey) callbacks.current.onNodeAction({nodeId:node.id,action:"collapse-descendants"}); else if(event.altKey) callbacks.current.onNodeAction({nodeId:node.id,action:"expand-branch"}); else callbacks.current.onToggle(node.id); }, []);
 
   const handleMoveEnd = useCallback((_: MouseEvent | TouchEvent | null, next: Viewport) => callbacks.current.onViewport(next), []);
   const handleNodeDragStop = useCallback((_: MouseEvent | TouchEvent, node: LatticeFlowNode) => callbacks.current.onPinPosition(node.id, node.position), []);
   const handlePaneClick = useCallback(() => callbacks.current.onClearTransient(), []);
   const selectedNodes = nodes.filter((node) => node.selected && node.data.category !== "cluster");
-  const fitSelected = useCallback(() => { if (selectedNodes.length) void fitView({ nodes: selectedNodes, padding: 0.28, duration: 360, interpolate: "smooth" }); }, [fitView, selectedNodes]);
+  const fitSelected = useCallback(() => { if (selectedNodes.length) void fitView({ nodes: selectedNodes, padding: 0.28, duration: reducedMotion ? 0 : 360, interpolate: "smooth" }); }, [fitView, selectedNodes]);
 
   return (
-    <div ref={canvasRef} className="lattice-flow h-full" onClick={(event) => {
+    <MotionConfig reducedMotion="user" transition={{ type: "spring", stiffness: 280, damping: 30, mass: 0.8 }}>
+    <div ref={(node) => { canvasRef.current = node; motionScope.current = node; }} className="lattice-flow h-full" onClick={(event) => {
       const target = event.target as HTMLElement;
       const edgeActionElement=target.closest<HTMLElement>("[data-edge-action]");
       if(edgeActionElement?.dataset.edgeAction&&edgeActionElement.dataset.edgeId){
@@ -260,5 +287,6 @@ function RelationshipCanvasInner({ projection, orientation, pinnedPositions, vie
       </ReactFlow>
       <span className="sr-only" aria-live="polite">{nodes.length} visible nodes and {edges.length} visible relationships</span>
     </div>
+    </MotionConfig>
   );
 }

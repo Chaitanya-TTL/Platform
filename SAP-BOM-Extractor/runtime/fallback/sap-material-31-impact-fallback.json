@@ -1,0 +1,67 @@
+{
+  "materialId": "31",
+  "internalMaterialId": "000000000000000031",
+  "requestedMaterialId": "31",
+  "description": "Stearing",
+  "materialType": "ROH",
+  "baseUnit": "EA",
+  "batchManaged": false,
+  "crossPlantStatus": "",
+  "status": "fallback",
+  "dataSource": "fallback-snapshot",
+  "fallback": {
+    "active": true,
+    "reason": "SAP runtime unavailable",
+    "snapshotCapturedAt": "2026-09-02T08:52:12.742Z",
+    "notice": "Previously validated snapshot, not live SAP data."
+  },
+  "organization": {
+    "plant": "1001",
+    "valuationArea": "1001",
+    "companyCode": "0100",
+    "currency": "INR"
+  },
+  "stock": {
+    "unrestricted": 10,
+    "qualityInspection": 0,
+    "restrictedUse": 0,
+    "blocked": 0,
+    "inTransfer": 0,
+    "returns": 0,
+    "totalPhysical": 10,
+    "atpAvailable": null
+  },
+  "inventory": {
+    "valuatedQuantity": 10,
+    "totalStockValue": 5000,
+    "valuationType": ""
+  },
+  "cost": {
+    "priceControl": "V",
+    "standardPrice": 0,
+    "movingAveragePrice": 500,
+    "priceUnit": 1,
+    "effectiveUnitCost": 500,
+    "valuationClass": "3000"
+  },
+  "checks": {
+    "calculatedInventoryValue": 5000,
+    "reportedInventoryValue": 5000,
+    "valuationReconciled": true
+  },
+  "storageLocations": [
+    {
+      "storageLocation": "1D",
+      "unrestricted": 10,
+      "qualityInspection": 0,
+      "restrictedUse": 0,
+      "blocked": 0,
+      "inTransfer": 0,
+      "returns": 0
+    }
+  ],
+  "warnings": [
+    "SAP was unavailable. Returned a clearly labelled validated fallback snapshot captured on 2026-09-02."
+  ],
+  "extractedAt": "2026-09-02T08:52:12.742Z"
+}
