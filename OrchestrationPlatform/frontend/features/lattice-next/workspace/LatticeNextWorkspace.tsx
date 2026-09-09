@@ -266,6 +266,7 @@ function Investigation({
 }) {
   const reducedMotion = useReducedMotion();
   const [workspaceFullscreen, setWorkspaceFullscreen] = useState(false);
+  const [arranging, setArranging] = useState(false);
   const domain = useMemo(
     () =>
       canonical
@@ -424,6 +425,8 @@ function Investigation({
           pinnedCount={Object.keys(state.interaction.pinnedPositions).length}
           onResetLayout={() => dispatch({ type: "reset-layout" })}
           onResetSelected={() => dispatch({ type: "reset-selected" })}
+          onRearrange={() => window.dispatchEvent(new CustomEvent("lattice:bilateral-reflow"))}
+          arranging={arranging}
           canResetSelected={
             state.interaction.selection.type === "entity" &&
             Boolean(
@@ -477,6 +480,9 @@ function Investigation({
                 orientation={state.orientation}
                 pinnedPositions={state.interaction.pinnedPositions}
                 viewport={state.interaction.viewport}
+                layoutMode={state.interaction.layoutMode}
+                onBilateralReflow={(positions) => { dispatch({ type: "bilateral-reflow", positions }); setArranging(false); }}
+                onBilateralReflowStart={() => setArranging(true)}
                 onSelectEntity={(id) => dispatch({ type: "select-entity", id })}
                 onSelectRelationship={(id) =>
                   dispatch({ type: "select-relationship", id })

@@ -1,4 +1,3 @@
-
 import type { InvestigationState } from "../state/investigation-reducer";
 import type { InvestigationGraph, InvestigationSelection, RelationshipKind } from "../domain/model";
 import { initialInvestigation } from "../state/investigation-reducer";
@@ -81,10 +80,10 @@ export function loadInvestigation(id: string, graph: InvestigationGraph, sources
           enteringNodeIds: new Set(),
           activeEdgeIds: new Set(),
         },
+        layoutMode: restored.interaction.layoutMode === "BILATERAL" ? "BILATERAL" : "DEFAULT",
       },
     };
   } catch {
     return null;
   }
 }
-

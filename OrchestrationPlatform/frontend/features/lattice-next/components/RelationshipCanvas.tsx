@@ -26,6 +26,8 @@ import {
 } from "@xyflow/react";
 import { toReactFlow } from "../infrastructure/react-flow-adapter";
 import { layoutProjection } from "../infrastructure/elk-layout-adapter";
+import { bilateralReflow } from "../layout/bilateral-reflow-engine";
+import type { BilateralLayoutMode } from "../layout/bilateral-layout-contract";
 import type { LayoutOrientation, RelationshipProjection, RendererViewport } from "../contracts/projection";
 import type { LayoutSession } from "../layout/layout-session";
 import type { LatticeFlowEdge, LatticeFlowNode, LatticePinnedPositions } from "../canvas/lattice-flow-types";
@@ -55,6 +57,9 @@ export type RelationshipCanvasProps = {
   onEscape?: () => void;
   onNodeAction: (intent: LatticeNodeActionIntent) => void;
   onEdgeAction: (intent: LatticeEdgeActionIntent) => void;
+  layoutMode: BilateralLayoutMode;
+  onBilateralReflow: (positions: Record<string, XYPosition>) => void;
+  onBilateralReflowStart: () => void;
 };
 
 function RelationshipCanvasComponent(props: RelationshipCanvasProps) {
@@ -63,7 +68,7 @@ function RelationshipCanvasComponent(props: RelationshipCanvasProps) {
 
 export const RelationshipCanvas = memo(RelationshipCanvasComponent);
 
-function RelationshipCanvasInner({ projection, orientation, pinnedPositions, viewport, onSelectEntity, onSelectRelationship, onToggle, onViewport, onPinPosition, onClearTransient, onEscape, onNodeAction, onEdgeAction }: RelationshipCanvasProps) {
+function RelationshipCanvasInner({ projection, orientation, pinnedPositions, viewport, onSelectEntity, onSelectRelationship, onToggle, onViewport, onPinPosition, onClearTransient, onEscape, onNodeAction, onEdgeAction, layoutMode, onBilateralReflow, onBilateralReflowStart }: RelationshipCanvasProps) {
   const reducedMotion = useReducedMotion();
   const [motionScope, animate] = useAnimate();
   const geometryBusy = useRef(new Set<string>());
@@ -80,8 +85,8 @@ function RelationshipCanvasInner({ projection, orientation, pinnedPositions, vie
   const visibleCountRef = useRef(initialGraph.nodes.length);
   const nodesRef = useRef(initialGraph.nodes);
   const revealTimerRef = useRef<number | null>(null);
-  const callbacks = useRef({ onSelectEntity, onSelectRelationship, onToggle, onViewport, onPinPosition, onClearTransient, onEscape, onNodeAction, onEdgeAction });
-  useEffect(() => { callbacks.current = { onSelectEntity, onSelectRelationship, onToggle, onViewport, onPinPosition, onClearTransient, onEscape, onNodeAction, onEdgeAction }; }, [onSelectEntity, onSelectRelationship, onToggle, onViewport, onPinPosition, onClearTransient, onEscape, onNodeAction, onEdgeAction]);
+  const callbacks = useRef({ onSelectEntity, onSelectRelationship, onToggle, onViewport, onPinPosition, onClearTransient, onEscape, onNodeAction, onEdgeAction, onBilateralReflow, onBilateralReflowStart });
+  useEffect(() => { callbacks.current = { onSelectEntity, onSelectRelationship, onToggle, onViewport, onPinPosition, onClearTransient, onEscape, onNodeAction, onEdgeAction, onBilateralReflow, onBilateralReflowStart }; }, [onSelectEntity, onSelectRelationship, onToggle, onViewport, onPinPosition, onClearTransient, onEscape, onNodeAction, onEdgeAction, onBilateralReflow, onBilateralReflowStart]);
   const escapePressed = useKeyPress("Escape");
 
   useEffect(() => {
@@ -96,6 +101,21 @@ function RelationshipCanvasInner({ projection, orientation, pinnedPositions, vie
     return () => { window.removeEventListener("lattice:fit-view", handleFit); window.removeEventListener("lattice:collapse-all", handleCollapse); };
   }, [fitView, reducedMotion]);
 
+  useEffect(() => {
+    const handleReflow = () => {
+      callbacks.current.onBilateralReflowStart();
+      const result = bilateralReflow(nodesRef.current, edges);
+      if (!result) { callbacks.current.onBilateralReflow({}); return; }
+      window.dispatchEvent(new CustomEvent("lattice:geometry-motion", { detail: { active: true, id: "bilateral-reflow" } }));
+      const nextNodes = nodesRef.current.map((node) => ({ ...node, position: result.positions[node.id] ?? node.position, data: { ...node.data, layoutDirection: result.sideByNode[node.id] === "LEFT" ? "LEFT" : result.sideByNode[node.id] === "RIGHT" ? "RIGHT" : node.data.layoutDirection } } as LatticeFlowNode));
+      const nextEdges = edges.map((edge) => { const port=result.ports[edge.id], route=result.routes[edge.id]; return { ...edge, sourceHandle: port ? `source:${port.sourceSide}:${edge.sourceHandle?.split(":").at(-1) ?? "structure"}` : edge.sourceHandle, targetHandle: port ? `target:${port.targetSide}:${edge.targetHandle?.split(":").at(-1) ?? "structure"}` : edge.targetHandle, data: { ...edge.data!, layoutRoute: route, animation: "resolved" } } as LatticeFlowEdge; });
+      nodesRef.current = nextNodes; setNodes(nextNodes); setEdges(nextEdges);
+      callbacks.current.onBilateralReflow(result.positions);
+      window.setTimeout(() => window.dispatchEvent(new CustomEvent("lattice:geometry-motion", { detail: { active: false, id: "bilateral-reflow" } })), reducedMotion ? 0 : 520);
+    };
+    window.addEventListener("lattice:bilateral-reflow", handleReflow);
+    return () => window.removeEventListener("lattice:bilateral-reflow", handleReflow);
+  }, [edges, reducedMotion]);
   useEffect(() => {
     void setViewport(viewport, { duration: 0 });
     // Restore persisted camera at mount only. Live motion remains internal until move-end.
@@ -138,7 +158,11 @@ function RelationshipCanvasInner({ projection, orientation, pinnedPositions, vie
     const signal = ++layoutSequence.current;
     layoutProjection(projection, orientation, signal, pinnedPositions, layoutViewport, layoutSessionRef.current)
       .then((result) => {
-        const converted = toReactFlow(projection, result.positions, pinnedPositions, orientation, result);
+        let converted = toReactFlow(projection, result.positions, pinnedPositions, orientation, result);
+        if (layoutMode === "BILATERAL") {
+          const bilateral = bilateralReflow(converted.nodes, converted.edges);
+          if (bilateral) converted = { nodes: converted.nodes.map((node) => ({ ...node, position: bilateral.positions[node.id] ?? node.position, data: { ...node.data, layoutDirection: bilateral.sideByNode[node.id] === "LEFT" ? "LEFT" : bilateral.sideByNode[node.id] === "RIGHT" ? "RIGHT" : node.data.layoutDirection } } as LatticeFlowNode)), edges: converted.edges.map((edge) => { const port=bilateral.ports[edge.id]; return { ...edge, sourceHandle: port ? `source:${port.sourceSide}:${edge.sourceHandle?.split(":").at(-1) ?? "structure"}` : edge.sourceHandle, targetHandle: port ? `target:${port.targetSide}:${edge.targetHandle?.split(":").at(-1) ?? "structure"}` : edge.targetHandle, data: { ...edge.data!, layoutRoute: bilateral.routes[edge.id] } } as LatticeFlowEdge; }) };
+        }
         if (result.signal !== layoutSequence.current) { staleResultsRejectedRef.current += 1; return; }
         result.diagnostics.stability && (result.diagnostics.stability.staleResultsRejected = staleResultsRejectedRef.current);
         layoutSessionRef.current = result.session;
@@ -167,7 +191,7 @@ function RelationshipCanvasInner({ projection, orientation, pinnedPositions, vie
       })
       .catch(() => undefined);
     return () => { layoutSequence.current += 1; };
-  }, [fitView, orientation, pinnedPositions, projection, layoutViewport]);
+  }, [fitView, orientation, pinnedPositions, projection, layoutViewport, layoutMode]);
 
   useEffect(() => () => {
     if (revealTimerRef.current) window.clearTimeout(revealTimerRef.current);

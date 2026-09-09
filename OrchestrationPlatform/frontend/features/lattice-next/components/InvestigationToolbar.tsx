@@ -24,6 +24,8 @@ export function InvestigationToolbar({
   onResetLayout,
   onResetSelected,
   canResetSelected,
+  onRearrange,
+  arranging,
 }: {
   sources: string[];
   activeSources: ReadonlySet<string>;
@@ -36,6 +38,8 @@ export function InvestigationToolbar({
   onResetLayout: () => void;
   onResetSelected: () => void;
   canResetSelected: boolean;
+  onRearrange: () => void;
+  arranging: boolean;
 }) {
   const visible = sources.filter(meaningful);
   const focus = () => {
@@ -82,6 +86,18 @@ export function InvestigationToolbar({
         >
           <IconZoomReset className="h-3.5 w-3.5" />
           Fit graph
+        </motion.button>
+        <motion.button
+          whileHover={arranging ? undefined : { y: -1 }}
+          whileTap={arranging ? undefined : { scale: 0.97 }}
+          whileFocus={{ outline: "2px solid #94a3b8" }}
+          onClick={onRearrange}
+          disabled={arranging}
+          title="Arrange visible branches outward from the investigation subject"
+          className={`lattice-command-control ${arranging ? "is-arranging" : ""}`}
+        >
+          <IconLayoutDistributeHorizontal className="h-3.5 w-3.5" />
+          {arranging ? "Arranging..." : "Rearrange"}
         </motion.button>
         <motion.button
           whileHover={{ y: -1 }}

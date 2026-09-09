@@ -43,6 +43,15 @@ type ActiveRoute = {
   labelY: number;
 };
 
+
+function layoutRoutePath(route: NonNullable<LatticeFlowEdge["data"]>["layoutRoute"]): ActiveRoute | null {
+  if (!route) return null;
+  const points = [route.start, ...route.bends, route.end];
+  if (points.length < 2 || points.some((point) => !Number.isFinite(point.x) || !Number.isFinite(point.y))) return null;
+  const path = points.map((point, index) => `${index ? "L" : "M"} ${point.x} ${point.y}`).join(" ");
+  const label = route.label ?? { x: (route.start.x + route.end.x) / 2, y: (route.start.y + route.end.y) / 2 };
+  return { path, labelX: label.x, labelY: label.y };
+}
 function calculateActiveRoute(args:RouteArguments,category:LatticeEdgeCategory):ActiveRoute {
   const distance=Math.hypot(args.targetX-args.sourceX,args.targetY-args.sourceY);
   if(category==="evidence"&&distance<180){const [path,labelX,labelY]=getStraightPath(args);return{path,labelX,labelY}}
@@ -127,6 +136,7 @@ function EdgeView({
 
   const route = useMemo(
     () =>
+      layoutRoutePath(edgeData.layoutRoute) ??
       calculateActiveRoute(
         {
           sourceX,
@@ -140,6 +150,7 @@ function EdgeView({
       ),
     [
       edgeData.category,
+      edgeData.layoutRoute,
       sourcePosition,
       sourceX,
       sourceY,

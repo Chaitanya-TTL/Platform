@@ -1,6 +1,7 @@
 import type { XYPosition } from "@xyflow/react";
 import type { InvestigationSelection } from "../domain/model";
 import type { RendererViewport } from "../contracts/projection";
+import type { BilateralLayoutMode } from "../layout/bilateral-layout-contract";
 
 export type LatticeExpansionState = { expanded: Set<string>; focusRoot: string | null };
 export type LatticeHoverState = { entityId: string | null; relationshipId: string | null };
@@ -15,6 +16,7 @@ export type LatticeInteractionState = {
   viewport: RendererViewport;
   hover: LatticeHoverState;
   animation: LatticeAnimationState;
+  layoutMode: BilateralLayoutMode;
 };
 
 export function createInteractionState(roots: string[]): LatticeInteractionState {
@@ -25,8 +27,6 @@ export function createInteractionState(roots: string[]): LatticeInteractionState
     viewport: { x: 0, y: 0, zoom: 1 },
     hover: { entityId: null, relationshipId: null },
     animation: { enteringNodeIds: new Set(), activeEdgeIds: new Set() },
+    layoutMode: "DEFAULT",
   };
 }
-
-
-
