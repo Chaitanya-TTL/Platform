@@ -1,4 +1,3 @@
-
 import ELK from "elkjs/lib/elk.bundled.js";
 import type {
   NodePosition,
@@ -26,6 +25,7 @@ import {
   usableViewport,
 } from "../layout/sector-orchestrator";
 import { radialConnectionGeometry } from "../layout/radial-connection-geometry";
+import { anchorPinnedSubtrees } from "../layout/incremental-expansion-layout";
 import {
   countBranchOverlaps,
   countInvalidRoutes,
@@ -285,8 +285,7 @@ export async function hybridLayout(
     accepted.push({ ...positions[id], ...size });
     collisionsResolved += resolved.iterations;
   }
-  for (const [id, p] of Object.entries(pinned))
-    if (positions[id]) positions[id] = { ...p };
+  Object.assign(positions, anchorPinnedSubtrees(projection, positions, dimensions, pinned));
 
   const radialConnections: UniversalLayoutResult["radialConnections"] = {};
   for (const branch of branches) {
@@ -357,4 +356,3 @@ export async function hybridLayout(
     },
   };
 }
-

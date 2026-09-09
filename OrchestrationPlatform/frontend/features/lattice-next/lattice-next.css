@@ -87,3 +87,13 @@
 .domain-stock{--node-accent:#14b8a6;--domain-accent:#14b8a6;--domain-border:rgb(20 184 166 / .35);--domain-wash:rgb(13 148 136 / .1);--domain-icon-bg:rgb(20 184 166 / .12)}
 .domain-accounting{--node-accent:#60a5fa;--domain-accent:#60a5fa;--domain-border:rgb(96 165 250 / .35);--domain-wash:rgb(37 99 235 / .1);--domain-icon-bg:rgb(96 165 250 / .12)}
 .domain-history{--node-accent:#fb7185;--domain-accent:#fb7185;--domain-border:rgb(251 113 133 / .35);--domain-wash:rgb(190 24 93 / .1);--domain-icon-bg:rgb(251 113 133 / .12)}
+
+/* V1 dynamic layout refinement */
+.lattice-premium-node h2{font-size:18px;line-height:1.3}
+.lattice-premium-node h3{font-size:15px;line-height:1.4}
+.node-field,.node-identifier{font-size:11px;line-height:1.3}
+.node-value{font-size:14px;line-height:1.42}
+.lattice-domain-node h3{font-size:14px}
+.lattice-disclosure{font-size:10px;min-width:76px}
+.react-flow__node:not(.dragging){transition:transform 260ms cubic-bezier(.2,.8,.2,1)}
+.react-flow__node.dragging{transition:none!important}

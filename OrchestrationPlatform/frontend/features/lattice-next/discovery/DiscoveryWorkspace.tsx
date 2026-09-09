@@ -26,10 +26,8 @@ import {
 
 export function DiscoveryWorkspace({
   onInvestigate,
-  recent,
 }: {
   onInvestigate: (results: NormalizedSearchResult[]) => Promise<void>;
-  recent: { id: string; label: string; updatedAt?: string }[];
 }) {
   const orchestrator = useMemo(() => new FederatedSearchOrchestrator(), []),
     [state, dispatch] = useReducer(discoveryReducer, initialDiscoveryState),
@@ -171,32 +169,6 @@ export function DiscoveryWorkspace({
                 ))}
               </div>
             ) : null}
-          </section>
-        ) : null}
-        {recent.length ? (
-          <section className="mt-8">
-            <h2 className="text-xs font-semibold uppercase tracking-[.15em] text-slate-500">
-              Recent investigations
-            </h2>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {recent.map((item) => (
-                <a
-                  key={item.id}
-                  href={`/lattice?investigation=${encodeURIComponent(item.id)}`}
-                  className="group rounded-2xl border border-slate-800 bg-slate-950/65 p-4 transition hover:border-cyan-500/40"
-                >
-                  <p className="truncate text-sm font-semibold text-slate-100">
-                    {cleanInvestigationLabel(item.label)}
-                  </p>
-                  <p className="mt-2 text-xs text-slate-500">
-                    Saved engineering investigation
-                  </p>
-                  <span className="mt-4 inline-flex text-xs font-semibold text-cyan-300">
-                    Resume investigation
-                  </span>
-                </a>
-              ))}
-            </div>
           </section>
         ) : null}
         <p className="sr-only" aria-live="polite">

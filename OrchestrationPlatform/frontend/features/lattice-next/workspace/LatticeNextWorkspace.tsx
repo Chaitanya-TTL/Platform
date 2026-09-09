@@ -1,7 +1,12 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
-import { AnimatePresence, MotionConfig, motion, useReducedMotion } from "motion/react";
+import {
+  AnimatePresence,
+  MotionConfig,
+  motion,
+  useReducedMotion,
+} from "motion/react";
 import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -59,10 +64,6 @@ type CanonicalInvestigation = NonNullable<
   ReturnType<typeof loadCanonicalInvestigation>
 >;
 
-type RecentInvestigation = ReturnType<
-  typeof listCanonicalInvestigations
->[number];
-
 export function LatticeNextWorkspace() {
   const router = useRouter();
   const params = useSearchParams();
@@ -70,15 +71,16 @@ export function LatticeNextWorkspace() {
   const investigationId = params.get("investigation");
 
   const [direct, setDirect] = useState<LatticeHandoff | null>(null);
-  const [directCanonical, setDirectCanonical] = useState<EngineeringIntelligenceInvestigationV1 | null>(null);
+  const [directCanonical, setDirectCanonical] =
+    useState<EngineeringIntelligenceInvestigationV1 | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [recent, setRecent] = useState<RecentInvestigation[]>([]);
 
-  useEffect(() => {
-    setRecent(listCanonicalInvestigations());
-  }, []);
-  const [handoff] = useState<HandoffReadResult | null>(() => handoffId ? readHandoff(handoffId) : null);
-  const [restored] = useState<CanonicalInvestigation | null>(() => investigationId ? loadCanonicalInvestigation(investigationId) : null);
+  const [handoff] = useState<HandoffReadResult | null>(() =>
+    handoffId ? readHandoff(handoffId) : null,
+  );
+  const [restored] = useState<CanonicalInvestigation | null>(() =>
+    investigationId ? loadCanonicalInvestigation(investigationId) : null,
+  );
 
   const startNewInvestigation = useCallback(() => {
     setDirect(null);
@@ -88,7 +90,14 @@ export function LatticeNextWorkspace() {
   }, [router]);
 
   if (direct) {
-    return <Investigation handoffId={direct.handoffId} handoff={direct} canonical={directCanonical} onStartNew={startNewInvestigation} />;
+    return (
+      <Investigation
+        handoffId={direct.handoffId}
+        handoff={direct}
+        canonical={directCanonical}
+        onStartNew={startNewInvestigation}
+      />
+    );
   }
 
   if (handoffId) {
@@ -118,7 +127,6 @@ export function LatticeNextWorkspace() {
       ) : null}
 
       <DiscoveryWorkspace
-        recent={recent}
         onInvestigate={async (selected) => {
           const controller = new AbortController();
           const sources: LatticeSourceEnvelope[] = [];
@@ -150,9 +158,7 @@ export function LatticeNextWorkspace() {
             subjectLabel:
               selected[0]?.displayName ?? "Engineering investigation",
             createdAt: new Date().toISOString(),
-            expiresAt: new Date(
-              Date.now() + 24 * 60 * 60 * 1000,
-            ).toISOString(),
+            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
             sources,
           };
 
@@ -183,10 +189,41 @@ export function LatticeNextWorkspace() {
           );
 
           try {
-            const sourceTasks=[];if(next.sources.some(item=>item.source==="windchill"))sourceTasks.push(investigateWindchill({...next,sources:next.sources.filter(item=>item.source==="windchill")},controller.signal));if(next.sources.some(item=>item.source==="sap"))sourceTasks.push(investigateSap({...next,sources:next.sources.filter(item=>item.source==="sap")},controller.signal));const canonical=mergeSourceIntelligence(await Promise.all(sourceTasks));
+            const sourceTasks = [];
+            if (next.sources.some((item) => item.source === "windchill"))
+              sourceTasks.push(
+                investigateWindchill(
+                  {
+                    ...next,
+                    sources: next.sources.filter(
+                      (item) => item.source === "windchill",
+                    ),
+                  },
+                  controller.signal,
+                ),
+              );
+            if (next.sources.some((item) => item.source === "sap"))
+              sourceTasks.push(
+                investigateSap(
+                  {
+                    ...next,
+                    sources: next.sources.filter(
+                      (item) => item.source === "sap",
+                    ),
+                  },
+                  controller.signal,
+                ),
+              );
+            const canonical = mergeSourceIntelligence(
+              await Promise.all(sourceTasks),
+            );
             setDirectCanonical(canonical);
           } catch (error) {
-            setMessage(error instanceof Error ? `${error.message} Showing structure-only compatibility view.` : "Source intelligence unavailable. Showing structure-only compatibility view.");
+            setMessage(
+              error instanceof Error
+                ? `${error.message} Showing structure-only compatibility view.`
+                : "Source intelligence unavailable. Showing structure-only compatibility view.",
+            );
             setDirectCanonical(null);
           }
           setDirect(next);
@@ -225,12 +262,17 @@ function Investigation({
   handoffId: string;
   onStartNew: () => void;
   canonical?: EngineeringIntelligenceInvestigationV1 | null;
-  handoff:
-    | Extract<HandoffReadResult, { ok: true }>["value"]
-    | LatticeHandoff;
+  handoff: Extract<HandoffReadResult, { ok: true }>["value"] | LatticeHandoff;
 }) {
   const reducedMotion = useReducedMotion();
-  const domain = useMemo(() => canonical ? buildIntelligenceInvestigation(canonical) : buildInvestigation(handoff), [canonical, handoff]);
+  const [workspaceFullscreen, setWorkspaceFullscreen] = useState(false);
+  const domain = useMemo(
+    () =>
+      canonical
+        ? buildIntelligenceInvestigation(canonical)
+        : buildInvestigation(handoff),
+    [canonical, handoff],
+  );
   const core = useMemo(() => createInvestigationGraphCore(domain), [domain]);
   const sources = useMemo(
     () => [...new Set(domain.entities.map((entity) => entity.source))],
@@ -248,6 +290,29 @@ function Investigation({
   useEffect(() => {
     saveInvestigation(handoffId, state);
   }, [handoffId, state]);
+
+  useEffect(() => {
+    const toggle = () => setWorkspaceFullscreen((value) => !value);
+    window.addEventListener("lattice:toggle-workspace-fullscreen", toggle);
+    return () =>
+      window.removeEventListener("lattice:toggle-workspace-fullscreen", toggle);
+  }, []);
+
+  useEffect(() => {
+    document.body.style.overflow = workspaceFullscreen ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [workspaceFullscreen]);
+
+  useEffect(() => {
+    if (!workspaceFullscreen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setWorkspaceFullscreen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [workspaceFullscreen]);
 
   const startNewInvestigation = useCallback(() => {
     dispatch({ type: "start-new-investigation" });
@@ -286,11 +351,11 @@ function Investigation({
 
   const entity =
     state.interaction.selection.type === "entity"
-      ? domain.byId[state.interaction.selection.id] ?? null
+      ? (domain.byId[state.interaction.selection.id] ?? null)
       : null;
   const relationship =
     state.interaction.selection.type === "relationship"
-      ? domain.relationshipById[state.interaction.selection.id] ?? null
+      ? (domain.relationshipById[state.interaction.selection.id] ?? null)
       : null;
   const related = entity
     ? domain.relationships.filter(
@@ -300,8 +365,14 @@ function Investigation({
 
   return (
     <MotionConfig reducedMotion="user">
-    <main className="min-h-[calc(100vh-64px)] bg-[#050914] p-3 text-white sm:p-4">
-      <header className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950/75 px-4 py-3">
+      <main
+        className={
+          workspaceFullscreen
+            ? "fixed inset-0 z-[100] overflow-auto bg-[#050914] p-3 text-white sm:p-4"
+            : "h-screen bg-[#050914] p-3 text-white sm:p-4"
+        }
+      >
+        {/* <header className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950/75 px-4 py-3">
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -328,9 +399,9 @@ function Investigation({
             New investigation
           </button>
         </div>
-      </header>
+      </header> */}
 
-      <div className="relative mb-3">
+        {/* <div className="relative mb-3">
         <IconSearch className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-slate-500" />
         <input
           value={state.query}
@@ -340,128 +411,215 @@ function Investigation({
           placeholder="Find an assembly, component, or identifier"
           className="h-10 w-full rounded-lg border border-slate-800 bg-slate-950 pl-9 pr-3 text-sm outline-none focus:border-cyan-500"
         />
-      </div>
+      </div> */}
 
-      <InvestigationToolbar
-        sources={sources}
-        activeSources={state.activeSources}
-        onSource={(value) => dispatch({ type: "source", value })}
-        activeKinds={state.activeRelationships}
-        onKind={(value) => dispatch({ type: "relationship", value })}
-        focused={Boolean(state.interaction.expansion.focusRoot)}
-        onClearFocus={() => dispatch({ type: "focus", id: null })}
-        pinnedCount={Object.keys(state.interaction.pinnedPositions).length}
-        onResetLayout={() => dispatch({ type: "reset-layout" })}
-        onResetSelected={() => dispatch({ type: "reset-selected" })}
-        canResetSelected={
-          state.interaction.selection.type === "entity" &&
-          Boolean(state.interaction.pinnedPositions[state.interaction.selection.id])
-        }
-      />
+        <InvestigationToolbar
+          sources={sources}
+          activeSources={state.activeSources}
+          onSource={(value) => dispatch({ type: "source", value })}
+          activeKinds={state.activeRelationships}
+          onKind={(value) => dispatch({ type: "relationship", value })}
+          focused={Boolean(state.interaction.expansion.focusRoot)}
+          onClearFocus={() => dispatch({ type: "focus", id: null })}
+          pinnedCount={Object.keys(state.interaction.pinnedPositions).length}
+          onResetLayout={() => dispatch({ type: "reset-layout" })}
+          onResetSelected={() => dispatch({ type: "reset-selected" })}
+          canResetSelected={
+            state.interaction.selection.type === "entity" &&
+            Boolean(
+              state.interaction.pinnedPositions[state.interaction.selection.id],
+            )
+          }
+        />
 
-      {entity ? (
-        <div className="mb-3 flex items-center gap-2 text-xs text-slate-500">
-          <span>
-            {core
-              .pathToRoot(entity.id)
-              .map((id) => domain.byId[id]?.name)
-              .join(" / ")}
-          </span>
-          {entity.kind === "assembly" ? (
-            <button
-              onClick={() => dispatch({ type: "focus", id: entity.id })}
-              className="ml-auto rounded-md border border-slate-700 px-2 py-1 text-slate-300"
-            >
-              Focus branch
-            </button>
-          ) : null}
-        </div>
-      ) : null}
-
-      <motion.section
-        layout
-        className="relative grid min-h-[650px] overflow-hidden rounded-xl border border-slate-800 bg-slate-950"
-        style={{ gridTemplateColumns: state.inspectorOpen ? "minmax(0,1fr) 340px" : "minmax(0,1fr)" }}
-        transition={{ type: "spring", stiffness: 300, damping: 32, mass: 0.85 }}
-      >
-        <div className="min-h-[520px]">
-          <LatticeFlowProvider>
-            <RelationshipCanvas
-              projection={projection}
-              orientation={state.orientation}
-              pinnedPositions={state.interaction.pinnedPositions}
-              viewport={state.interaction.viewport}
-              onSelectEntity={(id) => dispatch({ type: "select-entity", id })}
-              onSelectRelationship={(id) => dispatch({ type: "select-relationship", id })}
-              onToggle={(id) => dispatch({ type: "toggle", id })}
-              onViewport={(value) => dispatch({ type: "viewport", value })}
-              onPinPosition={(id, position) => dispatch({ type: "pin-position", id, position })}
-              onClearTransient={() => dispatch({ type: "clear-transient" })}
-              onEscape={() => state.inspectorOpen ? dispatch({ type: "close-inspector" }) : dispatch({ type: "clear-transient" })}
-              onNodeAction={({nodeId,action}) => {
-                if(action==="focus") dispatch({type:"focus",id:nodeId});
-                else if(action==="expand-one"&&!state.interaction.expansion.expanded.has(nodeId)) dispatch({type:"toggle",id:nodeId});
-                else if(action==="expand-branch") dispatch({type:"expand-many",ids:[nodeId,...core.descendants(nodeId)]});
-                else if(action==="collapse-descendants") dispatch({type:"collapse-many",ids:[nodeId,...core.descendants(nodeId)]});
-                else if(action==="reset-position") dispatch({type:"unpin-position",id:nodeId});
-                else if(action==="toggle-pin"&&state.interaction.pinnedPositions[nodeId]) dispatch({type:"unpin-position",id:nodeId});
-                else if(action==="open-details") dispatch({type:"select-entity",id:nodeId});
-                else if(action==="trace-upstream") dispatch({type:"expand-many",ids:core.ancestors(nodeId)});
-                else if(action==="trace-downstream") dispatch({type:"expand-many",ids:core.descendants(nodeId)});
-                else if(action==="compare-representations") dispatch({type:"focus",id:domain.roots[0]??null});
-              }}
-              onEdgeAction={({edgeId,action}) => {
-                const relationship=domain.relationships.find(item=>item.id===edgeId);
-                if(!relationship) return;
-                if(action==="hide-family") dispatch({type:"relationship",value:relationship.kind});
-                else if(action==="trace") { dispatch({type:"expand-many",ids:[relationship.from,relationship.to,...core.ancestors(relationship.from),...core.descendants(relationship.to)]}); dispatch({type:"select-relationship",id:edgeId}); }
-                else if(action==="compare-endpoints") dispatch({type:"expand-many",ids:[relationship.from,relationship.to]});
-                else dispatch({type:"select-relationship",id:edgeId});
-              }}
-            />
-          </LatticeFlowProvider>
-        </div>
-
-        <AnimatePresence initial={false}>
-          {state.inspectorOpen ? (
-            <motion.aside
-              key="lattice-inspector-panel"
-              id="lattice-inspector-panel"
-              initial={reducedMotion ? { opacity: 1 } : { x: 340, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={reducedMotion ? { opacity: 0 } : { x: 340, opacity: 0 }}
-              transition={{ type: "spring", stiffness: 300, damping: 32, mass: 0.85 }}
-              className="relative min-w-0 overflow-hidden border-l border-slate-800"
-            >
-              <button type="button" onClick={() => dispatch({ type: "close-inspector" })} aria-label="Close details" className="absolute right-3 top-3 z-20 rounded-lg border border-slate-700 bg-slate-950/90 p-1.5 text-slate-400 hover:text-white">
-                <IconX className="h-4 w-4" />
+        {entity ? (
+          <div className="mb-3 flex items-center gap-2 text-xs text-slate-500">
+            <span>
+              {core
+                .pathToRoot(entity.id)
+                .map((id) => domain.byId[id]?.name)
+                .join(" / ")}
+            </span>
+            {entity.kind === "assembly" ? (
+              <button
+                onClick={() => dispatch({ type: "focus", id: entity.id })}
+                className="ml-auto rounded-md border border-slate-700 px-2 py-1 text-slate-300"
+              >
+                Focus branch
               </button>
-              {relationship ? (
-                <RelationshipInspector relationship={relationship} source={domain.byId[relationship.from]} target={domain.byId[relationship.to]} />
-              ) : domain.metadata?.contractVersion ? (
-                <IntelligenceInspector graph={domain} entity={entity} />
-              ) : (
-                <EntityInspector entity={entity} relationships={related} />
-              )}
-            </motion.aside>
-          ) : null}
-        </AnimatePresence>
-
-        {!state.inspectorOpen ? (
-          <motion.button
-            initial={reducedMotion ? undefined : { x: 16, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            type="button"
-            onClick={() => dispatch({ type: "open-inspector" })}
-            aria-expanded="false"
-            aria-controls="lattice-inspector-panel"
-            className="absolute right-3 top-3 z-20 inline-flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-950/90 px-3 py-2 text-xs font-semibold text-slate-300 shadow-xl"
-          >
-            <IconChevronLeft className="h-4 w-4" /> Details
-          </motion.button>
+            ) : null}
+          </div>
         ) : null}
-      </motion.section>
-    </main>
+
+        <motion.section
+          layout
+          className={
+            workspaceFullscreen
+              ? "relative grid h-screen min-h-0 overflow-hidden rounded-xl border border-slate-800 bg-slate-950"
+              : "relative grid h-screen overflow-hidden rounded-xl border border-slate-800 bg-slate-950"
+          }
+          style={{
+            gridTemplateColumns: state.inspectorOpen
+              ? "minmax(0,1fr) 340px"
+              : "minmax(0,1fr)",
+          }}
+          transition={{
+            type: "spring",
+            stiffness: 300,
+            damping: 32,
+            mass: 0.85,
+          }}
+        >
+          <div className="min-h-[520px]">
+            <LatticeFlowProvider>
+              <RelationshipCanvas
+                projection={projection}
+                orientation={state.orientation}
+                pinnedPositions={state.interaction.pinnedPositions}
+                viewport={state.interaction.viewport}
+                onSelectEntity={(id) => dispatch({ type: "select-entity", id })}
+                onSelectRelationship={(id) =>
+                  dispatch({ type: "select-relationship", id })
+                }
+                onToggle={(id) => dispatch({ type: "toggle", id })}
+                onViewport={(value) => dispatch({ type: "viewport", value })}
+                onPinPosition={(id, position) =>
+                  dispatch({ type: "pin-position", id, position })
+                }
+                onClearTransient={() => dispatch({ type: "clear-transient" })}
+                onEscape={() =>
+                  state.inspectorOpen
+                    ? dispatch({ type: "close-inspector" })
+                    : dispatch({ type: "clear-transient" })
+                }
+                onNodeAction={({ nodeId, action }) => {
+                  if (action === "focus")
+                    dispatch({ type: "focus", id: nodeId });
+                  else if (
+                    action === "expand-one" &&
+                    !state.interaction.expansion.expanded.has(nodeId)
+                  )
+                    dispatch({ type: "toggle", id: nodeId });
+                  else if (action === "expand-branch")
+                    dispatch({
+                      type: "expand-many",
+                      ids: [nodeId, ...core.descendants(nodeId)],
+                    });
+                  else if (action === "collapse-descendants")
+                    dispatch({
+                      type: "collapse-many",
+                      ids: [nodeId, ...core.descendants(nodeId)],
+                    });
+                  else if (action === "reset-position")
+                    dispatch({ type: "unpin-position", id: nodeId });
+                  else if (
+                    action === "toggle-pin" &&
+                    state.interaction.pinnedPositions[nodeId]
+                  )
+                    dispatch({ type: "unpin-position", id: nodeId });
+                  else if (action === "open-details")
+                    dispatch({ type: "select-entity", id: nodeId });
+                  else if (action === "trace-upstream")
+                    dispatch({
+                      type: "expand-many",
+                      ids: core.ancestors(nodeId),
+                    });
+                  else if (action === "trace-downstream")
+                    dispatch({
+                      type: "expand-many",
+                      ids: core.descendants(nodeId),
+                    });
+                  else if (action === "compare-representations")
+                    dispatch({ type: "focus", id: domain.roots[0] ?? null });
+                }}
+                onEdgeAction={({ edgeId, action }) => {
+                  const relationship = domain.relationships.find(
+                    (item) => item.id === edgeId,
+                  );
+                  if (!relationship) return;
+                  if (action === "hide-family")
+                    dispatch({
+                      type: "relationship",
+                      value: relationship.kind,
+                    });
+                  else if (action === "trace") {
+                    dispatch({
+                      type: "expand-many",
+                      ids: [
+                        relationship.from,
+                        relationship.to,
+                        ...core.ancestors(relationship.from),
+                        ...core.descendants(relationship.to),
+                      ],
+                    });
+                    dispatch({ type: "select-relationship", id: edgeId });
+                  } else if (action === "compare-endpoints")
+                    dispatch({
+                      type: "expand-many",
+                      ids: [relationship.from, relationship.to],
+                    });
+                  else dispatch({ type: "select-relationship", id: edgeId });
+                }}
+              />
+            </LatticeFlowProvider>
+          </div>
+
+          <AnimatePresence initial={false}>
+            {state.inspectorOpen ? (
+              <motion.aside
+                key="lattice-inspector-panel"
+                id="lattice-inspector-panel"
+                initial={
+                  reducedMotion ? { opacity: 1 } : { x: 340, opacity: 0 }
+                }
+                animate={{ x: 0, opacity: 1 }}
+                exit={reducedMotion ? { opacity: 0 } : { x: 340, opacity: 0 }}
+                transition={{
+                  type: "spring",
+                  stiffness: 300,
+                  damping: 32,
+                  mass: 0.85,
+                }}
+                className="relative min-w-0 overflow-hidden border-l border-slate-800"
+              >
+                <button
+                  type="button"
+                  onClick={() => dispatch({ type: "close-inspector" })}
+                  aria-label="Close details"
+                  className="absolute right-3 top-3 z-20 rounded-lg border border-slate-700 bg-slate-950/90 p-1.5 text-slate-400 hover:text-white"
+                >
+                  <IconX className="h-4 w-4" />
+                </button>
+                {relationship ? (
+                  <RelationshipInspector
+                    relationship={relationship}
+                    source={domain.byId[relationship.from]}
+                    target={domain.byId[relationship.to]}
+                  />
+                ) : domain.metadata?.contractVersion ? (
+                  <IntelligenceInspector graph={domain} entity={entity} />
+                ) : (
+                  <EntityInspector entity={entity} relationships={related} />
+                )}
+              </motion.aside>
+            ) : null}
+          </AnimatePresence>
+
+          {!state.inspectorOpen ? (
+            <motion.button
+              initial={reducedMotion ? undefined : { x: 16, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              type="button"
+              onClick={() => dispatch({ type: "open-inspector" })}
+              aria-expanded="false"
+              aria-controls="lattice-inspector-panel"
+              className="absolute right-3 top-3 z-20 inline-flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-950/90 px-3 py-2 text-xs font-semibold text-slate-300 shadow-xl"
+            >
+              <IconChevronLeft className="h-4 w-4" /> Details
+            </motion.button>
+          ) : null}
+        </motion.section>
+      </main>
     </MotionConfig>
   );
 }
