@@ -23,6 +23,7 @@ export type InvestigationAction =
   | { type: "pin-position"; id: string; position: XYPosition }
   | { type: "unpin-position"; id: string }
   | { type: "reset-layout" }
+  | { type: "bilateral-reflow"; positions: Record<string, XYPosition> }
   | { type: "reset-selected" }
   | { type: "hover-entity"; id: string | null }
   | { type: "hover-relationship"; id: string | null }
@@ -90,7 +91,9 @@ export function investigationReducer(state: InvestigationState, action: Investig
       return { ...state, interaction: { ...state.interaction, pinnedPositions } };
     }
     case "reset-layout":
-      return { ...state, interaction: { ...state.interaction, pinnedPositions: {} } };
+      return { ...state, interaction: { ...state.interaction, pinnedPositions: {}, layoutMode: "DEFAULT" } };
+    case "bilateral-reflow":
+      return { ...state, interaction: { ...state.interaction, pinnedPositions: action.positions, layoutMode: "BILATERAL" } };
     case "reset-selected": {
       const selection = state.interaction.selection;
       if (selection.type !== "entity") return state;
