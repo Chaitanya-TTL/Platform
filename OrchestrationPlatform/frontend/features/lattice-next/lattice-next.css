@@ -1101,7 +1101,7 @@
 
 /* Canvas contrast, engineering grid, and compact source legend */
 .lattice-flow {
-  --lattice-canvas-background: #111827;
+  --lattice-canvas-background: #00bfff2f;
   --lattice-grid-color: rgba(148, 163, 184, 0.12);
   background-color: var(--lattice-canvas-background);
   background-image:

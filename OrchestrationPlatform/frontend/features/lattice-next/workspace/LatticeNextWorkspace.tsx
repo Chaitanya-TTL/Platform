@@ -301,11 +301,17 @@ function Investigation({
   }, []);
 
   useEffect(() => {
-    document.body.style.overflow = workspaceFullscreen ? "hidden" : "";
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+
     return () => {
-      document.body.style.overflow = "";
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousHtmlOverflow;
     };
-  }, [workspaceFullscreen]);
+  }, []);
 
   useEffect(() => {
     if (!workspaceFullscreen) return;
@@ -370,8 +376,8 @@ function Investigation({
       <main
         className={
           workspaceFullscreen
-            ? "fixed inset-0 z-[100] overflow-auto bg-[#050914] p-3 text-white sm:p-4"
-            : "h-screen bg-[#050914] p-3 text-white sm:p-4"
+            ? "fixed inset-0 z-[100] flex h-dvh min-h-0 flex-col overflow-hidden bg-[#050914] p-3 text-white sm:p-4"
+            : "flex h-[calc(100dvh-64px)] min-h-0 flex-col overflow-hidden bg-[#050914] p-3 text-white sm:p-4"
         }
       >
         {/* <header className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950/75 px-4 py-3">
@@ -415,30 +421,32 @@ function Investigation({
         />
       </div> */}
 
-        <InvestigationToolbar
-          sources={sources}
-          activeSources={state.activeSources}
-          onSource={(value) => dispatch({ type: "source", value })}
-          activeKinds={state.activeRelationships}
-          onKind={(value) => dispatch({ type: "relationship", value })}
-          focused={Boolean(state.interaction.expansion.focusRoot)}
-          onClearFocus={() => dispatch({ type: "focus", id: null })}
-          pinnedCount={Object.keys(state.interaction.pinnedPositions).length}
-          onResetLayout={() => dispatch({ type: "reset-layout" })}
-          onResetSelected={() => dispatch({ type: "reset-selected" })}
-          onRearrange={() => window.dispatchEvent(new CustomEvent("lattice:bilateral-reflow"))}
-          arranging={arranging}
-          onDownloadJson={() => downloadHierarchicalLatticeJson(domain)}
-          canResetSelected={
-            state.interaction.selection.type === "entity" &&
-            Boolean(
-              state.interaction.pinnedPositions[state.interaction.selection.id],
-            )
-          }
-        />
+        <div className="shrink-0">
+          <InvestigationToolbar
+            sources={sources}
+            activeSources={state.activeSources}
+            onSource={(value) => dispatch({ type: "source", value })}
+            activeKinds={state.activeRelationships}
+            onKind={(value) => dispatch({ type: "relationship", value })}
+            focused={Boolean(state.interaction.expansion.focusRoot)}
+            onClearFocus={() => dispatch({ type: "focus", id: null })}
+            pinnedCount={Object.keys(state.interaction.pinnedPositions).length}
+            onResetLayout={() => dispatch({ type: "reset-layout" })}
+            onResetSelected={() => dispatch({ type: "reset-selected" })}
+            onRearrange={() => window.dispatchEvent(new CustomEvent("lattice:bilateral-reflow"))}
+            arranging={arranging}
+            onDownloadJson={() => downloadHierarchicalLatticeJson(domain)}
+            canResetSelected={
+              state.interaction.selection.type === "entity" &&
+              Boolean(
+                state.interaction.pinnedPositions[state.interaction.selection.id],
+              )
+            }
+          />
 
+        </div>
         {entity ? (
-          <div className="mb-3 flex items-center gap-2 text-xs text-slate-500">
+          <div className="mb-3 flex shrink-0 items-center gap-2 text-xs text-slate-500">
             <span>
               {core
                 .pathToRoot(entity.id)
@@ -458,11 +466,7 @@ function Investigation({
 
         <motion.section
           layout
-          className={
-            workspaceFullscreen
-              ? "relative grid h-screen min-h-0 overflow-hidden rounded-xl border border-slate-800 bg-slate-950"
-              : "relative grid h-screen overflow-hidden rounded-xl border border-slate-800 bg-slate-950"
-          }
+          className="relative grid min-h-0 flex-1 overflow-hidden rounded-xl border border-slate-800 bg-slate-950"
           style={{
             gridTemplateColumns: state.inspectorOpen
               ? "minmax(0,1fr) 340px"
@@ -475,7 +479,7 @@ function Investigation({
             mass: 0.85,
           }}
         >
-          <div className="min-h-[520px]">
+          <div className="min-h-0 min-w-0 overflow-hidden">
             <LatticeFlowProvider>
               <RelationshipCanvas
                 projection={projection}
