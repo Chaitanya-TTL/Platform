@@ -36,8 +36,13 @@ const sourceText = (value: unknown): string | undefined => {
   if (typeof value === "object") {
     const record = value as Record<string, unknown>;
     for (const key of [
+      "Display",
+      "display",
       "displayValue",
+      "DisplayValue",
       "formattedValue",
+      "FormattedValue",
+      "Value",
       "value",
       "label",
       "text",
@@ -51,6 +56,18 @@ const sourceText = (value: unknown): string | undefined => {
 };
 const property = (value: unknown) =>
   ({ type: "text", text: sourceText(value) }) as const;
+const findNestedValue = (value: unknown, wantedKey: string): unknown => {
+  if (!value || typeof value !== "object") return undefined;
+  if (Array.isArray(value)) {
+    for (const item of value) { const found = findNestedValue(item, wantedKey); if (found !== undefined) return found; }
+    return undefined;
+  }
+  const record = value as Record<string, unknown>;
+  const matchingKey = Object.keys(record).find((key) => key.toLowerCase() === wantedKey.toLowerCase());
+  if (matchingKey) return record[matchingKey];
+  for (const nested of Object.values(record)) { const found = findNestedValue(nested, wantedKey); if (found !== undefined) return found; }
+  return undefined;
+};
 const safe = (value: string) =>
   value
     .toLowerCase()
@@ -194,9 +211,10 @@ export async function POST(request: NextRequest) {
       domain: "physical-attribute" | "product-context",
       key: string,
       label: string,
-      value: string | null | undefined,
+      value: unknown,
     ) => {
-      if (!value || !String(value).trim()) return;
+      const normalized = sourceText(value);
+      if (!normalized) return;
       const entityId = `windchill:${domain}:${safe(key)}:${safe(nativeId)}`;
       addEntity({
         id: entityId,
@@ -205,7 +223,8 @@ export async function POST(request: NextRequest) {
         identityQuality: "deterministic-derived",
         assertion: "fact",
         properties: {
-          value: property(String(value).trim()),
+          value: property(normalized.replace(/\t+/g, " • ")),
+          rawValue: property(rec(value) ? (value.Value ?? value.value ?? value) : value),
           attribute: property(key),
           recordKind: property(domain),
         },
@@ -242,7 +261,7 @@ export async function POST(request: NextRequest) {
         "physical-attribute",
         "chemical",
         "Chemical",
-        part.customAttributes.chemical,
+        part.customAttributes.chemical ?? findNestedValue(requirements.value, "Chemical"),
       );
       addProjectedValue(
         "physical-attribute",

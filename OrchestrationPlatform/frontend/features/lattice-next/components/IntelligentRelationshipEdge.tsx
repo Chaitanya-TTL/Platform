@@ -136,7 +136,12 @@ function EdgeView({
 
   const route = useMemo(
     () =>
-      layoutRoutePath(edgeData.layoutRoute) ??
+      (edgeData.layoutRoute
+        ? calculateActiveRoute(
+            { sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition },
+            edgeData.category,
+          )
+        : null) ??
       calculateActiveRoute(
         {
           sourceX,

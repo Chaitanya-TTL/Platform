@@ -305,9 +305,12 @@ function Entity({ id, data }: NodeProps<LatticeFlowNode>) {
         : kind === "change-task"
           ? IconGitCompare
           : IconBox);
+  const rawValue = data.attributes?.value;
   const value =
-    typeof data.attributes?.value === "string" && data.attributes.value.trim()
-      ? data.attributes.value
+    rawValue !== undefined &&
+    rawValue !== null &&
+    String(rawValue).trim() !== ""
+      ? String(rawValue)
       : "Unavailable";
   const requirementId =
     typeof data.attributes?.requirementId === "string"
@@ -319,7 +322,7 @@ function Entity({ id, data }: NodeProps<LatticeFlowNode>) {
     requirementId && data.label.startsWith(requirementId)
       ? data.label
           .slice(requirementId.length)
-          .replace(/^\s*[-Ã¢â‚¬â€œÃ¢â‚¬â€:]\s*/, "")
+          .replace(/^\s*[-ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â:]\s*/, "")
       : data.label;
   return (
     <Shell

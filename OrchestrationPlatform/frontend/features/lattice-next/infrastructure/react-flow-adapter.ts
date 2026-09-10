@@ -22,7 +22,7 @@ export function toReactFlow(projection:RelationshipProjection,positions:Record<s
     id:node.id,
     type:category,
     position:pinned[node.id]??positions[node.id]??{x:node.level*320,y:0},
-    origin:category==="subject"?[0.5,0.5]:[0,0.5],
+    origin:[0,0],
     width:dimensions.width,
     height:dimensions.height,
     style:{width:dimensions.width,height:dimensions.height},
