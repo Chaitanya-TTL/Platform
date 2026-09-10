@@ -42,6 +42,7 @@ import { IntelligenceInspector } from "../components/IntelligenceInspector";
 import { IntelligenceLegend } from "../components/IntelligenceLegend";
 import { RelationshipInspector } from "../components/RelationshipInspector";
 import { InvestigationToolbar } from "../components/InvestigationToolbar";
+import { downloadHierarchicalLatticeJson } from "../export/hierarchical-json-export";
 import type {
   HandoffReadResult,
   LatticeHandoff,
@@ -427,6 +428,7 @@ function Investigation({
           onResetSelected={() => dispatch({ type: "reset-selected" })}
           onRearrange={() => window.dispatchEvent(new CustomEvent("lattice:bilateral-reflow"))}
           arranging={arranging}
+          onDownloadJson={() => downloadHierarchicalLatticeJson(domain)}
           canResetSelected={
             state.interaction.selection.type === "entity" &&
             Boolean(
@@ -483,6 +485,7 @@ function Investigation({
                 layoutMode={state.interaction.layoutMode}
                 onBilateralReflow={(positions) => { dispatch({ type: "bilateral-reflow", positions }); setArranging(false); }}
                 onBilateralReflowStart={() => setArranging(true)}
+                onCollapseAll={() => dispatch({ type: "collapse-all" })}
                 onSelectEntity={(id) => dispatch({ type: "select-entity", id })}
                 onSelectRelationship={(id) =>
                   dispatch({ type: "select-relationship", id })

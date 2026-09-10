@@ -7,6 +7,7 @@ import "../lattice-next.css";
 import { memo, useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import {
   Background,
+  BackgroundVariant,
   Controls,
   MiniMap,
   Panel,
@@ -16,6 +17,7 @@ import {
   applyNodeChanges,
   useKeyPress,
   useReactFlow,
+  useUpdateNodeInternals,
   getConnectedEdges,
   getIncomers,
   getOutgoers,
@@ -60,6 +62,7 @@ export type RelationshipCanvasProps = {
   layoutMode: BilateralLayoutMode;
   onBilateralReflow: (positions: Record<string, XYPosition>) => void;
   onBilateralReflowStart: () => void;
+  onCollapseAll: () => void;
 };
 
 function RelationshipCanvasComponent(props: RelationshipCanvasProps) {
@@ -68,12 +71,13 @@ function RelationshipCanvasComponent(props: RelationshipCanvasProps) {
 
 export const RelationshipCanvas = memo(RelationshipCanvasComponent);
 
-function RelationshipCanvasInner({ projection, orientation, pinnedPositions, viewport, onSelectEntity, onSelectRelationship, onToggle, onViewport, onPinPosition, onClearTransient, onEscape, onNodeAction, onEdgeAction, layoutMode, onBilateralReflow, onBilateralReflowStart }: RelationshipCanvasProps) {
+function RelationshipCanvasInner({ projection, orientation, pinnedPositions, viewport, onSelectEntity, onSelectRelationship, onToggle, onViewport, onPinPosition, onClearTransient, onEscape, onNodeAction, onEdgeAction, layoutMode, onBilateralReflow, onBilateralReflowStart, onCollapseAll }: RelationshipCanvasProps) {
   const reducedMotion = useReducedMotion();
   const [motionScope, animate] = useAnimate();
   const geometryBusy = useRef(new Set<string>());
   const settlementFrame = useRef<number | null>(null);
   const { setViewport, fitView } = useReactFlow<LatticeFlowNode, LatticeFlowEdge>();
+  const updateNodeInternals = useUpdateNodeInternals();
   const [initialGraph] = useState(() => toReactFlow(projection, {}, pinnedPositions, orientation));
   const [nodes, setNodes] = useState<LatticeFlowNode[]>(initialGraph.nodes);
   const [edges, setEdges] = useState<LatticeFlowEdge[]>(initialGraph.edges);
@@ -95,11 +99,11 @@ function RelationshipCanvasInner({ projection, orientation, pinnedPositions, vie
 
   useEffect(() => {
     const handleFit = () => void fitView({ padding: .18, duration: reducedMotion ? 0 : 320 });
-    const handleCollapse = () => nodesRef.current.filter(node => node.id.startsWith("projection:domain:") && node.data.expanded).forEach(node => callbacks.current.onToggle(node.id));
+    const handleCollapse = () => onCollapseAll();
     window.addEventListener("lattice:fit-view", handleFit);
     window.addEventListener("lattice:collapse-all", handleCollapse);
     return () => { window.removeEventListener("lattice:fit-view", handleFit); window.removeEventListener("lattice:collapse-all", handleCollapse); };
-  }, [fitView, reducedMotion]);
+  }, [fitView, reducedMotion, onCollapseAll]);
 
   useEffect(() => {
     const handleReflow = () => {
@@ -110,12 +114,13 @@ function RelationshipCanvasInner({ projection, orientation, pinnedPositions, vie
       const nextNodes = nodesRef.current.map((node) => ({ ...node, position: result.positions[node.id] ?? node.position, data: { ...node.data, layoutDirection: result.sideByNode[node.id] === "LEFT" ? "LEFT" : result.sideByNode[node.id] === "RIGHT" ? "RIGHT" : node.data.layoutDirection } } as LatticeFlowNode));
       const nextEdges = edges.map((edge) => { const port=result.ports[edge.id], route=result.routes[edge.id]; return { ...edge, sourceHandle: port ? `source:${port.sourceSide}:${edge.sourceHandle?.split(":").at(-1) ?? "structure"}` : edge.sourceHandle, targetHandle: port ? `target:${port.targetSide}:${edge.targetHandle?.split(":").at(-1) ?? "structure"}` : edge.targetHandle, data: { ...edge.data!, layoutRoute: route, animation: "resolved" } } as LatticeFlowEdge; });
       nodesRef.current = nextNodes; setNodes(nextNodes); setEdges(nextEdges);
+      requestAnimationFrame(() => requestAnimationFrame(() => updateNodeInternals(nextNodes.map((node) => node.id))));
       callbacks.current.onBilateralReflow(result.positions);
       window.setTimeout(() => window.dispatchEvent(new CustomEvent("lattice:geometry-motion", { detail: { active: false, id: "bilateral-reflow" } })), reducedMotion ? 0 : 520);
     };
     window.addEventListener("lattice:bilateral-reflow", handleReflow);
     return () => window.removeEventListener("lattice:bilateral-reflow", handleReflow);
-  }, [edges, reducedMotion]);
+  }, [edges, reducedMotion, updateNodeInternals]);
   useEffect(() => {
     void setViewport(viewport, { duration: 0 });
     // Restore persisted camera at mount only. Live motion remains internal until move-end.
@@ -297,7 +302,8 @@ function RelationshipCanvasInner({ projection, orientation, pinnedPositions, vie
             <button type="button" onClick={() => callbacks.current.onNodeAction({ nodeId: selectedNodes[0].id, action: "compare-representations" })}>Compare</button>
           </Panel>
         ) : null}
-        <Background color="#1e293b" gap={24} />
+        <Background variant={BackgroundVariant.Lines} color="rgba(148,163,184,.16)" gap={32} size={1} />
+        <Panel position="bottom-center" className="lattice-source-legend nodrag nopan nowheel" aria-label="Lattice source color legend"><span><i className="is-sap" />SAP</span><span><i className="is-windchill" />Windchill</span></Panel>
         <Controls position="bottom-left" showInteractive={false} />
         {nodes.length >= 30 ? (
           <MiniMap<LatticeFlowNode>

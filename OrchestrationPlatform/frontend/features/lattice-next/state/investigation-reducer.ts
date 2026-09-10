@@ -36,13 +36,14 @@ export type InvestigationAction =
   | { type: "start-new-investigation" }
   | { type: "open-inspector" }
   | { type: "close-inspector" }
-  | { type: "toggle-inspector" };
+  | { type: "toggle-inspector" }
+  | { type: "collapse-all" };
 
 export function initialInvestigation(roots: string[], sources: string[]): InvestigationState {
   return {
     interaction: createInteractionState(roots),
     query: "",
-    inspectorOpen: true,
+    inspectorOpen: false,
     revision: 3,
     activeSources: new Set(sources),
     activeRelationships: new Set(["contains", "corresponds-to"]),
@@ -65,10 +66,11 @@ export function investigationReducer(state: InvestigationState, action: Investig
     case "open-inspector": return { ...state, inspectorOpen: true };
     case "close-inspector": return { ...state, inspectorOpen: false };
     case "toggle-inspector": return { ...state, inspectorOpen: !state.inspectorOpen };
+    case "collapse-all": return { ...state, interaction: { ...state.interaction, expansion: { expanded: new Set<string>(), focusRoot: null } } };
     case "select-entity":
-      return { ...state, interaction: { ...state.interaction, selection: { type: "entity", id: action.id } }, inspectorOpen: true };
+      return { ...state, interaction: { ...state.interaction, selection: { type: "entity", id: action.id } } };
     case "select-relationship":
-      return { ...state, interaction: { ...state.interaction, selection: { type: "relationship", id: action.id } }, inspectorOpen: true };
+      return { ...state, interaction: { ...state.interaction, selection: { type: "relationship", id: action.id } } };
     case "clear-transient":
       return {
         ...state,

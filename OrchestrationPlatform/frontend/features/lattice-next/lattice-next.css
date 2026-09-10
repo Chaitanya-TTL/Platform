@@ -1097,3 +1097,41 @@
   from { transform: translateX(-2px); opacity: 0.65; }
   to { transform: translateX(2px); opacity: 1; }
 }
+
+
+/* Canvas contrast, engineering grid, and compact source legend */
+.lattice-flow {
+  --lattice-canvas-background: #111827;
+  --lattice-grid-color: rgba(148, 163, 184, 0.12);
+  background-color: var(--lattice-canvas-background);
+  background-image:
+    linear-gradient(var(--lattice-grid-color) 1px, transparent 1px),
+    linear-gradient(90deg, var(--lattice-grid-color) 1px, transparent 1px),
+    linear-gradient(rgba(56, 189, 248, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(56, 189, 248, 0.04) 1px, transparent 1px);
+  background-size: 128px 128px, 128px 128px, 32px 32px, 32px 32px;
+}
+.lattice-flow .react-flow,
+.lattice-flow .react-flow__renderer,
+.lattice-flow .react-flow__pane { background: transparent; }
+.lattice-source-legend {
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 8px;
+  padding: 8px 14px;
+  border: 1px solid rgba(100,116,139,.34);
+  border-radius: 999px;
+  background: rgba(15,23,42,.84);
+  color: #cbd5e1;
+  font-size: 11px;
+  font-weight: 700;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 8px 24px rgba(0,0,0,.24);
+}
+.lattice-source-legend span { display: inline-flex; align-items: center; gap: 7px; }
+.lattice-source-legend i { width: 9px; height: 9px; border-radius: 999px; box-shadow: 0 0 0 3px rgba(255,255,255,.04); }
+.lattice-source-legend .is-sap { background: #34d399; }
+.lattice-source-legend .is-windchill { background: #8b7cf6; }
+@media (max-width: 720px) { .lattice-source-legend { gap: 10px; padding: 7px 10px; font-size: 10px; } }

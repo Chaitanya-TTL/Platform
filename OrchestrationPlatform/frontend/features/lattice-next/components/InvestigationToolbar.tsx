@@ -8,6 +8,7 @@ import {
   IconSearch,
   IconZoomReset,
   IconMaximize,
+  IconDownload,
 } from "@tabler/icons-react";
 import type { RelationshipKind } from "../domain/model";
 const meaningful = (source: string) =>
@@ -26,6 +27,7 @@ export function InvestigationToolbar({
   canResetSelected,
   onRearrange,
   arranging,
+  onDownloadJson,
 }: {
   sources: string[];
   activeSources: ReadonlySet<string>;
@@ -40,6 +42,7 @@ export function InvestigationToolbar({
   canResetSelected: boolean;
   onRearrange: () => void;
   arranging: boolean;
+  onDownloadJson: () => void;
 }) {
   const visible = sources.filter(meaningful);
   const focus = () => {
@@ -112,6 +115,9 @@ export function InvestigationToolbar({
         >
           <IconMaximize className="h-3.5 w-3.5" />
           Full screen
+        </motion.button>
+        <motion.button whileHover={{ y: -1 }} whileTap={{ scale: 0.97 }} whileFocus={{ outline: "2px solid #94a3b8" }} onClick={onDownloadJson} className="lattice-command-control" title="Download the complete Lattice hierarchy as JSON">
+          <IconDownload className="h-3.5 w-3.5" /> Download JSON
         </motion.button>
         <div className="ml-auto flex gap-2">
           {canResetSelected ? (
