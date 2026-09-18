@@ -12,6 +12,7 @@ export type LatticeSourceEnvelope = {
   jobId?: string;
   capturedAt?: string;
   completeness: "complete" | "partial";
+  intelligencePayload?: Record<string, unknown>;
 };
 
 export type LatticeHandoff = {

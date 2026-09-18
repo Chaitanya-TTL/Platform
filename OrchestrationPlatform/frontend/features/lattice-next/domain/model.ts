@@ -1,6 +1,6 @@
 import type { SourceType } from "@/types/bom-comparison";
 export type EntitySource = SourceType | "unified" | "platform";
-export type EntityKind = "assembly" | "component" | "identity" | "source-representation" | "finding" | "evidence" | "part" | "part-occurrence" | "material" | "requirement" | "requirement-revision" | "change-notice" | "change-task" | "production-order" | "configuration-feature" | "configuration-option" | "document" | "accounting-document" | "plant" | "storage-location" | "material-master" | "stock-position" | "valuation-context" | "material-movement" | "physical-attribute" | "product-context" | "product-detail" | "stock-metric" | "accounting-line" | "history-metric" | "sap-field";
+export type EntityKind = "assembly" | "component" | "identity" | "source-representation" | "finding" | "evidence" | "part" | "part-occurrence" | "material" | "requirement" | "requirement-revision" | "change-notice" | "change-task" | "production-order" | "configuration-feature" | "configuration-option" | "document" | "accounting-document" | "plant" | "storage-location" | "material-master" | "stock-position" | "valuation-context" | "material-movement" | "physical-attribute" | "product-context" | "product-detail" | "stock-metric" | "accounting-line" | "history-metric" | "sap-field" | "configuration-family" | "configuration-rule" | "configuration-rule-field" | "localization-language" | "localization-translation" | "source-evidence-group" | "source-evidence-field";
 export type RelationshipKind =
   | "contains"
   | "represented-by"
@@ -30,7 +30,12 @@ export type RelationshipKind =
   | "describes"
   | "operationally-impacts"
   | "has-physical-attribute"
-  | "has-product-context";
+  | "has-product-context"
+  | "has-configuration-family"
+  | "contains-feature"
+  | "governed-by"
+  | "has-language"
+  | "contains-translation";
 export type RelationshipEvidence = {
   sourceLabel: string;
   reason: string;

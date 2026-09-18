@@ -1135,3 +1135,5 @@
 .lattice-source-legend .is-sap { background: #34d399; }
 .lattice-source-legend .is-windchill { background: #8b7cf6; }
 @media (max-width: 720px) { .lattice-source-legend { gap: 10px; padding: 7px 10px; font-size: 10px; } }
+
+.lattice-source-legend .is-configit{background:#e879f9}.lattice-source-legend .is-teamcenter{background:#22d3ee}
