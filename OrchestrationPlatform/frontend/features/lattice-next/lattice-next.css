@@ -73,6 +73,9 @@
 .tone-fuchsia {
   --node-tone: #e879f9;
 }
+.tone-orange {
+  --node-tone: #f97316;
+}
 .tone-amber {
   --node-tone: #f59e0b;
 }
@@ -774,6 +777,9 @@
 .tone-fuchsia {
   --node-accent: #e879f9;
 }
+.tone-orange {
+  --node-accent: #f97316;
+}
 .tone-slate {
   --node-accent: #94a3b8;
 }
@@ -1135,3 +1141,5 @@
 .lattice-source-legend .is-sap { background: #34d399; }
 .lattice-source-legend .is-windchill { background: #8b7cf6; }
 @media (max-width: 720px) { .lattice-source-legend { gap: 10px; padding: 7px 10px; font-size: 10px; } }
+
+.lattice-source-legend .is-configit{background:#f97316}.lattice-source-legend .is-teamcenter{background:#22d3ee}

@@ -22,6 +22,7 @@ import { buildInvestigation } from "../engines/build-investigation";
 import { buildIntelligenceInvestigation } from "../engines/build-intelligence-investigation";
 import { investigateWindchill } from "../infrastructure/windchill-intelligence-client";
 import { investigateSap } from "../infrastructure/sap-intelligence-client";
+import { investigateConfigit } from "../infrastructure/configit-intelligence-client";
 import { mergeSourceIntelligence } from "../infrastructure/merge-source-intelligence";
 import type { EngineeringIntelligenceInvestigationV1 } from "../contracts/intelligence-v1";
 import { createInvestigationGraphCore } from "../engines/investigation-graph";
@@ -150,6 +151,7 @@ export function LatticeNextWorkspace() {
               jobId: resolved.jobId,
               capturedAt: new Date().toISOString(),
               completeness: resolved.warning ? "partial" : "complete",
+              intelligencePayload: resolved.intelligencePayload,
             });
           }
 
@@ -210,6 +212,18 @@ export function LatticeNextWorkspace() {
                     ...next,
                     sources: next.sources.filter(
                       (item) => item.source === "sap",
+                    ),
+                  },
+                  controller.signal,
+                ),
+              );
+            if (next.sources.some((item) => item.source === "configit"))
+              sourceTasks.push(
+                investigateConfigit(
+                  {
+                    ...next,
+                    sources: next.sources.filter(
+                      (item) => item.source === "configit",
                     ),
                   },
                   controller.signal,
