@@ -322,13 +322,13 @@ function Entity({ id, data }: NodeProps<LatticeFlowNode>) {
     requirementId && data.label.startsWith(requirementId)
       ? data.label
           .slice(requirementId.length)
-          .replace(/^\s*[-ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â:]\s*/, "")
+          .replace(/^\s*[-ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â:]\s*/, "")
       : data.label;
   return (
     <Shell
       id={id}
       data={data}
-      className={`lattice-entity-node tone-${tones[data.source] ?? "slate"}`}
+      className={`lattice-entity-node tone-${data.source === "configit" && !data.hasChildren ? "orange" : tones[data.source] ?? "slate"}`}
     >
       <LayoutGroup id={`node-${id}`}>
         <div className="source-icon">
