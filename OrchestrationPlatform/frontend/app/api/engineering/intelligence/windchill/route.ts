@@ -18,6 +18,9 @@ export const revalidate = 0;
 
 type RequestBody = { handoff: LatticeHandoff };
 type CallResult<T> = { ok: true; value: T } | { ok: false; message: string };
+type UnknownRecord = Record<string, unknown>;
+const isRecord = (value: unknown): value is UnknownRecord =>
+  Boolean(value) && typeof value === "object" && !Array.isArray(value);
 const sourceText = (value: unknown): string | undefined => {
   if (value == null) return undefined;
   if (typeof value === "string") {
@@ -57,15 +60,22 @@ const sourceText = (value: unknown): string | undefined => {
 const property = (value: unknown) =>
   ({ type: "text", text: sourceText(value) }) as const;
 const findNestedValue = (value: unknown, wantedKey: string): unknown => {
-  if (!value || typeof value !== "object") return undefined;
+  if (!isRecord(value) && !Array.isArray(value)) return undefined;
   if (Array.isArray(value)) {
-    for (const item of value) { const found = findNestedValue(item, wantedKey); if (found !== undefined) return found; }
+    for (const item of value) {
+      const found = findNestedValue(item, wantedKey);
+      if (found !== undefined) return found;
+    }
     return undefined;
   }
-  const record = value as Record<string, unknown>;
-  const matchingKey = Object.keys(record).find((key) => key.toLowerCase() === wantedKey.toLowerCase());
-  if (matchingKey) return record[matchingKey];
-  for (const nested of Object.values(record)) { const found = findNestedValue(nested, wantedKey); if (found !== undefined) return found; }
+  const matchingKey = Object.keys(value).find(
+    (key) => key.toLowerCase() === wantedKey.toLowerCase(),
+  );
+  if (matchingKey) return value[matchingKey];
+  for (const nested of Object.values(value)) {
+    const found = findNestedValue(nested, wantedKey);
+    if (found !== undefined) return found;
+  }
   return undefined;
 };
 const safe = (value: string) =>
@@ -188,7 +198,7 @@ export async function POST(request: NextRequest) {
         | "backend-derived"
         | "poc-synthetic" = "source-authoritative",
     ) => ({
-      source: "windchill",
+      source: "windchill" as const,
       provider,
       nativeId: id,
       observedAt,
@@ -224,7 +234,9 @@ export async function POST(request: NextRequest) {
         assertion: "fact",
         properties: {
           value: property(normalized.replace(/\t+/g, " • ")),
-          rawValue: property(rec(value) ? (value.Value ?? value.value ?? value) : value),
+          rawValue: property(
+            isRecord(value) ? (value.Value ?? value.value ?? value) : value,
+          ),
           attribute: property(key),
           recordKind: property(domain),
         },
@@ -261,7 +273,8 @@ export async function POST(request: NextRequest) {
         "physical-attribute",
         "chemical",
         "Chemical",
-        part.customAttributes.chemical ?? findNestedValue(requirements.value, "Chemical"),
+        part.customAttributes.chemical ??
+          findNestedValue(requirements.value, "Chemical"),
       );
       addProjectedValue(
         "physical-attribute",
@@ -577,3 +590,5 @@ export async function POST(request: NextRequest) {
     clearTimeout(timer);
   }
 }
+
+
