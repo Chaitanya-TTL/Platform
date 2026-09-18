@@ -1,0 +1,1120 @@
+﻿CONFIGIT AUTHORING EXTRACTION SOURCE BUNDLE
+Generated: 2026-09-18T08:57:31.1450245Z
+Files: 9
+Platform root: REDACTED
+Scope: Configit package and work-item name resolution, authoring extraction, unified API route and Discovery search mapping
+
+
+===== FILE: .\configit_extractor\config.py =====
+
+import os
+BASE_URL = 'https://ttl-01.demo.configit.cloud/bom/v1'
+API_KEY = os.environ.get("CONFIGIT_API_KEY", "MGYyODcxMTUwYTg4NDQ3N2ExYmJmZDJhNzJmOTIxNGJfZmUxMjRiMDQzNmY3NGM5MDliNTYxMDBkMzgxZDBjZjA=")
+VERIFY = False
+PACKAGE_PATH = 'samples/usb'
+
+
+===== FILE: .\configit_extractor\configdxinteg.py =====
+
+import os
+import time
+import requests
+import pandas as pd
+import io
+import openpyxl
+import GrammarBasedParserR
+
+# Replace with your actual URL and headers
+BASE_URL ="https://ttl.demo.configit.cloud:8080/api/v1/wi/"
+API_KEY = os.environ.get("CONFIGIT_API_KEY", "")
+
+
+# Headers for the API requests;
+HEADERS = {'Authorization': f'Apikey {API_KEY}','Content-Type': 'application/json','Accept': 'application/json'}
+
+push_families = True
+push_features = True
+push_rules = False
+push_views = False
+push_products = True
+push_rules = False
+
+def create_work_item():
+    work_item_data = {
+        "name": "Automotive Config",
+        "description": "Automotive Config",
+        "assignedUsernames":["sundaram.shanmuga@tatatechnologies.com"]
+    }
+    response = requests.post(BASE_URL, headers=HEADERS, json=work_item_data)
+    print(f"Response status code: {response.status_code}")
+    print(f"Response text: {response.text}")
+    
+    if response.status_code == 200:
+        response_data = response.json()
+        return response_data.get("id")
+    else:
+        print(f"Failed to create work item. Status code: {response.status_code}")
+        return None
+
+
+def send_requests(data_structure, wi_id):
+    try:
+        product_code = "LUXURY VEHICLE"
+        product_description = "LUXURY VEHICLE"
+        content = data_structure.content
+
+        #create families
+        for family in content:
+            payload = {
+                "familyType": "Feature",
+                "code": family.code,
+                "description": family.description,
+                "lifecycle": "Enabled",
+                "labels": ["PLM"]
+            }
+            if push_families:
+                response = requests.post(f"{BASE_URL}{wi_id}/library/families", headers=HEADERS, json=payload)
+                print(f"{response.status_code}Added Family {family.code} to library \tStatus Code: {response.status_code}, Response: {response.json()}")   
+
+            #create features
+            for feature in family.features:
+                payload = {
+                    "familyType": "Feature",
+                    "code": feature.code,
+                    "familyCode" : family.code,
+                    "description": feature.description,
+                    "lifecycle": "Enabled"
+                }
+                if push_features:
+                    response = requests.post(f"{BASE_URL}{wi_id}/library/features", headers=HEADERS, json=payload)
+                    print(f"{response.status_code}\tAdded Feature {feature.code} to library \tStatus Code: {response.status_code}, Response: {response.json()}")   
+
+        # create product
+        BRAND = "FF"
+        payload = {
+            "code": product_code,
+            "description": product_description,
+            "featureCode": product_code,
+            "brandCode": BRAND.replace(" ", "_").upper(),
+            "useArithmeticRules": True,
+            "useBrochureModels": False,
+            "useAdvancedEffectivity": False,
+            "canBeUsedAsSubmodel": False
+        }
+        if push_products:
+            response = requests.post(f"{BASE_URL}{wi_id}/products/productmodels", headers=HEADERS, json=payload)
+            print(f"{response.status_code}\tAdded product model {product_code} \tStatus Code: {response.status_code}, Response: {response.json()}")
+
+        # add families
+        for family in content:
+            description = family.description
+            code = family.code
+            payload = {
+                "familyType": "Feature",
+                "code": code,
+                "isCalculated": False,
+                "isPrivate": False,
+                "effectivities": [
+                    {
+                        "startEventCode": f"{product_code}_START",
+                        "endEventCode": f"{product_code}_END"
+                    }
+                ]
+            }
+            if push_families:
+                response = requests.post(f"{BASE_URL}{wi_id}/products/productmodels/{product_code}/families", headers=HEADERS, json=payload)
+                print(f"{response.status_code}\tAdded {family.code} to product {product_code} for \tStatus Code: {response.status_code}, Response: {response.json()}")
+
+        # create rules
+        if push_rules:
+            for rule in data_structure.rules:
+                response = requests.post(f"{BASE_URL}{wi_id}/products/productmodels/{product_code}/rules", headers=HEADERS, json=generate_rule_payload(rule, product_code))
+                print(f"{response.status_code}\tAdded rule {rule.rule_id} to product {product_code}\tStatus Code: {response.status_code}, Response: {response.json()}")
+
+        if push_views:
+            response = requests.post(f"{BASE_URL}{wi_id}/products/productmodels/{product_code}/views", headers=HEADERS, json=generate_view_payload(data_structure))
+            print(f"{response.status_code}\tAdded view to product {product_code}\tStatus Code: {response.status_code}, Response: {response.json()}")
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+def generate_rule_payload(rule, product_code):
+    payload = []
+    rule_payload = {
+        "text": rule.expression,
+        "description": rule.description,
+        "type": "Text", 
+        "code": rule.rule_id,
+        "intent": "Engineering",  
+        "isEnabled": True,
+        "isLocked": False,
+        "effectivity": 
+                {
+                    "startEventCode": f"{product_code}_START",
+                    "endEventCode": f"{product_code}_END"
+                },
+        "labels": ["PLM"],
+        "isPropagated": False
+    }
+    return rule_payload
+
+def generate_view_payload(data_structure):
+    payload = {
+        "code": "STANDARD",
+        "description": "Standard View",
+        "sections": []
+    }
+
+    for section in data_structure.view:
+        section_payload = {
+            "code": section.description.replace(" ", "_").upper(),
+            "description": section.description.replace("Group ", ""),
+            "type": "Standard",
+            "sections": [],
+            "contentCodes": [family.code for family in section.families]
+        }
+        payload["sections"].append(section_payload)
+
+    return payload
+
+class Feature:
+    def __init__(self, code, description):
+        self.code = code
+        self.description = description
+
+class Family:
+    def __init__(self, code, description):
+        self.code = code
+        self.description = description
+        self.features = []
+
+class Section:
+    def __init__(self, description):
+        self.description = description
+        self.families = []
+
+class Rule:
+    def __init__(self, rule_type, rule_id, description, expression):
+        self.rule_type = rule_type
+        self.rule_id = rule_id
+        self.description = description
+        self.expression = expression
+
+class DataStructure:
+    def __init__(self):
+        self.content = []
+        self.view = []
+        self.rules = []
+
+def create_id_mapping(data_structure):
+    """
+    Creates an ID mapping array for the given data structure.
+
+    :param data_structure: The DataStructure object containing families, features, and rules.
+    :return: A dictionary mapping descriptions to their unique IDs.
+    """
+    id_mapping = {}
+
+    # Map families and their features using their codes as IDs
+    for family in data_structure.content:
+        id_mapping[family.description] = family.code
+        for feature in family.features:
+            id_mapping[feature.description] = feature.code
+    return id_mapping
+
+
+def fetch_family(wi_id: str, product_model: str, family_code: str):
+    """Fetch a family from Configit API and return JSON or None."""
+    url = f"{BASE_URL}{wi_id}/products/productmodels/{product_model}/families/{family_code}"
+    resp = requests.get(url, headers=HEADERS)
+    if resp.status_code == 200:
+        return resp.json()
+    else:
+        print(f"Failed to fetch family {family_code}: {resp.status_code} {resp.text}")
+        return None
+
+
+def fetch_features_for_family(wi_id: str, product_model: str, family_code: str):
+    """Fetch features for a family and return list of feature JSON objects."""
+    url = f"{BASE_URL}{wi_id}/products/productmodels/{product_model}/families/{family_code}/features"
+    resp = requests.get(url, headers=HEADERS)
+    if resp.status_code == 200:
+        return resp.json()
+    else:
+        print(f"Failed to fetch features for family {family_code}: {resp.status_code} {resp.text}")
+        return []
+
+
+def build_data_structure_from_configit(wi_id: str, product_model: str, family_codes: list):
+    """Given work item id, product model, and list of family codes, build DataStructure."""
+    ds = DataStructure()
+    for code in family_codes:
+        fam_json = fetch_family(wi_id, product_model, code)
+        if not fam_json:
+            continue
+        fam = Family(code=fam_json.get("code"), description=fam_json.get("description"))
+        # fetch features
+        feats = fetch_features_for_family(wi_id, product_model, code)
+        # API may return list or object with 'features' key
+        if isinstance(feats, dict) and "features" in feats:
+            feat_list = feats.get("features", [])
+        else:
+            feat_list = feats
+
+        for f in feat_list:
+            fcode = f.get("code")
+            fdesc = f.get("description")
+            fam.features.append(Feature(code=fcode, description=fdesc))
+
+        ds.content.append(fam)
+
+    # create a default view/section
+    section = Section(description="Configit Extracted")
+    section.families = ds.content.copy()
+    ds.view.append(section)
+    return ds
+
+def read_rules(id_mapping, file_path: str):
+    # Load the Excel workbook
+    workbook = openpyxl.load_workbook(file_path, data_only=True)
+    sheet = workbook.active
+
+    rules = []
+
+    for row in sheet.iter_rows(min_row=2, values_only=True):
+        rule_type = row[2]  # Column C
+        rule_id = row[3]    # Column D
+        if row[8]:
+            description =  row[8] # Column I
+        else:
+            description = rule_id
+
+        expression = row[7].replace("\"\"", "\"")  # Column H
+        
+        parsed_rule = GrammarBasedParserR.transform_rules([expression], id_mapping)
+        for rule in parsed_rule:
+            print("Parsed rule\t" + expression + " \t to \t " + rule)
+            if rule_type and rule_id and expression:
+                rules.append(Rule(rule_type=rule_type, rule_id=rule_id, description=description, expression=rule))
+
+    return rules
+
+def read_content_new_format(file_path: str):
+    """
+    Reads content from an Excel file with a different format where:
+    - Family Description column contains option names (may repeat)
+    - Family Code column contains option codes
+    - System Description column contains choice descriptions
+    - Feature Code column contains choice codes
+    """
+    # Load the Excel workbook
+    workbook = openpyxl.load_workbook(file_path, data_only=True)
+    sheet = workbook.active
+
+    # Initialize the data structure
+    data_structure = DataStructure()
+    
+    # Find column indices
+    header_row = next(sheet.iter_rows(min_row=1, max_row=1, values_only=True))
+    family_desc_idx = header_row.index("Family Description") if "Family Description" in header_row else None
+    family_code_idx = header_row.index("Family Code") if "Family Code" in header_row else None
+    feature_desc_idx = header_row.index("System Description") if "System Description" in header_row else None
+    feature_code_idx = header_row.index("Feature Code") if "Feature Code" in header_row else None
+    
+    if None in (family_desc_idx, family_code_idx, feature_desc_idx, feature_code_idx):
+        raise ValueError("Required columns not found in the Excel file")
+    
+    # Dictionary to keep track of families by code
+    families_dict = {}
+    
+    # Process data rows
+    for row in sheet.iter_rows(min_row=2, values_only=True):  # Skip header row
+        family_desc = row[family_desc_idx]
+        family_code = row[family_code_idx]
+        feature_desc = row[feature_desc_idx]
+        feature_code = row[feature_code_idx]
+        
+        # Skip if any required field is empty
+        if not all([family_desc, family_code, feature_desc, feature_code]):
+            continue
+        
+        # Create or get family
+        if family_code not in families_dict:
+            family = Family(code=family_code, description=family_desc)
+            families_dict[family_code] = family
+            data_structure.content.append(family)
+        else:
+            family = families_dict[family_code]
+        
+        # Add feature to family
+        feature = Feature(code=feature_code, description=feature_desc)
+        family.features.append(feature)
+    
+    # Create a default section containing all families
+    # You can modify this if you have section information in your Excel
+    default_section = Section(description="Default Group")
+    default_section.families = list(families_dict.values())
+    data_structure.view.append(default_section)
+    
+    return data_structure
+
+def read_content(file_path: str):
+    # Load the Excel workbook
+    workbook = openpyxl.load_workbook(file_path, data_only=True)
+    sheet = workbook.active
+
+    # Initialize the data structure
+    data_structure = DataStructure()
+
+    current_section = None
+    current_family = None
+
+    for row in sheet.iter_rows(min_row=1, max_col=2, values_only=True):
+        cell_value = row[1].strip() if row[1] else None  # Column B
+        if cell_value is None:
+            continue
+
+        # Detect sections (Group names)
+        if cell_value.startswith("Group"):
+            if current_section:
+                data_structure.view.append(current_section)
+            current_section = Section(description=cell_value.strip())
+
+        # Detect families (Design Options)
+        elif cell_value.startswith("Design Option"):
+            family_code, description = parse_code_and_description(cell_value)
+            current_family = Family(code="O"+family_code, description=description)
+            data_structure.content.append(current_family)
+            if current_section:
+                current_section.families.append(current_family)
+
+        # Detect features (Design Choices)
+        elif cell_value.startswith("Design Choice"):
+            if current_family:
+                feature_code, description = parse_code_and_description(cell_value)
+                feature = Feature(code="C"+feature_code, description=description)
+                current_family.features.append(feature)
+        
+        else:
+            print("unknown cellvalue:" + cell_value)
+
+    # Append the last section
+    if current_section:
+        data_structure.view.append(current_section)
+
+    return data_structure
+
+def parse_code_and_description(text):
+    # Split the text into code and description
+    parts = text.split(",", 1)
+    code = parts[0].split()[-1].strip()
+    description = parts[1].strip() if len(parts) > 1 else ""
+    return code, description
+
+def print_statistics(data_structure):
+    num_features = sum(len(family.features) for family in data_structure.content)
+    num_families = len(data_structure.content)
+    num_sections = len(data_structure.view)
+    num_rules = len(data_structure.rules)
+
+    print(f"Statistics:")
+    print(f"  Total Features: {num_features}")
+    print(f"  Total Families: {num_families}")
+    print(f"  Total Sections: {num_sections}")
+    print(f"  Total Rules: {num_rules}")
+def main():
+    print("Start Migration")
+    content_file_path = "Book 7.xlsx"
+    rules_file_path = "Book 8.xlsx"
+
+    result = read_content_new_format(content_file_path)
+    id_mapping = create_id_mapping(result)
+    #result.rules = read_rules(id_mapping, rules_file_path)
+    
+    print_statistics(result)
+    print("Content read")
+    wi_id = create_work_item()
+    print("Work item created:" + str(wi_id))
+    send_requests(result, wi_id)
+    print("Migration finished")
+
+if __name__ == "__main__":
+    main()
+
+
+===== FILE: .\configit_extractor\extractor.py =====
+
+import argparse
+import json
+import os
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+from urllib.parse import urlsplit
+ 
+import requests
+ 
+from config import API_KEY, BASE_URL, PACKAGE_PATH, VERIFY
+ 
+HEADERS = {
+    "Authorization": f"ApiKey {API_KEY}",
+    "Content-Type": "application/json",
+    "Accept": "application/json",
+}
+ 
+ 
+def generate_date() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+ 
+ 
+def _platform_origin() -> str:
+    parsed = urlsplit(BASE_URL)
+    if not parsed.scheme or not parsed.netloc:
+        raise RuntimeError(f"Invalid Configit BASE_URL: {BASE_URL}")
+    return f"{parsed.scheme}://{parsed.netloc}"
+ 
+ 
+def _request_json(method: str, url: str, **kwargs: Any) -> Any:
+    if not API_KEY:
+        raise RuntimeError("CONFIGIT_API_KEY is not set.")
+    response = requests.request(
+        method,
+        url,
+        headers=HEADERS,
+        verify=VERIFY,
+        timeout=120,
+        **kwargs,
+    )
+    if response.status_code >= 400:
+        raise RuntimeError(
+            f"Configit request failed: {method} {url} "
+            f"returned {response.status_code}: {response.text}"
+        )
+    try:
+        return response.json()
+    except ValueError as error:
+        raise RuntimeError(f"Configit returned invalid JSON for {method} {url}") from error
+ 
+ 
+def resolve_latest_package_path(package_path: str) -> dict[str, Any]:
+    requested_path = package_path.strip()
+    if not requested_path:
+        raise ValueError("Configit package path is required.")
+ 
+    if "~" in requested_path:
+        logical_path, version_id = requested_path.rsplit("~", 1)
+        if not logical_path or not version_id:
+            raise ValueError(f"Invalid resolved Configit package path: {requested_path}")
+        return {
+            "requestedPackagePath": requested_path,
+            "logicalPackagePath": logical_path,
+            "resolvedPackagePath": requested_path,
+            "versionId": version_id,
+            "state": None,
+            "publishedAt": None,
+            "sourceCreatedAt": None,
+            "visibility": None,
+            "withSource": None,
+            "resolutionMode": "already-resolved",
+        }
+ 
+    payload = _request_json(
+        "GET",
+        f"{_platform_origin()}/packages/v1/history",
+        params={
+            "includeHidden": "true",
+            "includeNotPublished": "true",
+            "packagePath": requested_path,
+        },
+    )
+    if not isinstance(payload, dict):
+        raise RuntimeError("Configit package history returned an unexpected response.")
+ 
+    latest = payload.get("latestVersion")
+    if not isinstance(latest, dict):
+        raise RuntimeError(f"No latest version was returned for package: {requested_path}")
+ 
+    version_id = str(latest.get("id") or "").strip()
+    if not version_id:
+        raise RuntimeError(f"Latest package version has no ID: {requested_path}")
+ 
+    logical_path = str(payload.get("packagePath") or requested_path).strip()
+    lifecycle = latest.get("lifecycle") if isinstance(latest.get("lifecycle"), dict) else {}
+    return {
+        "requestedPackagePath": requested_path,
+        "logicalPackagePath": logical_path,
+        "resolvedPackagePath": f"{logical_path}~{version_id}",
+        "versionId": version_id,
+        "state": latest.get("state"),
+        "openedAt": lifecycle.get("openedAt"),
+        "publishingStartedAt": lifecycle.get("publishingStartedAt"),
+        "publishedAt": latest.get("publishedAt") or lifecycle.get("publishedAt"),
+        "sourceCreatedAt": latest.get("sourceCreatedAt"),
+        "visibility": latest.get("visibility"),
+        "withSource": latest.get("withSource"),
+        "resolutionMode": "latest-version",
+    }
+ 
+ 
+def get_package_products(resolved_package_path: str, page_size: int = 100) -> dict[str, Any]:
+    products: list[dict[str, Any]] = []
+    offset = 0
+    reported_total: int | None = None
+    language: str | None = None
+ 
+    while True:
+        payload = _request_json(
+            "GET",
+            f"{_platform_origin()}/packages/v1/products",
+            params={
+                "limit": page_size,
+                "offset": offset,
+                "packagePath": resolved_package_path,
+            },
+        )
+        if not isinstance(payload, dict):
+            raise RuntimeError("Configit products endpoint returned an unexpected response.")
+ 
+        page = payload.get("products")
+        if not isinstance(page, list):
+            raise RuntimeError("Configit products response does not contain a products list.")
+ 
+        products.extend(item for item in page if isinstance(item, dict))
+        if reported_total is None:
+            try:
+                reported_total = int(payload.get("total"))
+            except (TypeError, ValueError):
+                reported_total = None
+            language = payload.get("language")
+ 
+        offset += len(page)
+        if not page or (reported_total is not None and offset >= reported_total) or len(page) < page_size:
+            break
+ 
+    return {
+        "packagePath": resolved_package_path,
+        "products": products,
+        "total": reported_total if reported_total is not None else len(products),
+        "language": language,
+    }
+ 
+ 
+def resolve_product_id(
+    product_payload: dict[str, Any],
+    explicit_product_id: str | None = None,
+) -> dict[str, Any]:
+    products = product_payload.get("products")
+    if not isinstance(products, list):
+        raise RuntimeError("Product payload is missing products.")
+ 
+    if explicit_product_id:
+        exact = [
+            product for product in products
+            if str(product.get("id") or "").casefold() == explicit_product_id.strip().casefold()
+        ]
+        if len(exact) != 1:
+            raise RuntimeError(
+                f"Product ID '{explicit_product_id}' was not found uniquely in the resolved package."
+            )
+        selected = exact[0]
+        method = "explicit-product-id"
+    else:
+        configurable = [
+            product for product in products
+            if isinstance(product, dict)
+            and isinstance(product.get("capabilities"), dict)
+            and product["capabilities"].get("configuration") is True
+        ]
+        if not configurable:
+            raise RuntimeError("No configuration-capable product was found in the resolved package.")
+        if len(configurable) > 1:
+            ids = ", ".join(str(product.get("id") or "") for product in configurable)
+            raise RuntimeError(
+                "Multiple configuration-capable products were found. "
+                f"Specify --product-id. Candidates: {ids}"
+            )
+        selected = configurable[0]
+        method = "single-configuration-capable-product"
+ 
+    configurable_count = sum(
+        1 for product in products
+        if isinstance(product.get("capabilities"), dict)
+        and product["capabilities"].get("configuration") is True
+    )
+    return {
+        "totalProducts": product_payload.get("total", len(products)),
+        "retrievedProducts": len(products),
+        "configurableProductCount": configurable_count,
+        "selectedProductId": selected.get("id"),
+        "selectedProductName": selected.get("name"),
+        "selectedProductDescription": selected.get("description"),
+        "selectedProductCapabilities": selected.get("capabilities", {}),
+        "selectionMethod": method,
+    }
+ 
+ 
+def _pick_first(value: dict[str, Any], keys: list[str]) -> Any:
+    for key in keys:
+        if isinstance(value, dict) and key in value:
+            return value[key]
+    return None
+ 
+ 
+def _extract_quantity(node: dict[str, Any]) -> Any:
+    for key in ("quantity", "qty", "amount", "count"):
+        if key in node and node[key] is not None:
+            value = node[key]
+            if isinstance(value, dict) and "value" in value:
+                unit = value.get("unit")
+                return f"{value['value']} {unit}" if unit else value["value"]
+            return value
+    return None
+ 
+ 
+def _extract_children(node: dict[str, Any]) -> list[dict[str, Any]]:
+    for key in ("children", "nodes", "items", "bom", "childNodes", "subNodes", "bomItems"):
+        value = node.get(key)
+        if isinstance(value, list):
+            return value
+ 
+    wrappers = node.get("boms")
+    if isinstance(wrappers, list):
+        flattened: list[dict[str, Any]] = []
+        for wrapper in wrappers:
+            if not isinstance(wrapper, dict):
+                continue
+            items = wrapper.get("bomItems")
+            if isinstance(items, list) and items:
+                flattened.extend(items)
+                continue
+            nested = wrapper.get("boms")
+            if isinstance(nested, list) and nested:
+                flattened.extend(nested)
+        if flattened:
+            return flattened
+    return []
+ 
+ 
+def _is_wrapper_node(node: Any) -> bool:
+    if not isinstance(node, dict):
+        return False
+    has_label = any(node.get(key) for key in ("productId", "bomItemId", "name", "id", "itemId"))
+    has_children = any(isinstance(node.get(key), list) and node.get(key) for key in ("boms", "bomItems"))
+    return not has_label and has_children
+ 
+ 
+def normalize_nodes(node: Any, fallback_id: str) -> list[dict[str, Any]]:
+    if _is_wrapper_node(node):
+        result: list[dict[str, Any]] = []
+        for child in _extract_children(node):
+            result.extend(normalize_nodes(child, f"{fallback_id}-child"))
+        return result
+    return [normalize_node(node, fallback_id)]
+ 
+ 
+def normalize_node(node: Any, fallback_id: str) -> dict[str, Any]:
+    if not isinstance(node, dict):
+        return {"id": fallback_id, "name": fallback_id, "quantity": None, "attributes": {}, "children": []}
+ 
+    node_id = _pick_first(node, ["productId", "bomItemId", "nodeId", "id", "itemId"])
+    name = _pick_first(node, ["productId", "name", "bomItemId", "nodeId", "id", "itemId"])
+    quantity = _extract_quantity(node)
+    attributes: dict[str, Any] = {}
+    if quantity is not None:
+        attributes["Quantity"] = quantity
+ 
+    children: list[dict[str, Any]] = []
+    for child in _extract_children(node):
+        children.extend(normalize_nodes(child, f"{fallback_id}-child"))
+ 
+    return {
+        "id": str(node_id or fallback_id),
+        "name": str(name or fallback_id),
+        "quantity": quantity,
+        "attributes": attributes,
+        "children": children,
+    }
+ 
+ 
+def normalize_solve_response(
+    payload: Any,
+    product_id: str,
+    package_path: str,
+    generated_date: str,
+) -> dict[str, Any]:
+    top_level_nodes: list[dict[str, Any]] = []
+    if isinstance(payload, list):
+        top_level_nodes = [normalize_node(node, f"node-{index}") for index, node in enumerate(payload)]
+    elif isinstance(payload, dict):
+        root = payload.get("root") if isinstance(payload.get("root"), dict) else None
+        if root:
+            top_level_nodes = [normalize_node(root, "root")]
+        else:
+            for key in ("nodes", "children", "items", "bom"):
+                value = payload.get(key)
+                if isinstance(value, list):
+                    top_level_nodes = [
+                        normalized
+                        for index, node in enumerate(value)
+                        for normalized in normalize_nodes(node, f"{key}-{index}")
+                    ]
+                    break
+                if isinstance(value, dict):
+                    top_level_nodes = normalize_nodes(value, key)
+                    break
+        if not top_level_nodes and isinstance(payload.get("result"), (dict, list)):
+            return normalize_solve_response(payload["result"], product_id, package_path, generated_date)
+ 
+    return {
+        "productId": product_id,
+        "packagePath": package_path,
+        "generatedDate": generated_date,
+        "bom": top_level_nodes,
+    }
+ 
+ 
+def solve_bom(product_id: str, resolved_package_path: str, generated_date: str) -> Any:
+    return _request_json(
+        "POST",
+        f"{BASE_URL.rstrip('/')}/solve",
+        params={"packagePath": resolved_package_path},
+        json={
+            "productId": product_id,
+            "date": generated_date,
+            "nodes": [{"nodeId": "ROOT"}],
+        },
+    )
+ 
+ 
+def save_extraction(data: dict[str, Any], output_file: str) -> None:
+    path = Path(output_file)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as handle:
+        json.dump(data, handle, indent=2)
+ 
+ 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Configit BOM extractor with latest-package and product auto-resolution"
+    )
+    parser.add_argument(
+        "--package-path",
+        default=PACKAGE_PATH,
+        help="Logical package path such as usb, or an already resolved path containing ~<version-id>",
+    )
+    parser.add_argument(
+        "--product-id",
+        default=None,
+        help="Optional exact product ID. Required only when the package has multiple configurable products.",
+    )
+    parser.add_argument("--date", default=None, help="Optional solve date")
+    parser.add_argument("--output", default="configit_extraction.json")
+    parser.add_argument(
+        "--resolve-only",
+        action="store_true",
+        help="Resolve latest package and root product without calling BOM Solve",
+    )
+    return parser.parse_args()
+ 
+ 
+def run_from_cli() -> None:
+    args = parse_args()
+    print(f"Resolving Configit package: {args.package_path}")
+    package_resolution = resolve_latest_package_path(args.package_path)
+    resolved_path = package_resolution["resolvedPackagePath"]
+    print(f"Resolved package: {resolved_path}")
+ 
+    product_payload = get_package_products(resolved_path)
+    product_resolution = resolve_product_id(product_payload, args.product_id)
+    selected_product_id = str(product_resolution["selectedProductId"])
+    print(f"Resolved product: {selected_product_id}")
+ 
+    if args.resolve_only:
+        save_extraction(
+            {
+                "packageResolution": package_resolution,
+                "productResolution": product_resolution,
+            },
+            args.output,
+        )
+        print(f"Resolution saved to {args.output}")
+        return
+ 
+    generated_date = args.date or generate_date()
+    print("Calling Configit BOM Solve API...")
+    payload = solve_bom(selected_product_id, resolved_path, generated_date)
+    normalized = normalize_solve_response(payload, selected_product_id, resolved_path, generated_date)
+    normalized["packageResolution"] = package_resolution
+    normalized["productResolution"] = product_resolution
+    save_extraction(normalized, args.output)
+    print(f"Extraction saved to {args.output}")
+ 
+ 
+if __name__ == "__main__":
+    run_from_cli()
+
+===== FILE: .\configit_extractor\tmp_transform.py =====
+
+import json
+from pathlib import Path
+
+p = Path('configit_raw_response.json')
+obj = json.loads(p.read_text())
+
+
+def as_record(x):
+    return x if isinstance(x, dict) else None
+
+def get_string(x):
+    return x if isinstance(x, str) else None
+
+def get_number_or_string(x):
+    return x if isinstance(x, (str, int, float, bool)) else None
+
+def get_array(x):
+    return x if isinstance(x, list) else None
+
+
+def transform_configit_nodes(node, fallback_id):
+    obj = as_record(node)
+    if not obj:
+        return []
+
+    raw_qty = obj.get('quantity') or obj.get('qty') or obj.get('amount') or obj.get('count')
+    quantity = None
+    if isinstance(raw_qty, dict) and 'value' in raw_qty:
+        quantity = f"{raw_qty.get('value')} {raw_qty.get('unit','')}".strip()
+    elif isinstance(raw_qty, (str, int, float, bool)):
+        quantity = raw_qty
+
+    child_values = get_array(obj.get('children')) or get_array(obj.get('nodes')) or get_array(obj.get('items')) or get_array(obj.get('bom')) or get_array(obj.get('bomItems')) or get_array(obj.get('boms'))
+    children = []
+    if child_values:
+        for index, child in enumerate(child_values):
+            children.extend(transform_configit_nodes(child, f"{fallback_id}-{index}"))
+
+    is_bom_wrapper = not get_string(obj.get('productId')) and not get_string(obj.get('bomItemId')) and not get_string(obj.get('name')) and ((get_array(obj.get('bomItems')) and len(obj.get('bomItems'))>0) or (get_array(obj.get('boms')) and len(obj.get('boms'))>0))
+    if is_bom_wrapper and children:
+        return children
+
+    _id = get_string(obj.get('productId')) or get_string(obj.get('bomItemId')) or get_string(obj.get('bomId')) or get_string(obj.get('nodeId')) or get_string(obj.get('id')) or fallback_id
+    name = get_string(obj.get('productId')) or get_string(obj.get('bomItemId')) or get_string(obj.get('bomId')) or get_string(obj.get('name')) or get_string(obj.get('nodeId')) or get_string(obj.get('id')) or 'Configit node'
+    attributes = {}
+    if quantity is not None:
+        attributes['Quantity'] = quantity
+    return [{
+        'id': str(_id),
+        'name': str(name),
+        'attributes': attributes,
+        'children': children,
+    }]
+
+root = obj.get('root') or obj
+transformed = transform_configit_nodes(root, 'configit-root')
+print('transformed count', len(transformed))
+print(json.dumps(transformed, indent=2))
+
+===== FILE: .\OrchestrationPlatform\frontend\app\api\bom-configit\route.ts =====
+
+import { execFile } from "node:child_process";
+import { promises as fs } from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { promisify } from "node:util";
+import { NextRequest, NextResponse } from "next/server";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const runtime = "nodejs";
+const execFileAsync = promisify(execFile);
+async function exists(candidate:string){try{await fs.access(candidate);return true}catch{return false}}
+async function findDir(start:string){let current=path.resolve(start);for(let i=0;i<6;i++){const candidate=path.resolve(current,"configit_extractor");if(await exists(candidate))return candidate;const parent=path.dirname(current);if(parent===current)break;current=parent}return null}
+async function pythonOf(dir:string){for(const candidate of [path.resolve(dir,".venv","Scripts","python.exe"),path.resolve(dir,".venv","bin","python"),"python","python3"]){if(candidate==="python"||candidate==="python3"){try{await execFileAsync(candidate,["--version"]);return candidate}catch{continue}}if(await exists(candidate))return candidate}return null}
+export async function GET(request:NextRequest){
+  const params=request.nextUrl.searchParams;
+  // productId-only is retained as a compatibility alias for the existing BOM workspace state.
+  const packagePath=(params.get("packagePath")??params.get("productId"))?.trim();
+  const productId=params.get("productIdOverride")?.trim()??undefined;
+  const date=params.get("date")?.trim()??undefined;
+  if(!packagePath)return NextResponse.json({error:"packagePath is required."},{status:400});
+  const dir=await findDir(process.cwd());if(!dir)return NextResponse.json({error:"Configit extractor directory is unavailable."},{status:500});
+  const script=path.resolve(dir,"extractor.py"),python=await pythonOf(dir);if(!(await exists(script))||!python)return NextResponse.json({error:"Configit extractor runtime is unavailable."},{status:500});
+  const temp=await fs.mkdtemp(path.join(os.tmpdir(),"configit-"));const output=path.join(temp,"normalized-bom.json");
+  const args=[script,"--package-path",packagePath,"--output",output];if(productId)args.push("--product-id",productId);if(date)args.push("--date",date);
+  try{await execFileAsync(python,args,{cwd:dir,timeout:5*60*1000,maxBuffer:10*1024*1024,env:process.env});return NextResponse.json(JSON.parse(await fs.readFile(output,"utf8")))}
+  catch(error:unknown){const detail=error&&typeof error==="object"&&"stderr" in error?String((error as {stderr?:unknown}).stderr??""):error instanceof Error?error.message:"Unable to run extraction.";const message=detail.split("\n").filter(Boolean).at(-1)??detail;return NextResponse.json({error:`Configit extraction failed: ${message}`},{status:502})}
+  finally{await fs.rm(temp,{recursive:true,force:true})}
+}
+
+
+===== FILE: .\OrchestrationPlatform\frontend\app\api\item-explorer\search\configit\route.ts =====
+
+import { params } from "@/lib/item-explorer/server";
+import { searchEngineeringSource } from "@/lib/item-explorer/engineering-discovery";
+export const dynamic = "force-dynamic";
+export async function GET(request: Request) {
+  const { query, mode, limit } = params(request);
+  return searchEngineeringSource("configit", query, mode, limit);
+}
+
+
+===== FILE: .\OrchestrationPlatform\frontend\lib\item-explorer\engineering-discovery.ts =====
+
+import type { EnterpriseSource, ItemSearchCandidate, MatchType, SearchMode, SourceSearchResult } from "@/types/item-explorer";
+import { result } from "./server";
+
+type ApiCandidate = {
+  candidateId?: string;
+  nativeId?: string;
+  displayName?: string;
+  description?: string;
+  revision?: string;
+  version?: string;
+  lifecycleState?: string;
+  entityType?: string;
+  matchCategory?: string;
+  matchReason?: string;
+  sourceMetadata?: Record<string, string | null>;
+  provenance?: { kind?: string; observedAt?: string };
+};
+type ApiOutcome = {
+  status?: string;
+  candidates?: ApiCandidate[];
+  warnings?: Array<{ message?: string }>;
+  errors?: Array<{ userMessage?: string; message?: string }>;
+  retryable?: boolean;
+};
+type ApiDiscoveryResult = { sources?: ApiOutcome[] };
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5212/api";
+const timeoutMs = 30_000;
+
+function matchType(category: string | undefined): MatchType {
+  switch (category) {
+    case "verified-identifier-match":
+    case "deterministic-normalized-id-match":
+    case "source-native-reference":
+      return "exact-id";
+    case "exact-source-name-match":
+      return "exact-name";
+    case "source-search-result":
+      return "source-result";
+    default:
+      return "source-result";
+  }
+}
+
+function status(value: string | undefined, count: number): SourceSearchResult["status"] {
+  if (value === "success" || value === "partial-success") return count ? "complete" : "empty";
+  if (value === "empty") return "empty";
+  if (value === "timed-out") return "timed-out";
+  if (value === "cancelled") return "cancelled";
+  if (value === "capability-limited" || value === "unavailable") return "unsupported";
+  return "failed";
+}
+
+export async function searchEngineeringSource(source: EnterpriseSource, query: string, mode: SearchMode, limit: number): Promise<Response> {
+  const started = Date.now();
+  if (!query) return Response.json(result(source, "failed", 0, { error: "Enter a product name or ID." }), { status: 400 });
+  const requestId = crypto.randomUUID();
+  const body = {
+    schemaVersion: "1.0",
+    requestId,
+    correlationId: requestId,
+    requestedSources: [source],
+    query: {
+      originalInput: query,
+      productId: mode === "item-id" ? query : null,
+      productName: mode === "name" ? query : null,
+      identifierType: mode === "item-id" ? "product-id" : "product-name",
+    },
+    resultLimitPerSource: limit,
+    timeoutPolicy: { timeoutMs, perSourceTimeoutMs: timeoutMs },
+    initiatedAt: new Date().toISOString(),
+  };
+  try {
+    const response = await fetch(`${API_BASE}/engineering/discovery`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      cache: "no-store",
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    const payload = await response.json() as ApiDiscoveryResult;
+    const outcome = payload.sources?.[0];
+    if (!response.ok || !outcome) throw new Error("The engineering discovery API returned no source outcome.");
+    const candidates: ItemSearchCandidate[] = (outcome.candidates ?? []).map((candidate) => ({
+      candidateId: candidate.candidateId ?? `${source}:${candidate.nativeId}`,
+      source,
+      nativeId: candidate.nativeId ?? "",
+      name: candidate.displayName ?? candidate.nativeId ?? "Unknown record",
+      description: candidate.description,
+      matchType: matchType(candidate.matchCategory),
+      matchReasons: [candidate.matchReason ?? "Returned by the authoritative source adapter."],
+      context: {
+        revision: candidate.revision,
+        version: candidate.version,
+        lifecycleState: candidate.lifecycleState,
+        objectType: candidate.entityType,
+        plant: candidate.sourceMetadata?.plant ?? undefined,
+        configuration: candidate.sourceMetadata?.packagePath ?? undefined,
+        logicalPackagePath: candidate.sourceMetadata?.logicalPackagePath ?? undefined,
+        resolvedPackagePath: candidate.sourceMetadata?.resolvedPackagePath ?? candidate.sourceMetadata?.packagePath ?? undefined,
+        packageVersionId: candidate.sourceMetadata?.versionId ?? candidate.version ?? undefined,
+        packageState: candidate.sourceMetadata?.packageState ?? candidate.lifecycleState ?? undefined,
+      },
+      retrievedAt: candidate.provenance?.observedAt ?? new Date().toISOString(),
+      providerMode: candidate.provenance?.kind === "live-source" ? "live" as const : "capability" as const,
+    })).filter((candidate) => candidate.nativeId);
+    const mappedStatus = status(outcome.status, candidates.length);
+    const error = outcome.errors?.[0]?.userMessage ?? outcome.errors?.[0]?.message;
+    const capabilityNote = outcome.warnings?.[0]?.message;
+    return Response.json(result(source, mappedStatus, Date.now() - started, { candidates, error, capabilityNote }), {
+      status: mappedStatus === "failed" ? 502 : 200,
+    });
+  } catch (error) {
+    const timedOut = error instanceof DOMException && error.name === "TimeoutError";
+    return Response.json(result(source, timedOut ? "timed-out" : "failed", Date.now() - started, {
+      error: timedOut ? `${source} search timed out.` : error instanceof Error ? error.message : `${source} search failed.`,
+    }), { status: timedOut ? 504 : 502 });
+  }
+}
+
+
+
+===== FILE: .\OrchestrationPlatform\frontend\lib\item-explorer\server.ts =====
+
+
+import type { EnterpriseSource, SearchMode, SourceCapabilities, SourceSearchResult } from "@/types/item-explorer";
+export function result(source: EnterpriseSource, status: SourceSearchResult["status"], durationMs: number, overrides: Partial<SourceSearchResult> = {}): SourceSearchResult {
+  const capabilities: Record<EnterpriseSource, SourceCapabilities> = {
+    teamcenter: { nameSearch: true, itemIdSearch: true, nearbyIds: false, live: true },
+    windchill: { nameSearch: true, itemIdSearch: true, nearbyIds: false, live: true },
+    sap: { nameSearch: true, itemIdSearch: true, nearbyIds: true, live: true },
+    configit: { nameSearch: true, itemIdSearch: true, nearbyIds: false, live: true },
+  };
+  return { source, status, candidates: [], durationMs, capabilities: capabilities[source], ...overrides };
+}
+export function params(request: Request): { query: string; mode: SearchMode; limit: number } {
+  const url = new URL(request.url); const query = (url.searchParams.get("query") ?? "").trim();
+  const mode: SearchMode = url.searchParams.get("mode") === "item-id" ? "item-id" : "name";
+  const limit = Math.min(25, Math.max(1, Number(url.searchParams.get("limit") ?? 10) || 10));
+  return { query, mode, limit };
+}
+export function json(payload: SourceSearchResult, status = 200) { return Response.json(payload, { status }); }
+
+
+===== FILE: .\OrchestrationPlatform\frontend\lib\item-explorer\source-meta.ts =====
+
+import type { EnterpriseSource, MatchType } from "@/types/item-explorer";
+export const enterpriseSources: EnterpriseSource[] = ["teamcenter", "windchill", "sap", "configit"];
+export const sourceMeta: Record<EnterpriseSource, { label: string; domain: string; marker: string }> = {
+  teamcenter: { label: "Teamcenter", domain: "Product lifecycle management", marker: "TC" },
+  windchill: { label: "Windchill", domain: "Product lifecycle management", marker: "WC" },
+  sap: { label: "SAP", domain: "Enterprise resource planning", marker: "SAP" },
+  configit: { label: "Configit", domain: "Product configuration", marker: "CFG" },
+};
+export const matchLabels: Record<MatchType, string> = {
+  "exact-name": "Exact name", "name-contains": "Name match", "description-match": "Description match",
+  "exact-id": "Exact identifier", "id-prefix": "Identifier prefix", "nearby-id": "Nearby identifier", "source-result": "Source result",
+};
+

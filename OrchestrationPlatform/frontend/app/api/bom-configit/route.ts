@@ -13,16 +13,19 @@ async function findDir(start:string){let current=path.resolve(start);for(let i=0
 async function pythonOf(dir:string){for(const candidate of [path.resolve(dir,".venv","Scripts","python.exe"),path.resolve(dir,".venv","bin","python"),"python","python3"]){if(candidate==="python"||candidate==="python3"){try{await execFileAsync(candidate,["--version"]);return candidate}catch{continue}}if(await exists(candidate))return candidate}return null}
 export async function GET(request:NextRequest){
   const params=request.nextUrl.searchParams;
-  // productId-only is retained as a compatibility alias for the existing BOM workspace state.
-  const packagePath=(params.get("packagePath")??params.get("productId"))?.trim();
-  const productId=params.get("productIdOverride")?.trim()??undefined;
-  const date=params.get("date")?.trim()??undefined;
-  if(!packagePath)return NextResponse.json({error:"packagePath is required."},{status:400});
+  const query=(params.get("query")??params.get("packagePath")??params.get("productId"))?.trim();
+  if(!query)return NextResponse.json({error:"Enter a Configit product or work-item name."},{status:400});
   const dir=await findDir(process.cwd());if(!dir)return NextResponse.json({error:"Configit extractor directory is unavailable."},{status:500});
   const script=path.resolve(dir,"extractor.py"),python=await pythonOf(dir);if(!(await exists(script))||!python)return NextResponse.json({error:"Configit extractor runtime is unavailable."},{status:500});
   const temp=await fs.mkdtemp(path.join(os.tmpdir(),"configit-"));const output=path.join(temp,"normalized-bom.json");
-  const args=[script,"--package-path",packagePath,"--output",output];if(productId)args.push("--product-id",productId);if(date)args.push("--date",date);
-  try{await execFileAsync(python,args,{cwd:dir,timeout:5*60*1000,maxBuffer:10*1024*1024,env:process.env});return NextResponse.json(JSON.parse(await fs.readFile(output,"utf8")))}
-  catch(error:unknown){const detail=error&&typeof error==="object"&&"stderr" in error?String((error as {stderr?:unknown}).stderr??""):error instanceof Error?error.message:"Unable to run extraction.";const message=detail.split("\n").filter(Boolean).at(-1)??detail;return NextResponse.json({error:`Configit extraction failed: ${message}`},{status:502})}
+  const args=[script,"--query",query,"--output",output];
+  try{
+    await execFileAsync(python,args,{cwd:dir,timeout:10*60*1000,maxBuffer:20*1024*1024,env:process.env});
+    const payload=JSON.parse(await fs.readFile(output,"utf8"));
+    if(payload.status==="not_found")return NextResponse.json(payload,{status:404});
+    if(payload.status==="failed")return NextResponse.json(payload,{status:502});
+    return NextResponse.json(payload);
+  }
+  catch(error:unknown){const detail=error&&typeof error==="object"&&"stderr" in error?String((error as {stderr?:unknown}).stderr??""):error instanceof Error?error.message:"Unable to run extraction.";const message=detail.split("\n").filter(Boolean).at(-1)??detail;return NextResponse.json({error:`Configit search failed: ${message}`},{status:502})}
   finally{await fs.rm(temp,{recursive:true,force:true})}
 }

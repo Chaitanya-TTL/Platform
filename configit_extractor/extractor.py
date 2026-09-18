@@ -347,62 +347,201 @@ def save_extraction(data: dict[str, Any], output_file: str) -> None:
         json.dump(data, handle, indent=2)
  
  
+MODEL_BASE_URL = "https://ttl-01.demo.configit.cloud:8443/api/v1"
+def _model_url(wi,suffix): return f"{MODEL_BASE_URL}/wi/{wi}/{suffix.lstrip('/')}"
+def _collection(payload,keys):
+    if isinstance(payload,list): return [x for x in payload if isinstance(x,dict)]
+    if isinstance(payload,dict):
+        for k in tuple(keys)+("data","items","results"):
+            if isinstance(payload.get(k),list): return [x for x in payload[k] if isinstance(x,dict)]
+        if not payload:return []
+    raise RuntimeError("Configit Model API returned an unexpected collection response.")
+def _model_collection(wi,suffix,*keys): return _collection(_request_json("GET",_model_url(wi,suffix)),keys)
+def resolve_work_item_by_name(requested_name: str, page_size: int = 100) -> dict[str, Any]:
+    name = requested_name.strip()
+    if not name:
+        raise ValueError("Configit search value is required.")
+    offset = 0
+    total: int | None = None
+    scanned = 0
+    matches: list[dict[str, Any]] = []
+    while True:
+        payload = _request_json("GET", f"{MODEL_BASE_URL}/wi", params={"limit": page_size, "offset": offset})
+        if not isinstance(payload, dict):
+            raise RuntimeError("Configit work-item search returned an unexpected response.")
+        page = payload.get("data")
+        if not isinstance(page, list):
+            raise RuntimeError("Configit work-item search response does not contain data.")
+        records = [item for item in page if isinstance(item, dict)]
+        for item in records:
+            candidate = str(item.get("name") or "").strip()
+            if candidate.casefold() == name.casefold():
+                matches.append(item)
+        scanned += len(records)
+        pagination = payload.get("pagination") if isinstance(payload.get("pagination"), dict) else {}
+        if total is None:
+            try:
+                total = int(pagination.get("total"))
+            except (TypeError, ValueError):
+                total = None
+        offset += len(records)
+        if not records or (total is not None and offset >= total) or len(records) < page_size:
+            break
+    if not matches:
+        raise LookupError(f"No Configit work item named '{name}' was found across {total if total is not None else scanned} work items.")
+    if len(matches) > 1:
+        candidates = ", ".join(f"{item.get('id')} ({item.get('status') or 'status unavailable'})" for item in matches)
+        raise RuntimeError(f"Multiple Configit work items are named '{name}'. Use a unique name. Candidates: {candidates}")
+    item = matches[0]
+    return {
+        "input": name,
+        "method": "exact-name",
+        "resolvedWorkItemId": item.get("id"),
+        "resolvedWorkItemName": item.get("name"),
+        "description": item.get("description"),
+        "status": item.get("status"),
+        "scannedWorkItems": scanned,
+    }
+
+
+def get_work_item_product_models(work_item_id): return _model_collection(work_item_id,"products/productmodels","productModels")
+def resolve_product_model(work_item_id: str, code: str | None, description: str | None, query: str | None = None) -> dict[str, Any]:
+    models = get_work_item_product_models(work_item_id)
+    if code:
+        matches = [model for model in models if str(model.get("code") or "").strip().casefold() == code.strip().casefold()]
+    elif description:
+        matches = [model for model in models if str(model.get("description") or model.get("name") or "").strip().casefold() == description.strip().casefold()]
+    else:
+        term = (query or "").strip().casefold()
+        code_matches = [model for model in models if str(model.get("code") or "").strip().casefold() == term]
+        description_matches = [model for model in models if str(model.get("description") or model.get("name") or "").strip().casefold() == term]
+        matches = code_matches or description_matches or (models if len(models) == 1 else [])
+    if len(matches) == 1:
+        return matches[0]
+    candidates = ", ".join(f"{model.get('code')} ({model.get('description') or model.get('name') or 'unnamed'})" for model in matches or models)
+    if len(matches) > 1:
+        raise RuntimeError(f"Multiple product models match the Configit search. Candidates: {candidates}")
+    raise RuntimeError(f"A unique product model could not be selected. Candidates: {candidates}")
+
+def get_library_families(wi): return _model_collection(wi,"library/families","families")
+def get_library_features(wi): return _model_collection(wi,"library/features","features")
+def get_library_properties(wi): return _model_collection(wi,"library/properties","properties")
+def get_product_model(wi,code):
+    x=_request_json("GET",_model_url(wi,f"products/productmodels/{code}"));return x.get("data",x) if isinstance(x,dict) else {}
+def get_product_families(wi,code): return _model_collection(wi,f"products/productmodels/{code}/families","families")
+def get_product_rules(wi,code): return _model_collection(wi,f"products/productmodels/{code}/rules","rules")
+def get_product_views(wi,code): return _model_collection(wi,f"products/productmodels/{code}/views","views")
+def get_languages(wi): return _model_collection(wi,"localizations/languages","languages")
+def get_family_translations(wi): return _model_collection(wi,"localizations/families","translations","familyTranslations")
+def get_feature_translations(wi): return _model_collection(wi,"localizations/features","translations","featureTranslations")
+def get_section_translations(wi): return _model_collection(wi,"localizations/sections","translations","sectionTranslations")
+def _features(v):
+    x=v.get("features") or v.get("featureValues") or [];return [i for i in x if isinstance(i,dict)] if isinstance(x,list) else []
+def _normal_family(v): return {"code":v.get("code"),"name":v.get("description") or v.get("name") or v.get("code"),"familyType":v.get("familyType") or v.get("type"),"features":[{"code":f.get("code"),"name":f.get("description") or f.get("name") or f.get("code")} for f in _features(v)]}
+def _normal_rule(v):
+    e=v.get("errorTypes") or v.get("errors") or [];return {"code":v.get("code"),"description":v.get("description") or v.get("code"),"expression":v.get("text") or v.get("expression") or "","enabled":v.get("isEnabled",v.get("enabled")),"locked":v.get("isLocked",v.get("locked")),"effectivity":v.get("effectivity") or {},"validation":{"valid":not bool(e),"errorTypes":e}}
+def _normal_translation(v):
+    d=v.get("translationDeclaration") if isinstance(v.get("translationDeclaration"),dict) else {};return {"code":v.get("code") or v.get("familyCode") or v.get("featureCode") or v.get("sectionCode"),"sourceText":v.get("sourceText") or v.get("description") or v.get("originalText"),"translatedText":v.get("translation") or v.get("translatedText") or v.get("text"),"languageCode":v.get("languageCode") or v.get("language"),"declarationCode":d.get("code") or v.get("translationDeclarationCode")}
+def extract_work_item_model(args: argparse.Namespace) -> dict[str, Any]:
+    resolution = resolve_work_item_by_name(args.query)
+    work_item_id = str(resolution["resolvedWorkItemId"])
+    selected = resolve_product_model(work_item_id, args.product_model_code, args.product_model_description, args.query)
+    model_code = str(selected.get("code") or "").strip()
+    try:
+        detail = get_product_model(work_item_id, model_code)
+        if detail:
+            selected = detail
+    except RuntimeError as error:
+        if "returned 404" not in str(error):
+            raise
+    families = [_normal_family(value) for value in get_product_families(work_item_id, model_code)]
+    library_families = [_normal_family(value) for value in get_library_families(work_item_id)] if args.include_library else []
+    library_features = get_library_features(work_item_id) if args.include_library else []
+    properties = get_library_properties(work_item_id) if args.include_library else []
+    rules = [_normal_rule(value) for value in get_product_rules(work_item_id, model_code)] if args.include_rules else []
+    views = get_product_views(work_item_id, model_code) if args.include_views else []
+    languages = get_languages(work_item_id) if args.include_localizations else []
+    family_translations = [_normal_translation(value) for value in get_family_translations(work_item_id)] if args.include_localizations else []
+    feature_translations = [_normal_translation(value) for value in get_feature_translations(work_item_id)] if args.include_localizations else []
+    section_translations = [_normal_translation(value) for value in get_section_translations(work_item_id)] if args.include_localizations else []
+    return {
+        "available": True,
+        "workItemId": int(work_item_id) if work_item_id.isdigit() else work_item_id,
+        "workItemResolution": resolution,
+        "productModel": {"code": selected.get("code") or model_code, "description": selected.get("description") or selected.get("name"), "brandCode": selected.get("brandCode"), "useArithmeticRules": selected.get("useArithmeticRules"), "languageCodes": selected.get("languageCodes") or [], "translationDeclarationCodes": selected.get("translationDeclarationCodes") or []},
+        "library": {"families": library_families, "features": library_features, "properties": properties},
+        "configuration": {"families": families, "rules": rules, "views": views},
+        "localization": {"languages": languages, "familyTranslations": family_translations, "featureTranslations": feature_translations, "sectionTranslations": section_translations},
+        "warnings": [],
+    }
+
+def extract_published_package(args):
+    pr=resolve_latest_package_path(args.package_path);rp=pr["resolvedPackagePath"];pp=get_package_products(rp);sel=resolve_product_id(pp,args.product_id);pid=str(sel["selectedProductId"]);date=args.date or generate_date();bom=[] if args.resolve_only else normalize_solve_response(solve_bom(pid,rp,date),pid,rp,date)["bom"];return {"available":True,"packageResolution":pr,"productResolution":sel,"productId":pid,"packagePath":rp,"generatedDate":date,"bom":bom,"warnings":[]}
+def unavailable(error): return {"available":False,"error":{"code":"extraction_failed","message":str(error)},"warnings":[]}
+
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Configit BOM extractor with latest-package and product auto-resolution"
-    )
-    parser.add_argument(
-        "--package-path",
-        default=PACKAGE_PATH,
-        help="Logical package path such as usb, or an already resolved path containing ~<version-id>",
-    )
-    parser.add_argument(
-        "--product-id",
-        default=None,
-        help="Optional exact product ID. Required only when the package has multiple configurable products.",
-    )
-    parser.add_argument("--date", default=None, help="Optional solve date")
+    parser = argparse.ArgumentParser(description="Unified Configit package and work-item search")
+    parser.add_argument("--query", required=True, help="Package path or exact work-item name")
     parser.add_argument("--output", default="configit_extraction.json")
-    parser.add_argument(
-        "--resolve-only",
-        action="store_true",
-        help="Resolve latest package and root product without calling BOM Solve",
-    )
+    parser.add_argument("--date", default=None)
+    parser.add_argument("--product-id", default=None)
+    parser.add_argument("--product-model-code", default=None)
+    parser.add_argument("--product-model-description", default=None)
+    parser.add_argument("--resolve-only", action="store_true")
+    parser.add_argument("--include-library", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--include-rules", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--include-localizations", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--include-views", action=argparse.BooleanOptionalAction, default=True)
     return parser.parse_args()
- 
- 
+
+
+def _reason(error: Exception | None) -> str | None:
+    if error is None:
+        return None
+    value = str(error).lower()
+    return "not_found" if isinstance(error, LookupError) or "404" in value or "not found" in value or "no latest version" in value else "technical_failure"
+
+
 def run_from_cli() -> None:
     args = parse_args()
-    print(f"Resolving Configit package: {args.package_path}")
-    package_resolution = resolve_latest_package_path(args.package_path)
-    resolved_path = package_resolution["resolvedPackagePath"]
-    print(f"Resolved package: {resolved_path}")
- 
-    product_payload = get_package_products(resolved_path)
-    product_resolution = resolve_product_id(product_payload, args.product_id)
-    selected_product_id = str(product_resolution["selectedProductId"])
-    print(f"Resolved product: {selected_product_id}")
- 
-    if args.resolve_only:
-        save_extraction(
-            {
-                "packageResolution": package_resolution,
-                "productResolution": product_resolution,
-            },
-            args.output,
-        )
-        print(f"Resolution saved to {args.output}")
-        return
- 
-    generated_date = args.date or generate_date()
-    print("Calling Configit BOM Solve API...")
-    payload = solve_bom(selected_product_id, resolved_path, generated_date)
-    normalized = normalize_solve_response(payload, selected_product_id, resolved_path, generated_date)
-    normalized["packageResolution"] = package_resolution
-    normalized["productResolution"] = product_resolution
-    save_extraction(normalized, args.output)
-    print(f"Extraction saved to {args.output}")
- 
- 
+    package: dict[str, Any] = {"available": False, "warnings": []}
+    authoring: dict[str, Any] = {"available": False, "warnings": []}
+    package_error: Exception | None = None
+    authoring_error: Exception | None = None
+    try:
+        package = extract_published_package(args)
+    except Exception as error:
+        package_error = error
+        package = {**unavailable(error), "reason": _reason(error)}
+    try:
+        authoring = extract_work_item_model(args)
+    except Exception as error:
+        authoring_error = error
+        authoring = {**unavailable(error), "reason": _reason(error)}
+    package_ok, authoring_ok = bool(package.get("available")), bool(authoring.get("available"))
+    if package_ok or authoring_ok:
+        technical = _reason(package_error) == "technical_failure" or _reason(authoring_error) == "technical_failure"
+        status = "partial_success" if technical else "success"
+    elif _reason(package_error) == "not_found" and _reason(authoring_error) == "not_found":
+        status = "not_found"
+    else:
+        status = "failed"
+    result = {
+        "schemaVersion": "2.0",
+        "source": "configit",
+        "query": args.query,
+        "status": status,
+        "extractedAt": generate_date(),
+        "publishedPackage": package,
+        "authoringWorkItem": authoring,
+        "correlation": {"packageProductId": package.get("productId"), "workItemProductModelCode": (authoring.get("productModel") or {}).get("code"), "method": "exact-query" if package_ok and authoring_ok else "single-source"},
+        "warnings": [*package.get("warnings", []), *authoring.get("warnings", [])],
+    }
+    if package_ok:
+        result.update({"productId": package.get("productId"), "packagePath": package.get("packagePath"), "generatedDate": package.get("generatedDate"), "bom": package.get("bom", []), "packageResolution": package.get("packageResolution"), "productResolution": package.get("productResolution")})
+    save_extraction(result, args.output)
+    print(f"Unified Configit search completed with status: {status}")
+
+
 if __name__ == "__main__":
     run_from_cli()
