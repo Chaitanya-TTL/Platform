@@ -70,6 +70,12 @@
 .tone-emerald {
   --node-tone: #34d399;
 }
+.tone-green {
+  --node-tone: #86efac;
+}
+.tone-sky {
+  --node-tone: #7dd3fc;
+}
 .tone-fuchsia {
   --node-tone: #e879f9;
 }
@@ -505,6 +511,12 @@
 .lattice-intelligence-legend span[data-tone="emerald"]:before {
   background: #34d399;
 }
+.lattice-intelligence-legend span[data-tone="green"]:before {
+  background: #86efac;
+}
+.lattice-intelligence-legend span[data-tone="sky"]:before {
+  background: #7dd3fc;
+}
 .lattice-intelligence-legend span[data-tone="fuchsia"]:before {
   background: #e879f9;
 }
@@ -773,6 +785,12 @@
 }
 .tone-emerald {
   --node-accent: #34d399;
+}
+.tone-green {
+  --node-accent: #86efac;
+}
+.tone-sky {
+  --node-accent: #7dd3fc;
 }
 .tone-fuchsia {
   --node-accent: #e879f9;
@@ -1138,8 +1156,23 @@
 }
 .lattice-source-legend span { display: inline-flex; align-items: center; gap: 7px; }
 .lattice-source-legend i { width: 9px; height: 9px; border-radius: 999px; box-shadow: 0 0 0 3px rgba(255,255,255,.04); }
-.lattice-source-legend .is-sap { background: #34d399; }
-.lattice-source-legend .is-windchill { background: #8b7cf6; }
+.lattice-source-legend .is-sap { background: #7dd3fc; }
+.lattice-source-legend .is-windchill { background: #86efac; }
 @media (max-width: 720px) { .lattice-source-legend { gap: 10px; padding: 7px 10px; font-size: 10px; } }
 
 .lattice-source-legend .is-configit{background:#f97316}.lattice-source-legend .is-teamcenter{background:#22d3ee}
+
+/* Source-native logos for terminal Lattice entities. */
+.lattice-entity-node .source-icon.has-source-logo {
+  overflow: hidden;
+  padding: 7px;
+  background: rgba(255, 255, 255, 0.96);
+  border-color: color-mix(in srgb, var(--node-accent) 48%, #64748b);
+}
+.lattice-entity-node .source-icon.has-source-logo .lattice-source-logo {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+}

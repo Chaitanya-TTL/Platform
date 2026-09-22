@@ -1,5 +1,6 @@
 "use client";
 import { memo, useEffect, type ComponentType, type ReactNode } from "react";
+import Image from "next/image";
 import {
   Handle,
   NodeToolbar,
@@ -41,11 +42,38 @@ import {
 } from "../motion/lattice-motion";
 const tones: Record<string, string> = {
   teamcenter: "cyan",
-  windchill: "violet",
-  sap: "emerald",
+  windchill: "green",
+  sap: "sky",
   configit: "fuchsia",
   unified: "slate",
 };
+const sourceLogos: Partial<Record<string, { src: string; alt: string }>> = {
+  windchill: { src: "/images/WC_Logo.png", alt: "Windchill" },
+  sap: { src: "/images/Sap_Logo.png", alt: "SAP" },
+  configit: { src: "/images/configit_Logo.png", alt: "Configit" },
+};
+function SourceVisual({
+  source,
+  leaf,
+  Icon,
+}: {
+  source: string;
+  leaf: boolean;
+  Icon: ComponentType<{ className?: string }>;
+}) {
+  const logo = leaf ? sourceLogos[source] : undefined;
+  return logo ? (
+    <Image
+      src={logo.src}
+      alt={`${logo.alt} source`}
+      width={38}
+      height={38}
+      className="lattice-source-logo"
+    />
+  ) : (
+    <Icon />
+  );
+}
 const actions: {
   action: LatticeNodeAction;
   label: string;
@@ -295,6 +323,8 @@ function Entity({ id, data }: NodeProps<LatticeFlowNode>) {
   if (id.startsWith("projection:domain:"))
     return <Domain id={id} data={data} />;
   const kind = String(data.entityKind ?? data.category);
+  const visualSource = String(data.inheritedSource ?? data.source);
+  const showSourceLogo = Boolean(sourceLogos[visualSource]) && (!data.hasChildren || Boolean(data.inheritedSource));
   const key = String(data.attributes?.attributeKey ?? data.label).toLowerCase();
   const Icon =
     icons[key] ??
@@ -322,17 +352,17 @@ function Entity({ id, data }: NodeProps<LatticeFlowNode>) {
     requirementId && data.label.startsWith(requirementId)
       ? data.label
           .slice(requirementId.length)
-          .replace(/^\s*[-ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â:]\s*/, "")
+          .replace(/^\s*[-ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â:]\s*/, "")
       : data.label;
   return (
     <Shell
       id={id}
       data={data}
-      className={`lattice-entity-node tone-${data.source === "configit" && !data.hasChildren ? "orange" : tones[data.source] ?? "slate"}`}
+      className={`lattice-entity-node tone-${visualSource === "configit" ? "orange" : tones[visualSource] ?? "slate"}`}
     >
       <LayoutGroup id={`node-${id}`}>
-        <div className="source-icon">
-          <Icon />
+        <div className={`source-icon ${showSourceLogo ? "has-source-logo" : ""}`}>
+          <SourceVisual source={visualSource} leaf={showSourceLogo} Icon={Icon} />
         </div>
         <div className="node-copy">
           {requirementId ? (
