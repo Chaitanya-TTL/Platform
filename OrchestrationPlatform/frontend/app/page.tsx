@@ -5,7 +5,6 @@ import Image from "next/image";
 import { motion } from "motion/react";
 import {
   IconArrowRight,
-  IconArrowsExchange,
   IconBox,
   IconBuildingFactory,
   IconReportSearch,
@@ -54,8 +53,15 @@ const capabilities: Capability[] = [
     tone: "emerald",
   },
   {
+    title: "MES",
+    text: "Monitor production execution, quality, and shop-floor traceability.",
+    icon: IconBuildingFactory,
+    badge: "Production Operations",
+    tone: "amber",
+  },
+  {
     title: "Service",
-    text: "Service supply chain optimization",
+    text: "Optimize service operations and the service supply chain.",
     icon: IconReportSearch,
     badge: "Servigistics",
     tone: "sky",
@@ -79,6 +85,10 @@ const toneClasses: Record<string, { icon: string; hover: string }> = {
     icon: "border-emerald-400/20 bg-emerald-400/10 text-emerald-300",
     hover: "hover:border-emerald-400/35 hover:bg-emerald-400/[.05]",
   },
+  amber: {
+    icon: "border-amber-400/20 bg-amber-400/10 text-amber-300",
+    hover: "hover:border-amber-400/35 hover:bg-amber-400/[.05]",
+  },
   sky: {
     icon: "border-sky-400/20 bg-sky-400/10 text-sky-300",
     hover: "hover:border-sky-400/35 hover:bg-sky-400/[.05]",
@@ -92,18 +102,16 @@ export default function Home() {
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(148,163,184,.025)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,.025)_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:linear-gradient(to_bottom,black,transparent_92%)]" />
 
       <div className="relative mx-auto grid h-full w-full grid-rows-[auto_minmax(0,1fr)] gap-4 px-5 py-5 sm:px-8 lg:px-10 lg:py-6">
-        <header className="flex h-[68px] w-full items-center justify-between rounded-2xl  px-4 shadow-sm backdrop-blur-xl sm:px-5">
+        <header className="flex h-[68px] w-full items-center justify-between rounded-2xl px-4 shadow-sm backdrop-blur-xl sm:px-5">
           <div className="flex items-center gap-3">
-            <div>
-              <Image
-                src="/images/TTL_Logo.png"
-                width={230}
-                height={150}
-                alt="Tata Technologies"
-                priority
-                className="h-12 w-auto object-contain dark:brightness-0 dark:invert"
-              />{" "}
-            </div>
+            <Image
+              src="/images/TTL_Logo.png"
+              width={230}
+              height={150}
+              alt="Tata Technologies"
+              priority
+              className="h-12 w-auto object-contain dark:brightness-0 dark:invert"
+            />
           </div>
 
           <div className="flex items-center gap-2">
@@ -126,10 +134,6 @@ export default function Home() {
             className="flex min-h-0 flex-col justify-center py-3 lg:py-5"
           >
             <div className="max-w-[900px]">
-              {/* <p className="inline-flex items-center rounded-full border border-cyan-400/20 bg-cyan-400/[.06] px-3 py-1.5 text-xs font-semibold uppercase tracking-[.22em] text-cyan-600 dark:text-cyan-300">
-                Connected enterprise product intelligence
-              </p> */}
-
               <h1 className="mt-5 text-4xl font-semibold leading-[1.02] tracking-[-.045em] sm:text-5xl lg:text-6xl xl:text-7xl">
                 Orchestration Platform
                 <span className="mt-1 block bg-gradient-to-r from-cyan-500 via-sky-500 to-indigo-500 bg-clip-text text-transparent">
@@ -143,10 +147,11 @@ export default function Home() {
               </p>
             </div>
 
-            <div className="mt-7 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
+            <div className="mt-7 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-3">
               {capabilities.map((card, index) => {
                 const CardIcon = card.icon;
                 const tone = toneClasses[card.tone];
+
                 return (
                   <motion.article
                     key={card.title}
@@ -188,7 +193,7 @@ function PlatformVisual() {
       initial={{ opacity: 0, scale: 0.97, y: 16 }}
       animate={{ opacity: 1, scale: 1, y: 0 }}
       transition={{ duration: 0.55, delay: 0.08, ease: "easeOut" }}
-      className="relative mx-auto aspect-square w-full max-w-[610px] overflow-hidden rounded-[34px] border border-slate-200 bg-white/70 shadow-[0_40px_120px_-55px_rgba(8,145,178,.4)] backdrop-blur-xl dark:border-slate-800 dark:bg-slate-900/45"
+      className="relative mx-auto aspect-square w-full max-w-[745px] overflow-hidden rounded-xl border border-slate-200 shadow-[0_40px_120px_-55px_rgba(8,145,178,.4)] backdrop-blur-xl dark:border-slate-800 dark:bg-slate-900/45"
     >
       <div className="pointer-events-none absolute inset-px rounded-[33px] bg-[radial-gradient(circle_at_center,rgba(34,211,238,.13),transparent_38%)]" />
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(148,163,184,.035)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,.035)_1px,transparent_1px)] bg-[size:32px_32px] [mask-image:radial-gradient(circle_at_center,black,transparent_80%)]" />
@@ -323,6 +328,7 @@ function SystemBadge({
     indigo: "border-indigo-400/25 bg-indigo-400/[.08] text-indigo-300",
     emerald: "border-emerald-400/25 bg-emerald-400/[.08] text-emerald-300",
   };
+
   return (
     <motion.div
       animate={{ y: [0, -5, 0] }}

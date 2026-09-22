@@ -35,7 +35,6 @@ import type { LayoutSession } from "../layout/layout-session";
 import type { LatticeFlowEdge, LatticeFlowNode, LatticePinnedPositions } from "../canvas/lattice-flow-types";
 import type { LatticeNodeActionIntent } from "../canvas/lattice-node-actions";
 import type { LatticeEdgeActionIntent } from "../canvas/lattice-edge-actions";
-import { sourceToken } from "../presentation/intelligence-tokens";
 import {
   LATTICE_DEFAULT_EDGE_OPTIONS,
   LATTICE_EDGE_TYPES,
@@ -221,7 +220,6 @@ function RelationshipCanvasInner({ projection, orientation, pinnedPositions, vie
   const handleNodeDragStop = useCallback((_: MouseEvent | TouchEvent, node: LatticeFlowNode) => callbacks.current.onPinPosition(node.id, node.position), []);
   const handlePaneClick = useCallback(() => callbacks.current.onClearTransient(), []);
   const selectedNodes = nodes.filter((node) => node.selected && node.data.category !== "cluster");
-  const visibleSources = [...new Set(nodes.map((node) => String(node.data.source)).filter((source) => !["platform","unified"].includes(source)))].sort();
   const fitSelected = useCallback(() => { if (selectedNodes.length) void fitView({ nodes: selectedNodes, padding: 0.28, duration: reducedMotion ? 0 : 360, interpolate: "smooth" }); }, [fitView, selectedNodes]);
 
   return (
@@ -305,7 +303,6 @@ function RelationshipCanvasInner({ projection, orientation, pinnedPositions, vie
           </Panel>
         ) : null}
         <Background variant={BackgroundVariant.Lines} color="rgba(148,163,184,.16)" gap={32} size={1} />
-        <Panel position="bottom-center" className="lattice-source-legend nodrag nopan nowheel" aria-label="Lattice source color legend">{visibleSources.map((source)=><span key={source}><i className={`is-${source}`} />{sourceToken(source).label}</span>)}</Panel>
         <Controls position="bottom-left" showInteractive={false} />
         {nodes.length >= 30 ? (
           <MiniMap<LatticeFlowNode>
@@ -313,7 +310,7 @@ function RelationshipCanvasInner({ projection, orientation, pinnedPositions, vie
             pannable
             zoomable
             maskColor="rgba(2,6,23,.80)"
-            nodeColor={(node: LatticeFlowNode) => ({sap:"#34d399",windchill:"#8b5cf6",teamcenter:"#22d3ee",configit:"#e879f9"}[String(node.data.source)] ?? "#64748b")}
+            nodeColor={(node: LatticeFlowNode) => ({sap:"#7dd3fc",windchill:"#86efac",teamcenter:"#22d3ee",configit:"#e879f9"}[String(node.data.source)] ?? "#64748b")}
           />
         ) : null}
       </ReactFlow>

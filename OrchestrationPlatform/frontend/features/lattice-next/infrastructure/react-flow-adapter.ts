@@ -10,11 +10,23 @@ export function toReactFlow(projection:RelationshipProjection,positions:Record<s
  const branchDirection=new Map(layout?.branches.flatMap(branch=>branch.nodeIds.map(id=>[id,branch.direction] as const))??[]);
  const incoming=new Map<string,RelationshipProjection["edges"]>();const outgoing=new Map<string,RelationshipProjection["edges"]>();
  for(const edge of projection.edges){incoming.set(edge.target,[...(incoming.get(edge.target)??[]),edge]);outgoing.set(edge.source,[...(outgoing.get(edge.source)??[]),edge])}
+ const projectedById=new Map(projection.nodes.map(node=>[node.id,node]));
+ const inheritableSources=new Set(["windchill","sap","configit"]);
+ const homogeneousChildSource=(nodeId:string):string|undefined=>{
+  const childSources=(outgoing.get(nodeId)??[])
+   .filter(edge=>edge.kind==="contains")
+   .map(edge=>projectedById.get(edge.target)?.source)
+   .filter((source):source is string=>Boolean(source)&&inheritableSources.has(source));
+  if(!childSources.length)return undefined;
+  const unique=[...new Set(childSources)];
+  return unique.length===1&&childSources.length===(outgoing.get(nodeId)??[]).filter(edge=>edge.kind==="contains").length?unique[0]:undefined;
+ };
  const flowNodes=projection.nodes.map((node,index)=>{
   const dimensions=projectedNodeDimensions(node);
   const represented=(incoming.get(node.id)??[]).some(edge=>edge.kind==="represented-by");
   const domain=node.id.startsWith("projection:domain:");
   const category:LatticeNodeCategory=node.level===0?"subject":domain?"cluster":represented?"source-representation":node.kind==="requirement"?"requirement":node.kind==="change-notice"||node.kind==="change-task"?"change":node.kind==="finding"||node.kind==="document"?"evidence":"engineering-item";
+  const inheritedSource=node.level>1&&!domain&&node.hasChildren?homogeneousChildSource(node.id):undefined;
   const attributes=node.attributes??{};
   const completeness=Number(attributes.Completeness??attributes.completeness??(node.resolutionState==="partial"?65:100));
   const families=[...new Set([...(incoming.get(node.id)??[]),...(outgoing.get(node.id)??[])].map(edge=>relationshipFamily(edge.kind)))];
@@ -27,7 +39,7 @@ export function toReactFlow(projection:RelationshipProjection,positions:Record<s
     height:dimensions.height,
     style:{width:dimensions.width,height:dimensions.height},
     selected:node.selected,
-    data:{category,label:node.label,subtitle:node.subtitle,source:node.source,level:node.level,selected:node.selected,expanded:node.expanded,hasChildren:node.hasChildren,hiddenChildren:node.hiddenChildren,entityKind:node.kind,nativeIdentifier:node.nativeIdentifier,revision:node.revision,completeness,resolutionState:resolution(node.resolutionState),matchConfidence:node.matchConfidence===undefined?undefined:Math.round(node.matchConfidence*100),childCount:node.childCount,lastCapturedAt:node.capturedAt,participatingSystems:node.provenanceSources?.length??1,coverageSummary:`${node.relationshipCount} relationships`,relationshipFamilies:families.length?families:["structure"],orientation,activeResolution:node.resolutionState==="resolving"||node.resolutionState==="extracting",pinned:Boolean(pinned[node.id]),evidenceSummary:node.subtitle,attributes:node.attributes,entering:true,revealIndex:index,geometryRevision:dimensions.width*1000+dimensions.height,routeSettled:true,dimmed:node.dimmed,layoutDirection:branchDirection.get(node.id),radialHandles:layout?Object.values(layout.ports).filter(port=>port.nodeId===node.id&&Boolean(port.branchId)):undefined}
+    data:{category,label:node.label,subtitle:node.subtitle,source:node.source,inheritedSource,level:node.level,selected:node.selected,expanded:node.expanded,hasChildren:node.hasChildren,hiddenChildren:node.hiddenChildren,entityKind:node.kind,nativeIdentifier:node.nativeIdentifier,revision:node.revision,completeness,resolutionState:resolution(node.resolutionState),matchConfidence:node.matchConfidence===undefined?undefined:Math.round(node.matchConfidence*100),childCount:node.childCount,lastCapturedAt:node.capturedAt,participatingSystems:node.provenanceSources?.length??1,coverageSummary:`${node.relationshipCount} relationships`,relationshipFamilies:families.length?families:["structure"],orientation,activeResolution:node.resolutionState==="resolving"||node.resolutionState==="extracting",pinned:Boolean(pinned[node.id]),evidenceSummary:node.subtitle,attributes:node.attributes,entering:true,revealIndex:index,geometryRevision:dimensions.width*1000+dimensions.height,routeSettled:true,dimmed:node.dimmed,layoutDirection:branchDirection.get(node.id),radialHandles:layout?Object.values(layout.ports).filter(port=>port.nodeId===node.id&&Boolean(port.branchId)):undefined}
   } as LatticeFlowNode;
 });
  const nodeById=new Map(flowNodes.map(node=>[node.id,node]));

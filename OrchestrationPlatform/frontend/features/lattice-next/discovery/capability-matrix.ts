@@ -7,6 +7,4 @@ sap:{source:"sap",readiness:"ready",discoveryModes:["exact-id","name","number","
 configit:{source:"configit",readiness:"ready",discoveryModes:["exact-id","name","product-id","contextual-handoff"],supportsExactId:true,supportsNameSearch:true,supportsNumberSearch:false,supportsStructureExtraction:true,supportsRevisionContext:false,supportsChangeContext:false,supportsRequirements:false,supportsOperationalImpact:false,supportsConfigurationContext:true,supportsCancellation:true,supportsRetry:true,supportsPartialSuccess:true,resultLimit:10,timeoutPolicy:{defaultMs:30000,maximumMs:300000,sourceLevel:true},knownLimitations:["Package-path discovery and structure extraction require live Configit connectivity and credentials."]}
 };
 export const SOURCE_LABELS:Record<LatticeSource,string>={teamcenter:"Teamcenter",windchill:"Windchill",sap:"SAP",configit:"Configit"};
-export const SOURCE_TONES:Record<LatticeSource,string>={teamcenter:"cyan",windchill:"violet",sap:"emerald",configit:"fuchsia"};
-
-
+export const SOURCE_TONES:Record<LatticeSource,string>={teamcenter:"cyan",windchill:"violet",sap:"emerald",configit:"orange"};
