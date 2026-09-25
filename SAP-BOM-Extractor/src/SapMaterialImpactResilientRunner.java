@@ -29,7 +29,7 @@ public class SapMaterialImpactResilientRunner {
         }
     }
     private static void fallback(String query,String plant,Path output,String reason)throws Exception{
-        String q=clean(query); boolean match=q.equalsIgnoreCase("Stearing")||q.equals("31")||q.equals("000000000000000031");
+        String q=clean(query); boolean match=q.equalsIgnoreCase("Steering")||q.equals("31")||q.equals("000000000000000031");
         if(!match||!"1001".equals(clean(plant))) throw new Exception("No fallback snapshot matches query and plant. " + reason);
         String json=new String(Files.readAllBytes(FALLBACK),StandardCharsets.UTF_8);
         validateFallback(json, plant);

@@ -1,4 +1,3 @@
-
 using Orchestration.API.Engineering.Adapters;
 using System.Text.Json;
 using Microsoft.Extensions.Options;
@@ -26,6 +25,8 @@ public sealed class SapEngineeringAdapter : IEngineeringSourceAdapter
             if(!doc.RootElement.TryGetProperty("materials",out var rows)||rows.ValueKind!=JsonValueKind.Array)
                 return Outcome(StandardStatus.Failed,[],"sap-catalog-malformed","The SAP material catalogue is malformed.",true);
             var id=request.Query.ProductId?.Trim();var name=request.Query.ProductName?.Trim();
+            var legacyName=LegacyProductNameAlias(name);
+            var legacyAliasMatched=false;
             var candidates=new List<SourceCandidate>();
             foreach(var row in rows.EnumerateArray())
             {
@@ -33,16 +34,24 @@ public sealed class SapEngineeringAdapter : IEngineeringSourceAdapter
                 if(string.IsNullOrWhiteSpace(material))continue;
                 var idMatch=id is not null&&(string.Equals(material,id,StringComparison.OrdinalIgnoreCase)||string.Equals(External(material),External(id),StringComparison.OrdinalIgnoreCase));
                 var nameMatch=name is not null&&description is not null&&description.Contains(name,StringComparison.OrdinalIgnoreCase);
-                if(!idMatch&&!nameMatch)continue;
+                var aliasMatch=!nameMatch&&legacyName is not null&&description is not null&&description.Contains(legacyName,StringComparison.OrdinalIgnoreCase);
+                if(!idMatch&&!nameMatch&&!aliasMatch)continue;
+                legacyAliasMatched|=aliasMatch;
                 var category=idMatch?MatchCategory.DeterministicNormalizedIdMatch:MatchCategory.SourceSearchResult;
                 var confidence=idMatch?ConfidenceClass.Deterministic:ConfidenceClass.Probable;
-                candidates.Add(new($"sap:{material}",Source,material,description!,"sap-material",null,null,null,null,category,
-                    idMatch?"Material number matched the catalogue using string-preserving SAP number semantics.":"Material description was returned by the SAP catalogue.",confidence,
-                    ["structure","material-master","operational-impact"],new Dictionary<string,string?>{["requestedMaterialId"]=id,["catalogMaterialId"]=material,["externalMaterialId"]=External(material),["catalogGeneratedAt"]=Text(doc.RootElement,"generatedAt"),["systemId"]=Text(doc.RootElement,"systemId"),["client"]=Text(doc.RootElement,"client")},
+                var reason=idMatch
+                    ?"Material number matched the catalogue using string-preserving SAP number semantics."
+                    :aliasMatch
+                        ?$"The requested product name '{name}' matched the known legacy SAP catalogue description '{description}'. The SAP source label is preserved."
+                        :"Material description was returned by the SAP catalogue.";
+                candidates.Add(new($"sap:{material}",Source,material,description!,"sap-material",null,null,null,null,category,reason,confidence,
+                    ["structure","material-master","operational-impact"],new Dictionary<string,string?>{["requestedMaterialId"]=id,["requestedProductName"]=name,["catalogDescription"]=description,["legacyAliasMatch"]=aliasMatch?"true":null,["legacyAlias"]=aliasMatch?legacyName:null,["catalogMaterialId"]=material,["externalMaterialId"]=External(material),["catalogGeneratedAt"]=Text(doc.RootElement,"generatedAt"),["systemId"]=Text(doc.RootElement,"systemId"),["client"]=Text(doc.RootElement,"client")},
                     new(ProvenanceKind.CachedSourceResult,"sap-material-catalog",File.GetLastWriteTimeUtc(catalog)),true));
                 if(candidates.Count>=request.ResultLimitPerSource)break;
             }
-            var warnings=age>TimeSpan.FromMinutes(options.SapCatalogStaleMinutes)?new[]{new StructuredWarning("sap-catalog-stale",Source,EngineeringStage.Discovery,"The SAP material catalogue is older than the configured freshness threshold.",DateTimeOffset.UtcNow)}:[];
+            var warnings=new List<StructuredWarning>();
+            if(age>TimeSpan.FromMinutes(options.SapCatalogStaleMinutes))warnings.Add(new("sap-catalog-stale",Source,EngineeringStage.Discovery,"The SAP material catalogue is older than the configured freshness threshold.",DateTimeOffset.UtcNow));
+            if(legacyAliasMatched)warnings.Add(new("sap-legacy-product-description",Source,EngineeringStage.Discovery,"SAP Material 31 was matched through the known legacy product description 'Stearing'. The source catalogue label is preserved while the investigation remains 'Steering'.",DateTimeOffset.UtcNow,new Dictionary<string,string>{{"requestedProductName",name??""},{"legacyCatalogDescription",legacyName??""}}));
             return new(Source,candidates.Count>0?StandardStatus.Success:StandardStatus.Empty,Capability(),candidates,warnings,[],true);
         }
         catch(OperationCanceledException){throw;}
@@ -70,6 +79,7 @@ public sealed class SapEngineeringAdapter : IEngineeringSourceAdapter
     private static StandardExtractionResult Failure(string id,EngineeringExtractionRequest request,DateTimeOffset started,string code,string message,bool retryable,StandardStatus status=StandardStatus.Failed){var now=DateTimeOffset.UtcNow;var error=new StructuredError(code,EngineeringSource.Sap,EngineeringStage.Extraction,message,message,retryable,now);var state=status switch{StandardStatus.TimedOut=>JobState.TimedOut,StandardStatus.AwaitingContext=>JobState.Unavailable,_=>JobState.Failed};return new(EngineeringContractVersions.V1,request.RequestId,request.CorrelationId,id,EngineeringSource.Sap,status,new(status,request.Candidate,null,[],[error]),Capability(),null,[],new Dictionary<string,object?>(),[],[error],Progress(id,state,100,message),[],new(ProvenanceKind.Unavailable,"sap-jco",now),[new(EngineeringStage.Extraction,EvidenceAvailability.Unavailable,status,message)],started,now,(long)(now-started).TotalMilliseconds);}
     private SourceDiscoveryOutcome Outcome(StandardStatus status,IReadOnlyList<SourceCandidate> candidates,string code,string message,bool retryable)=>new(Source,status,Capability(),candidates,[],[new(code,Source,EngineeringStage.Discovery,message,message,retryable,DateTimeOffset.UtcNow)],retryable);
     private static string? Text(JsonElement item,string name)=>item.TryGetProperty(name,out var value)&&value.ValueKind!=JsonValueKind.Null?value.ToString():null;
+    private static string? LegacyProductNameAlias(string? value)=>string.Equals(value,"Steering",StringComparison.OrdinalIgnoreCase)?"Stearing":null;
     private static string External(string value){var trimmed=value.Trim();if(!trimmed.All(char.IsDigit))return trimmed;var external=trimmed.TrimStart('0');return external.Length>0?external:"0";}
     private static SourceCapability Capability()=>new(Source:EngineeringSource.Sap,Readiness:SourceReadiness.Ready,DiscoveryModes:[DiscoveryMode.ExactId,DiscoveryMode.Name,DiscoveryMode.MaterialCatalog],SupportsExactId:true,SupportsNameSearch:true,SupportsNumberSearch:true,SupportsStructureExtraction:true,SupportsRevisionContext:false,SupportsChangeContext:false,SupportsRequirements:false,SupportsOperationalImpact:true,SupportsConfigurationContext:true,SupportsCancellation:true,SupportsRetry:true,SupportsPartialSuccess:true,RequiredOrganizationContext:["plant"],KnownLimitations:["Discovery freshness depends on the latest authoritative SAP material catalogue snapshot."]);
 }

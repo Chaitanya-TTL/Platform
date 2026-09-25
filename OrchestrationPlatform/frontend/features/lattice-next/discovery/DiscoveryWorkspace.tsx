@@ -27,7 +27,10 @@ import {
 export function DiscoveryWorkspace({
   onInvestigate,
 }: {
-  onInvestigate: (results: NormalizedSearchResult[]) => Promise<void>;
+  onInvestigate: (
+    results: NormalizedSearchResult[],
+    subjectLabel: string,
+  ) => Promise<void>;
 }) {
   const orchestrator = useMemo(() => new FederatedSearchOrchestrator(), []),
     [state, dispatch] = useReducer(discoveryReducer, initialDiscoveryState),
@@ -138,7 +141,10 @@ export function DiscoveryWorkspace({
                 onClick={async () => {
                   setStarting(true);
                   try {
-                    await onInvestigate(selected);
+                    await onInvestigate(
+                      selected,
+                      cleanInvestigationLabel(state.query),
+                    );
                   } finally {
                     setStarting(false);
                   }
@@ -159,11 +165,11 @@ export function DiscoveryWorkspace({
                     className="rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-2"
                   >
                     <p className="text-xs font-semibold text-slate-200">
-                      {SOURCE_LABELS[item.source]} Ã‚Â· {item.displayName}
+                      {SOURCE_LABELS[item.source]} Ãƒâ€šÃ‚Â· {item.displayName}
                     </p>
                     <p className="mt-1 truncate text-[11px] text-slate-500">
                       {item.nativeId}
-                      {item.revision ? ` Ã‚Â· Revision ${item.revision}` : ""}
+                      {item.revision ? ` Ãƒâ€šÃ‚Â· Revision ${item.revision}` : ""}
                     </p>
                   </div>
                 ))}
@@ -316,11 +322,11 @@ function friendlyReference(
   source: LatticeSource,
   result: NormalizedSearchResult,
 ) {
-  const revision = result.revision ? ` Ã‚Â· Revision ${result.revision}` : "";
+  const revision = result.revision ? ` Ãƒâ€šÃ‚Â· Revision ${result.revision}` : "";
   if (source === "windchill")
     return `Part ${result.nativeId.replace(/^OR:wt\.part\.WTPart:/, "")}${revision}`;
   if (source === "sap") return `Material ${result.nativeId}${revision}`;
   if (source === "configit")
-    return `Product ${result.nativeId}${result.version ? ` Ã‚Â· Package version ${result.version}` : ""}`;
+    return `Product ${result.nativeId}${result.version ? ` Ãƒâ€šÃ‚Â· Package version ${result.version}` : ""}`;
   return `Item ${result.nativeId}${revision}`;
 }

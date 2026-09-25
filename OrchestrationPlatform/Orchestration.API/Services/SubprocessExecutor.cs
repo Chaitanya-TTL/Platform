@@ -69,8 +69,8 @@ public sealed class SubprocessExecutor : ISubprocessExecutor
                 resolvedMaterialId = "31";
                 sapAvailability = SapAvailability.Unavailable;
                 output.AppendLine($"SAP material resolution unavailable: {ex.Message}");
-                output.AppendLine("SAP_MATERIAL_RESOLVED_USING_VALIDATED_FALLBACK: Stearing -> Material 31.");
-                await progress("SAP is unavailable. Using validated fallback mapping for Stearing.");
+                output.AppendLine("SAP_MATERIAL_RESOLVED_USING_VALIDATED_FALLBACK: Steering -> Material 31.");
+                await progress("SAP is unavailable. Using validated fallback mapping for Steering.");
             }
             request.MaterialId = resolvedMaterialId;
 
@@ -116,7 +116,7 @@ public sealed class SubprocessExecutor : ISubprocessExecutor
             var result = new SapBusinessImpactResult { SourceMaterialId = resolvedMaterialId, Plant = plant, Status = "in_progress", ExtractedAt = DateTime.UtcNow.ToString("O") };
             if (bom == null) result.Warnings.Add($"SAP_BOM_UNAVAILABLE: SAP BOM extraction was unavailable for material {resolvedMaterialId}. Business impact was extracted for the requested material only.");
             if (sapAvailability == SapAvailability.Unavailable) result.Warnings.Add("SAP_DATA_NOT_LIVE: SAP live runtime was unavailable; validated snapshot evidence was requested.");
-            if (output.ToString().Contains("SAP_MATERIAL_RESOLVED_USING_VALIDATED_FALLBACK", StringComparison.Ordinal)) result.Warnings.Add("SAP_MATERIAL_RESOLVED_USING_VALIDATED_FALLBACK: Stearing was resolved to Material 31 using the approved offline mapping.");
+            if (output.ToString().Contains("SAP_MATERIAL_RESOLVED_USING_VALIDATED_FALLBACK", StringComparison.Ordinal)) result.Warnings.Add("SAP_MATERIAL_RESOLVED_USING_VALIDATED_FALLBACK: Steering was resolved to Material 31 using the approved offline mapping.");
 
             var impactDir = Path.Combine(runtime, "impact-items");
             Directory.CreateDirectory(impactDir);
@@ -220,7 +220,7 @@ public sealed class SubprocessExecutor : ISubprocessExecutor
     private TimeSpan SapOuterTimeout() => TimeSpan.FromSeconds(Math.Max(60, _options.SapTimeoutSeconds));
     private static bool IsValidatedFallbackRequest(string query, string plant, string storageLocation)
     {
-        var materialMatch = string.Equals(query, "Stearing", StringComparison.OrdinalIgnoreCase) || query == "31" || query == "000000000000000031";
+        var materialMatch = string.Equals(query, "Steering", StringComparison.OrdinalIgnoreCase) || query == "31" || query == "000000000000000031";
         return materialMatch && plant == "1001" && string.Equals(storageLocation, "1D", StringComparison.OrdinalIgnoreCase);
     }
     private static bool IsSapUnavailableFailure(string? value)

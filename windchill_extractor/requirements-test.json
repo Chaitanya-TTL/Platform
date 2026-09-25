@@ -2,13 +2,13 @@
   "source": "windchill",
   "query": {
     "type": "part-name",
-    "value": "Stearing",
+    "value": "Steering",
     "matchMode": "exact"
   },
   "part": {
     "id": "OR:wt.part.WTPart:1710308",
     "number": "0000003865",
-    "name": "Stearing",
+    "name": "Steering",
     "revision": "A",
     "version": "A.1 (Design)",
     "latest": true,
@@ -31,11 +31,11 @@
     {
       "id": "OR:wt.doc.WTDocument:1710229",
       "number": "0000011519",
-      "name": "Stearing Requirements Specification",
+      "name": "Steering Requirements Specification",
       "revision": "A",
       "version": "A.2",
       "state": "In Work",
-      "description": "POC requirements specification for the Stearing component,\r\nWindchill Part 0000003865. Contains material, chemical,\r\nweight, and dimensional requirements for API extraction\r\nand traceability validation.",
+      "description": "POC requirements specification for the Steering component,\r\nWindchill Part 0000003865. Contains material, chemical,\r\nweight, and dimensional requirements for API extraction\r\nand traceability validation.",
       "primaryContent": {
         "id": "OR:wt.content.ApplicationData:1710231",
         "fileName": "0000011519_Stearing Requirements Specifi.doc",
@@ -51,7 +51,7 @@
           "fileName": "Stearing_Requirements_Specification.docx",
           "fileSize": 39931,
           "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-          "description": "Stearing Requirements Specification",
+          "description": "Steering Requirements Specification",
           "downloadAvailable": true,
           "platformDownloadUrl": "/api/windchill/content/attachment?documentId=OR%3Awt.doc.WTDocument%3A1710229&contentId=OR%3Awt.content.ApplicationData%3A1710232"
         }
@@ -66,7 +66,7 @@
           "revision": "A",
           "version": "A.1",
           "state": "In Work",
-          "description": "The Stearing component shall use Mild Steel.",
+          "description": "The Steering component shall use Mild Steel.",
           "category": "Material"
         },
         {
@@ -78,7 +78,7 @@
           "revision": "A",
           "version": "A.1",
           "state": "In Work",
-          "description": "The Stearing component shall use an iron-based alloy.",
+          "description": "The Steering component shall use an iron-based alloy.",
           "category": "Chemical Material"
         },
         {
@@ -90,7 +90,7 @@
           "revision": "A",
           "version": "A.1",
           "state": "In Work",
-          "description": "The Stearing component shall have a maximum weight of 2.50 kg.",
+          "description": "The Steering component shall have a maximum weight of 2.50 kg.",
           "category": "Weight"
         },
         {
@@ -102,7 +102,7 @@
           "revision": "A",
           "version": "A.1",
           "state": "In Work",
-          "description": "The Stearing component shall conform to dimensions of 20 x 30 x 40.",
+          "description": "The Steering component shall conform to dimensions of 20 x 30 x 40.",
           "category": "Dimension"
         }
       ]

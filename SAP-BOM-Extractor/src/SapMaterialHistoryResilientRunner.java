@@ -58,7 +58,7 @@ public class SapMaterialHistoryResilientRunner {
         if (!Files.isRegularFile(FALLBACK)) throw new FileNotFoundException("Fallback file not found: " + FALLBACK.toAbsolutePath());
         String json = new String(Files.readAllBytes(FALLBACK), StandardCharsets.UTF_8);
         validateFallback(json, plant, storage);
-        json = json.replace("\"requestedInput\": \"Stearing\"", "\"requestedInput\": \"" + escape(query) + "\"");
+        json = json.replace("\"requestedInput\": \"Steering\"", "\"requestedInput\": \"" + escape(query) + "\"");
         String safeReason = escape(reason);
         json = json.replace("\"reason\": \"SAP runtime unavailable\"", "\"reason\": \"" + safeReason + "\"");
         Files.write(output, json.getBytes(StandardCharsets.UTF_8));
@@ -72,7 +72,7 @@ public class SapMaterialHistoryResilientRunner {
     }
     private static boolean supportsFallback(String query, String plant, String storage) {
         String q = clean(query);
-        boolean materialMatch = q.equalsIgnoreCase("Stearing") || q.equals("31") || q.equals("000000000000000031");
+        boolean materialMatch = q.equalsIgnoreCase("Steering") || q.equals("31") || q.equals("000000000000000031");
         return materialMatch && "1001".equals(clean(plant)) && (clean(storage).isEmpty() || "1D".equalsIgnoreCase(clean(storage)));
     }
 

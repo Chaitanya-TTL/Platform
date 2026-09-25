@@ -1,3 +1,12 @@
+﻿LATTICE PARTIAL SOURCE INTELLIGENCE FIX INPUT BUNDLE
+Generated: 2026-09-25T05:50:23.9635370Z
+Files: 6
+Platform root: REDACTED
+Scope: Replace all-or-nothing source intelligence loading with partial-success handling, retain successful source intelligence when another source fails, preserve the Steering subject, and use structure-only compatibility mode only when all source intelligence requests fail
+
+
+===== FILE: .\OrchestrationPlatform\frontend\features\lattice-next\workspace\LatticeNextWorkspace.tsx =====
+
 /* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
@@ -193,77 +202,55 @@ export function LatticeNextWorkspace() {
             }),
           );
 
-          const sourceTasks: Array<{
-            source: "windchill" | "sap" | "configit";
-            task: Promise<EngineeringIntelligenceInvestigationV1>;
-          }> = [];
-          if (next.sources.some((item) => item.source === "windchill"))
-            sourceTasks.push({
-              source: "windchill",
-              task: investigateWindchill(
-                {
-                  ...next,
-                  sources: next.sources.filter(
-                    (item) => item.source === "windchill",
-                  ),
-                },
-                controller.signal,
-              ),
-            });
-          if (next.sources.some((item) => item.source === "sap"))
-            sourceTasks.push({
-              source: "sap",
-              task: investigateSap(
-                {
-                  ...next,
-                  sources: next.sources.filter(
-                    (item) => item.source === "sap",
-                  ),
-                },
-                controller.signal,
-              ),
-            });
-          if (next.sources.some((item) => item.source === "configit"))
-            sourceTasks.push({
-              source: "configit",
-              task: investigateConfigit(
-                {
-                  ...next,
-                  sources: next.sources.filter(
-                    (item) => item.source === "configit",
-                  ),
-                },
-                controller.signal,
-              ),
-            });
-          const settled = await Promise.allSettled(
-            sourceTasks.map((entry) => entry.task),
-          );
-          const successful = settled.flatMap((result) =>
-            result.status === "fulfilled" ? [result.value] : [],
-          );
-          const failed = settled.flatMap((result, index) =>
-            result.status === "rejected"
-              ? [
-                  `${sourceTasks[index].source}: ${
-                    result.reason instanceof Error
-                      ? result.reason.message
-                      : "intelligence request failed"
-                  }`,
-                ]
-              : [],
-          );
-          if (successful.length) {
-            setDirectCanonical(mergeSourceIntelligence(successful));
-            if (failed.length)
-              setMessage(
-                `Partial intelligence loaded. ${failed.join(" | ")}`,
+          try {
+            const sourceTasks = [];
+            if (next.sources.some((item) => item.source === "windchill"))
+              sourceTasks.push(
+                investigateWindchill(
+                  {
+                    ...next,
+                    sources: next.sources.filter(
+                      (item) => item.source === "windchill",
+                    ),
+                  },
+                  controller.signal,
+                ),
               );
-          } else {
-            setDirectCanonical(null);
-            setMessage(
-              `${failed.join(" | ") || "Source intelligence unavailable."} Showing structure-only compatibility view.`,
+            if (next.sources.some((item) => item.source === "sap"))
+              sourceTasks.push(
+                investigateSap(
+                  {
+                    ...next,
+                    sources: next.sources.filter(
+                      (item) => item.source === "sap",
+                    ),
+                  },
+                  controller.signal,
+                ),
+              );
+            if (next.sources.some((item) => item.source === "configit"))
+              sourceTasks.push(
+                investigateConfigit(
+                  {
+                    ...next,
+                    sources: next.sources.filter(
+                      (item) => item.source === "configit",
+                    ),
+                  },
+                  controller.signal,
+                ),
+              );
+            const canonical = mergeSourceIntelligence(
+              await Promise.all(sourceTasks),
             );
+            setDirectCanonical(canonical);
+          } catch (error) {
+            setMessage(
+              error instanceof Error
+                ? `${error.message} Showing structure-only compatibility view.`
+                : "Source intelligence unavailable. Showing structure-only compatibility view.",
+            );
+            setDirectCanonical(null);
           }
           setDirect(next);
         }}
@@ -702,3 +689,64 @@ function Recovery({ message }: { message: string }) {
     </main>
   );
 }
+
+
+===== FILE: .\OrchestrationPlatform\frontend\features\lattice-next\infrastructure\merge-source-intelligence.ts =====
+
+import type { EngineeringIntelligenceInvestigationV1, IntelligenceEntity } from "../contracts/intelligence-v1";
+export function mergeSourceIntelligence(parts:EngineeringIntelligenceInvestigationV1[]):EngineeringIntelligenceInvestigationV1{if(!parts.length)throw new Error("No source intelligence was returned.");if(parts.length===1)return parts[0];const base=parts[0],dedupe=<T extends{id:string}>(items:T[])=>[...new Map(items.map(x=>[x.id,x])).values()];const secondarySubjects:IntellicenceEntityFix[]=parts.slice(1).filter(x=>x.subject.id!==base.subject.id).map(x=>({id:x.subject.id,kind:"source-representation",displayName:x.subject.displayName,identityQuality:"native",assertion:"fact",properties:{preferredProductId:{type:"text",text:x.subject.preferredProductId??""},sourceRole:{type:"text",text:"participating-subject"}},provenance:x.subject.provenance,temporal:x.subject.temporal}));const entities=dedupe([...secondarySubjects,...parts.flatMap(x=>x.entities)]),relationships=dedupe(parts.flatMap(x=>x.relationships)),evidence=dedupe(parts.flatMap(x=>x.evidence)),findings=dedupe(parts.flatMap(x=>x.findings)),sources=dedupe(parts.flatMap(x=>x.sources));return{...base,investigationId:`federated-${parts.map(x=>x.investigationId).join("-")}`,subject:{...base.subject,candidateIds:[...new Set(parts.flatMap(x=>x.subject.candidateIds))],reasons:[...new Set(parts.flatMap(x=>x.subject.reasons))]},entities,relationships,evidence,findings,sources,identityClusters:dedupe(parts.flatMap(x=>x.identityClusters)),temporal:{...base.temporal,assembledAt:new Date().toISOString()},summary:{entityCount:entities.length,relationshipCount:relationships.length,evidenceCount:evidence.length,findingCount:findings.length,availableSourceCount:sources.filter(x=>x.status==="available").length,partialSourceCount:sources.filter(x=>x.status!=="available").length,status:sources.every(x=>x.status==="available")?"success":"partial-success"}}}
+type IntellicenceEntityFix=IntelligenceEntity;
+
+
+===== FILE: .\OrchestrationPlatform\frontend\features\lattice-next\infrastructure\windchill-intelligence-client.ts =====
+
+import type { LatticeHandoff } from "../contracts/handoff";
+import { isEngineeringIntelligenceInvestigationV1, type EngineeringIntelligenceInvestigationV1 } from "../contracts/intelligence-v1";
+export async function investigateWindchill(handoff:LatticeHandoff,signal?:AbortSignal):Promise<EngineeringIntelligenceInvestigationV1>{const response=await fetch("/api/engineering/intelligence/windchill",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({handoff}),signal});const value=await response.json().catch(()=>null);if(!response.ok)throw new Error(value?.message??value?.error??"Windchill intelligence failed.");if(!isEngineeringIntelligenceInvestigationV1(value))throw new Error("Windchill intelligence returned an invalid canonical contract.");return value}
+
+
+===== FILE: .\OrchestrationPlatform\frontend\features\lattice-next\infrastructure\sap-intelligence-client.ts =====
+
+import type { LatticeHandoff } from "../contracts/handoff";
+import {
+  isEngineeringIntelligenceInvestigationV1,
+  type EngineeringIntelligenceInvestigationV1,
+} from "../contracts/intelligence-v1";
+export async function investigateSap(
+  handoff: LatticeHandoff,
+  signal?: AbortSignal,
+): Promise<EngineeringIntelligenceInvestigationV1> {
+  const response = await fetch("/api/engineering/intelligence/sap", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ handoff }),
+    signal,
+  });
+  const value = await response.json().catch(() => null);
+  if (!response.ok)
+    throw new Error(value?.message ?? "SAP intelligence failed.");
+  if (!isEngineeringIntelligenceInvestigationV1(value))
+    throw new Error("SAP intelligence returned an invalid canonical contract.");
+  return value;
+}
+
+
+===== FILE: .\OrchestrationPlatform\frontend\features\lattice-next\infrastructure\configit-intelligence-client.ts =====
+
+import type { LatticeHandoff } from "../contracts/handoff";import { isEngineeringIntelligenceInvestigationV1,type EngineeringIntelligenceInvestigationV1 } from "../contracts/intelligence-v1";export async function investigateConfigit(handoff:LatticeHandoff,signal?:AbortSignal):Promise<EngineeringIntelligenceInvestigationV1>{const response=await fetch("/api/engineering/intelligence/configit",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({handoff}),signal});const value=await response.json().catch(()=>null);if(!response.ok)throw new Error(value?.message??value?.error??"Configit intelligence failed.");if(!isEngineeringIntelligenceInvestigationV1(value))throw new Error("Configit intelligence returned an invalid contract.");return value}
+
+
+===== FILE: .\OrchestrationPlatform\frontend\features\lattice-next\contracts\intelligence-v1.ts =====
+
+export const ENGINEERING_INTELLIGENCE_CONTRACT_VERSION = "1.0" as const;
+export type IntelligenceAuthority="source-authoritative"|"backend-derived"|"frontend-derived"|"poc-synthetic"|"hardcoded"|"mocked"|"unavailable";
+export type IntelligenceAssertionKind="fact"|"inference"|"finding";
+export type SourceExtractionStatus="available"|"partial"|"unavailable"|"failed"|"cancelled"|"timed-out"|"capability-limited"|"not-observed";
+export type TemporalContext={requestedAt?:string;capturedAt?:string;assembledAt:string;effectiveAt?:string;validFrom?:string;validTo?:string;freshness:"current"|"stale"|"unknown"|"not-applicable"};
+export type EngineeringProvenance={source?:"teamcenter"|"windchill"|"sap"|"configit";provider:string;nativeId?:string;nativeRevision?:string;sourceExecutionId?:string;artifactReference?:string;checksum?:string;observedAt:string;authority:IntelligenceAuthority};
+export type IntelligenceProperty={type:string;text?:string;number?:number;boolean?:boolean;timestamp?:string;items?:string[];reference?:string};
+export type IntelligenceEntity={id:string;kind:string;displayName:string;identityQuality:"native"|"deterministic-derived"|"provisional";assertion:IntelligenceAssertionKind;properties:Record<string,IntelligenceProperty>;provenance:EngineeringProvenance;temporal:TemporalContext};
+export type IntelligenceRelationship={id:string;kind:string;family:string;sourceEntityId:string;targetEntityId:string;assertion:IntelligenceAssertionKind;confidence?:string;evidenceIds:string[];properties:Record<string,IntelligenceProperty>;provenance:EngineeringProvenance;temporal:TemporalContext};
+export type EngineeringIntelligenceInvestigationV1={contractVersion:typeof ENGINEERING_INTELLIGENCE_CONTRACT_VERSION;investigationId:string;subject:{id:string;displayName:string;preferredProductId?:string;candidateIds:string[];confidence:string;reasons:string[];provenance:EngineeringProvenance;temporal:TemporalContext};entities:IntelligenceEntity[];relationships:IntelligenceRelationship[];evidence:Array<{id:string;kind:string;summary:string;source:string;provenance:EngineeringProvenance;temporal:TemporalContext}>;findings:Array<{id:string;kind:string;title:string;summary:string;subjectEntityIds:string[];evidenceIds:string[];provenance:EngineeringProvenance;temporal:TemporalContext}>;sources:Array<{entityId:string;source:string;status:SourceExtractionStatus;provenance:EngineeringProvenance}>;identityClusters:Array<{id:string;preferredEntityId?:string;entityIds:string[];confidence:string;reasons:string[];evidenceIds:string[]}>;temporal:TemporalContext;summary:{entityCount:number;relationshipCount:number;evidenceCount:number;findingCount:number;availableSourceCount:number;partialSourceCount:number;status:string}};
+export function isEngineeringIntelligenceInvestigationV1(value:unknown):value is EngineeringIntelligenceInvestigationV1{if(!value||typeof value!=="object")return false;const v=value as EngineeringIntelligenceInvestigationV1;return v.contractVersion===ENGINEERING_INTELLIGENCE_CONTRACT_VERSION&&Array.isArray(v.entities)&&Array.isArray(v.relationships)&&(!("evidence" in v)||Array.isArray(v.evidence))&&(!("findings" in v)||Array.isArray(v.findings))&&(!("sources" in v)||Array.isArray(v.sources))&&(!("identityClusters" in v)||Array.isArray(v.identityClusters));}
+
