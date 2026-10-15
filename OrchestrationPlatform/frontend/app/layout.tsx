@@ -31,10 +31,20 @@ export default function RootLayout({
           position="top-right"
           richColors
           closeButton
-          expand={false}
-          duration={5000}
+          expand
+          duration={5200}
           visibleToasts={4}
-          theme="system"
+          theme="dark"
+          gap={10}
+          offset={{ top: 76, right: 20 }}
+          toastOptions={{
+            classNames: {
+              toast: "!border !border-slate-700/80 !bg-slate-950/95 !text-slate-100 !shadow-2xl !backdrop-blur-xl",
+              title: "!font-semibold !tracking-tight",
+              description: "!text-slate-400",
+              closeButton: "!border-slate-700 !bg-slate-900 !text-slate-300",
+            },
+          }}
         />
       </body>
     </html>

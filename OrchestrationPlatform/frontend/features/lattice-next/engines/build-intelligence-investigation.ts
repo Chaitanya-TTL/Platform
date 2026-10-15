@@ -4,7 +4,7 @@ import { canonicalEntityId, deduplicateIntelligenceEntities } from "./deduplicat
 import { immutableInvestigationGraph } from "./immutable-investigation-graph";
 import { validateIntelligenceInput } from "./validate-intelligence-input";
 
-const sourceOf=(value?:string):EntitySource=>value==="teamcenter"||value==="windchill"||value==="sap"||value==="configit"?value:"platform";
+const sourceOf=(value?:string):EntitySource=>value==="teamcenter"||value==="windchill"||value==="sap"||value==="configit"||value==="codebeamer"?value:"platform";
 const primitive=(value:unknown):string|number|boolean|undefined=>{
  if(value===null||value===undefined)return undefined;
  if(typeof value==="string"||typeof value==="number"||typeof value==="boolean")return value;

@@ -14,9 +14,25 @@ export function projectIntelligenceExperience(graph:InvestigationGraph,options:I
  const sapChanges=graph.entities.filter(entity=>entity.source==="sap"&&(entity.canonicalKind??entity.kind)==="material-movement").sort((a,b)=>a.id.localeCompare(b.id));
  const windchillChanges=graph.entities.filter(entity=>entity.source==="windchill"&&["change-notice","change-task"].includes(entity.canonicalKind??entity.kind)).sort((a,b)=>a.id.localeCompare(b.id));
  const presentationName=(entity:EngineeringEntity)=>{const kind=entity.canonicalKind??entity.kind;if(kind==="material-movement")return `Manufacturing Change ${sapChanges.findIndex(item=>item.id===entity.id)+1}`;if(entity.source==="windchill"&&["change-notice","change-task"].includes(kind))return `Engineering Change ${windchillChanges.findIndex(item=>item.id===entity.id)+1}`;if(entity.source==="sap"&&kind==="sap-field")return movementFieldLabel(entity);return entity.name};
- const presentationAttributes=(entity:EngineeringEntity)=>Object.fromEntries(Object.entries(entity.attributes).map(([key,value])=>[key,key.toLowerCase()==="value"?cleanVersion(value):value]));
+ const presentationAttributes=(entity:EngineeringEntity):Record<string,string|number|boolean>=>Object.fromEntries(Object.entries(entity.attributes).map(([key,value])=>[key,key.toLowerCase()==="value"?cleanVersion(value):value])) as Record<string,string|number|boolean>;
  const projectEntity=(entity:EngineeringEntity):ProjectedNode=>{const attributes=presentationAttributes(entity);return{id:entity.id,label:presentationName(entity),subtitle:String(attributes.value??attributes.title??entity.canonicalKind??entity.kind),kind:entity.kind,source:entity.source,level:entity.level,selected:options.selectedId===entity.id,expanded:options.expanded.has(entity.id),hasChildren:false,hiddenChildren:0,nativeIdentifier:entity.sourceNodeId,capturedAt:entity.provenance.capturedAt,attributes,relationshipCount:graph.relationships.filter(r=>r.from===entity.id||r.to===entity.id).length,childCount:0,resolutionState:entity.sourceStatus,dimmed:false}};
  nodes.push(projectEntity(subject));
+ const codebeamerEntities=graph.entities.filter(entity=>entity.source==="codebeamer");
+ if(codebeamerEntities.length){
+  const visibleEntities=codebeamerEntities.filter(entity=>entity.kind!=="identity");
+  const visibleIds=new Set(visibleEntities.map(entity=>entity.id));
+  const role=(entity:EngineeringEntity)=>String(entity.attributes.presentationRole??"");
+  const rank=(entity:EngineeringEntity)=>role(entity)==="project"?0:role(entity)==="tracker"?1:role(entity)==="parent-requirement"?2:role(entity)==="selected-requirement"?3:4;
+  const subtitle=(entity:EngineeringEntity)=>role(entity)==="project"?"Codebeamer project":role(entity)==="tracker"?`Requirement tracker · ${String(entity.attributes.trackerId??"")}`.replace(/ · $/,""):role(entity)==="parent-requirement"?"Parent requirement":role(entity)==="selected-requirement"?`${String(entity.attributes.externalKey??entity.attributes.itemId??"Requirement")} · Selected requirement`:"Child requirement";
+  const codebeamerNodes:ProjectedNode[]=visibleEntities.sort((a,b)=>rank(a)-rank(b)||a.id.localeCompare(b.id)).map(entity=>({
+    ...projectEntity(entity),level:rank(entity),subtitle:subtitle(entity),nativeIdentifier:role(entity)==="selected-requirement"?String(entity.attributes.externalKey??entity.attributes.itemId??entity.sourceNodeId):undefined,resolutionState:"ready",attributes:{...entity.attributes,presentationRole:role(entity)},
+  }));
+  const semanticLabel=(relationship:InvestigationGraph["relationships"][number])=>relationship.label??relationship.kind.replaceAll("-"," ");
+  const codebeamerEdges:ProjectedEdge[]=graph.relationships.filter(relationship=>visibleIds.has(relationship.from)&&visibleIds.has(relationship.to)).map(relationship=>({
+    id:relationship.id,source:relationship.from,target:relationship.to,kind:"contains",selected:options.selectedId===relationship.id,label:semanticLabel(relationship),fullLabel:semanticLabel(relationship),confidence:relationship.confidence,
+  }));
+  return {nodes:codebeamerNodes,edges:codebeamerEdges,structuralKey:codebeamerNodes.map(node=>node.id).sort().join("|")+"::"+codebeamerEdges.map(edge=>edge.id).sort().join("|"),domainIds:[],deferredCounts:{}};
+ }
  const subjectExcluded=new Set([subject.id]);const hierarchyKinds=new Set(["contains","has-configuration-family","contains-feature"]);const parentLinks=graph.relationships.filter(r=>hierarchyKinds.has(r.kind));
  const explicitDomain=new Map<string,IntelligenceDomainId>();for(const entity of graph.entities){const domain=domainForEntity(entity.canonicalKind??entity.kind);if(domain)explicitDomain.set(entity.id,domain)}
  const resolveDomain=(entityId:string,seen=new Set<string>()):IntelligenceDomainId|undefined=>{if(explicitDomain.has(entityId))return explicitDomain.get(entityId);if(seen.has(entityId))return undefined;seen.add(entityId);const parent=parentLinks.find(link=>link.to===entityId);return parent?resolveDomain(parent.from,seen):undefined};

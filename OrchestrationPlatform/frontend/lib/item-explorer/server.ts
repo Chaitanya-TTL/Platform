@@ -1,4 +1,3 @@
-
 import type { EnterpriseSource, SearchMode, SourceCapabilities, SourceSearchResult } from "@/types/item-explorer";
 export function result(source: EnterpriseSource, status: SourceSearchResult["status"], durationMs: number, overrides: Partial<SourceSearchResult> = {}): SourceSearchResult {
   const capabilities: Record<EnterpriseSource, SourceCapabilities> = {
@@ -6,6 +5,7 @@ export function result(source: EnterpriseSource, status: SourceSearchResult["sta
     windchill: { nameSearch: true, itemIdSearch: true, nearbyIds: false, live: true },
     sap: { nameSearch: true, itemIdSearch: true, nearbyIds: true, live: true },
     configit: { nameSearch: true, itemIdSearch: true, nearbyIds: false, live: true },
+    codebeamer: { nameSearch: true, itemIdSearch: true, nearbyIds: false, live: true },
   };
   return { source, status, candidates: [], durationMs, capabilities: capabilities[source], ...overrides };
 }

@@ -100,6 +100,16 @@ export async function searchEngineeringSource(source: EnterpriseSource, query: s
         resolvedPackagePath: candidate.sourceMetadata?.resolvedPackagePath ?? candidate.sourceMetadata?.packagePath ?? undefined,
         packageVersionId: candidate.sourceMetadata?.versionId ?? candidate.version ?? undefined,
         packageState: candidate.sourceMetadata?.packageState ?? candidate.lifecycleState ?? undefined,
+        externalKey: candidate.sourceMetadata?.externalKey ?? undefined,
+        projectId: candidate.sourceMetadata?.projectId ?? undefined,
+        projectName: candidate.sourceMetadata?.projectName ?? undefined,
+        trackerId: candidate.sourceMetadata?.trackerId ?? undefined,
+        trackerName: candidate.sourceMetadata?.trackerName ?? undefined,
+        classification: candidate.sourceMetadata?.classification ?? undefined,
+        catalogRevision: candidate.sourceMetadata?.catalogRevision ?? undefined,
+        catalogStatus: candidate.sourceMetadata?.catalogStatus ?? undefined,
+        catalogSynchronizedAt: candidate.sourceMetadata?.catalogSynchronizedAt ?? undefined,
+        stale: candidate.sourceMetadata?.stale?.toLowerCase() === "true",
       },
       retrievedAt: candidate.provenance?.observedAt ?? new Date().toISOString(),
       providerMode: candidate.provenance?.kind === "live-source" ? "live" as const : "capability" as const,
@@ -117,4 +127,3 @@ export async function searchEngineeringSource(source: EnterpriseSource, query: s
     }), { status: timedOut ? 504 : 502 });
   }
 }
-
