@@ -4,6 +4,7 @@ import { resolveSelectedStructure } from "../../discovery/structure-resolver";
 import { investigateConfigit } from "../../infrastructure/configit-intelligence-client";
 import { investigateSap } from "../../infrastructure/sap-intelligence-client";
 import { investigateWindchill } from "../../infrastructure/windchill-intelligence-client";
+import { projectCodebeamerIntelligence } from "../../engines/project-codebeamer-intelligence";
 import type { SourceOperationCommand, SourceOperationError } from "../contracts/source-operation";
 import type { SourceOperationResult } from "../contracts/source-operation-result";
 import type { SourceExecutionPort } from "../ports/source-execution-port";
@@ -61,6 +62,8 @@ function operationError(cause: unknown, aborted: boolean): SourceOperationError 
     return { code: "contract-invalid", message, retryable: false };
   return { code: "unknown", message, retryable: true };
 }
+
+const completedObservation = (value: string | undefined): string => value ?? new Date().toISOString();
 
 export class CurrentSourceExecutionAdapter implements SourceExecutionPort {
   private readonly resolvedStructures = new Map<string, { value: Awaited<ReturnType<typeof resolveSelectedStructure>>; observedAt: string }>();
@@ -160,18 +163,6 @@ export class CurrentSourceExecutionAdapter implements SourceExecutionPort {
         };
       }
 
-      if (command.selection.source === "codebeamer") {
-        const completedAt = new Date().toISOString();
-        return {
-          identity: command.identity,
-          status: "empty",
-          startedAt,
-          completedAt,
-          durationMs: Math.max(0, Date.parse(completedAt) - Date.parse(startedAt)),
-          warnings: ["Codebeamer requirement intelligence is supplied by the accepted resolve-structure evidence for this slice."],
-        };
-      }
-
       const handoff = await this.handoffs.getHandoff(command) ?? this.cachedHandoff(command);
       if (!handoff) {
         const completedAt = new Date().toISOString();
@@ -191,7 +182,13 @@ export class CurrentSourceExecutionAdapter implements SourceExecutionPort {
           ? await investigateSap(current, command.signal)
           : command.selection.source === "configit"
             ? await investigateConfigit(current, command.signal)
-            : undefined;
+            : command.selection.source === "codebeamer"
+              ? projectCodebeamerIntelligence(
+                  String(command.identity.investigationId),
+                  this.resolvedStructures.get(this.structureKey(command.selection.source, command.selection.nativeId))?.value,
+                  completedObservation(this.resolvedStructures.get(this.structureKey(command.selection.source, command.selection.nativeId))?.observedAt),
+                )
+              : undefined;
       const completedAt = new Date().toISOString();
       if (!value)
         return {

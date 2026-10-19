@@ -7,6 +7,7 @@ from .config import CodebeamerConfig
 from .diagnostics import CodebeamerError
 from .discovery import CodebeamerCatalogDiscoverer,is_requirement_tracker
 from .extractor import CodebeamerRequirementExtractor
+from .enrichment import CodebeamerEnrichmentService
 from .models import RequirementSearchRequest,RequirementTrackerDescriptor,TrackerMetadata,TrackerTypeReference
 from .storage import FileCatalogRepository
 from .sync import CodebeamerSyncCoordinator
@@ -43,6 +44,9 @@ async def live(args)->int:
             if args.command=="item":emit((await client.get_item(args.item_id)).model_dump(mode="json"),True);return 0
             if args.command=="relations":emit((await client.get_relations(args.item_id)).model_dump(mode="json"),True);return 0
             if args.command=="attachments":emit((await client.get_attachments(args.item_id)).model_dump(mode="json"),True);return 0
+            if args.command=="enrich":
+                enriched=await CodebeamerEnrichmentService(client).enrich(args.item_id,include_relations=not args.no_relations,include_attachments=not args.no_attachments)
+                emit(enriched.model_dump(mode="json",exclude_none=True),True);return 1 if enriched.status=="partial-success" else 0
         except CodebeamerError as exc:emit([f"{args.command.upper()} RESULT: FAILED",f"Classification: {exc.classification}",f"Retryable: {exc.retryable}",f"Message: {exc}"]);return 2
         except Exception as exc:emit([f"{args.command.upper()} RESULT: FAILED",f"Message: {exc}"]);return 2
 def search_catalog(args)->int:
@@ -73,6 +77,7 @@ def main()->int:
     p=subs.add_parser("status");p.add_argument("--data-dir");p.add_argument("--json",action="store_true")
     p=subs.add_parser("search");p.add_argument("query");p.add_argument("--limit",type=int,default=25);p.add_argument("--minimum-score",type=int,default=1);p.add_argument("--direct-only",action="store_true");p.add_argument("--exclude-stale",action="store_true");p.add_argument("--project-id",type=int);p.add_argument("--tracker-id",type=int);p.add_argument("--data-dir");p.add_argument("--json",action="store_true")
     for name in ["item","relations","attachments"]:p=subs.add_parser(name);p.add_argument("item_id",type=int)
+    p=subs.add_parser("enrich");p.add_argument("item_id",type=int);p.add_argument("--no-relations",action="store_true");p.add_argument("--no-attachments",action="store_true")
     args=parser.parse_args()
     if args.command=="verify":return verify()
     if args.command=="config-check":emit(config_or_exit().redacted,True);return 0

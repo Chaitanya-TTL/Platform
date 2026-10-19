@@ -27,9 +27,11 @@ export class SourceExecutionCoordinator {
       investigationId: snapshot.identity.investigationId,
       occurredAt: this.clock.now(),
     });
-    const structures = await Promise.all(snapshot.selections.map((selection) =>
-      this.runOperation(snapshot, selection, "resolve-structure"),
-    ));
+    const resolveSelection = (selection: SourceSelection) => this.runOperation(snapshot, selection, "resolve-structure");
+    const codebeamer = snapshot.selections.filter((selection) => selection.source === "codebeamer");
+    const others = snapshot.selections.filter((selection) => selection.source !== "codebeamer");
+    const boundedCodebeamer = await this.runBounded(codebeamer, 3, resolveSelection);
+    const structures = [...await Promise.all(others.map(resolveSelection)), ...boundedCodebeamer];
     const intelligence = await Promise.all(snapshot.selections.map((selection) =>
       this.runOperation(snapshot, selection, "gather-intelligence"),
     ));
@@ -39,6 +41,12 @@ export class SourceExecutionCoordinator {
       evidence: [...structures, ...intelligence].flatMap((result) => result ? [result] : []),
       snapshot: latest,
     };
+  }
+
+  private async runBounded<T, R>(items: readonly T[], limit: number, worker: (item: T) => Promise<R>): Promise<R[]> {
+    const results = new Array<R>(items.length); let cursor = 0;
+    await Promise.all(Array.from({ length: Math.min(limit, items.length) }, async () => { while (cursor < items.length) { const index = cursor++; results[index] = await worker(items[index]); } }));
+    return results;
   }
 
   cancel(snapshot: InvestigationSnapshot): void {

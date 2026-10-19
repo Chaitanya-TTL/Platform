@@ -1,0 +1,85 @@
+﻿{
+  "id": 1187,
+  "name": "Steering System Requirements",
+  "description": "Requirements for the Steering product~, including\r\n\r\nmaterial~, dimensions~, steering type~, market support~,\r\n\r\nand orientation logic.",
+  "descriptionFormat": "Wiki",
+  "createdAt": "2026-10-08T12:30:23.849",
+  "createdBy": {
+    "id": 1,
+    "name": "cbadmin",
+    "type": "UserReference",
+    "email": "mothikari.krishna@tatatechnologies.com"
+  },
+  "modifiedAt": "2026-10-08T12:30:23.849",
+  "modifiedBy": {
+    "id": 1,
+    "name": "cbadmin",
+    "type": "UserReference",
+    "email": "mothikari.krishna@tatatechnologies.com"
+  },
+  "version": 1,
+  "assignedTo": [],
+  "parent": null,
+  "tracker": {
+    "id": 9734,
+    "name": "Customer Requirement Specifications",
+    "type": "TrackerReference"
+  },
+  "children": [
+    {
+      "id": 1189,
+      "name": "SR-006 Orientation Logic",
+      "type": "TrackerItemReference",
+      "testStepReuse": false
+    },
+    {
+      "id": 1190,
+      "name": "SR-001 Steering Material",
+      "type": "TrackerItemReference",
+      "testStepReuse": false
+    },
+    {
+      "id": 1191,
+      "name": "SR-002 Steering Dimensions",
+      "type": "TrackerItemReference",
+      "testStepReuse": false
+    },
+    {
+      "id": 1192,
+      "name": "SR-004 Steering Type",
+      "type": "TrackerItemReference",
+      "testStepReuse": false
+    },
+    {
+      "id": 1193,
+      "name": "SR-005 Market Support",
+      "type": "TrackerItemReference",
+      "testStepReuse": false
+    },
+    {
+      "id": 1194,
+      "name": "SR-003 Steering Weight",
+      "type": "TrackerItemReference",
+      "testStepReuse": false
+    }
+  ],
+  "customFields": [],
+  "priority": {
+    "id": 0,
+    "name": "Unset",
+    "type": "ChoiceOptionReference"
+  },
+  "status": {
+    "id": 1,
+    "name": "New",
+    "type": "ChoiceOptionReference"
+  },
+  "categories": [],
+  "severities": [],
+  "teams": [],
+  "versions": [],
+  "ordinal": 1,
+  "typeName": "Requirement",
+  "comments": [],
+  "tags": []
+}

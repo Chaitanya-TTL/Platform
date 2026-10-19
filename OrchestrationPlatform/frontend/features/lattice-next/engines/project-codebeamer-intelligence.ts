@@ -1,128 +1,78 @@
 import { ENGINEERING_INTELLIGENCE_CONTRACT_VERSION, type EngineeringIntelligenceInvestigationV1, type EngineeringProvenance, type IntelligenceEntity, type IntelligenceProperty, type IntelligenceRelationship, type TemporalContext } from "../contracts/intelligence-v1";
-
-type RecordValue = Record<string, unknown>;
-type StandardExtractionResult = {
-  sourceExecutionId?: string;
-  status?: string;
-  evidence?: {
-    requirement?: RecordValue;
-    sourceContext?: RecordValue;
-    hierarchy?: RecordValue;
-    catalog?: RecordValue;
-  };
-  provenance?: RecordValue;
-};
-
-const record = (value: unknown): RecordValue | undefined => value && typeof value === "object" && !Array.isArray(value) ? value as RecordValue : undefined;
-const text = (value: unknown): string | undefined => value === null || value === undefined ? undefined : String(value).trim() || undefined;
-const number = (value: unknown): number | undefined => typeof value === "number" ? value : Number.isFinite(Number(value)) ? Number(value) : undefined;
-const strings = (value: unknown): string[] => Array.isArray(value) ? value.map(text).filter((item): item is string => Boolean(item)) : [];
-const property = (value: unknown): IntelligenceProperty | undefined => {
-  if (typeof value === "boolean") return { type: "boolean", boolean: value };
-  if (typeof value === "number") return { type: "number", number: value };
-  if (Array.isArray(value)) return { type: "list", items: strings(value) };
-  const resolved = text(value);
-  return resolved ? { type: "text", text: resolved } : undefined;
-};
-const properties = (values: RecordValue): Record<string, IntelligenceProperty> => Object.fromEntries(Object.entries(values).flatMap(([key, value]) => {
-  const resolved = property(value);
-  return resolved ? [[key, resolved]] : [];
-}));
-const idPart = (value: unknown) => encodeURIComponent(text(value) ?? "unknown").replace(/%/g, "_");
-
-function extractionFromPayload(payload: unknown): StandardExtractionResult | undefined {
-  const resolved = record(payload);
-  const intelligence = record(resolved?.intelligencePayload);
-  if (!intelligence || !record(intelligence.evidence)?.requirement) return undefined;
-  return intelligence as StandardExtractionResult;
-}
-
-export function isCodebeamerResolvedEvidence(payload: unknown): boolean {
-  return Boolean(extractionFromPayload(payload));
-}
-
-export function projectCodebeamerIntelligence(investigationId: string, payload: unknown, observedAt: string): EngineeringIntelligenceInvestigationV1 | undefined {
-  const extraction = extractionFromPayload(payload);
-  if (!extraction) return undefined;
-  const evidence = extraction.evidence ?? {};
-  const requirement = evidence.requirement ?? {};
-  const context = evidence.sourceContext ?? {};
-  const hierarchy = evidence.hierarchy ?? {};
-  const catalog = evidence.catalog ?? {};
-  const canonicalId = text(requirement.canonicalId) ?? `codebeamer:requirement:${text(requirement.itemId) ?? "unknown"}`;
-  const itemId = text(requirement.itemId);
-  const externalKey = text(requirement.externalKey);
-  const displayName = text(requirement.name) ?? externalKey ?? itemId ?? "Codebeamer requirement";
-  const capturedAt = text(catalog.synchronizedAt) ?? text(extraction.provenance?.observedAt) ?? observedAt;
-  const assembledAt = new Date().toISOString();
-  const stale = requirement.stale === true;
-  const temporal: TemporalContext = { capturedAt, assembledAt, freshness: stale ? "stale" : "current" };
-  const provenance: EngineeringProvenance = {
-    source: "codebeamer",
-    provider: text(extraction.provenance?.provider) ?? "codebeamer_extractor",
-    nativeId: itemId,
-    nativeRevision: text(requirement.version),
-    sourceExecutionId: extraction.sourceExecutionId,
-    artifactReference: canonicalId,
-    observedAt: capturedAt,
-    authority: "source-authoritative",
-  };
-  const evidenceId = `evidence:${canonicalId}`;
-  const subjectId = `investigation-subject:${canonicalId}`;
-  const projectId = text(context.projectId);
-  const projectName = text(context.projectName);
-  const trackerId = text(context.trackerId);
-  const trackerName = text(context.trackerName);
-  const parentName = text(hierarchy.parentName);
-  const childNames = strings(hierarchy.childNames);
-  const projectEntityId = projectId ? `codebeamer:project:${idPart(projectId)}` : undefined;
-  const trackerEntityId = trackerId ? `codebeamer:tracker:${idPart(trackerId)}` : undefined;
-  const parentEntityId = parentName ? `codebeamer:requirement-context:${idPart(parentName)}` : undefined;
-
-  const entities: IntelligenceEntity[] = [{
-    id: canonicalId,
-    kind: "requirement",
-    displayName,
-    identityQuality: "native",
-    assertion: "fact",
-    properties: properties({
-      canonicalId, itemId, externalKey, description: requirement.description, status: requirement.status,
-      priority: requirement.priority, categories: requirement.categories, severities: requirement.severities,
-      version: requirement.version, stale, projectId, projectName, trackerId, trackerName,
-      parentName, childNames, catalogRevision: catalog.revision, catalogStatus: catalog.status,
-      catalogSynchronizedAt: catalog.synchronizedAt, catalogRequirementCount: catalog.requirementCount,
-      sourceExecutionId: extraction.sourceExecutionId,
-      presentationRole: "selected-requirement",
-      requirementId: externalKey ?? itemId,
-    }),
-    provenance,
-    temporal,
-  }];
-  if (projectEntityId) entities.push({ id: projectEntityId, kind: "product-context", displayName: projectName ?? `Project ${projectId}`, identityQuality: "native", assertion: "fact", properties: properties({ projectId, projectName, presentationRole: "project" }), provenance: { ...provenance, nativeId: projectId, artifactReference: projectEntityId }, temporal });
-  if (trackerEntityId) entities.push({ id: trackerEntityId, kind: "source-representation", displayName: trackerName ?? `Tracker ${trackerId}`, identityQuality: "native", assertion: "fact", properties: properties({ trackerId, trackerName, projectId, presentationRole: "tracker" }), provenance: { ...provenance, nativeId: trackerId, artifactReference: trackerEntityId }, temporal });
-  if (parentEntityId) entities.push({ id: parentEntityId, kind: "requirement", displayName: parentName!, identityQuality: "deterministic-derived", assertion: "fact", properties: properties({ relationshipContext: "parent", selectedRequirementId: canonicalId, presentationRole: "parent-requirement" }), provenance: { ...provenance, nativeId: undefined, artifactReference: parentEntityId }, temporal });
-  const childEntityIds = childNames.map((name, index) => `codebeamer:requirement-context:${idPart(name)}:${index}`);
-  childNames.forEach((name, index) => entities.push({ id: childEntityIds[index], kind: "requirement", displayName: name, identityQuality: "deterministic-derived", assertion: "fact", properties: properties({ relationshipContext: "child", selectedRequirementId: canonicalId, presentationRole: "child-requirement" }), provenance: { ...provenance, nativeId: undefined, artifactReference: childEntityIds[index] }, temporal }));
-
-  const relationships: IntelligenceRelationship[] = [];
-  const relation = (id: string, kind: string, sourceEntityId: string, targetEntityId: string, family: string, label: string) => relationships.push({ id, kind, family, sourceEntityId, targetEntityId, assertion: "fact", confidence: "verified", evidenceIds: [evidenceId], properties: properties({ label }), provenance, temporal });
-  if (projectEntityId && trackerEntityId) relation(`rel:${projectEntityId}:contains:${trackerEntityId}`, "contains", projectEntityId, trackerEntityId, "source-context", "contains tracker");
-  if (trackerEntityId) relation(`rel:${trackerEntityId}:manages:${parentEntityId ?? canonicalId}`, "manages", trackerEntityId, parentEntityId ?? canonicalId, "requirements", parentEntityId ? "manages requirement hierarchy" : "manages requirement");
-  if (parentEntityId) relation(`rel:${parentEntityId}:parent-of:${canonicalId}`, "parent-of", parentEntityId, canonicalId, "requirements", "parent of");
-  childEntityIds.forEach((childId) => relation(`rel:${canonicalId}:parent-of:${childId}`, "parent-of", canonicalId, childId, "requirements", "parent of"));
-  relation(`rel:${subjectId}:represented-by:${canonicalId}`, "represented-by", subjectId, canonicalId, "identity", "represented by selected Codebeamer requirement");
-
-  return {
-    contractVersion: ENGINEERING_INTELLIGENCE_CONTRACT_VERSION,
-    investigationId,
-    subject: { id: subjectId, displayName, preferredProductId: externalKey ?? itemId, candidateIds: [canonicalId], confidence: "verified", reasons: ["Selected Codebeamer requirement resolved from the synchronized source catalog."], provenance: { ...provenance, artifactReference: subjectId }, temporal },
-    entities,
-    relationships,
-    evidence: [{ id: evidenceId, kind: "source-extraction", summary: `Codebeamer requirement ${displayName} with project, tracker and hierarchy context.`, source: "codebeamer", provenance, temporal }],
-    findings: [],
-    sources: [{ entityId: canonicalId, source: "codebeamer", status: extraction.status === "partial-success" ? "partial" : "available", provenance }],
-    identityClusters: [{ id: `identity:${canonicalId}`, preferredEntityId: canonicalId, entityIds: [canonicalId], confidence: "verified", reasons: ["Canonical Codebeamer item identity."], evidenceIds: [evidenceId] }],
-    temporal,
-    summary: { entityCount: entities.length, relationshipCount: relationships.length, evidenceCount: 1, findingCount: 0, availableSourceCount: 1, partialSourceCount: extraction.status === "partial-success" ? 1 : 0, status: extraction.status === "partial-success" ? "partial" : "available" },
-  };
+import { normalizeCodebeamerValue, meaningfulCodebeamerValue } from "./codebeamer-display-value";
+type RecordValue=Record<string,unknown>;
+type Extraction={sourceExecutionId:string;status:string;evidence:{requirement?:RecordValue;sourceContext?:RecordValue;hierarchy?:RecordValue;catalog?:RecordValue;liveEnrichment?:RecordValue};provenance?:RecordValue};
+const record=(value:unknown):RecordValue|undefined=>value!==null&&typeof value==="object"&&!Array.isArray(value)?value as RecordValue:undefined;
+const text=(value:unknown)=>typeof value==="string"?value:typeof value==="number"?String(value):undefined;
+const section=(value:unknown)=>record(value)??{};
+const refs=(value:unknown)=>Array.isArray(value)?value.map(record).filter((item):item is RecordValue=>Boolean(item)):[];
+const idPart=(value:string)=>value.trim().toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")||"unknown";
+const extractionFromPayload=(payload:unknown):Extraction|undefined=>{const outer=record(payload);const candidate=record(outer?.intelligencePayload)??outer;if(!candidate||candidate.sourceExecutionId===undefined)return undefined;return candidate as unknown as Extraction};
+const property=(value:unknown):IntelligenceProperty|undefined=>{if(value===undefined||value===null||value==="")return undefined;if(typeof value==="boolean")return{type:"boolean",boolean:value};if(typeof value==="number")return{type:"number",number:value};if(Array.isArray(value))return{type:"list",items:value.map(item=>normalizeCodebeamerValue(item).text).filter(Boolean)};return{type:"text",text:normalizeCodebeamerValue(value).text}};
+const properties=(input:RecordValue)=>Object.fromEntries(Object.entries(input).flatMap(([key,value])=>{const resolved=property(value);return resolved?[[key,resolved]]:[]}));
+const failures=(value:unknown)=>refs(value).map(item=>normalizeCodebeamerValue(item.message??item).text).filter(Boolean).join("; ")||undefined;
+const roleIdentity=(canonicalId:string)=>{const parts=canonicalId.split(":");return parts[0]==="codebeamer"&&parts.length>3?parts[1]:"default"};
+export function projectCodebeamerIntelligence(investigationId:string,payload:unknown,observedAt:string):EngineeringIntelligenceInvestigationV1|undefined{
+ const extraction=extractionFromPayload(payload);if(!extraction)return undefined;
+ const evidence=extraction.evidence??{},requirement=evidence.requirement??{},context=evidence.sourceContext??{},hierarchy=evidence.hierarchy??{},catalog=evidence.catalog??{},enrichment=evidence.liveEnrichment??{};
+ const itemSection=section(enrichment.item),relationSection=section(enrichment.relations),attachmentSection=section(enrichment.attachments),live=section(itemSection.data);
+ const itemId=text(requirement.itemId)??text(live.id)??"unknown",canonicalId=text(requirement.canonicalId)??`codebeamer:requirement:${itemId}`,instance=roleIdentity(canonicalId),externalKey=text(requirement.externalKey),displayName=text(requirement.name)??text(live.name)??externalKey??itemId;
+ const capturedAt=text(enrichment.retrievedAt)??text(catalog.synchronizedAt)??text(extraction.provenance?.observedAt)??observedAt,assembledAt=new Date().toISOString();
+ const temporal:TemporalContext={capturedAt,assembledAt,freshness:requirement.stale===true?"stale":"current"};
+ const provenance:EngineeringProvenance={source:"codebeamer",provider:text(extraction.provenance?.provider)??"codebeamer_extractor",nativeId:itemId,nativeRevision:text(live.version??requirement.version),sourceExecutionId:extraction.sourceExecutionId,artifactReference:canonicalId,observedAt:capturedAt,authority:"source-authoritative"};
+ const evidenceId=`evidence:${canonicalId}`,subjectId=`investigation-subject:${canonicalId}`,entities:IntelligenceEntity[]=[],relationships:IntelligenceRelationship[]=[];
+ const sourceCustomFields=Array.isArray(live.customFields)?live.customFields:[];
+ const customDetailProperties:RecordValue=Object.fromEntries(sourceCustomFields.flatMap((raw,index)=>{const field=record(raw)??{},fieldId=text(field.id)??String(index+1),label=text(field.name)??text(field.label)??`Custom field ${fieldId}`,value=field.value??field.values;return meaningfulCodebeamerValue(value)?[[`codebeamer.custom.${label}`,normalizeCodebeamerValue(value).text]]:[]}));
+ const entity=(id:string,kind:string,name:string,props:RecordValue,nativeId?:string,quality:"native"|"deterministic-derived"="deterministic-derived")=>{if(entities.some(item=>item.id===id))return;entities.push({id,kind,displayName:name,identityQuality:quality,assertion:"fact",properties:properties(props),provenance:{...provenance,nativeId,artifactReference:id},temporal})};
+ const relation=(id:string,kind:string,from:string,to:string,label:string)=>{if(relationships.some(item=>item.id===id))return;relationships.push({id,kind,family:"requirements",sourceEntityId:from,targetEntityId:to,assertion:"fact",confidence:"verified",evidenceIds:[evidenceId],properties:properties({label}),provenance,temporal})};
+ entity(canonicalId,"requirement",displayName,{canonicalId,itemId,externalKey,description:requirement.description,status:requirement.status,priority:requirement.priority,categories:requirement.categories,severities:requirement.severities,version:requirement.version,stale:requirement.stale,projectId:context.projectId,projectName:context.projectName,trackerId:context.trackerId,trackerName:context.trackerName,parentName:hierarchy.parentName,childNames:hierarchy.childNames,catalogRevision:catalog.revision,catalogStatus:catalog.status,sourceExecutionId:extraction.sourceExecutionId,presentationRole:"selected-requirement",requirementId:externalKey??itemId,
+  "codebeamer.itemId":live.id??itemId,"codebeamer.externalKey":externalKey,"codebeamer.typeName":live.typeName,"codebeamer.description":live.description??requirement.description,"codebeamer.descriptionFormat":live.descriptionFormat,"codebeamer.version":live.version??requirement.version,"codebeamer.status":normalizeCodebeamerValue(live.status??requirement.status).text,"codebeamer.priority":normalizeCodebeamerValue(live.priority??requirement.priority).text,"codebeamer.categories":normalizeCodebeamerValue(live.categories??requirement.categories).text,"codebeamer.severities":normalizeCodebeamerValue(live.severities??requirement.severities).text,"codebeamer.ordinal":live.ordinal,"codebeamer.createdAt":live.createdAt,"codebeamer.createdBy":normalizeCodebeamerValue(live.createdBy).text,"codebeamer.modifiedAt":live.modifiedAt,"codebeamer.modifiedBy":normalizeCodebeamerValue(live.modifiedBy).text,"codebeamer.assignedTo":normalizeCodebeamerValue(live.assignedTo).text,"codebeamer.teams":normalizeCodebeamerValue(live.teams).text,"codebeamer.tags":normalizeCodebeamerValue(live.tags).text,"codebeamer.versions":normalizeCodebeamerValue(live.versions).text,"codebeamer.customFieldCount":Array.isArray(live.customFields)?live.customFields.length:0,"codebeamer.parentName":text(hierarchy.parentName),"codebeamer.childCount":Array.isArray(live.children)?live.children.length:0,"codebeamer.children":normalizeCodebeamerValue(live.children).text,"codebeamer.projectName":context.projectName,"codebeamer.projectId":context.projectId,"codebeamer.trackerName":context.trackerName,"codebeamer.trackerId":context.trackerId,"codebeamer.catalogRevision":catalog.revision,"codebeamer.catalogStatus":catalog.status,"codebeamer.catalogSynchronizedAt":catalog.synchronizedAt,"codebeamer.evidence.contractVersion":enrichment.contractVersion,"codebeamer.evidence.status":enrichment.status,"codebeamer.evidence.retrievedAt":enrichment.retrievedAt,"codebeamer.evidence.item.status":itemSection.status,"codebeamer.evidence.item.count":itemSection.count,"codebeamer.evidence.item.retrievedAt":itemSection.retrievedAt,"codebeamer.evidence.item.failure":failures(itemSection.failures),"codebeamer.evidence.relations.status":relationSection.status,"codebeamer.evidence.relations.count":relationSection.count,"codebeamer.evidence.relations.retrievedAt":relationSection.retrievedAt,"codebeamer.evidence.relations.failure":failures(relationSection.failures),"codebeamer.evidence.attachments.status":attachmentSection.status,"codebeamer.evidence.attachments.count":attachmentSection.count,"codebeamer.evidence.attachments.retrievedAt":attachmentSection.retrievedAt,"codebeamer.evidence.attachments.failure":failures(attachmentSection.failures),...customDetailProperties},itemId,"native");
+ const projectId=text(context.projectId),trackerId=text(context.trackerId),projectEntityId=projectId?`codebeamer:project:${idPart(projectId)}`:undefined,trackerEntityId=trackerId?`codebeamer:tracker:${idPart(trackerId)}`:undefined;
+ if(projectEntityId)entity(projectEntityId,"product-context",text(context.projectName)??`Project ${projectId}`,{projectId,projectName:context.projectName,presentationRole:"project"},projectId,"native");
+ if(trackerEntityId)entity(trackerEntityId,"source-representation",text(context.trackerName)??`Tracker ${trackerId}`,{trackerId,trackerName:context.trackerName,projectId,presentationRole:"tracker"},trackerId,"native");
+ const parent=record(live.parent),parentNative=text(parent?.id),parentId=parentNative?`codebeamer:${instance}:item:${parentNative}`:text(hierarchy.parentName)?`codebeamer:requirement-context:${idPart(text(hierarchy.parentName)!)}`:undefined;
+ if(parentId)entity(parentId,"requirement",normalizeCodebeamerValue(parent??hierarchy.parentName).text,{relationshipContext:"parent",selectedRequirementId:canonicalId,presentationRole:"parent-requirement",itemId:parentNative},parentNative,parentNative?"native":"deterministic-derived");
+ const children=refs(live.children);for(const [index,child] of children.entries()){const native=text(child.id),id=native?`codebeamer:${instance}:item:${native}`:`codebeamer:${instance}:child:${itemId}:${index}`;entity(id,"requirement",normalizeCodebeamerValue(child).text,{relationshipContext:"child",selectedRequirementId:canonicalId,presentationRole:"contextual-requirement",itemId:native},native,native?"native":"deterministic-derived");relation(`rel:${canonicalId}:parent-of:${id}`,"parent-of",canonicalId,id,"parent of")}
+ // Requirement information is projected in expandable semantic groups. Empty values are omitted globally.
+ const dateOnly=(value:unknown)=>{const normalized=normalizeCodebeamerValue(value);return normalized.kind==="empty"?undefined:normalized.text.split("T")[0]};
+ const addGroup=(key:string,label:string,leaves:Array<{key:string;label:string;value:unknown;role?:string}>)=>{
+  const meaningfulLeaves=leaves.filter(leaf=>meaningfulCodebeamerValue(leaf.value));if(!meaningfulLeaves.length)return;
+  const groupId=`codebeamer:${instance}:group:${itemId}:${key}`;
+  entity(groupId,"requirement-detail",label,{presentationRole:"detail-group",groupKey:key,ownerRequirementId:canonicalId,itemCount:meaningfulLeaves.length,informationPriority:key==="overview"?1:key==="lifecycle"?2:key==="ownership"?3:4});
+  relation(`rel:${canonicalId}:contains:${groupId}`,"contains",canonicalId,groupId,`has ${label.toLowerCase()}`);
+  for(const leaf of meaningfulLeaves){const normalized=normalizeCodebeamerValue(leaf.value),leafId=`codebeamer:${instance}:detail:${itemId}:${key}:${idPart(leaf.key)}`;entity(leafId,"requirement-detail",leaf.label,{value:normalized.text,valueType:normalized.kind,presentationRole:leaf.role??"detail-field",groupKey:key,fieldKey:leaf.key,ownerRequirementId:canonicalId,informationPriority:1});relation(`rel:${groupId}:contains:${leafId}`,"contains",groupId,leafId,`contains ${leaf.label.toLowerCase()}`)}
+ };
+ addGroup("overview","Overview",[
+  {key:"item-id",label:"Item ID",value:live.id??itemId},
+  {key:"description",label:"Description",value:live.description??requirement.description,role:"description"},
+ ]);
+ addGroup("lifecycle","Lifecycle",[
+  {key:"status",label:"Status",value:live.status??requirement.status},
+  {key:"priority",label:"Priority",value:live.priority??requirement.priority},
+  {key:"severities",label:"Severities",value:live.severities??requirement.severities},
+ ]);
+ const createdAt=dateOnly(live.createdAt),modifiedAt=dateOnly(live.modifiedAt),hasModification=Boolean(modifiedAt&&(modifiedAt!==createdAt||normalizeCodebeamerValue(live.modifiedBy).text!==normalizeCodebeamerValue(live.createdBy).text));
+ addGroup("ownership","Ownership",[
+  {key:"created-by",label:"Created by",value:live.createdBy},
+  {key:"created-at",label:"Created at",value:createdAt},
+  ...(hasModification?[{key:"modified-by",label:"Modified by",value:live.modifiedBy},{key:"modified-at",label:"Modified at",value:modifiedAt}]:[]),
+ ]);
+ addGroup("origin","Origin",[
+  {key:"project-id",label:"Project ID",value:context.projectId},
+  {key:"tracker-name",label:"Tracker name",value:context.trackerName??live.tracker},
+  {key:"tracker-id",label:"Tracker ID",value:context.trackerId??record(live.tracker)?.id},
+  {key:"catalog-revision",label:"Catalog revision",value:catalog.revision},
+  {key:"catalog-status",label:"Catalog status",value:catalog.status},
+  {key:"last-sync",label:"Last sync",value:dateOnly(catalog.synchronizedAt)},
+ ]);
+ // Custom fields stay independent and use source field IDs for stable identities.
+ const customFields=sourceCustomFields;const meaningful=customFields.map((raw,index)=>({field:record(raw)??{},index})).filter(({field})=>meaningfulCodebeamerValue(field.value??field.values));const visible=meaningful.slice(0,6);
+ for(const {field,index} of visible){const fieldId=text(field.id)??String(index+1),label=text(field.name)??text(field.label)??`Custom field ${fieldId}`,normalized=normalizeCodebeamerValue(field.value??field.values);const id=`codebeamer:${instance}:field:${itemId}:${idPart(fieldId)}`;entity(id,"requirement-detail",label,{value:normalized.text,valueType:normalized.kind,cardinality:normalized.cardinality,fieldId,presentationRole:"custom-field",ownerRequirementId:canonicalId,informationPriority:2},fieldId,"native");relation(`rel:${canonicalId}:described-by:${id}`,"described-by",canonicalId,id,"has custom field")}
+ if(meaningful.length>visible.length){const hidden=meaningful.length-visible.length,id=`codebeamer:${instance}:more-fields:${itemId}`;entity(id,"requirement-detail","More source fields",{value:`View ${hidden} more field${hidden===1?"":"s"} in Details`,valueType:"more",presentationRole:"view-more",ownerRequirementId:canonicalId,hiddenCount:hidden,informationPriority:6});relation(`rel:${canonicalId}:described-by:${id}`,"described-by",canonicalId,id,"has additional fields")}
+ // Traceability and attachments are created only from non-empty source collections.
+ const relationData=section(relationSection.data),groups:[[string,unknown],[string,unknown],[string,unknown],[string,unknown]]=[["Downstream reference",relationData.downstreamReferences],["Upstream reference",relationData.upstreamReferences],["Incoming association",relationData.incomingAssociations],["Outgoing association",relationData.outgoingAssociations]];
+ for(const [relationType,values] of groups)for(const [index,linked] of refs(values).entries()){const native=text(linked.id)??text(record(linked.item)?.id),id=native?`codebeamer:${instance}:item:${native}`:`codebeamer:${instance}:relation:${itemId}:${idPart(relationType)}:${index}`;entity(id,"requirement",normalizeCodebeamerValue(linked).text,{presentationRole:"related-item",relationType,selectedRequirementId:canonicalId},native,native?"native":"deterministic-derived");relation(`rel:${canonicalId}:traced-to:${id}`,"traced-to",canonicalId,id,relationType.toLowerCase())}
+ for(const [index,attachment] of refs(section(attachmentSection.data).attachments).entries()){const native=text(attachment.id),id=native?`codebeamer:${instance}:attachment:${native}`:`codebeamer:${instance}:attachment:${itemId}:${index}`,normalized=normalizeCodebeamerValue(attachment);entity(id,"requirement-detail",text(attachment.fileName)??text(attachment.name)??`Attachment ${index+1}`,{value:normalized.text,valueType:"attachment",presentationRole:"attachment",ownerRequirementId:canonicalId,mimeType:attachment.mimeType,size:attachment.size},native,native?"native":"deterministic-derived");relation(`rel:${canonicalId}:supported-by:${id}`,"supported-by",canonicalId,id,"supported by attachment")}
+ if(projectEntityId&&trackerEntityId)relation(`rel:${projectEntityId}:contains:${trackerEntityId}`,"contains",projectEntityId,trackerEntityId,"contains tracker");if(trackerEntityId)relation(`rel:${trackerEntityId}:manages:${parentId??canonicalId}`,"manages",trackerEntityId,parentId??canonicalId,"manages requirement");if(parentId)relation(`rel:${parentId}:parent-of:${canonicalId}`,"parent-of",parentId,canonicalId,"parent of");
+ return{contractVersion:ENGINEERING_INTELLIGENCE_CONTRACT_VERSION,investigationId,subject:{id:subjectId,displayName,preferredProductId:externalKey??itemId,candidateIds:[canonicalId],confidence:"verified",reasons:["Selected Codebeamer requirement resolved from source evidence."],provenance:{...provenance,artifactReference:subjectId},temporal},entities,relationships,evidence:[{id:evidenceId,kind:"source-extraction",summary:`Codebeamer requirement ${displayName}; live item ${text(itemSection.status)??"not requested"}, relations ${text(relationSection.status)??"not requested"}, attachments ${text(attachmentSection.status)??"not requested"}.`,source:"codebeamer",provenance,temporal}],findings:[],sources:[{entityId:canonicalId,source:"codebeamer",status:extraction.status==="partial-success"?"partial":"available",provenance}],identityClusters:[{id:`identity:${canonicalId}`,preferredEntityId:canonicalId,entityIds:[canonicalId],confidence:"verified",reasons:["Canonical Codebeamer item identity."],evidenceIds:[evidenceId]}],temporal,summary:{entityCount:entities.length,relationshipCount:relationships.length,evidenceCount:1,findingCount:0,availableSourceCount:1,partialSourceCount:extraction.status==="partial-success"?1:0,status:extraction.status==="partial-success"?"partial":"available"}};
 }

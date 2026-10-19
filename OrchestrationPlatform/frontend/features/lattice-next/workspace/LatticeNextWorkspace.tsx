@@ -179,17 +179,20 @@ export function LatticeNextWorkspace() {
               selected,
               subjectLabel || selected[0]?.displayName || "Engineering investigation",
             );
+            buildIntelligenceInvestigation(result.canonical);
             setDirectCanonical(result.canonical);
             setDirect(result.handoff);
             router.replace(`/lattice?investigation=${encodeURIComponent(String(result.snapshot.identity.investigationId))}`);
-            toast.success("Investigation ready", { id: toastId, description: "Selected engineering evidence was resolved and the investigation workspace is opening." });
+            toast.success("Investigation ready", { id: toastId, description: "Canonical evidence passed validation and the investigation workspace is opening." });
             if (result.snapshot.lifecycle === "partial" || result.snapshot.completeness.overall === "partial") {
               const limitation = result.snapshot.completeness.limitations.join(" | ") || "The investigation completed with partial source evidence.";
               setMessage(limitation);
               toast.warning("Investigation opened with partial evidence", { description: limitation });
             }
           } catch (cause) {
-            const detail = cause instanceof Error ? cause.message : "The Investigation Kernel could not complete the investigation.";
+            const technicalDetail = cause instanceof Error ? cause.message : "The Investigation Kernel could not complete the investigation.";
+            const detail = /[A-Z]:\\|EPERM|EBUSY|EACCES/i.test(technicalDetail) ? "Investigation persistence is temporarily unavailable. Retry after the file lock clears." : technicalDetail;
+            console.error("Lattice investigation failure", cause);
             setMessage(detail);
             toast.error("Investigation could not be created", { id: toastId, description: detail });
           }
@@ -236,7 +239,13 @@ function Investigation({
   const domain = useMemo(
     () =>
       canonical
-        ? buildIntelligenceInvestigation(canonical)
+        ? buildIntelligenceInvestigation({
+            ...canonical,
+            subject: {
+              ...canonical.subject,
+              displayName: handoff.subjectLabel || canonical.subject.displayName,
+            },
+          })
         : buildInvestigation(handoff),
     [canonical, handoff],
   );

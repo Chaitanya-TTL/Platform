@@ -5,7 +5,6 @@ import {
 } from "../../contracts/intelligence-v1";
 import type { ResolvedStructure } from "../../discovery/structure-resolver";
 import { legacyHandoffToIntelligence } from "../../engines/legacy-handoff-to-intelligence";
-import { projectCodebeamerIntelligence } from "../../engines/project-codebeamer-intelligence";
 import { mergeSourceIntelligence } from "../../infrastructure/merge-source-intelligence";
 import type { EvidenceEnvelope } from "../contracts/evidence-envelope";
 import type { InvestigationSnapshot } from "../contracts/investigation-snapshot";
@@ -63,11 +62,7 @@ export class CurrentCanonicalAssemblyAdapter
         const rightSource = right.sources[0]?.source ?? "";
         return leftSource.localeCompare(rightSource) || left.investigationId.localeCompare(right.investigationId);
       });
-    const codebeamer = evidence
-      .filter((item) => item.validation.status === "accepted" && item.identity.source === "codebeamer" && item.identity.operation === "resolve-structure")
-      .map((item) => projectCodebeamerIntelligence(String(snapshot.identity.investigationId), item.payload, item.observedAt))
-      .filter((item): item is EngineeringIntelligenceInvestigationV1 => Boolean(item));
-    const native = [...intelligence, ...codebeamer];
+    const native = intelligence;
     if (native.length) return native.length === 1 ? native[0] : mergeSourceIntelligence(native);
     const handoff = structureHandoff(snapshot, evidence);
     if (handoff) return legacyHandoffToIntelligence(handoff);

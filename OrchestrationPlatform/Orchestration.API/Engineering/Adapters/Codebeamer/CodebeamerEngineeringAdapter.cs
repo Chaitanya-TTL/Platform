@@ -48,7 +48,9 @@ public sealed class CodebeamerEngineeringAdapter : IEngineeringSourceAdapter
                 string.Equals(x.ItemId.ToString(), request.Candidate.NativeId, StringComparison.OrdinalIgnoreCase));
             if (match is null) return Failure(jobId, request, started, capability, "CODEBEAMER_REQUIREMENT_NOT_FOUND", "The selected Codebeamer requirement is not present in the verified local catalog.", false, StandardStatus.Empty);
 
-            progress.Report(Progress(jobId, JobState.Enriching, 70, "Mapping Codebeamer requirement and hierarchy evidence."));
+            progress.Report(Progress(jobId, JobState.Enriching, 55, "Retrieving live Codebeamer item, relation, and attachment evidence."));
+            var enrichment = await client.EnrichAsync(match.ItemId, token);
+            progress.Report(Progress(jobId, JobState.Enriching, 75, "Mapping catalog and live Codebeamer evidence without overwriting either observation."));
             var candidate = Candidate(match, response);
             var evidence = new Dictionary<string, object?>
             {
@@ -72,15 +74,31 @@ public sealed class CodebeamerEngineeringAdapter : IEngineeringSourceAdapter
                 {
                     ["revision"] = response.CatalogRevision, ["status"] = response.CatalogStatus,
                     ["synchronizedAt"] = response.CatalogSynchronizedAt, ["requirementCount"] = response.CatalogRequirementCount
+                },
+                ["liveEnrichment"] = new Dictionary<string, object?>
+                {
+                    ["contractVersion"] = enrichment.ContractVersion,
+                    ["status"] = enrichment.Status,
+                    ["retrievedAt"] = enrichment.RetrievedAt,
+                    ["item"] = Section(enrichment.Item),
+                    ["relations"] = Section(enrichment.Relations),
+                    ["attachments"] = Section(enrichment.Attachments),
+                    ["failures"] = enrichment.Failures
                 }
             };
+            var partial = string.Equals(enrichment.Status, "partial-success", StringComparison.OrdinalIgnoreCase);
+            var finalStatus = partial ? StandardStatus.PartialSuccess : StandardStatus.Success;
+            var warnings = enrichment.Failures.Select(f => new StructuredWarning(
+                "CODEBEAMER_ENRICHMENT_SECTION_FAILED", Source, EngineeringStage.Enrichment,
+                $"{f.Stage}: {f.Message}", DateTimeOffset.UtcNow,
+                new Dictionary<string,string> { ["classification"] = f.Classification, ["retryable"] = f.Retryable.ToString() })).ToList();
             var completed = DateTimeOffset.UtcNow;
-            var finalProgress = Progress(jobId, JobState.Success, 100, "Codebeamer requirement extraction completed from the verified local catalog.");
+            var finalProgress = Progress(jobId, partial ? JobState.PartialSuccess : JobState.Success, 100, partial ? "Codebeamer extraction completed with partial live enrichment." : "Codebeamer catalog and live enrichment completed.");
             progress.Report(finalProgress);
-            return new(EngineeringContractVersions.V1, request.RequestId, request.CorrelationId, jobId, Source, StandardStatus.Success,
-                new(StandardStatus.Success, candidate, match.CanonicalId, [], []), capability, null, [], evidence, [], [], finalProgress, [],
-                new(ProvenanceKind.CachedSourceResult, "codebeamer_extractor", response.CatalogSynchronizedAt, match.CanonicalId),
-                [new(EngineeringStage.Resolution, EvidenceAvailability.Available, StandardStatus.Success, "Selected requirement resolved from the synchronized Codebeamer catalog."), new(EngineeringStage.Extraction, EvidenceAvailability.Available, StandardStatus.Success, "Requirement content and hierarchy context mapped to standard evidence.")],
+            return new(EngineeringContractVersions.V1, request.RequestId, request.CorrelationId, jobId, Source, finalStatus,
+                new(finalStatus, candidate, match.CanonicalId, warnings, []), capability, null, [], evidence, warnings, [], finalProgress, [],
+                new(ProvenanceKind.LiveSource, "codebeamer_extractor", enrichment.RetrievedAt, match.CanonicalId),
+                [new(EngineeringStage.Resolution, EvidenceAvailability.Available, StandardStatus.Success, "The selected Codebeamer requirement was resolved from the verified catalog."), new(EngineeringStage.Enrichment, partial ? EvidenceAvailability.Partial : EvidenceAvailability.Available, finalStatus, partial ? "Live Codebeamer item evidence was accepted with optional-section limitations." : "Live Codebeamer item, relation, and attachment evidence were accepted.")],
                 started, completed, (long)(completed - started).TotalMilliseconds);
         }
         catch (OperationCanceledException) { throw; }
@@ -101,6 +119,16 @@ public sealed class CodebeamerEngineeringAdapter : IEngineeringSourceAdapter
         ["requirements", "hierarchy", "local-search", "selected-requirement-extraction"],
         new Dictionary<string, string?> { ["externalKey"] = x.ExternalKey, ["projectId"] = x.ProjectId.ToString(), ["projectName"] = x.ProjectName, ["trackerId"] = x.TrackerId.ToString(), ["trackerName"] = x.TrackerName, ["classification"] = x.Classification, ["score"] = x.Score.ToString(), ["matchedFields"] = string.Join(",", x.MatchedFields), ["catalogRevision"] = response.CatalogRevision, ["catalogStatus"] = response.CatalogStatus, ["catalogSynchronizedAt"] = response.CatalogSynchronizedAt.ToString("O"), ["stale"] = x.Stale.ToString() },
         new(ProvenanceKind.CachedSourceResult, "codebeamer_extractor", response.CatalogSynchronizedAt, x.CanonicalId), true);
+
+
+    private static IReadOnlyDictionary<string, object?> Section(CodebeamerEvidenceSectionDto section) => new Dictionary<string, object?>
+    {
+        ["status"] = section.Status,
+        ["retrievedAt"] = section.RetrievedAt,
+        ["count"] = section.Count,
+        ["data"] = section.Data,
+        ["failures"] = section.Failures
+    };
 
     private static StandardExtractionResult Failure(string id, EngineeringExtractionRequest request, DateTimeOffset started, SourceCapability capability, string code, string message, bool retryable, StandardStatus status = StandardStatus.Failed)
     {

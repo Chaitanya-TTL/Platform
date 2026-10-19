@@ -39,61 +39,41 @@ const lineCount = (
 };
 
 export function projectedNodeDimensions(node: ProjectedNode) {
-  const value =
-    typeof node.attributes?.value === "string"
-      ? node.attributes.value
-      : "";
-
-  const identifier =
-    typeof node.attributes?.requirementId === "string"
-      ? node.attributes.requirementId
-      : (node.nativeIdentifier ?? "");
-
-  const longest = [node.label, node.subtitle, value, identifier].reduce(
-    (current, candidate) =>
-      textWidth(String(candidate)) > textWidth(String(current))
-        ? String(candidate)
-        : String(current),
-    "",
-  );
-
+  const value = typeof node.attributes?.value === "string" ? node.attributes.value : "";
+  const identifier = typeof node.attributes?.requirementId === "string" ? node.attributes.requirementId : (node.nativeIdentifier ?? "");
+  const role = String(node.attributes?.presentationRole ?? "");
   const isDomain = node.id.startsWith("projection:domain:");
   const isSubject = node.level === 0;
+  const isGroup = role === "detail-group";
+  const isDescription = role === "description";
+  const isDetailLeaf = ["detail-field", "description", "custom-field", "attachment", "view-more"].includes(role);
+
+  if (isSubject) return { width: SUBJECT_WIDTH, height: SUBJECT_HEIGHT };
+  if (isDomain) return { width: DOMAIN_WIDTH, height: DOMAIN_HEIGHT };
+  if (isGroup) return { width: 360, height: 138 };
+
+  if (isDescription) {
+    const normalizedLength = value.replace(/\s+/g, " ").trim().length;
+    const width = normalizedLength > 420 ? 720 : normalizedLength > 220 ? 640 : 560;
+    return { width, height: 238 };
+  }
+
+  if (isDetailLeaf) {
+    const width = Math.max(320, Math.min(520, textWidth([node.label, value].sort((a,b)=>textWidth(b)-textWidth(a))[0] ?? "") + 112));
+    return { width, height: value.length > 72 ? 174 : 148 };
+  }
+
+  const longest = [node.label, node.subtitle, value, identifier].reduce(
+    (current, candidate) => textWidth(String(candidate)) > textWidth(String(current)) ? String(candidate) : String(current),
+    "",
+  );
   const isParent = node.hasChildren;
-
-  if (isSubject) {
-    return { width: SUBJECT_WIDTH, height: SUBJECT_HEIGHT };
-  }
-
-  if (isDomain) {
-    return { width: DOMAIN_WIDTH, height: DOMAIN_HEIGHT };
-  }
-
   const minWidth = isParent ? PARENT_MIN_WIDTH : LEAF_MIN_WIDTH;
   const maxWidth = isParent ? PARENT_MAX_WIDTH : LEAF_MAX_WIDTH;
   const minHeight = isParent ? PARENT_MIN_HEIGHT : LEAF_MIN_HEIGHT;
-  const horizontalPadding = isParent
-    ? PARENT_HORIZONTAL_PADDING
-    : LEAF_HORIZONTAL_PADDING;
-
-  const width = Math.max(
-    minWidth,
-    Math.min(maxWidth, textWidth(longest) + horizontalPadding),
-  );
-
+  const horizontalPadding = isParent ? PARENT_HORIZONTAL_PADDING : LEAF_HORIZONTAL_PADDING;
+  const width = Math.max(minWidth, Math.min(maxWidth, textWidth(longest) + horizontalPadding));
   const availableTextWidth = Math.max(1, width - horizontalPadding);
-  const titleLines = lineCount(node.label, availableTextWidth);
-  const valueLines = lineCount(value, availableTextWidth);
-  const identifierLines = lineCount(identifier, availableTextWidth, 1);
-
-  const calculatedHeight =
-    78 +
-    titleLines * 35 +
-    valueLines * 32 +
-    identifierLines * 23;
-
-  return {
-    width,
-    height: Math.max(minHeight, calculatedHeight),
-  };
+  const calculatedHeight = 78 + lineCount(node.label, availableTextWidth) * 35 + lineCount(value, availableTextWidth) * 32 + lineCount(identifier, availableTextWidth, 1) * 23;
+  return { width, height: Math.max(minHeight, calculatedHeight) };
 }

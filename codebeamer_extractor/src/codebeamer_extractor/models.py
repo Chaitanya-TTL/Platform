@@ -46,3 +46,21 @@ class RequirementSearchResponse(BaseModel):
     query:str; normalized_query:str; catalog_revision:str; catalog_status:Literal["complete","partial"]; catalog_synchronized_at:str; catalog_requirement_count:int; matches:list[RequirementSearchResult]=Field(default_factory=list)
 class ItemEnrichment(BaseModel):
     item:TrackerItem; relations:RelationsResponse|None=None; attachments:AttachmentsResponse|None=None; failures:list[SourceFailure]=Field(default_factory=list)
+
+
+EnrichmentStatus = Literal["not-requested", "loading", "loaded-empty", "loaded", "partial", "failed"]
+class EnrichmentSection(CBModel):
+    status: EnrichmentStatus
+    retrievedAt: str | None = None
+    count: int = 0
+    data: Any | None = None
+    failures: list[SourceFailure] = Field(default_factory=list)
+
+class ItemEnrichmentV2(CBModel):
+    contractVersion: Literal["2.0"] = "2.0"
+    status: Literal["complete", "partial-success"]
+    item: EnrichmentSection
+    relations: EnrichmentSection
+    attachments: EnrichmentSection
+    failures: list[SourceFailure] = Field(default_factory=list)
+    retrievedAt: str

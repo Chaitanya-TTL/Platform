@@ -42,6 +42,18 @@ function matchType(category: string | undefined): MatchType {
   }
 }
 
+
+const normalize = (value: unknown) => String(value ?? "").toLocaleLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, " ").trim();
+function classifyCodebeamer(query: string, candidate: ApiCandidate): { matchType: MatchType; reason: string; classification: "direct" | "contextual" | "unsupported" } {
+  const needle = normalize(query);
+  if (!needle) return { matchType: "source-result", reason: "No searchable query was supplied.", classification: "unsupported" };
+  const directFields: Array<[string, unknown]> = [["requirement name", candidate.displayName], ["external key", candidate.sourceMetadata?.externalKey], ["native item ID", candidate.nativeId], ["description", candidate.description]];
+  for (const [label, value] of directFields) {
+    const haystack = normalize(value);
+    if (haystack && (haystack.includes(needle) || needle.includes(haystack))) return { matchType: label.includes("ID") || label.includes("key") ? "exact-id" : "exact-name", reason: `Query matched the ${label}.`, classification: "direct" };
+  }
+  return { matchType: "source-result", reason: "No indexed requirement field explains this result.", classification: "unsupported" };
+}
 function status(value: string | undefined, count: number): SourceSearchResult["status"] {
   if (value === "success" || value === "partial-success") return count ? "complete" : "empty";
   if (value === "empty") return "empty";
@@ -81,39 +93,43 @@ export async function searchEngineeringSource(source: EnterpriseSource, query: s
     const payload = await response.json() as ApiDiscoveryResult;
     const outcome = payload.sources?.[0];
     if (!response.ok || !outcome) throw new Error("The engineering discovery API returned no source outcome.");
-    const candidates: ItemSearchCandidate[] = (outcome.candidates ?? []).map((candidate) => ({
-      candidateId: candidate.candidateId ?? `${source}:${candidate.nativeId}`,
-      source,
-      nativeId: candidate.nativeId ?? "",
-      name: candidate.displayName ?? candidate.nativeId ?? "Unknown record",
-      description: candidate.description,
-      matchType: matchType(candidate.matchCategory),
-      matchReasons: [candidate.matchReason ?? "Returned by the authoritative source adapter."],
-      context: {
-        revision: candidate.revision,
-        version: candidate.version,
-        lifecycleState: candidate.lifecycleState,
-        objectType: candidate.entityType,
-        plant: candidate.sourceMetadata?.plant ?? undefined,
-        configuration: candidate.sourceMetadata?.packagePath ?? undefined,
-        logicalPackagePath: candidate.sourceMetadata?.logicalPackagePath ?? undefined,
-        resolvedPackagePath: candidate.sourceMetadata?.resolvedPackagePath ?? candidate.sourceMetadata?.packagePath ?? undefined,
-        packageVersionId: candidate.sourceMetadata?.versionId ?? candidate.version ?? undefined,
-        packageState: candidate.sourceMetadata?.packageState ?? candidate.lifecycleState ?? undefined,
-        externalKey: candidate.sourceMetadata?.externalKey ?? undefined,
-        projectId: candidate.sourceMetadata?.projectId ?? undefined,
-        projectName: candidate.sourceMetadata?.projectName ?? undefined,
-        trackerId: candidate.sourceMetadata?.trackerId ?? undefined,
-        trackerName: candidate.sourceMetadata?.trackerName ?? undefined,
-        classification: candidate.sourceMetadata?.classification ?? undefined,
-        catalogRevision: candidate.sourceMetadata?.catalogRevision ?? undefined,
-        catalogStatus: candidate.sourceMetadata?.catalogStatus ?? undefined,
-        catalogSynchronizedAt: candidate.sourceMetadata?.catalogSynchronizedAt ?? undefined,
-        stale: candidate.sourceMetadata?.stale?.toLowerCase() === "true",
-      },
-      retrievedAt: candidate.provenance?.observedAt ?? new Date().toISOString(),
-      providerMode: candidate.provenance?.kind === "live-source" ? "live" as const : "capability" as const,
-    })).filter((candidate) => candidate.nativeId);
+    const candidates: ItemSearchCandidate[] = (outcome.candidates ?? []).flatMap((candidate) => {
+      const codebeamerMatch = source === "codebeamer" ? classifyCodebeamer(query, candidate) : undefined;
+      if (codebeamerMatch?.classification === "unsupported" || !candidate.nativeId) return [];
+      return [{
+        candidateId: candidate.candidateId ?? `${source}:${candidate.nativeId}`,
+        source,
+        nativeId: candidate.nativeId,
+        name: candidate.displayName ?? candidate.nativeId,
+        description: candidate.description,
+        matchType: codebeamerMatch?.matchType ?? matchType(candidate.matchCategory),
+        matchReasons: [codebeamerMatch?.reason ?? candidate.matchReason ?? "Returned by the authoritative source adapter."],
+        context: {
+          revision: candidate.revision,
+          version: candidate.version,
+          lifecycleState: candidate.lifecycleState,
+          objectType: candidate.entityType,
+          plant: candidate.sourceMetadata?.plant ?? undefined,
+          configuration: candidate.sourceMetadata?.packagePath ?? undefined,
+          logicalPackagePath: candidate.sourceMetadata?.logicalPackagePath ?? undefined,
+          resolvedPackagePath: candidate.sourceMetadata?.resolvedPackagePath ?? candidate.sourceMetadata?.packagePath ?? undefined,
+          packageVersionId: candidate.sourceMetadata?.versionId ?? candidate.version ?? undefined,
+          packageState: candidate.sourceMetadata?.packageState ?? candidate.lifecycleState ?? undefined,
+          externalKey: candidate.sourceMetadata?.externalKey ?? undefined,
+          projectId: candidate.sourceMetadata?.projectId ?? undefined,
+          projectName: candidate.sourceMetadata?.projectName ?? undefined,
+          trackerId: candidate.sourceMetadata?.trackerId ?? undefined,
+          trackerName: candidate.sourceMetadata?.trackerName ?? undefined,
+          classification: codebeamerMatch?.classification ?? candidate.sourceMetadata?.classification ?? undefined,
+          catalogRevision: candidate.sourceMetadata?.catalogRevision ?? undefined,
+          catalogStatus: candidate.sourceMetadata?.catalogStatus ?? undefined,
+          catalogSynchronizedAt: candidate.sourceMetadata?.catalogSynchronizedAt ?? undefined,
+          stale: candidate.sourceMetadata?.stale?.toLowerCase() === "true",
+        },
+        retrievedAt: candidate.provenance?.observedAt ?? new Date().toISOString(),
+        providerMode: candidate.provenance?.kind === "live-source" ? "live" as const : "capability" as const,
+      }];
+    }).slice(0, limit);
     const mappedStatus = status(outcome.status, candidates.length);
     const error = outcome.errors?.[0]?.userMessage ?? outcome.errors?.[0]?.message;
     const capabilityNote = outcome.warnings?.[0]?.message;

@@ -18,8 +18,23 @@ async function json<T>(file: string, fallback: T): Promise<T> {
 async function atomic(file: string, value: unknown): Promise<void> {
   await fs.mkdir(path.dirname(file), { recursive: true });
   const temporary = `${file}.${process.pid}.${crypto.randomUUID()}.tmp`;
-  await fs.writeFile(temporary, JSON.stringify(value), "utf8");
-  await fs.rename(temporary, file);
+  const handle = await fs.open(temporary, "w");
+  try { await handle.writeFile(JSON.stringify(value), "utf8"); await handle.sync(); }
+  finally { await handle.close(); }
+  try { await retryTransient(() => fs.rename(temporary, file)); }
+  finally { await fs.rm(temporary, { force: true }).catch(() => undefined); }
+}
+async function retryTransient(work: () => Promise<void>): Promise<void> {
+  const delays = [25, 50, 100, 200, 400, 800, 1200, 1800];
+  for (let attempt = 0; ; attempt++) {
+    try { await work(); return; }
+    catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      const transient = code === "EPERM" || code === "EBUSY" || code === "EACCES";
+      if (!transient || attempt >= delays.length) throw new Error(transient ? "Investigation storage is temporarily locked after bounded retries." : error instanceof Error ? error.message : "Investigation persistence failed.");
+      await new Promise((resolve) => setTimeout(resolve, delays[attempt]));
+    }
+  }
 }
 
 export class FileInvestigationRepository implements InvestigationRepository {

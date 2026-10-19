@@ -1,0 +1,65 @@
+﻿{
+  "id": 1192,
+  "name": "SR-004 Steering Type",
+  "description": "The Steering system shall support the following steering configurations:1. Hydraulic Power Steering2. Electric Power Steering\r\n\r\n3. Manual Steering",
+  "descriptionFormat": "Wiki",
+  "createdAt": "2026-10-08T12:43:41.573",
+  "createdBy": {
+    "id": 1,
+    "name": "cbadmin",
+    "type": "UserReference",
+    "email": "mothikari.krishna@tatatechnologies.com"
+  },
+  "modifiedAt": "2026-10-08T12:58:18.678",
+  "modifiedBy": {
+    "id": 1,
+    "name": "cbadmin",
+    "type": "UserReference",
+    "email": "mothikari.krishna@tatatechnologies.com"
+  },
+  "version": 4,
+  "assignedTo": [],
+  "parent": {
+    "id": 1187,
+    "name": "Steering System Requirements",
+    "type": "TrackerItemReference",
+    "testStepReuse": false
+  },
+  "tracker": {
+    "id": 9734,
+    "name": "Customer Requirement Specifications",
+    "type": "TrackerReference"
+  },
+  "children": [],
+  "customFields": [],
+  "priority": {
+    "id": 1,
+    "name": "Must have",
+    "type": "ChoiceOptionReference"
+  },
+  "status": {
+    "id": 1,
+    "name": "New",
+    "type": "ChoiceOptionReference"
+  },
+  "categories": [
+    {
+      "id": 2,
+      "name": "Functional",
+      "type": "ChoiceOptionReference"
+    }
+  ],
+  "severities": [
+    {
+      "id": 2,
+      "name": "Standard",
+      "type": "ChoiceOptionReference"
+    }
+  ],
+  "teams": [],
+  "versions": [],
+  "ordinal": 4,
+  "typeName": "Requirement",
+  "comments": [],
+  "tags": []
+}

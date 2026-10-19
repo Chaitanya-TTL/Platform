@@ -16,6 +16,7 @@ type ExtractionResult = {
     sourceContext?: Record<string, unknown>;
     hierarchy?: { parentName?: string | null; childNames?: string[] };
     catalog?: Record<string, unknown>;
+    liveEnrichment?: Record<string, unknown>;
   };
   provenance?: Record<string, unknown>;
 };
@@ -92,7 +93,7 @@ export async function extractCodebeamerRequirement(result: NormalizedSearchResul
   const response = await fetch(`${API_BASE}/engineering/extractions`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ schemaVersion: "1.0", requestId, correlationId: requestId, source: "Codebeamer", candidate: candidate(result), requestedEvidence: ["requirement", "sourceContext", "hierarchy", "catalog"], organizationContext: null, timeoutPolicy: { timeoutMs: TIMEOUT_MS }, initiatedAt: new Date().toISOString() }),
+    body: JSON.stringify({ schemaVersion: "1.0", requestId, correlationId: requestId, source: "Codebeamer", candidate: candidate(result), requestedEvidence: ["requirement", "sourceContext", "hierarchy", "catalog", "liveEnrichment"], organizationContext: null, timeoutPolicy: { timeoutMs: TIMEOUT_MS }, initiatedAt: new Date().toISOString() }),
     signal,
   });
   if (!response.ok) throw new Error(`Codebeamer extraction could not start (${response.status}).`);
