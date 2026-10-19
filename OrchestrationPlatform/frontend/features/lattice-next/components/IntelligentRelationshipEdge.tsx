@@ -132,7 +132,7 @@ function EdgeView({
       importance: "normal",
       animation: "settled",
       authoritative: true,
-    } as LatticeFlowEdge["data"]);
+    } as NonNullable<LatticeFlowEdge["data"]>);
 
   const route = useMemo(
     () =>

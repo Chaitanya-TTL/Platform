@@ -1,5 +1,5 @@
 {
-  "requestedInput": "Stearing",
+  "requestedInput": "Steering",
   "resolutionMode": "fallback-exact-match",
   "dataSource": "fallback-snapshot",
   "fallback": {
@@ -12,7 +12,7 @@
   "material": {
     "materialId": "31",
     "internalMaterialId": "000000000000000031",
-    "description": "Stearing",
+    "description": "Steering",
     "plant": "1001",
     "storageLocation": "1D",
     "baseUnit": "EA"

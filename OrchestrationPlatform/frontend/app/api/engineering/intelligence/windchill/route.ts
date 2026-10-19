@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { legacyHandoffToIntelligence } from "@/features/lattice-next/engines/legacy-handoff-to-intelligence";
 import type { LatticeHandoff } from "@/features/lattice-next/contracts/handoff";
 import type {
@@ -233,7 +233,7 @@ export async function POST(request: NextRequest) {
         identityQuality: "deterministic-derived",
         assertion: "fact",
         properties: {
-          value: property(normalized.replace(/\t+/g, " • ")),
+          value: property(normalized.replace(/\t+/g, " Ã¢â‚¬Â¢ ")),
           rawValue: property(
             isRecord(value) ? (value.Value ?? value.value ?? value) : value,
           ),
@@ -308,6 +308,7 @@ export async function POST(request: NextRequest) {
           id: specId,
           kind: "requirement",
           displayName: specification.name,
+          identityQuality: "native",
           assertion: "fact",
           properties: {
             number: property(specification.number),
@@ -367,6 +368,7 @@ export async function POST(request: NextRequest) {
             id: requirementId,
             kind: "requirement",
             displayName: requirement.name,
+            identityQuality: "native",
             assertion: "fact",
             properties: {
               number: property(requirement.number),
@@ -412,6 +414,7 @@ export async function POST(request: NextRequest) {
           id,
           kind: "change-task",
           displayName: `${version.name ?? body.handoff.subjectLabel} ${version.display}`,
+          identityQuality: "native",
           assertion: "fact",
           properties: {
             revision: property(version.revision),
@@ -451,7 +454,8 @@ export async function POST(request: NextRequest) {
           id: noticeId,
           kind: "change-notice",
           displayName:
-            notice.name ?? notice.number ?? "Windchill change notice",
+          notice.name ?? notice.number ?? "Windchill change notice",
+          identityQuality: "native",
           assertion: "fact",
           properties: {
             number: property(notice.number),
@@ -489,6 +493,7 @@ export async function POST(request: NextRequest) {
             id: taskId,
             kind: "change-task",
             displayName: task.name ?? task.number ?? "Windchill change task",
+            identityQuality: "native",
             assertion: "fact",
             properties: {
               number: property(task.number),
@@ -590,5 +595,4 @@ export async function POST(request: NextRequest) {
     clearTimeout(timer);
   }
 }
-
 

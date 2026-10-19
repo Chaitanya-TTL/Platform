@@ -31,7 +31,7 @@ export const INTELLIGENCE_DOMAINS: readonly IntelligenceDomainDefinition[] = [
     id: "requirements",
     title: "Requirements",
     description: "Requirements and specifications",
-    entityKinds: ["requirement", "requirement-revision"],
+    entityKinds: ["requirement", "requirement-revision", "requirement-detail"],
     relationshipFamilies: ["requirement"],
     priority: 3,
     accent: "cyan",

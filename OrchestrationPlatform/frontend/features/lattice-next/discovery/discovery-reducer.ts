@@ -17,6 +17,7 @@ export type DiscoveryAction =
   | { type: "query"; value: string }
   | { type: "snapshot"; value: FederatedSearchSnapshot | null }
   | { type: "select"; result: NormalizedSearchResult }
+  | { type: "select-many"; resultIds: string[]; mode: "replace" | "add" | "clear" }
   | { type: "toggle-source"; source: import("./contracts").LatticeSource }
   | { type: "correspondences"; value: CorrespondenceCandidate[] }
   | { type: "review"; id: string; state: "accepted" | "rejected" }
@@ -84,6 +85,13 @@ export function discoveryReducer(
           next.has(action.result.resultId) ? "selected" : "removed"
         }.`,
       };
+    }
+
+    case "select-many": {
+      if (action.mode === "clear") return { ...state, selectedResultIds: new Set(), announcement: "Selection cleared." };
+      const selectedResultIds = action.mode === "replace" ? new Set<string>() : new Set(state.selectedResultIds);
+      action.resultIds.forEach((id) => selectedResultIds.add(id));
+      return { ...state, selectedResultIds, announcement: `${action.resultIds.length} requirement${action.resultIds.length === 1 ? "" : "s"} selected.` };
     }
 
     case "correspondences":

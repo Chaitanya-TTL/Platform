@@ -6,10 +6,10 @@ import {
 } from "../../../lib/windchill-requirements";
 describe("Windchill requirements platform helpers", () => {
   it("selects deterministic query modes", () => {
-    expect(windchillRequirementQuery("Stearing")).toEqual({
+    expect(windchillRequirementQuery("Steering")).toEqual({
       type: "part-name",
       parameter: "partName",
-      value: "Stearing",
+      value: "Steering",
     });
     expect(windchillRequirementQuery("0000003865").type).toBe("part-number");
     expect(

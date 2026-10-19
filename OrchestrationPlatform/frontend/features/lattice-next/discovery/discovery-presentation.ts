@@ -10,7 +10,7 @@ export type DiscoveryPresentation = {
   tone: "idle" | "active" | "success" | "muted" | "warning";
 };
 
-const sourceNoun: Record<LatticeSource,string> = { teamcenter:"Teamcenter record", windchill:"Windchill part", sap:"SAP material", configit:"Configit package" };
+const sourceNoun: Record<LatticeSource,string> = { teamcenter:"Teamcenter record", windchill:"Windchill part", sap:"SAP material", configit:"Configit package", codebeamer:"Codebeamer requirement" };
 
 export function presentOutcome(source:LatticeSource,outcome:SourceSearchOutcome|null,query:string):DiscoveryPresentation{
   if(outcome?.status==="not-requested") return {label:"Not included",title:SOURCE_LABELS[source],message:"This application was not included in the current search.",tone:"muted"};
@@ -35,7 +35,7 @@ export function presentMatch(category:MatchCategory){
 }
 
 export function cleanInvestigationLabel(value:string){
-  const parts=value.split(/\s*[+|Â·]\s*/).map(item=>item.trim()).filter(Boolean);
+  const parts=value.split(/\s*[+|Ã‚Â·]\s*/).map(item=>item.trim()).filter(Boolean);
   const unique=[...new Set(parts)];
   if(unique.length) return unique[0];
   const half=value.slice(0,Math.floor(value.length/2));

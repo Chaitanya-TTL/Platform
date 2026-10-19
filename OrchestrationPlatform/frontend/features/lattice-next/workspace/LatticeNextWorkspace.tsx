@@ -8,6 +8,7 @@ import {
   useReducedMotion,
 } from "motion/react";
 import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
+import { toast } from "sonner";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -24,6 +25,10 @@ import { investigateWindchill } from "../infrastructure/windchill-intelligence-c
 import { investigateSap } from "../infrastructure/sap-intelligence-client";
 import { investigateConfigit } from "../infrastructure/configit-intelligence-client";
 import { mergeSourceIntelligence } from "../infrastructure/merge-source-intelligence";
+import { createCurrentInvestigationRuntime } from "../kernel/infrastructure/current-investigation-runtime";
+import { HttpInvestigationAuthority } from "../kernel/infrastructure/http-investigation-authority";
+import { asInvestigationId } from "../kernel/contracts/investigation-identity";
+import { isEngineeringIntelligenceInvestigationV1 } from "../contracts/intelligence-v1";
 import type { EngineeringIntelligenceInvestigationV1 } from "../contracts/intelligence-v1";
 import { createInvestigationGraphCore } from "../engines/investigation-graph";
 import { projectVisibleGraph } from "../engines/project-visible-graph";
@@ -76,6 +81,43 @@ export function LatticeNextWorkspace() {
   const [directCanonical, setDirectCanonical] =
     useState<EngineeringIntelligenceInvestigationV1 | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [serverRestored, setServerRestored] = useState<{ handoff: LatticeHandoff; canonical: EngineeringIntelligenceInvestigationV1 } | null>(null);
+  const [serverRestorePending, setServerRestorePending] = useState(Boolean(investigationId));
+  useEffect(() => {
+    if (!investigationId || direct) { setServerRestorePending(false); return; }
+    let active = true;
+    const authority = new HttpInvestigationAuthority();
+    void authority.load(asInvestigationId(investigationId)).then((snapshot) => {
+      if (!active) return;
+      const canonical = snapshot?.canonical?.value;
+      if (!snapshot || !isEngineeringIntelligenceInvestigationV1(canonical)) {
+        setServerRestorePending(false);
+        return;
+      }
+      const createdAt = snapshot.createdAt;
+      setServerRestored({
+        canonical,
+        handoff: {
+          version: 2,
+          handoffId: String(snapshot.identity.investigationId),
+          createdAt,
+          expiresAt: new Date(Date.parse(createdAt) + 365 * 24 * 60 * 60 * 1000).toISOString(),
+          subjectLabel: snapshot.subjectLabel,
+          sources: snapshot.selections.map((selection) => ({
+            source: selection.source as LatticeSourceEnvelope["source"],
+            label: selection.source,
+            nativeId: selection.nativeId,
+            completeness: snapshot.completeness.failedSources.includes(selection.source) ? "partial" : "complete",
+            root: { id: `${selection.source}:${selection.nativeId}`, name: selection.displayName, attributes: { "Item ID": selection.nativeId }, children: [] },
+          })),
+        },
+      });
+      setServerRestorePending(false);
+    }).catch((error) => {
+      if (active) { setMessage(error instanceof Error ? error.message : "The durable investigation could not be restored."); setServerRestorePending(false); }
+    });
+    return () => { active = false; };
+  }, [investigationId, direct]);
 
   const [handoff] = useState<HandoffReadResult | null>(() =>
     handoffId ? readHandoff(handoffId) : null,
@@ -102,6 +144,12 @@ export function LatticeNextWorkspace() {
     );
   }
 
+  if (serverRestored) {
+    return <Investigation handoffId={serverRestored.handoff.handoffId} handoff={serverRestored.handoff} canonical={serverRestored.canonical} onStartNew={startNewInvestigation} />;
+  }
+  if (serverRestorePending) {
+    return <main className="flex min-h-[calc(100vh-64px)] items-center justify-center bg-slate-950 text-sm text-slate-400">Restoring durable investigation...</main>;
+  }
   if (handoffId) {
     return handoff?.ok ? (
       <Investigation
@@ -122,126 +170,32 @@ export function LatticeNextWorkspace() {
 
   return (
     <>
-      {message ? (
-        <div className="fixed left-1/2 top-20 z-50 -translate-x-1/2 rounded-lg border border-amber-500/30 bg-slate-950 px-4 py-2 text-sm text-amber-200">
-          {message}
-        </div>
-      ) : null}
-
       <DiscoveryWorkspace
-        onInvestigate={async (selected) => {
-          const controller = new AbortController();
-          const sources: LatticeSourceEnvelope[] = [];
-
-          for (const result of selected) {
-            const resolved = await resolveSelectedStructure(
-              result,
-              controller.signal,
-            );
-
-            if (resolved.warning) {
-              setMessage(resolved.warning);
-            }
-
-            sources.push({
-              source: result.source,
-              label: result.source,
-              root: resolved.root,
-              nativeId: result.nativeId,
-              jobId: resolved.jobId,
-              capturedAt: new Date().toISOString(),
-              completeness: resolved.warning ? "partial" : "complete",
-              intelligencePayload: resolved.intelligencePayload,
-            });
-          }
-
-          const next: LatticeHandoff = {
-            version: 2,
-            handoffId: `direct-${crypto.randomUUID()}`,
-            subjectLabel:
-              selected[0]?.displayName ?? "Engineering investigation",
-            createdAt: new Date().toISOString(),
-            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-            sources,
-          };
-
-          const graph = buildInvestigation(next);
-          const snapshot = {
-            request: {
-              requestId: next.handoffId,
-              query: selected[0]?.displayName ?? "",
-              normalizedQuery: "",
-              queryIntent: "unknown" as const,
-              requestedSources: selected.map((item) => item.source),
-              resultLimitPerSource: 10,
-              startedAt: next.createdAt,
-              timeoutMs: 30_000,
-            },
-            outcomes: {} as never,
-            active: false,
-            completedAt: new Date().toISOString(),
-          };
-
-          saveCanonicalInvestigation(
-            createDirectInvestigation({
-              selected,
-              correspondences: buildCorrespondenceCandidates(selected),
-              snapshot,
-              graph,
-            }),
-          );
-
+        onInvestigate={async (selected, subjectLabel) => {
+          const runtime = createCurrentInvestigationRuntime();
+          const toastId = toast.loading("Creating engineering investigation", { description: "Preparing selected source evidence and opening the governed investigation workflow." });
           try {
-            const sourceTasks = [];
-            if (next.sources.some((item) => item.source === "windchill"))
-              sourceTasks.push(
-                investigateWindchill(
-                  {
-                    ...next,
-                    sources: next.sources.filter(
-                      (item) => item.source === "windchill",
-                    ),
-                  },
-                  controller.signal,
-                ),
-              );
-            if (next.sources.some((item) => item.source === "sap"))
-              sourceTasks.push(
-                investigateSap(
-                  {
-                    ...next,
-                    sources: next.sources.filter(
-                      (item) => item.source === "sap",
-                    ),
-                  },
-                  controller.signal,
-                ),
-              );
-            if (next.sources.some((item) => item.source === "configit"))
-              sourceTasks.push(
-                investigateConfigit(
-                  {
-                    ...next,
-                    sources: next.sources.filter(
-                      (item) => item.source === "configit",
-                    ),
-                  },
-                  controller.signal,
-                ),
-              );
-            const canonical = mergeSourceIntelligence(
-              await Promise.all(sourceTasks),
+            const result = await runtime.investigate(
+              selected,
+              subjectLabel || selected[0]?.displayName || "Engineering investigation",
             );
-            setDirectCanonical(canonical);
-          } catch (error) {
-            setMessage(
-              error instanceof Error
-                ? `${error.message} Showing structure-only compatibility view.`
-                : "Source intelligence unavailable. Showing structure-only compatibility view.",
-            );
-            setDirectCanonical(null);
+            buildIntelligenceInvestigation(result.canonical);
+            setDirectCanonical(result.canonical);
+            setDirect(result.handoff);
+            router.replace(`/lattice?investigation=${encodeURIComponent(String(result.snapshot.identity.investigationId))}`);
+            toast.success("Investigation ready", { id: toastId, description: "Canonical evidence passed validation and the investigation workspace is opening." });
+            if (result.snapshot.lifecycle === "partial" || result.snapshot.completeness.overall === "partial") {
+              const limitation = result.snapshot.completeness.limitations.join(" | ") || "The investigation completed with partial source evidence.";
+              setMessage(limitation);
+              toast.warning("Investigation opened with partial evidence", { description: limitation });
+            }
+          } catch (cause) {
+            const technicalDetail = cause instanceof Error ? cause.message : "The Investigation Kernel could not complete the investigation.";
+            const detail = /[A-Z]:\\|EPERM|EBUSY|EACCES/i.test(technicalDetail) ? "Investigation persistence is temporarily unavailable. Retry after the file lock clears." : technicalDetail;
+            console.error("Lattice investigation failure", cause);
+            setMessage(detail);
+            toast.error("Investigation could not be created", { id: toastId, description: detail });
           }
-          setDirect(next);
         }}
       />
     </>
@@ -285,7 +239,13 @@ function Investigation({
   const domain = useMemo(
     () =>
       canonical
-        ? buildIntelligenceInvestigation(canonical)
+        ? buildIntelligenceInvestigation({
+            ...canonical,
+            subject: {
+              ...canonical.subject,
+              displayName: handoff.subjectLabel || canonical.subject.displayName,
+            },
+          })
         : buildInvestigation(handoff),
     [canonical, handoff],
   );

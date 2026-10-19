@@ -1,0 +1,65 @@
+﻿{
+  "id": 1191,
+  "name": "SR-002 Steering Dimensions",
+  "description": "The Steering component shall conform to dimensions\r\n\r\n20 x 30 x 40.",
+  "descriptionFormat": "Wiki",
+  "createdAt": "2026-10-08T12:43:06.572",
+  "createdBy": {
+    "id": 1,
+    "name": "cbadmin",
+    "type": "UserReference",
+    "email": "mothikari.krishna@tatatechnologies.com"
+  },
+  "modifiedAt": "2026-10-08T12:58:18.447",
+  "modifiedBy": {
+    "id": 1,
+    "name": "cbadmin",
+    "type": "UserReference",
+    "email": "mothikari.krishna@tatatechnologies.com"
+  },
+  "version": 2,
+  "assignedTo": [],
+  "parent": {
+    "id": 1187,
+    "name": "Steering System Requirements",
+    "type": "TrackerItemReference",
+    "testStepReuse": false
+  },
+  "tracker": {
+    "id": 9734,
+    "name": "Customer Requirement Specifications",
+    "type": "TrackerReference"
+  },
+  "children": [],
+  "customFields": [],
+  "priority": {
+    "id": 1,
+    "name": "Must have",
+    "type": "ChoiceOptionReference"
+  },
+  "status": {
+    "id": 1,
+    "name": "New",
+    "type": "ChoiceOptionReference"
+  },
+  "categories": [
+    {
+      "id": 4,
+      "name": "Constraint",
+      "type": "ChoiceOptionReference"
+    }
+  ],
+  "severities": [
+    {
+      "id": 1,
+      "name": "Simple",
+      "type": "ChoiceOptionReference"
+    }
+  ],
+  "teams": [],
+  "versions": [],
+  "ordinal": 3,
+  "typeName": "Requirement",
+  "comments": [],
+  "tags": []
+}

@@ -30,6 +30,9 @@ builder.Services.AddSingleton<Orchestration.API.Engineering.Adapters.IEngineerin
 builder.Services.AddSingleton<Orchestration.API.Engineering.Adapters.IEngineeringSourceAdapter,Orchestration.API.Engineering.Adapters.Windchill.WindchillEngineeringAdapter>();
 builder.Services.AddSingleton<Orchestration.API.Engineering.Adapters.IEngineeringSourceAdapter,Orchestration.API.Engineering.Adapters.Sap.SapEngineeringAdapter>();
 builder.Services.AddSingleton<Orchestration.API.Engineering.Adapters.IEngineeringSourceAdapter,Orchestration.API.Engineering.Adapters.Configit.ConfigitEngineeringAdapter>();
+builder.Services.Configure<Orchestration.API.Engineering.Adapters.Codebeamer.CodebeamerOptions>(builder.Configuration.GetSection("Engineering:Codebeamer"));
+builder.Services.AddSingleton<Orchestration.API.Engineering.Adapters.Codebeamer.ICodebeamerCliClient,Orchestration.API.Engineering.Adapters.Codebeamer.CodebeamerCliClient>();
+builder.Services.AddSingleton<Orchestration.API.Engineering.Adapters.IEngineeringSourceAdapter,Orchestration.API.Engineering.Adapters.Codebeamer.CodebeamerEngineeringAdapter>();
 builder.Services.AddSingleton<Orchestration.API.Engineering.Adapters.IEngineeringAdapterRegistry,Orchestration.API.Engineering.Adapters.EngineeringAdapterRegistry>();
 builder.Services.AddSingleton<Orchestration.API.Engineering.Services.IEngineeringExecutionService,Orchestration.API.Engineering.Services.EngineeringExecutionService>();
 builder.Services.AddSingleton<Orchestration.API.Engineering.Federation.IFederatedDiscoveryJobStore,Orchestration.API.Engineering.Federation.FederatedDiscoveryJobStore>();

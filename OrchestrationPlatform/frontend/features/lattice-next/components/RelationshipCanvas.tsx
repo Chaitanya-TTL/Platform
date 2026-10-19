@@ -224,7 +224,7 @@ function RelationshipCanvasInner({ projection, orientation, pinnedPositions, vie
 
   return (
     <MotionConfig reducedMotion="user" transition={{ type: "spring", stiffness: 280, damping: 30, mass: 0.8 }}>
-    <div ref={(node) => { canvasRef.current = node; motionScope.current = node; }} className="lattice-flow h-full" onClick={(event) => {
+    <div ref={canvasRef} className="lattice-flow h-full" onClick={(event) => {
       const target = event.target as HTMLElement;
       const edgeActionElement=target.closest<HTMLElement>("[data-edge-action]");
       if(edgeActionElement?.dataset.edgeAction&&edgeActionElement.dataset.edgeId){

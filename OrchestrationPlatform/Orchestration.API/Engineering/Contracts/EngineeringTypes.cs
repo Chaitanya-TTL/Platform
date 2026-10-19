@@ -1,6 +1,6 @@
 namespace Orchestration.API.Engineering.Contracts;
 public static class EngineeringContractVersions { public const string V1 = "1.0"; }
-public enum EngineeringSource { Teamcenter, Windchill, Sap, Configit }
+public enum EngineeringSource { Teamcenter, Windchill, Sap, Configit, Codebeamer }
 public enum IdentifierType { Auto, ProductId, ItemId, PartNumber, MaterialNumber, ProductName, NativeId }
 public enum SourceReadiness { Ready, Degraded, Unavailable, AuthenticationRequired, CapabilityLimited, Unknown }
 public enum DiscoveryMode { ExactId, Name, Number, MaterialCatalog, ProductId, ContextualHandoff, Unsupported }

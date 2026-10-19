@@ -27,7 +27,10 @@ import {
 export function DiscoveryWorkspace({
   onInvestigate,
 }: {
-  onInvestigate: (results: NormalizedSearchResult[]) => Promise<void>;
+  onInvestigate: (
+    results: NormalizedSearchResult[],
+    subjectLabel: string,
+  ) => Promise<void>;
 }) {
   const orchestrator = useMemo(() => new FederatedSearchOrchestrator(), []),
     [state, dispatch] = useReducer(discoveryReducer, initialDiscoveryState),
@@ -51,6 +54,12 @@ export function DiscoveryWorkspace({
   const selected = results.filter((item) =>
     state.selectedResultIds.has(item.resultId),
   );
+  const codebeamerResults = results.filter((item) => item.source === "codebeamer");
+  const directCodebeamerResults = codebeamerResults.filter((item) => String(item.sourceMetadata.classification ?? "").toLowerCase() === "direct");
+  const selectCodebeamerSet = (scope: "direct" | "all" | "clear") => {
+    const chosen = scope === "direct" ? directCodebeamerResults : scope === "all" ? codebeamerResults : [];
+    dispatch({ type: "select-many", resultIds: chosen.map((item) => item.resultId), mode: scope === "clear" ? "clear" : "replace" });
+  };
   const submit = async () => {
     if (state.query.trim() && state.selectedSources.size) await orchestrator.search(state.query, [...state.selectedSources]);
   };
@@ -65,8 +74,7 @@ export function DiscoveryWorkspace({
             Find an engineering product
           </h1>
           <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-slate-400">
-            Search by product name, item ID, material ID, part number, or
-            Configit package path.
+            Search by product or part name, engineering identifier, material ID, or Configit package path. Codebeamer returns matching requirements and hierarchy context.
           </p>
           <form
             className="mt-7 flex rounded-2xl border border-slate-700 bg-slate-950/90 p-2 shadow-[0_20px_60px_-35px_rgba(34,211,238,.55)] focus-within:border-cyan-500"
@@ -119,6 +127,17 @@ export function DiscoveryWorkspace({
             />
           ))}
         </div>
+        {state.snapshot && !state.snapshot.active && codebeamerResults.length ? (
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-sky-500/20 bg-sky-500/[0.05] px-4 py-3">
+            <div><p className="text-sm font-semibold text-slate-100">Codebeamer requirement set</p><p className="mt-1 text-xs text-slate-400">{codebeamerResults.length} candidates found for “{state.query}” · {directCodebeamerResults.length} direct or verified</p></div>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={() => selectCodebeamerSet("direct")} disabled={!directCodebeamerResults.length} className="rounded-lg border border-cyan-500/40 bg-cyan-500/10 px-3 py-2 text-xs font-semibold text-cyan-200 disabled:opacity-40">Select direct matches</button>
+              <button type="button" onClick={() => selectCodebeamerSet("all")} className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-semibold text-slate-200">Select all Codebeamer</button>
+              <button type="button" onClick={() => selectCodebeamerSet("clear")} disabled={!selected.length} className="rounded-lg border border-slate-800 px-3 py-2 text-xs font-medium text-slate-400 disabled:opacity-40">Clear</button>
+            </div>
+          </div>
+        ) : null}
+
         {state.snapshot && !state.snapshot.active ? (
           <section className="mt-5 rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
             <div className="flex flex-wrap items-center justify-between gap-4">
@@ -138,7 +157,10 @@ export function DiscoveryWorkspace({
                 onClick={async () => {
                   setStarting(true);
                   try {
-                    await onInvestigate(selected);
+                    await onInvestigate(
+                      selected,
+                      cleanInvestigationLabel(state.query),
+                    );
                   } finally {
                     setStarting(false);
                   }
@@ -159,11 +181,11 @@ export function DiscoveryWorkspace({
                     className="rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-2"
                   >
                     <p className="text-xs font-semibold text-slate-200">
-                      {SOURCE_LABELS[item.source]} Ã‚Â· {item.displayName}
+                      {SOURCE_LABELS[item.source]}  {item.displayName}
                     </p>
                     <p className="mt-1 truncate text-[11px] text-slate-500">
                       {item.nativeId}
-                      {item.revision ? ` Ã‚Â· Revision ${item.revision}` : ""}
+                      {item.revision ? `  Revision ${item.revision}` : ""}
                     </p>
                   </div>
                 ))}
@@ -316,11 +338,11 @@ function friendlyReference(
   source: LatticeSource,
   result: NormalizedSearchResult,
 ) {
-  const revision = result.revision ? ` Ã‚Â· Revision ${result.revision}` : "";
+  const revision = result.revision ? `  Revision ${result.revision}` : "";
   if (source === "windchill")
     return `Part ${result.nativeId.replace(/^OR:wt\.part\.WTPart:/, "")}${revision}`;
   if (source === "sap") return `Material ${result.nativeId}${revision}`;
   if (source === "configit")
-    return `Product ${result.nativeId}${result.version ? ` Ã‚Â· Package version ${result.version}` : ""}`;
+    return `Product ${result.nativeId}${result.version ? `  Package version ${result.version}` : ""}`;
   return `Item ${result.nativeId}${revision}`;
 }

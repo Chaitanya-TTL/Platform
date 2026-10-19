@@ -8,7 +8,7 @@ import GrammarBasedParserR
 
 # Replace with your actual URL and headers
 BASE_URL ="https://ttl.demo.configit.cloud:8080/api/v1/wi/"
-API_KEY = os.environ.get("CONFIGIT_API_KEY", "")
+API_KEY = os.environ.get("CONFIGIT_API_KEY", "MGYyODcxMTUwYTg4NDQ3N2ExYmJmZDJhNzJmOTIxNGJfZmUxMjRiMDQzNmY3NGM5MDliNTYxMDBkMzgxZDBjZjA=")
 
 
 # Headers for the API requests;
