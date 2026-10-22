@@ -104,6 +104,15 @@ class WindchillClient:
             )
         return records[0]
 
+    def get_csrf_nonce_status(self) -> dict[str, Any]:
+        payload = self._get_json("/servlet/odata/PTC/GetCSRFToken()")
+        nonce_key = payload.get("NonceKey")
+        nonce_value = payload.get("NonceValue")
+        if nonce_key != "CSRF_NONCE" or not nonce_value:
+            raise WindchillClientError("Windchill did not return a valid CSRF nonce")
+        # Deliberately do not return the token value to callers or logs.
+        return {"nonce_key": nonce_key, "nonce_present": True}
+
     def get_change_task_by_oid(self, oid: str) -> dict[str, Any] | None:
         escaped_oid = oid.replace("'", "''")
         try:
