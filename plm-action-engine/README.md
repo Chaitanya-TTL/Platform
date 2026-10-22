@@ -1,48 +1,42 @@
 # PLM Action Engine
 
-A generic governed enterprise action service for Windchill, SAP, Configit, and Codebeamer.
+## Version 0.4
 
-## Version 0.2 milestone
+Version 0.4 remains strictly `PLAN_ONLY`.
 
-The engine is generic and currently supports `PLAN_ONLY`. It cannot write to an enterprise application.
+It supports:
 
-Registered proof-of-concept tools:
+- Governed enterprise tool registry
+- Read-only Windchill target resolution
+- Exact before/after previews
+- Deterministic SHA-256 plan hashes
+- Approval records bound to an exact preview hash
+- Approval expiry and validation
+- Rejection of stale or modified approval requests
 
-- `windchill.update_change_task_description`
-- `windchill.add_bom_component`
-- `codebeamer.create_requirement`
+It does not perform enterprise writes, reservations, PATCH requests, state transitions, or BOM modifications.
 
-The core flow is:
+## Flow
 
 ```text
 Action request
-→ registered typed tool
-→ structured plan
-→ policy validation
-→ future approval
-→ future execution
-→ future read-back verification
-→ future audit
+→ Windchill read
+→ exact preview
+→ immutable plan hash
+→ approval for exact hash
+→ approval validation
+→ future execution layer
 ```
 
-## Run
-
-```powershell
-cd plm-action-engine
-.\.venv\Scripts\Activate.ps1
-python -m pip install -e ".[dev]"
-python -m pytest
-python -m uvicorn plm_action_engine.api.app:app --app-dir src --reload --port 8090
-```
-
-Open `http://127.0.0.1:8090/docs`.
-
-Endpoints:
+## Endpoints
 
 - `GET /health`
 - `GET /v1/tools`
 - `POST /v1/action-plans`
+- `POST /v1/action-previews`
+- `POST /v1/approvals`
+- `GET /v1/approvals/validate`
 
-## Safety boundary
+## Important limitation
 
-The LLM or client may select only registered tools and submit their typed parameters. Arbitrary URLs, HTTP methods, JCo calls, and enterprise payloads are not accepted. Version 0.2 produces plans only.
+Preview and approval repositories are in memory in v0.4. Restarting the API clears them. Persistent audit storage will be added before write execution.

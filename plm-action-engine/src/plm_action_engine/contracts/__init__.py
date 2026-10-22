@@ -9,6 +9,13 @@ from .action_plan import (
     RiskLevel,
     TargetReference,
 )
+from .approval import (
+    ApprovalRecord,
+    ApprovalRequest,
+    ApprovalStatus,
+    ApprovalValidation,
+)
+from .target_state import ActionPreview, PreconditionResult, ResolvedTargetState
 
 __all__ = [
     "ActionKind",
@@ -20,4 +27,11 @@ __all__ = [
     "EnterpriseSystem",
     "RiskLevel",
     "TargetReference",
+    "ApprovalRecord",
+    "ApprovalRequest",
+    "ApprovalStatus",
+    "ApprovalValidation",
+    "ActionPreview",
+    "PreconditionResult",
+    "ResolvedTargetState",
 ]
