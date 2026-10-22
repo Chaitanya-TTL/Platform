@@ -1,0 +1,3 @@
+import type {IntelligenceEntity} from "../../contracts/intelligence-v1";import type {AttributeAdapter,VerifiedAttributePath} from "../contracts/application-attribute";import {readVerified} from "./common";
+const allowed=new Set<VerifiedAttributePath>(["provenance.nativeId","properties.preferredProductId","properties.workItemId","properties.productModelCode"]);
+export const configitAttributeAdapter:AttributeAdapter={application:"configit",supports:e=>e.provenance.source==="configit"&&["source-representation","product-context","configuration-family"].includes(e.kind),read:(e,p)=>allowed.has(p)?readVerified(e,"configit",p==="properties.productModelCode"?"ProductModel":"AuthoringWorkItem",p):undefined};

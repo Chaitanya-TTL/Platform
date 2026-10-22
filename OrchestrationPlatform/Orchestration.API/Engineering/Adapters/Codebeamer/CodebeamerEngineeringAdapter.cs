@@ -49,8 +49,22 @@ public sealed class CodebeamerEngineeringAdapter : IEngineeringSourceAdapter
             if (match is null) return Failure(jobId, request, started, capability, "CODEBEAMER_REQUIREMENT_NOT_FOUND", "The selected Codebeamer requirement is not present in the verified local catalog.", false, StandardStatus.Empty);
 
             progress.Report(Progress(jobId, JobState.Enriching, 55, "Retrieving live Codebeamer item, relation, and attachment evidence."));
-            var enrichment = await client.EnrichAsync(match.ItemId, token);
-            progress.Report(Progress(jobId, JobState.Enriching, 75, "Mapping catalog and live Codebeamer evidence without overwriting either observation."));
+            CodebeamerEnrichmentDto? enrichment = null;
+            Exception? enrichmentFailure = null;
+            try
+            {
+                enrichment = await client.EnrichAsync(match.ItemId, token);
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex)
+            {
+                // Discovery and selected-item resolution use the verified local catalog. Live
+                // enrichment is additive and must not erase that independently valid evidence.
+                enrichmentFailure = ex;
+            }
+            progress.Report(Progress(jobId, JobState.Enriching, 75, enrichment is null
+                ? "Mapping verified catalog evidence; live Codebeamer enrichment is unavailable."
+                : "Mapping catalog and live Codebeamer evidence without overwriting either observation."));
             var candidate = Candidate(match, response);
             var evidence = new Dictionary<string, object?>
             {
@@ -75,29 +89,46 @@ public sealed class CodebeamerEngineeringAdapter : IEngineeringSourceAdapter
                     ["revision"] = response.CatalogRevision, ["status"] = response.CatalogStatus,
                     ["synchronizedAt"] = response.CatalogSynchronizedAt, ["requirementCount"] = response.CatalogRequirementCount
                 },
-                ["liveEnrichment"] = new Dictionary<string, object?>
-                {
-                    ["contractVersion"] = enrichment.ContractVersion,
-                    ["status"] = enrichment.Status,
-                    ["retrievedAt"] = enrichment.RetrievedAt,
-                    ["item"] = Section(enrichment.Item),
-                    ["relations"] = Section(enrichment.Relations),
-                    ["attachments"] = Section(enrichment.Attachments),
-                    ["failures"] = enrichment.Failures
-                }
+                ["liveEnrichment"] = enrichment is not null
+                    ? new Dictionary<string, object?>
+                    {
+                        ["contractVersion"] = enrichment.ContractVersion,
+                        ["status"] = enrichment.Status,
+                        ["retrievedAt"] = enrichment.RetrievedAt,
+                        ["item"] = Section(enrichment.Item),
+                        ["relations"] = Section(enrichment.Relations),
+                        ["attachments"] = Section(enrichment.Attachments),
+                        ["failures"] = enrichment.Failures
+                    }
+                    : new Dictionary<string, object?>
+                    {
+                        ["contractVersion"] = "2.0",
+                        ["status"] = "partial-success",
+                        ["retrievedAt"] = DateTimeOffset.UtcNow,
+                        ["item"] = UnavailableSection("item", enrichmentFailure),
+                        ["relations"] = UnavailableSection("relations", enrichmentFailure),
+                        ["attachments"] = UnavailableSection("attachments", enrichmentFailure),
+                        ["failures"] = new[] { EnrichmentFailure("live-enrichment", enrichmentFailure) }
+                    }
             };
-            var partial = string.Equals(enrichment.Status, "partial-success", StringComparison.OrdinalIgnoreCase);
+            var partial = enrichmentFailure is not null || string.Equals(enrichment?.Status, "partial-success", StringComparison.OrdinalIgnoreCase);
             var finalStatus = partial ? StandardStatus.PartialSuccess : StandardStatus.Success;
-            var warnings = enrichment.Failures.Select(f => new StructuredWarning(
+            var warnings = (enrichment?.Failures ?? Array.Empty<CodebeamerEnrichmentFailureDto>()).Select(f => new StructuredWarning(
                 "CODEBEAMER_ENRICHMENT_SECTION_FAILED", Source, EngineeringStage.Enrichment,
                 $"{f.Stage}: {f.Message}", DateTimeOffset.UtcNow,
                 new Dictionary<string,string> { ["classification"] = f.Classification, ["retryable"] = f.Retryable.ToString() })).ToList();
+            if (enrichmentFailure is not null)
+                warnings.Add(new StructuredWarning(
+                    "CODEBEAMER_LIVE_ENRICHMENT_UNAVAILABLE", Source, EngineeringStage.Enrichment,
+                    "The selected requirement was resolved from the verified local catalog, but live Codebeamer enrichment was unavailable.",
+                    DateTimeOffset.UtcNow,
+                    new Dictionary<string,string> { ["catalogEvidencePreserved"] = "true", ["retryable"] = "true" }));
             var completed = DateTimeOffset.UtcNow;
             var finalProgress = Progress(jobId, partial ? JobState.PartialSuccess : JobState.Success, 100, partial ? "Codebeamer extraction completed with partial live enrichment." : "Codebeamer catalog and live enrichment completed.");
             progress.Report(finalProgress);
             return new(EngineeringContractVersions.V1, request.RequestId, request.CorrelationId, jobId, Source, finalStatus,
                 new(finalStatus, candidate, match.CanonicalId, warnings, []), capability, null, [], evidence, warnings, [], finalProgress, [],
-                new(ProvenanceKind.LiveSource, "codebeamer_extractor", enrichment.RetrievedAt, match.CanonicalId),
+                new(enrichment is null ? ProvenanceKind.CachedSourceResult : ProvenanceKind.LiveSource, "codebeamer_extractor", enrichment?.RetrievedAt ?? completed, match.CanonicalId),
                 [new(EngineeringStage.Resolution, EvidenceAvailability.Available, StandardStatus.Success, "The selected Codebeamer requirement was resolved from the verified catalog."), new(EngineeringStage.Enrichment, partial ? EvidenceAvailability.Partial : EvidenceAvailability.Available, finalStatus, partial ? "Live Codebeamer item evidence was accepted with optional-section limitations." : "Live Codebeamer item, relation, and attachment evidence were accepted.")],
                 started, completed, (long)(completed - started).TotalMilliseconds);
         }
@@ -129,6 +160,24 @@ public sealed class CodebeamerEngineeringAdapter : IEngineeringSourceAdapter
         ["data"] = section.Data,
         ["failures"] = section.Failures
     };
+    private static IReadOnlyDictionary<string, object?> UnavailableSection(string stage, Exception? failure) => new Dictionary<string, object?>
+    {
+        ["status"] = "failed",
+        ["retrievedAt"] = DateTimeOffset.UtcNow,
+        ["count"] = 0,
+        ["data"] = null,
+        ["failures"] = new[] { EnrichmentFailure(stage, failure) }
+    };
+    private static CodebeamerEnrichmentFailureDto EnrichmentFailure(string stage, Exception? failure) => new(
+        stage,
+        "live-enrichment-unavailable",
+        failure is null ? "Live Codebeamer enrichment was unavailable." : SafeFailureMessage(failure.Message),
+        true);
+    private static string SafeFailureMessage(string value)
+    {
+        var compact = value.Replace("\r", " ").Replace("\n", " ").Trim();
+        return compact.Length > 500 ? compact[..500] : compact;
+    }
 
     private static StandardExtractionResult Failure(string id, EngineeringExtractionRequest request, DateTimeOffset started, SourceCapability capability, string code, string message, bool retryable, StandardStatus status = StandardStatus.Failed)
     {

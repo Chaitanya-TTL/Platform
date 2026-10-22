@@ -1,0 +1,4 @@
+import type {ApplicationAttributeValue} from "./application-attribute";import type {GovernedMappingRecord,ValidatedRelationshipType} from "./governed-mapping";
+export type RelationshipHandshakeEvidence={evidenceId:string;mappingId:string;mappingVersion:string;mappingBasis:GovernedMappingRecord["verification"]["basis"];mappingReference:string;verifiedBy:string;verifiedAt:string;source:ApplicationAttributeValue;target:ApplicationAttributeValue;scope:GovernedMappingRecord["scope"];evaluatedAt:string};
+export type ValidatedPLMRelationship={id:string;type:ValidatedRelationshipType;sourceEntityId:string;targetEntityId:string;status:"confirmed";strength:"strong";mappingId:string;evidenceId:string;evaluatedAt:string};
+export type PLMBrainSnapshot={schemaVersion:"1.0";investigationId:string;relationships:ValidatedPLMRelationship[];evidence:RelationshipHandshakeEvidence[];validation:{status:"valid"|"partial";warnings:string[]};generatedAt:string};

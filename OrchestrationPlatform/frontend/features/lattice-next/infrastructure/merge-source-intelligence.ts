@@ -1,5 +1,5 @@
 import type { EngineeringIntelligenceInvestigationV1, IntelligenceEntity, IntelligenceRelationship } from "../contracts/intelligence-v1";
-import { resolveCrossSourceRelationships } from "./resolve-cross-source-relationships";
+import { enrichInvestigationWithValidatedRelationships } from "../plm-brain/enrichment/enrich-investigation-with-validated-relationships";
 const dedupe=<T extends{id:string}>(items:T[])=>[...new Map(items.map(item=>[item.id,item])).values()];
 const stableKey=(values:readonly string[]):string=>[...new Set(values)].sort().join("|").replace(/[^a-zA-Z0-9:_-]+/g,"-").slice(0,180);
 const comparableId=(value:string)=>value.toLowerCase().replace(/[^a-z0-9]/g,"");
@@ -22,7 +22,5 @@ export function mergeSourceIntelligence(parts: EngineeringIntelligenceInvestigat
  const federationProvenance={...base.subject.provenance,nativeId:undefined,artifactReference:subjectId,provider:"lattice-canonical-merge",authority:"backend-derived" as const};
  const identityClusters=dedupe(ordered.flatMap(item=>item.identityClusters).map(cluster=>({...cluster,entityIds:cluster.entityIds.map(canonicalEndpoint),preferredEntityId:cluster.preferredEntityId?canonicalEndpoint(cluster.preferredEntityId):undefined})));
  const provisional:EngineeringIntelligenceInvestigationV1={...base,investigationId:`federated-${stableKey(ordered.map(item=>item.investigationId))}`,subject:{...base.subject,id:subjectId,displayName,candidateIds,reasons:[...new Set(ordered.flatMap(item=>item.subject.reasons))],provenance:federationProvenance},entities,relationships:nativeRelationships,evidence,findings,sources,identityClusters,temporal:{...base.temporal,assembledAt:new Date().toISOString()},summary:{entityCount:entities.length,relationshipCount:nativeRelationships.length,evidenceCount:evidence.length,findingCount:findings.length,availableSourceCount:sources.filter(item=>item.status==="available").length,partialSourceCount:sources.filter(item=>item.status!=="available").length,status:sources.every(item=>item.status==="available")?"success":"partial-success"}};
- const crossSource=resolveCrossSourceRelationships(provisional);
- const relationships=dedupe([...nativeRelationships,...crossSource]);
- return {...provisional,relationships,summary:{...provisional.summary,relationshipCount:relationships.length}};
+ return enrichInvestigationWithValidatedRelationships(provisional);
 }

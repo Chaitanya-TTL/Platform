@@ -35,7 +35,9 @@ export type RelationshipKind =
   | "contains-feature"
   | "governed-by"
   | "has-language"
-  | "contains-translation";
+  | "contains-translation"
+  | "operationally-represented-as"
+  | "specified-by";
 export type RelationshipEvidence = {
   sourceLabel: string;
   reason: string;
@@ -79,7 +81,7 @@ export type InvestigationGraph = {
   roots: string[];
   byId: Record<string, EngineeringEntity>;
   relationshipById: Record<string, EngineeringRelationship>;
-  metadata?: { investigationId?: string; contractVersion?: string; sourceStatuses?: Record<string,string>; identityClusters?: Array<{ id:string; entityIds:string[]; confidence:string; reasons:string[] }>; evidence?: Record<string,{ id:string; kind:string; summary:string; source:string }>; findings?: Array<{ id:string; kind:string; title:string; summary:string; subjectEntityIds:string[]; evidenceIds:string[] }>; entityAliases?: Readonly<Record<string,string>> };
+  metadata?: { investigationId?: string; contractVersion?: string; sourceStatuses?: Record<string,string>; identityClusters?: Array<{ id:string; entityIds:string[]; confidence:string; reasons:string[] }>; evidence?: Record<string,{ id:string; kind:string; summary:string; source:string }>; findings?: Array<{ id:string; kind:string; title:string; summary:string; subjectEntityIds:string[]; evidenceIds:string[] }>; entityAliases?: Readonly<Record<string,string>>; plmBrain?: import("../plm-brain/contracts/validated-relationship").PLMBrainSnapshot };
 };
 export type InvestigationSelection =
   | { type: "none" }

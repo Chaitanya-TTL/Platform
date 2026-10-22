@@ -1,0 +1,3 @@
+import type {IntelligenceEntity} from "../../contracts/intelligence-v1";import type {AttributeAdapter,VerifiedAttributePath} from "../contracts/application-attribute";import {readVerified} from "./common";
+const allowed=new Set<VerifiedAttributePath>(["provenance.nativeId","properties.itemId","properties.externalKey","properties.projectId","properties.trackerId"]);
+export const codebeamerAttributeAdapter:AttributeAdapter={application:"codebeamer",supports:e=>e.provenance.source==="codebeamer"&&["requirement","requirement-revision","source-representation"].includes(e.kind),read:(e,p)=>allowed.has(p)?readVerified(e,"codebeamer","TrackerItem",p):undefined};
