@@ -1,11 +1,14 @@
 {
-  "intent": "UPDATE_CHANGE_TASK_DESCRIPTION",
+  "tool_name": "windchill.update_change_task_description",
+  "action_kind": "UPDATE_ENTITY",
   "requested_by": "chaitanya",
+  "reason": "Initial governed action-planning proof of concept",
   "target": {
     "system": "WINDCHILL",
     "entity_type": "CHANGE_TASK",
     "number": "00136"
   },
-  "proposed_description": "Steering material update review",
-  "reason": "Initial governed action-planning proof of concept"
+  "parameters": {
+    "description": "Steering material update review"
+  }
 }

@@ -1,5 +1,5 @@
 from .action_plan import (
-    ActionIntent,
+    ActionKind,
     ActionMode,
     ActionOperation,
     ActionPlan,
@@ -11,7 +11,7 @@ from .action_plan import (
 )
 
 __all__ = [
-    "ActionIntent",
+    "ActionKind",
     "ActionMode",
     "ActionOperation",
     "ActionPlan",

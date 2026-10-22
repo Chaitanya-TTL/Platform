@@ -1,46 +1,48 @@
 # PLM Action Engine
 
-A separate top-level module in the existing Git repository for governed enterprise write-back.
+A generic governed enterprise action service for Windchill, SAP, Configit, and Codebeamer.
 
-## Current milestone
+## Version 0.2 milestone
 
-`PLAN_ONLY` for one intent:
+The engine is generic and currently supports `PLAN_ONLY`. It cannot write to an enterprise application.
+
+Registered proof-of-concept tools:
+
+- `windchill.update_change_task_description`
+- `windchill.add_bom_component`
+- `codebeamer.create_requirement`
+
+The core flow is:
 
 ```text
-UPDATE_CHANGE_TASK_DESCRIPTION
+Action request
+→ registered typed tool
+→ structured plan
+→ policy validation
+→ future approval
+→ future execution
+→ future read-back verification
+→ future audit
 ```
 
-This version cannot write to Windchill, SAP, Configit, or Codebeamer.
-
-## Run locally
+## Run
 
 ```powershell
 cd plm-action-engine
-py -3.11 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -e ".[dev]"
-pytest
-uvicorn plm_action_engine.api.app:app --app-dir src --reload --port 8090
+python -m pytest
+python -m uvicorn plm_action_engine.api.app:app --app-dir src --reload --port 8090
 ```
 
-Health check:
+Open `http://127.0.0.1:8090/docs`.
 
-```text
-GET http://localhost:8090/health
-```
+Endpoints:
 
-Create a plan:
+- `GET /health`
+- `GET /v1/tools`
+- `POST /v1/action-plans`
 
-```text
-POST http://localhost:8090/v1/action-plans
-```
+## Safety boundary
 
-Use `samples/update-change-task-description.request.json` as the request body.
-
-## Boundary
-
-The existing platform continues to own prompts, read-only extraction, PLM Brain relationships, and the frontend. This module owns action planning, policy validation, and later approval, execution, verification, and audit.
-
-## Next milestone
-
-Resolve the Windchill Change Task read-only, populate current Description and version, then return an exact before/after preview. No write-back will be added until this is validated.
+The LLM or client may select only registered tools and submit their typed parameters. Arbitrary URLs, HTTP methods, JCo calls, and enterprise payloads are not accepted. Version 0.2 produces plans only.

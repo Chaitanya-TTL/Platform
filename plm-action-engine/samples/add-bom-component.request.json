@@ -1,0 +1,16 @@
+{
+  "tool_name": "windchill.add_bom_component",
+  "action_kind": "ADD_RELATIONSHIP",
+  "requested_by": "chaitanya",
+  "reason": "Add an approved component to the Steering BOM",
+  "target": {
+    "system": "WINDCHILL",
+    "entity_type": "BOM",
+    "native_id": "OR:wt.part.WTPart:1714910"
+  },
+  "parameters": {
+    "component_native_id": "OR:wt.part.WTPart:1720001",
+    "quantity": 2,
+    "unit": "EA"
+  }
+}

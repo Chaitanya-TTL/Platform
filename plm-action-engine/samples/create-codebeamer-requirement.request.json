@@ -1,0 +1,15 @@
+{
+  "tool_name": "codebeamer.create_requirement",
+  "action_kind": "CREATE_ENTITY",
+  "requested_by": "chaitanya",
+  "reason": "Create a Steering requirement",
+  "target": {
+    "system": "CODEBEAMER",
+    "entity_type": "REQUIREMENT"
+  },
+  "parameters": {
+    "tracker_id": 42,
+    "name": "Steering operating temperature",
+    "description": "The steering system shall operate within the approved range."
+  }
+}

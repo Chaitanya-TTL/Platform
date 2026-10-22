@@ -1,39 +1,46 @@
-from plm_action_engine.contracts import (
-    ActionIntent,
-    ActionOperation,
-    ActionPlan,
-    ActionPlanRequest,
-    EnterpriseSystem,
-)
+from plm_action_engine.contracts import ActionOperation, ActionPlan, ActionPlanRequest
+from plm_action_engine.registry import EnterpriseToolRegistry
 
 
 class ActionPlanBuilder:
-    """Builds plans only. This class never calls an enterprise write API."""
+    """Creates governed plans. It never calls an enterprise write API."""
+
+    def __init__(self, registry: EnterpriseToolRegistry) -> None:
+        self._registry = registry
 
     def build(self, request: ActionPlanRequest) -> ActionPlan:
-        if request.intent != ActionIntent.UPDATE_CHANGE_TASK_DESCRIPTION:
-            raise ValueError(f"Unsupported action intent: {request.intent}")
+        tool = self._registry.get(request.tool_name)
 
-        if request.target.system != EnterpriseSystem.WINDCHILL:
-            raise ValueError("Change Task description updates target WINDCHILL only")
+        if request.target.system != tool.system:
+            raise ValueError(
+                f"Tool {tool.name} targets {tool.system}, not {request.target.system}"
+            )
+        if request.target.entity_type != tool.entity_type:
+            raise ValueError(
+                f"Tool {tool.name} requires entity_type {tool.entity_type}"
+            )
+        if request.action_kind != tool.action_kind:
+            raise ValueError(
+                f"Tool {tool.name} requires action_kind {tool.action_kind}"
+            )
 
-        if request.target.entity_type != "CHANGE_TASK":
-            raise ValueError("Target entity_type must be CHANGE_TASK")
+        self._registry.validate_parameters(tool, request.parameters)
 
         return ActionPlan(
-            intent=request.intent,
+            tool_name=tool.name,
+            action_kind=tool.action_kind,
             target=request.target,
             requested_by=request.requested_by,
             reason=request.reason,
-            operations=[
-                ActionOperation(
-                    operation="UPDATE_ATTRIBUTE",
-                    field="Description",
-                    proposed_value=request.proposed_description,
-                )
-            ],
+            risk_level=tool.risk_level,
+            approval_required=tool.approval_required,
+            operations=[ActionOperation(
+                operation=tool.action_kind.value,
+                parameters=request.parameters,
+                proposed_values=request.parameters,
+            )],
             warnings=[
                 "PLAN_ONLY: no enterprise write has been performed.",
-                "Current value and version must be resolved before approval.",
+                "Current source values, permissions, lifecycle state, and version must be resolved before approval.",
             ],
         )
