@@ -1,4 +1,4 @@
-import type { EngineeringEntity, InvestigationGraph } from "../domain/model";
+﻿import type { EngineeringEntity, InvestigationGraph } from "../domain/model";
 import { INTELLIGENCE_DOMAINS, domainForEntity } from "../projection/intelligence-domain-registry";
 
 const safeName = (value: string) => value.trim().replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase() || "lattice";
@@ -43,9 +43,10 @@ export function buildHierarchicalLatticeExport(graph: InvestigationGraph) {
     const roots = members.filter((entity) => !memberIds.has(parentByChild.get(entity.id) ?? ""));
     return { id: `projection:domain:${definition.id}`, label: definition.title, children: roots.map((entity) => entityJson(entity, memberIds)).filter(Boolean) };
   }).filter(Boolean);
-  return { subject: subject ? { id: subject.id, label: subject.name, source: subject.source, domains } : null, relationships: graph.relationships.map((relationship) => ({ id: relationship.id, source: relationship.from, target: relationship.to, kind: relationship.kind, label: relationship.label, confidence: relationship.confidence })), metadata: { exportedAt: new Date().toISOString(), investigationId: graph.metadata?.investigationId, contractVersion: graph.metadata?.contractVersion, sources: [...new Set(graph.entities.map((entity) => entity.source).filter((source) => !["platform", "unified"].includes(source)))].sort() } };
+  return { subject: subject ? { id: subject.id, label: subject.name, source: subject.source, domains } : null, relationships: graph.relationships.map((relationship) => ({ id: relationship.id, source: relationship.from, target: relationship.to, kind: relationship.kind, label: relationship.label, confidence: relationship.confidence })), metadata: { exportedAt: new Date().toISOString(), investigationId: graph.metadata?.investigationId, contractVersion: graph.metadata?.contractVersion, sources: [...new Set(graph.entities.map((entity) => entity.source).filter((source) => !["platform", "unified"].includes(source)))].sort(), plmBrain: graph.metadata?.plmBrain } };
 }
 export function downloadHierarchicalLatticeJson(graph: InvestigationGraph) {
   const blob = new Blob([JSON.stringify(buildHierarchicalLatticeExport(graph), null, 2)], { type: "application/json" }); const url = URL.createObjectURL(blob); const anchor = document.createElement("a"); const subject = graph.roots[0] ? graph.byId[graph.roots[0]]?.name : "lattice";
   anchor.href = url; anchor.download = `${safeName(subject ?? "lattice")}-lattice-${new Date().toISOString().replace(/[:.]/g, "-")}.json`; document.body.appendChild(anchor); anchor.click(); anchor.remove(); URL.revokeObjectURL(url);
 }
+
