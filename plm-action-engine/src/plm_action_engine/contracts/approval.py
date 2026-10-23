@@ -35,6 +35,8 @@ class ApprovalRecord(BaseModel):
     approved_at: datetime
     expires_at: datetime
     metadata: dict[str, Any] = Field(default_factory=dict)
+    consumed_at: datetime | None = None
+    consumed_by_execution_id: str | None = None
 
 
 class ApprovalValidation(BaseModel):

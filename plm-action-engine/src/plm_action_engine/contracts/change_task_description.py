@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from uuid import uuid4
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -12,6 +13,7 @@ class ChangeTaskDescriptionExecutionRequest(BaseModel):
     requested_by: str = Field(min_length=1)
     confirmation: str = Field(pattern=r"^EXECUTE_APPROVED_DESCRIPTION_UPDATE$")
     duration: int = Field(default=1, ge=1, le=60)
+    idempotency_key: str = Field(default_factory=lambda: f"idem:{uuid4()}", min_length=8, max_length=200)
 
 
 class ExecutionStep(BaseModel):
@@ -39,3 +41,6 @@ class ChangeTaskDescriptionExecutionResult(BaseModel):
     cleanup_complete: bool
     steps: list[ExecutionStep]
     warnings: list[str] = Field(default_factory=list)
+    idempotency_key: str
+    failed_step: str | None = None
+    failure_message: str | None = None

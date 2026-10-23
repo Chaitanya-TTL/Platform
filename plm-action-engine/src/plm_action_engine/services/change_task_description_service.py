@@ -12,7 +12,7 @@ from plm_action_engine.contracts import (
     ChangeTaskDescriptionExecutionResult,
     ExecutionStep,
 )
-from plm_action_engine.storage import ApprovalRepository, PreviewRepository
+from plm_action_engine.storage import ApprovalRepository, PreviewRepository, ExecutionRepository, InMemoryExecutionRepository
 
 _CHANGE_NOTICE_OID_PATTERN = re.compile(r"ChangeNotices\('([^']+)'\)")
 
@@ -22,14 +22,21 @@ class ChangeTaskDescriptionExecutionService:
 
     def __init__(self, previews: PreviewRepository, approvals: ApprovalRepository,
                  approval_service: ApprovalService, windchill: WindchillClient,
-                 audit: AuditRepository) -> None:
+                 audit: AuditRepository, executions: ExecutionRepository | None = None) -> None:
         self._previews = previews
         self._approvals = approvals
         self._approval_service = approval_service
         self._windchill = windchill
         self._audit = audit
+        self._executions = executions or InMemoryExecutionRepository()
 
     def execute(self, request: ChangeTaskDescriptionExecutionRequest) -> ChangeTaskDescriptionExecutionResult:
+        existing = self._executions.find_by_idempotency_key(request.idempotency_key)
+        if existing is not None:
+            if (existing.action_plan_id != request.action_plan_id or existing.plan_hash != request.plan_hash
+                    or existing.approval_id != request.approval_id):
+                raise ValueError("Idempotency key is already associated with a different approved plan")
+            return existing
         if not self._windchill.writes_enabled:
             raise ValueError("Windchill writes are disabled by server configuration")
 
@@ -39,6 +46,8 @@ class ChangeTaskDescriptionExecutionService:
         approval = self._approvals.get(request.approval_id)
         if approval is None:
             raise ValueError("Stored approval not found")
+        if approval.consumed_at is not None or approval.consumed_by_execution_id is not None:
+            raise ValueError("Approval has already been consumed")
         if preview.tool_name != self.TOOL_NAME:
             raise ValueError("Unsupported tool for Change Task Description execution")
         if approval.approval_id != request.approval_id:
@@ -69,6 +78,13 @@ class ChangeTaskDescriptionExecutionService:
         description_modified = False
         verified_description = None
         status = "FAILED"
+        current_step = "PRE_EXECUTION_REVALIDATION"
+        failed_step = None
+        failure_message = None
+
+        approval.consumed_at = started
+        approval.consumed_by_execution_id = execution_id
+        self._approvals.save(approval)
 
         self._audit.append(AuditEvent(
             event_type="CHANGE_TASK_DESCRIPTION_EXECUTION_STARTED",
@@ -80,6 +96,7 @@ class ChangeTaskDescriptionExecutionService:
         ))
 
         try:
+            current_step = "PRE_EXECUTION_REVALIDATION"
             task = self._windchill.get_change_task_by_oid(task_oid)
             if task is None or task.get("ID") != task_oid:
                 raise ValueError("Change Task OID no longer matches the preview")
@@ -101,24 +118,30 @@ class ChangeTaskDescriptionExecutionService:
             if notice.get("ReservedBy"):
                 raise ValueError("Change Notice is already reserved")
 
+            current_step = "RESERVE_CHANGE_NOTICE"
             self._windchill.reserve_change_notice(notice_oid, request.duration)
             notice_reserved = True
             steps.append(ExecutionStep(name="RESERVE_CHANGE_NOTICE", status="SUCCESS", message="Change Notice reservation requested."))
+            current_step = "VERIFY_CHANGE_NOTICE_RESERVED"
             notice = self._windchill.get_change_notice_by_oid(notice_oid)
             if not notice or not notice.get("ReservedBy"):
                 raise WindchillClientError("Change Notice reservation read-back failed")
             steps.append(ExecutionStep(name="VERIFY_CHANGE_NOTICE_RESERVED", status="SUCCESS", message="Change Notice reservation verified."))
 
+            current_step = "RESERVE_CHANGE_TASK"
             self._windchill.reserve_change_task(task_oid, request.duration)
             task_reserved = True
             steps.append(ExecutionStep(name="RESERVE_CHANGE_TASK", status="SUCCESS", message="Change Task reservation requested."))
+            current_step = "VERIFY_CHANGE_TASK_RESERVED"
             task = self._windchill.get_change_task_by_oid(task_oid)
             if not task or not task.get("ReservedBy"):
                 raise WindchillClientError("Change Task reservation read-back failed")
             steps.append(ExecutionStep(name="VERIFY_CHANGE_TASK_RESERVED", status="SUCCESS", message="Change Task reservation verified."))
 
+            current_step = "PATCH_CHANGE_TASK_DESCRIPTION"
             self._windchill.patch_change_task_description(task_oid, requested_description)
             steps.append(ExecutionStep(name="PATCH_CHANGE_TASK_DESCRIPTION", status="SUCCESS", message="Description PATCH accepted."))
+            current_step = "VERIFY_DESCRIPTION"
             observed = self._windchill.get_change_task_by_oid(task_oid)
             verified_description = observed.get("Description") if observed else None
             if verified_description != requested_description:
@@ -128,7 +151,9 @@ class ChangeTaskDescriptionExecutionService:
             steps.append(ExecutionStep(name="VERIFY_DESCRIPTION", status="SUCCESS", message="Exact description read-back verified."))
             status = "VERIFIED_SUCCESS"
         except (ValueError, WindchillClientError) as exc:
-            warnings.append(str(exc))
+            failure_message = str(exc)
+            failed_step = current_step
+            warnings.append(failure_message)
             status = "FAILED"
         finally:
             if task_reserved:
@@ -166,7 +191,10 @@ class ChangeTaskDescriptionExecutionService:
             previous_description=previous_description, requested_description=requested_description,
             verified_description=verified_description, description_modified=description_modified,
             cleanup_complete=cleanup_complete, steps=steps, warnings=warnings,
+            idempotency_key=request.idempotency_key, failed_step=failed_step,
+            failure_message=failure_message,
         )
+        self._executions.save(result)
         self._audit.append(AuditEvent(
             event_type="CHANGE_TASK_DESCRIPTION_EXECUTION_COMPLETED",
             actor=request.requested_by, action_plan_id=request.action_plan_id,

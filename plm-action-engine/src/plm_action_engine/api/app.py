@@ -23,15 +23,16 @@ from plm_action_engine.services import (
     ReservationRoundTripService,
     ChangeTaskDescriptionExecutionService,
 )
-from plm_action_engine.storage import JsonApprovalRepository, JsonFileStore, JsonPreviewRepository
+from plm_action_engine.storage import JsonApprovalRepository, JsonFileStore, JsonPreviewRepository, JsonExecutionRepository
 
-app = FastAPI(title="PLM Action Engine", version="0.6.0b1")
+app = FastAPI(title="PLM Action Engine", version="0.7.0")
 _registry = build_default_registry()
 _builder = ActionPlanBuilder(_registry)
 _policy = PlanPolicyValidator(_registry)
 _data_dir = Path(os.getenv("PLM_ACTION_DATA_DIR", "data"))
 _previews = JsonPreviewRepository(JsonFileStore(_data_dir / "previews.json"))
 _approvals = JsonApprovalRepository(JsonFileStore(_data_dir / "approvals.json"))
+_executions = JsonExecutionRepository(JsonFileStore(_data_dir / "executions.json"))
 _audit = AuditRepository(_data_dir / "audit.jsonl")
 _approval_service = ApprovalService(_approvals, _previews)
 
@@ -48,7 +49,7 @@ def _build_action_plan_service() -> ActionPlanService:
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    return {"status": "UP", "mode": "DRY_RUN_ONLY", "version": "0.6.0b1"}
+    return {"status": "UP", "mode": "DRY_RUN_ONLY", "version": "0.7.0"}
 
 
 @app.get("/v1/tools")
@@ -142,9 +143,17 @@ def reservation_round_trip(request: ReservationRoundTripRequest) -> dict:
 def execute_change_task_description(request: ChangeTaskDescriptionExecutionRequest) -> dict:
     try:
         service = ChangeTaskDescriptionExecutionService(
-            _previews, _approvals, _approval_service, _windchill_client(), _audit
+            _previews, _approvals, _approval_service, _windchill_client(), _audit, _executions
         )
         result = service.execute(request)
     except (ValueError, WindchillClientError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return result.model_dump(mode="json")
+
+
+@app.get("/v1/executions/{execution_id}")
+def get_execution(execution_id: str) -> dict:
+    result = _executions.get(execution_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Execution not found")
     return result.model_dump(mode="json")
