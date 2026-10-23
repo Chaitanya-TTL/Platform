@@ -43,3 +43,8 @@ __all__ = [
     "PreconditionResult",
     "ResolvedTargetState",
 ]
+from .change_task_description import (
+    ChangeTaskDescriptionExecutionRequest,
+    ChangeTaskDescriptionExecutionResult,
+    ExecutionStep,
+)

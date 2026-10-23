@@ -17,6 +17,7 @@ class WindchillSettings:
     username: str
     password: str
     timeout_seconds: float = 30.0
+    writes_enabled: bool = False
 
     @classmethod
     def from_env_file(cls, path: str = ".env") -> "WindchillSettings":
@@ -34,6 +35,7 @@ class WindchillSettings:
             base_url=str(values["WINDCHILL_BASE_URL"]).rstrip("/"),
             username=str(values["WINDCHILL_USERNAME"]),
             password=str(values["WINDCHILL_PASSWORD"]),
+            writes_enabled=str(values.get("ENABLE_WINDCHILL_WRITES", "false")).strip().lower() == "true",
         )
 
 
@@ -171,6 +173,43 @@ class WindchillClient:
 
     def undo_change_task_reservation(self, oid: str, duration: int = 1) -> dict[str, Any]:
         return self._post_change_action("ChangeTasks", oid, "UndoReservation", duration)
+
+
+    @property
+    def writes_enabled(self) -> bool:
+        return self._settings.writes_enabled
+
+    def patch_change_task_description(self, oid: str, description: str) -> dict[str, Any]:
+        if not self.writes_enabled:
+            raise WindchillClientError("Windchill writes are disabled by server configuration")
+        nonce_key, nonce_value = self._get_csrf_nonce()
+        escaped_oid = oid.replace("'", "''")
+        url = f"{self._settings.base_url}/servlet/odata/v6/ChangeMgmt/ChangeTasks('{escaped_oid}')"
+        try:
+            with httpx.Client(
+                auth=(self._settings.username, self._settings.password),
+                headers={
+                    "Accept": "application/json",
+                    "Content-Type": "application/json",
+                    nonce_key: nonce_value,
+                },
+                timeout=self._settings.timeout_seconds,
+                transport=self._transport,
+            ) as client:
+                response = client.patch(url, json={"Description": description})
+        except httpx.HTTPError as exc:
+            raise WindchillClientError(f"Windchill description update failed: {exc}") from exc
+        if response.status_code >= 400:
+            raise WindchillClientError(
+                f"Windchill description update returned HTTP {response.status_code}: {response.text[:300]}"
+            )
+        if not response.content:
+            return {}
+        try:
+            payload = response.json()
+        except ValueError:
+            return {"status_code": response.status_code}
+        return payload if isinstance(payload, dict) else {"result": payload}
 
     def get_change_notice_by_oid(self, oid: str) -> dict[str, Any] | None:
         escaped_oid = oid.replace("'", "''")

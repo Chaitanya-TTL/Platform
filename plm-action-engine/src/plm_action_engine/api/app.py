@@ -11,6 +11,7 @@ from plm_action_engine.contracts import (
     ApprovalRequest,
     ExecutionReadinessRequest,
     ReservationRoundTripRequest,
+    ChangeTaskDescriptionExecutionRequest,
 )
 from plm_action_engine.planning import ActionPlanBuilder
 from plm_action_engine.policy import PlanPolicyValidator
@@ -20,10 +21,11 @@ from plm_action_engine.services import (
     ActionPlanService,
     ExecutionReadinessService,
     ReservationRoundTripService,
+    ChangeTaskDescriptionExecutionService,
 )
 from plm_action_engine.storage import JsonApprovalRepository, JsonFileStore, JsonPreviewRepository
 
-app = FastAPI(title="PLM Action Engine", version="0.6.0a1")
+app = FastAPI(title="PLM Action Engine", version="0.6.0b1")
 _registry = build_default_registry()
 _builder = ActionPlanBuilder(_registry)
 _policy = PlanPolicyValidator(_registry)
@@ -46,7 +48,7 @@ def _build_action_plan_service() -> ActionPlanService:
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    return {"status": "UP", "mode": "DRY_RUN_ONLY", "version": "0.6.0a1"}
+    return {"status": "UP", "mode": "DRY_RUN_ONLY", "version": "0.6.0b1"}
 
 
 @app.get("/v1/tools")
@@ -128,6 +130,18 @@ def execution_readiness(request: ExecutionReadinessRequest) -> dict:
 def reservation_round_trip(request: ReservationRoundTripRequest) -> dict:
     try:
         service = ReservationRoundTripService(
+            _previews, _approvals, _approval_service, _windchill_client(), _audit
+        )
+        result = service.execute(request)
+    except (ValueError, WindchillClientError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return result.model_dump(mode="json")
+
+
+@app.post("/v1/executions/change-task-description")
+def execute_change_task_description(request: ChangeTaskDescriptionExecutionRequest) -> dict:
+    try:
+        service = ChangeTaskDescriptionExecutionService(
             _previews, _approvals, _approval_service, _windchill_client(), _audit
         )
         result = service.execute(request)
