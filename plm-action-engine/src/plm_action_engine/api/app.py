@@ -6,15 +6,24 @@ from fastapi import FastAPI, HTTPException
 from plm_action_engine.audit import AuditEvent, AuditRepository
 from plm_action_engine.approval import ApprovalService
 from plm_action_engine.clients import WindchillClient, WindchillClientError, WindchillSettings
-from plm_action_engine.contracts import ActionPlanRequest, ApprovalRequest, ExecutionReadinessRequest
+from plm_action_engine.contracts import (
+    ActionPlanRequest,
+    ApprovalRequest,
+    ExecutionReadinessRequest,
+    ReservationRoundTripRequest,
+)
 from plm_action_engine.planning import ActionPlanBuilder
 from plm_action_engine.policy import PlanPolicyValidator
 from plm_action_engine.registry import build_default_registry
 from plm_action_engine.resolvers import ResolverRegistry, WindchillResolver
-from plm_action_engine.services import ActionPlanService, ExecutionReadinessService
+from plm_action_engine.services import (
+    ActionPlanService,
+    ExecutionReadinessService,
+    ReservationRoundTripService,
+)
 from plm_action_engine.storage import JsonApprovalRepository, JsonFileStore, JsonPreviewRepository
 
-app = FastAPI(title="PLM Action Engine", version="0.5.0")
+app = FastAPI(title="PLM Action Engine", version="0.6.0a1")
 _registry = build_default_registry()
 _builder = ActionPlanBuilder(_registry)
 _policy = PlanPolicyValidator(_registry)
@@ -37,7 +46,7 @@ def _build_action_plan_service() -> ActionPlanService:
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    return {"status": "UP", "mode": "DRY_RUN_ONLY", "version": "0.5.0"}
+    return {"status": "UP", "mode": "DRY_RUN_ONLY", "version": "0.6.0a1"}
 
 
 @app.get("/v1/tools")
@@ -110,6 +119,18 @@ def execution_readiness(request: ExecutionReadinessRequest) -> dict:
             _previews, _approvals, _approval_service, _windchill_client(), _audit
         )
         result = service.check(request)
+    except (ValueError, WindchillClientError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return result.model_dump(mode="json")
+
+
+@app.post("/v1/reservation-round-trips")
+def reservation_round_trip(request: ReservationRoundTripRequest) -> dict:
+    try:
+        service = ReservationRoundTripService(
+            _previews, _approvals, _approval_service, _windchill_client(), _audit
+        )
+        result = service.execute(request)
     except (ValueError, WindchillClientError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return result.model_dump(mode="json")

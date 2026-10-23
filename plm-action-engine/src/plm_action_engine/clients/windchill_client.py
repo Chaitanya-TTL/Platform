@@ -104,14 +104,84 @@ class WindchillClient:
             )
         return records[0]
 
-    def get_csrf_nonce_status(self) -> dict[str, Any]:
+    def _get_csrf_nonce(self) -> tuple[str, str]:
         payload = self._get_json("/servlet/odata/PTC/GetCSRFToken()")
         nonce_key = payload.get("NonceKey")
         nonce_value = payload.get("NonceValue")
         if nonce_key != "CSRF_NONCE" or not nonce_value:
             raise WindchillClientError("Windchill did not return a valid CSRF nonce")
+        return str(nonce_key), str(nonce_value)
+
+    def get_csrf_nonce_status(self) -> dict[str, Any]:
+        nonce_key, _ = self._get_csrf_nonce()
         # Deliberately do not return the token value to callers or logs.
         return {"nonce_key": nonce_key, "nonce_present": True}
+
+    def _post_change_action(
+        self,
+        entity_set: str,
+        oid: str,
+        action: str,
+        duration: int,
+    ) -> dict[str, Any]:
+        nonce_key, nonce_value = self._get_csrf_nonce()
+        escaped_oid = oid.replace("'", "''")
+        url = (
+            f"{self._settings.base_url}/servlet/odata/v6/ChangeMgmt/"
+            f"{entity_set}('{escaped_oid}')/PTC.ChangeMgmt.{action}"
+        )
+        try:
+            with httpx.Client(
+                auth=(self._settings.username, self._settings.password),
+                headers={
+                    "Accept": "application/json",
+                    "Content-Type": "application/json",
+                    nonce_key: nonce_value,
+                },
+                timeout=self._settings.timeout_seconds,
+                transport=self._transport,
+            ) as client:
+                response = client.post(url, json={"Duration": duration})
+        except httpx.HTTPError as exc:
+            raise WindchillClientError(f"Windchill {action} request failed: {exc}") from exc
+        if response.status_code == 401:
+            raise WindchillClientError("Windchill authentication failed")
+        if response.status_code == 403:
+            raise WindchillClientError(f"Windchill denied {action}")
+        if response.status_code >= 400:
+            raise WindchillClientError(
+                f"Windchill {action} returned HTTP {response.status_code}: {response.text[:300]}"
+            )
+        if not response.content:
+            return {}
+        try:
+            payload = response.json()
+        except ValueError:
+            return {"status_code": response.status_code}
+        return payload if isinstance(payload, dict) else {"result": payload}
+
+    def reserve_change_notice(self, oid: str, duration: int = 1) -> dict[str, Any]:
+        return self._post_change_action("ChangeNotices", oid, "Reserve", duration)
+
+    def undo_change_notice_reservation(self, oid: str, duration: int = 1) -> dict[str, Any]:
+        return self._post_change_action("ChangeNotices", oid, "UndoReservation", duration)
+
+    def reserve_change_task(self, oid: str, duration: int = 1) -> dict[str, Any]:
+        return self._post_change_action("ChangeTasks", oid, "Reserve", duration)
+
+    def undo_change_task_reservation(self, oid: str, duration: int = 1) -> dict[str, Any]:
+        return self._post_change_action("ChangeTasks", oid, "UndoReservation", duration)
+
+    def get_change_notice_by_oid(self, oid: str) -> dict[str, Any] | None:
+        escaped_oid = oid.replace("'", "''")
+        try:
+            return self._get_json(
+                f"/servlet/odata/v6/ChangeMgmt/ChangeNotices('{escaped_oid}')"
+            )
+        except WindchillClientError as exc:
+            if "HTTP 404" in str(exc):
+                return None
+            raise
 
     def get_change_task_by_oid(self, oid: str) -> dict[str, Any] | None:
         escaped_oid = oid.replace("'", "''")

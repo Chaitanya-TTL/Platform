@@ -16,6 +16,7 @@ from .approval import (
     ApprovalValidation,
 )
 from .execution import ExecutionReadinessRequest, ExecutionReadinessResult, ReadinessCheck
+from .reservation import ReservationRoundTripRequest, ReservationRoundTripResult, ReservationStep
 from .target_state import ActionPreview, PreconditionResult, ResolvedTargetState
 
 __all__ = [
@@ -35,6 +36,9 @@ __all__ = [
     "ExecutionReadinessRequest",
     "ExecutionReadinessResult",
     "ReadinessCheck",
+    "ReservationRoundTripRequest",
+    "ReservationRoundTripResult",
+    "ReservationStep",
     "ActionPreview",
     "PreconditionResult",
     "ResolvedTargetState",
