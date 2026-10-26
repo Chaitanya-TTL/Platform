@@ -172,6 +172,47 @@ vi.mock("../workspace/CopilotKitChatSurface", async () => {
           },
           "Fail",
         ),
+        actual.createElement(
+          "button",
+          {
+            type: "button",
+            "aria-label": "Simulate billed request failure",
+            onClick: () => props.onFailure({
+              message: "The assistant could not complete a validated response.",
+              retryable: false,
+              requestMayHaveBeenBilled: true,
+            }),
+          },
+          "Fail with billing uncertainty",
+        ),
+        actual.createElement(
+          "button",
+          {
+            type: "button",
+            "aria-label": "Simulate validation failure",
+            onClick: () => props.onFailure({
+              message: "The assistant could not complete a validated response.",
+              retryable: false,
+              requestMayHaveBeenBilled: false,
+              validationIssue: "A required citation was missing.",
+            }),
+          },
+          "Fail with validation detail",
+        ),
+        actual.createElement(
+          "button",
+          {
+            type: "button",
+            "aria-label": "Simulate unsafe validation detail",
+            onClick: () => props.onFailure({
+              message: "The assistant could not complete a validated response.",
+              retryable: false,
+              requestMayHaveBeenBilled: false,
+              validationIssue: `${"x".repeat(161)}\nprovider diagnostic`,
+            }),
+          },
+          "Fail with unsafe validation detail",
+        ),
       );
     },
   };
@@ -485,6 +526,19 @@ describe("investigation copilot panel", () => {
     (byLabel(tree, "Simulate request failure").props.onClick as () => void)();
     tree = renderPanel(props);
     expect(textContent(tree)).toContain("The validated answer could not be loaded.");
+
+    (byLabel(tree, "Simulate billed request failure").props.onClick as () => void)();
+    tree = renderPanel(props);
+    expect(textContent(tree)).toContain("The request may have been billed; check the usage ledger before retrying.");
+
+    (byLabel(tree, "Simulate validation failure").props.onClick as () => void)();
+    tree = renderPanel(props);
+    expect(textContent(tree)).toContain("Detail: A required citation was missing.");
+
+    (byLabel(tree, "Simulate unsafe validation detail").props.onClick as () => void)();
+    tree = renderPanel(props);
+    expect(textContent(tree)).not.toContain("provider diagnostic");
+    expect(textContent(tree)).not.toContain("x".repeat(161));
 
     const registeredWindow = window as unknown as { addEventListener: ReturnType<typeof vi.fn> };
     const keyDown = registeredWindow.addEventListener.mock.calls.find(([name]) => name === "keydown")?.[1] as

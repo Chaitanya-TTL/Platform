@@ -88,7 +88,22 @@ function InvestigationCopilotPanelContent({
   }, [refreshThreads]);
 
   const handleFailure = useCallback((failure: CopilotRunFailure | undefined) => {
-    setError(failure?.message);
+    if (!failure) {
+      setError(undefined);
+      return;
+    }
+    const billingNotice = failure.requestMayHaveBeenBilled
+      ? " The request may have been billed; check the usage ledger before retrying."
+      : "";
+    const validationIssue = failure.validationIssue;
+    const validationNotice =
+      typeof validationIssue === "string" &&
+      validationIssue.length > 0 &&
+      validationIssue.length <= 160 &&
+      !/[\u0000-\u001f\u007f]/.test(validationIssue)
+        ? ` Detail: ${validationIssue}`
+        : "";
+    setError(`${failure.message}${validationNotice}${billingNotice}`);
   }, []);
 
   const retryLoadingThreads = () => {
