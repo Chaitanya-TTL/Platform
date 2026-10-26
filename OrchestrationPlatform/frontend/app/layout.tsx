@@ -3,6 +3,7 @@ import { dmSans } from "@/fonts/static/dm-sans";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { PlatformShell } from "@/components/platform-shell/PlatformShell";
+import "@copilotkit/react-core/v2/styles.css";
 import "./globals.css";
 
 export const metadata: Metadata = {
