@@ -185,6 +185,21 @@ vi.mock("../workspace/CopilotKitChatSurface", async () => {
           },
           "Fail with billing uncertainty",
         ),
+        ...props.cues.map((cue) => actual.createElement(
+          "div",
+          { key: cue.id },
+          actual.createElement("p", null, cue.title),
+          actual.createElement("p", null, cue.detail),
+          actual.createElement(
+            "button",
+            {
+              type: "button",
+              "aria-label": `Dismiss ${cue.title}`,
+              onClick: () => props.onDismissCue(cue.id),
+            },
+            "Dismiss",
+          ),
+        )),
         actual.createElement(
           "button",
           {

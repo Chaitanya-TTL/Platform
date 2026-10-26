@@ -104,13 +104,16 @@ headless chat.
   Lattice conversations. Selecting a thread restores its persisted transcript
   through the AG-UI runner; starting a new thread creates a fresh,
   investigation-scoped runtime thread ID.
-- Use a tailored welcome view for an empty conversation. Promote relevant
-  review cues and suggested questions as explicit user-triggered prompts, not
-  agent tools or automatic requests.
+- Use a tailored welcome view for an empty conversation and one collapsed
+  review-cue disclosure for both empty and populated conversations. Keep each
+  cue an explicit user-triggered prompt; do not duplicate it with native
+  suggestion chips or expose actionable cues in archived investigations.
 - Use CopilotKit's composer and run/stop behavior, customized to the existing
   2,000-character bound, read-only notice, archived disablement, and
-  investigation-oriented placeholder/labels. Preserve keyboard access and
-  focus-visible states.
+  investigation-oriented placeholder/labels. Keep the active composer compact
+  and avoid a bright double focus ring while retaining a restrained visible
+  focus state. Show the read-only notice only for archived conversations.
+  Preserve keyboard access and focus-visible states.
 - Render the assistant's concise validated answer as the primary message.
   Render supporting claims, unique citation references, recommendations,
   uncertainties, and follow-up questions in a compact, accessible disclosure.

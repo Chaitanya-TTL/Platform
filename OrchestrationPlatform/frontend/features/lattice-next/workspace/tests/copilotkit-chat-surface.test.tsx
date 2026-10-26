@@ -191,6 +191,7 @@ const defaultProps = {
   onCitationSelect: vi.fn(),
   onRunStateChange: vi.fn(),
   onFailure: vi.fn(),
+  onDismissCue: vi.fn(),
 };
 
 function renderSurface(props: Partial<typeof defaultProps> = {}) {
@@ -215,6 +216,7 @@ describe("CopilotKit investigation chat surface", () => {
     defaultProps.onCitationSelect.mockClear();
     defaultProps.onRunStateChange.mockClear();
     defaultProps.onFailure.mockClear();
+    defaultProps.onDismissCue.mockClear();
   });
 
   it("scopes the V2 provider, binds the composite thread, and filters to the latest user turn", () => {
@@ -335,13 +337,21 @@ describe("CopilotKit investigation chat surface", () => {
     expect(markup).not.toContain("Evidence details");
   });
 
-  it("configures review cues as user-triggered suggestions before the first message", () => {
-    renderSurface();
+  it("shows review cues in one collapsed disclosure without native suggestion chips", () => {
+    const emptyThreadMarkup = renderSurface();
 
-    expect(mocks.suggestions).toMatchObject({
-      available: "before-first-message",
-      suggestions: [{ title: cue.title, message: cue.prompt }],
-    });
+    expect(emptyThreadMarkup).toContain("Review suggestions");
+    expect(emptyThreadMarkup.match(/<details/g)).toHaveLength(1);
+    expect(emptyThreadMarkup).toContain(cue.title);
+    expect(emptyThreadMarkup).not.toContain("Verify cited evidence");
+    expect(mocks.suggestions).toBeNull();
+
+    mocks.messages = [{ id: "existing-user", role: "user", content: "What changed?" }];
+    const activeThreadMarkup = renderSurface();
+
+    expect(activeThreadMarkup.match(/<details/g)).toHaveLength(1);
+    expect(activeThreadMarkup).toContain("Review suggestions");
+    expect(mocks.suggestions).toBeNull();
   });
 
   it("disables the archived composer and review suggestions while explaining read-only state", () => {
@@ -349,7 +359,11 @@ describe("CopilotKit investigation chat surface", () => {
 
     expect(markup).toContain("disabled");
     expect(mocks.inputProps?.textArea).toMatchObject({ disabled: true, maxLength: 2000 });
-    expect(markup).toContain("This investigation is archived");
+    expect(mocks.chatProps?.labels).toMatchObject({
+      chatInputPlaceholder: "This investigation is archived",
+    });
+    expect(mocks.inputProps?.showDisclaimer).toBe(false);
+    expect(markup).not.toContain("Review suggestions");
     expect(mocks.suggestions).toBeNull();
   });
 

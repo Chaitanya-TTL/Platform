@@ -36,7 +36,7 @@
 - `frontend/app/layout.tsx` — load CopilotKit V2's global stylesheet at the Next.js root.
 - `frontend/instrumentation.ts` — disable CopilotKit OSS telemetry before runtime routes initialize.
 - `frontend/tests/copilotkit-telemetry.test.ts` — verify the server startup hook sets the telemetry opt-out.
-- `frontend/features/lattice-next/workspace/CopilotKitChatSurface.tsx` — provider-scoped CopilotKit chat, native suggestion configuration, Lattice-specific slots, and run/error callbacks.
+- `frontend/features/lattice-next/workspace/CopilotKitChatSurface.tsx` — provider-scoped CopilotKit chat, one collapsed review-cue disclosure, Lattice-specific slots, and run/error callbacks.
 - `frontend/features/lattice-next/workspace/InvestigationCopilotPanel.tsx` — investigation-level panel shell, thread list/selection, initial restore, and active-run gating.
 - `frontend/features/lattice-next/tests/investigation-copilot-panel.test.tsx` — verify failure billing guidance and bounded validation detail.
 - `frontend/features/lattice-next/copilot/copilotkit-agent.ts` — maintain the validated turn contract and structured, sanitized AG-UI failures.
@@ -55,7 +55,7 @@
 
 **Interfaces:**
 - Consumes: `CopilotAnswer`, `CopilotCitation`, `InvestigationReviewCue`, and `toCopilotKitThreadId(investigationId, threadId)`.
-- Produces: `CopilotKitChatSurfaceProps` with `investigationId: string`, `snapshotRevision: number`, `threadId: string`, `isArchived: boolean`, `cues: readonly InvestigationReviewCue[]`, `onCitationSelect(citation: CopilotCitation): void`, `onRunStateChange(isRunning: boolean): void`, and `onFailure(failure: CopilotRunFailure | undefined): void`.
+- Produces: `CopilotKitChatSurfaceProps` with `investigationId: string`, `snapshotRevision: number`, `threadId: string`, `isArchived: boolean`, `cues: readonly InvestigationReviewCue[]`, `onCitationSelect(citation: CopilotCitation): void`, `onRunStateChange(isRunning: boolean): void`, `onFailure(failure: CopilotRunFailure | undefined): void`, and `onDismissCue(cueId: string): void`.
 - `CopilotRunFailure` contains `message: string`, `retryable: boolean`, `requestMayHaveBeenBilled: boolean`, and optional `validationIssue: string`.
 
 - [ ] **Step 1: Write failing surface tests**
@@ -64,8 +64,9 @@
   `/api/lattice/copilotkit`, passes `snapshotRevision` as provider properties,
   binds the composite investigation/thread ID, and filters the runtime payload
   to the latest user message. Test validated-answer metadata rendering,
-  clickable Lattice citations, missing-metadata plain text, review-cue suggestions,
-  archived composer disablement, and an accessible `ThinkingOrb` cursor.
+  clickable Lattice citations, missing-metadata plain text, one collapsed
+  review-cue disclosure in empty and populated chats, archived cue/composer
+  disablement, and an accessible `ThinkingOrb` cursor.
 
 - [ ] **Step 2: Run the surface tests and confirm they fail**
 
@@ -88,10 +89,12 @@
     answer plus collapsed claims, unique citations, recommendations,
     uncertainties, and follow-up questions; plain text remains safe if
     metadata is absent;
-  - welcome content and `useConfigureSuggestions` values derived from review
-    cues, available before the first message and submitted only on user action;
+  - welcome content and a single collapsed review-cue disclosure, shown in the
+    empty-state welcome or above populated transcripts and submitted only on
+    user action; do not render a second set of native suggestion chips;
   - the composer, preserving the 2,000-character limit, archived disablement,
-    read-only explanation, keyboard behavior, and the built-in stop action;
+    archived-only read-only explanation, keyboard behavior, built-in stop
+    action, and a compact appearance without a bright double focus ring;
   - the active-run cursor, using `ThinkingOrb` with `state="working"`,
     `size={20}`, and a nearby accessible status label.
 
@@ -291,7 +294,7 @@
 
   Open an existing investigation and check desktop drawer and narrow/mobile
   width, keyboard focus and Escape close, empty and restored conversations,
-  cue suggestions, stop while running, safe error/retry state, citation
+  cue disclosure, stop while running, safe error/retry state, citation
   navigation, archived read-only state, and reduced-motion orb behavior. Do
   not send a live Azure request unless the existing explicit opt-in is enabled
   and the user separately authorizes a billable call.
