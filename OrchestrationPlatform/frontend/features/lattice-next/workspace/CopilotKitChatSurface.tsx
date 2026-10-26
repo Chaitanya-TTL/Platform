@@ -4,7 +4,9 @@ import {
   CopilotChat,
   CopilotChatMessageView,
   CopilotKitProvider,
+  useAgent,
   useConfigureSuggestions,
+  useCopilotKit,
 } from "@copilotkit/react-core/v2";
 import type {
   CopilotChatAssistantMessageProps,
@@ -12,7 +14,7 @@ import type {
 } from "@copilotkit/react-core/v2";
 import type { CopilotChatAssistantMessage } from "@copilotkit/react-core/v2";
 import type { Message } from "@ag-ui/client";
-import { createContext, useCallback, useContext, useEffect, useMemo } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { ComponentProps, HTMLAttributes, ReactNode } from "react";
 import { ThinkingOrb } from "thinking-orbs";
 import type { CopilotAnswer, CopilotCitation } from "../copilot/contracts";
@@ -48,6 +50,7 @@ interface ChatSurfaceContextValue {
   onCitationSelect: CopilotKitChatSurfaceProps["onCitationSelect"];
   onRunStateChange: CopilotKitChatSurfaceProps["onRunStateChange"];
   onFailure: CopilotKitChatSurfaceProps["onFailure"];
+  clearFailure(): void;
 }
 
 const ChatSurfaceContext = createContext<ChatSurfaceContextValue | null>(null);
@@ -368,7 +371,10 @@ function LatticeChatView(props: ChatViewProps) {
 
   useEffect(() => {
     context?.onRunStateChange(isRunning);
-    if (isRunning) context?.onFailure(undefined);
+    if (isRunning) {
+      context?.clearFailure();
+      context?.onFailure(undefined);
+    }
   }, [context, isRunning]);
 
   const handleSubmit = useCallback((value: string) => {
@@ -402,30 +408,74 @@ function LatticeChatView(props: ChatViewProps) {
 
 function recordFailure(
   event: { error: Error; context: Record<string, unknown> },
-  onFailure: CopilotKitChatSurfaceProps["onFailure"],
-) {
-  const metadata = isRecord(event.context.metadata)
-    ? event.context.metadata
-    : isRecord(event.context.errorMetadata)
-      ? event.context.errorMetadata
-      : {};
+): CopilotRunFailure {
+  const runError = isRecord(event.context.event) ? event.context.event : {};
+  const metadata = [
+    runError.metadata,
+    event.context.metadata,
+    event.context.errorMetadata,
+  ].find(isRecord) ?? {};
   const serverRetryable = metadata.retryable === true;
   const requestMayHaveBeenBilled = metadata.requestMayHaveBeenBilled !== false;
   const retryable = serverRetryable && !requestMayHaveBeenBilled;
   const validationIssue =
-    typeof metadata.validationIssue === "string" && metadata.validationIssue.length <= 160
+    typeof metadata.validationIssue === "string" &&
+    metadata.validationIssue.length > 0 &&
+    metadata.validationIssue.length <= 160
       ? metadata.validationIssue
       : undefined;
 
-  onFailure({
+  return {
     message: SAFE_FAILURE_MESSAGE,
     retryable,
     requestMayHaveBeenBilled,
     ...(validationIssue ? { validationIssue } : {}),
-  });
+  };
+}
+
+type RetryAgent = ReturnType<typeof useAgent>["agent"];
+type CopilotKitClient = ReturnType<typeof useCopilotKit>["copilotkit"];
+
+interface CopilotKitRetryControlProps {
+  failure: CopilotRunFailure;
+  agent: RetryAgent;
+  copilotkit: CopilotKitClient;
+  isAgentReady: boolean;
+}
+
+export function CopilotKitRetryControl({
+  failure,
+  agent,
+  copilotkit,
+  isAgentReady,
+}: CopilotKitRetryControlProps) {
+  if (failure.retryable !== true || failure.requestMayHaveBeenBilled !== false) return null;
+
+  const hasPreviousUserMessage = [...agent.messages].reverse().some((message) => message.role === "user");
+  if (!hasPreviousUserMessage) return null;
+
+  return (
+    <div className="flex justify-end px-3 py-2">
+      <button
+        type="button"
+        className="min-h-11 rounded-md border border-cyan-800/60 px-3 py-2 text-sm font-medium text-cyan-800 hover:bg-cyan-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-cyan-800 dark:text-cyan-200 dark:hover:bg-cyan-950/50"
+        disabled={!isAgentReady || agent.isRunning}
+        onClick={() => {
+          if (!isAgentReady || agent.isRunning) return;
+          void copilotkit.runAgent({ agent });
+        }}
+      >
+        Try again
+      </button>
+    </div>
+  );
 }
 
 function CopilotKitChatContents(props: CopilotKitChatSurfaceProps) {
+  const { agent, isReady: isAgentReady } = useAgent();
+  const { copilotkit } = useCopilotKit();
+  const { onFailure } = props;
+  const [failure, setFailure] = useState<CopilotRunFailure>();
   const suggestions = useMemo(() => props.isArchived || props.cues.length === 0
     ? null
     : {
@@ -443,6 +493,7 @@ function CopilotKitChatContents(props: CopilotKitChatSurfaceProps) {
     onCitationSelect: props.onCitationSelect,
     onRunStateChange: props.onRunStateChange,
     onFailure: props.onFailure,
+    clearFailure: () => setFailure(undefined),
   }), [
     props.isArchived,
     props.onCitationSelect,
@@ -453,7 +504,11 @@ function CopilotKitChatContents(props: CopilotKitChatSurfaceProps) {
       error: Error;
       code: string;
       context: Record<string, unknown>;
-    }) => recordFailure(event, props.onFailure), [props.onFailure]);
+    }) => {
+    const nextFailure = recordFailure(event);
+    setFailure(nextFailure);
+    onFailure(nextFailure);
+  }, [onFailure]);
 
   return (
     <ChatSurfaceContext.Provider value={context}>
@@ -470,6 +525,14 @@ function CopilotKitChatContents(props: CopilotKitChatSurfaceProps) {
           inspectorTools={false}
           onError={handleError as ComponentProps<typeof CopilotChat>["onError"]}
         />
+        {failure ? (
+          <CopilotKitRetryControl
+            failure={failure}
+            agent={agent}
+            copilotkit={copilotkit}
+            isAgentReady={isAgentReady}
+          />
+        ) : null}
       </div>
       <style>{`
         .lattice-copilot-chat [data-copilotkit] {

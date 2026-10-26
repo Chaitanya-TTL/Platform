@@ -14,6 +14,8 @@ const mocks = vi.hoisted(() => ({
   inputProps: undefined as Record<string, unknown> | undefined,
   cursorProps: undefined as Record<string, unknown> | undefined,
   assistantMessage: undefined as React.ComponentType<{ message: Record<string, unknown> }> | undefined,
+  agent: undefined as { messages: Array<{ id: string; role: string }>; isRunning?: boolean } | undefined,
+  copilotkit: undefined as { runAgent: ReturnType<typeof vi.fn> } | undefined,
 }));
 
 vi.mock("@copilotkit/react-core/v2", () => {
@@ -126,6 +128,8 @@ vi.mock("@copilotkit/react-core/v2", () => {
     CopilotKitProvider: MockCopilotKitProvider,
     CopilotChat: MockCopilotChat,
     CopilotChatMessageView: MockMessageView,
+    useAgent: () => ({ agent: mocks.agent, isReady: true }),
+    useCopilotKit: () => ({ copilotkit: mocks.copilotkit }),
     useConfigureSuggestions: (config: Record<string, unknown> | null) => {
       mocks.suggestions = config;
     },
@@ -139,7 +143,7 @@ vi.mock("thinking-orbs", () => ({
   },
 }));
 
-import { CopilotKitChatSurface } from "../CopilotKitChatSurface";
+import { CopilotKitChatSurface, CopilotKitRetryControl } from "../CopilotKitChatSurface";
 
 const citation: CopilotCitation = {
   citationId: "evidence-42",
@@ -204,6 +208,10 @@ describe("CopilotKit investigation chat surface", () => {
     mocks.inputProps = undefined;
     mocks.cursorProps = undefined;
     mocks.assistantMessage = undefined;
+    mocks.agent = {
+      messages: [{ id: "user-current", role: "user" }],
+    };
+    mocks.copilotkit = { runAgent: vi.fn().mockResolvedValue(undefined) };
     defaultProps.onCitationSelect.mockClear();
     defaultProps.onRunStateChange.mockClear();
     defaultProps.onFailure.mockClear();
@@ -353,5 +361,124 @@ describe("CopilotKit investigation chat surface", () => {
     expect(markup).toContain('role="status"');
     expect(markup).toContain("Thinking");
     expect(mocks.cursorProps).toMatchObject({ state: "working", size: 20 });
+  });
+
+  it("reads server failure metadata from the V2 RUN_ERROR event and exposes only a safe message", async () => {
+    renderSurface();
+    const onError = mocks.chatProps?.onError as (event: {
+      error: Error;
+      code: string;
+      context: Record<string, unknown>;
+    }) => void;
+
+    onError({
+      error: new Error("provider diagnostic: subscription token"),
+      code: "agent_run_error_event",
+      context: {
+        event: {
+          type: "RUN_ERROR",
+          message: "provider diagnostic: subscription token",
+          metadata: {
+            retryable: true,
+            requestMayHaveBeenBilled: false,
+            validationIssue: "A required citation was missing.",
+          },
+        },
+      },
+    });
+
+    expect(defaultProps.onFailure).toHaveBeenCalledWith({
+      message: "The assistant could not complete a validated response. Check the conversation state before trying again.",
+      retryable: true,
+      requestMayHaveBeenBilled: false,
+      validationIssue: "A required citation was missing.",
+    });
+    expect(JSON.stringify(defaultProps.onFailure.mock.calls)).not.toContain("subscription token");
+  });
+
+  it.each([
+    ["ambiguous metadata", { retryable: false, requestMayHaveBeenBilled: false }, false, false],
+    ["potentially billed error", { retryable: true, requestMayHaveBeenBilled: true }, false, true],
+    ["missing billing classification", { retryable: true }, false, true],
+  ])("does not permit retry for %s", (_label, metadata, retryable, requestMayHaveBeenBilled) => {
+    renderSurface();
+    const onError = mocks.chatProps?.onError as (event: {
+      error: Error;
+      code: string;
+      context: Record<string, unknown>;
+    }) => void;
+
+    onError({
+      error: new Error("diagnostic detail"),
+      code: "agent_run_error_event",
+      context: { event: { metadata } },
+    });
+
+    expect(defaultProps.onFailure).toHaveBeenCalledWith(expect.objectContaining({
+      retryable,
+      requestMayHaveBeenBilled,
+    }));
+    expect(JSON.stringify(defaultProps.onFailure.mock.calls)).not.toContain("diagnostic detail");
+  });
+
+  it("renders the retry control only for server-approved, not-billed failures and reruns the existing user message", () => {
+    const failure = {
+      message: "A sanitized failure.",
+      retryable: true,
+      requestMayHaveBeenBilled: false,
+    };
+    const agent = {
+      messages: [
+        { id: "older-user", role: "user" },
+        { id: "assistant-before", role: "assistant" },
+        { id: "same-user-message-id", role: "user" },
+      ],
+      isRunning: false,
+    };
+    const copilotkit = { runAgent: vi.fn().mockResolvedValue(undefined) };
+    const markup = renderToStaticMarkup(
+      <CopilotKitRetryControl
+        failure={failure}
+        agent={agent as never}
+        copilotkit={copilotkit as never}
+        isAgentReady
+      />,
+    );
+    const control = CopilotKitRetryControl({
+      failure,
+      agent: agent as never,
+      copilotkit: copilotkit as never,
+      isAgentReady: true,
+    });
+    const retryButton = React.Children.toArray(
+      (control as React.ReactElement<{ children: React.ReactNode }>).props.children,
+    ).find((child) => React.isValidElement(child) && child.type === "button") as
+      React.ReactElement<{ onClick?: () => void }> | undefined;
+
+    expect(markup).toContain("Try again");
+    retryButton?.props.onClick?.();
+    expect(copilotkit.runAgent).toHaveBeenCalledWith({ agent });
+    expect(agent.messages.map((message) => message.id)).toEqual([
+      "older-user",
+      "assistant-before",
+      "same-user-message-id",
+    ]);
+    expect(agent.messages.at(-1)?.id).toBe("same-user-message-id");
+  });
+
+  it.each([
+    ["ambiguous", { retryable: false, requestMayHaveBeenBilled: false }],
+    ["potentially billed", { retryable: true, requestMayHaveBeenBilled: true }],
+    ["billing status missing", { retryable: true, requestMayHaveBeenBilled: undefined }],
+  ])("does not render a retry control for %s failures", (_label, failure) => {
+    const control = CopilotKitRetryControl({
+      failure: { message: "Safe failure", ...failure } as never,
+      agent: mocks.agent as never,
+      copilotkit: mocks.copilotkit as never,
+      isAgentReady: true,
+    });
+
+    expect(control).toBeNull();
+    expect(mocks.copilotkit?.runAgent).not.toHaveBeenCalled();
   });
 });
