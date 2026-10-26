@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   suggestions: undefined as Record<string, unknown> | null | undefined,
   messages: [] as Array<Record<string, unknown>>,
   isRunning: false,
+  isConnecting: false,
   inputProps: undefined as Record<string, unknown> | undefined,
   cursorProps: undefined as Record<string, unknown> | undefined,
   assistantMessage: undefined as React.ComponentType<{ message: Record<string, unknown> }> | undefined,
@@ -38,9 +39,13 @@ vi.mock("@copilotkit/react-core/v2", () => {
     mocks.assistantMessage = AssistantMessage;
     return (
       <div>
-        {messages?.map((message, index) => message.role === "assistant" && AssistantMessage
-          ? <AssistantMessage key={index} message={message} />
-          : null)}
+        {messages?.map((message, index) => {
+          if (message.role === "assistant" && AssistantMessage)
+            return <AssistantMessage key={index} message={message} />;
+          if (message.role === "user" && typeof message.content === "string")
+            return <p key={index}>{message.content}</p>;
+          return null;
+        })}
         {isRunning && Cursor ? <Cursor /> : null}
       </div>
     );
@@ -51,6 +56,9 @@ vi.mock("@copilotkit/react-core/v2", () => {
     messageView,
     messages,
     isRunning,
+    isConnecting,
+    hasExplicitThreadId,
+    welcomeScreen,
     ...props
   }: Record<string, unknown>) => {
     const inputProps = input && typeof input === "object" ? input as Record<string, unknown> : {};
@@ -58,21 +66,44 @@ vi.mock("@copilotkit/react-core/v2", () => {
     const textAreaProps = inputProps.textArea as Record<string, unknown> | undefined;
     const Disclaimer = inputProps.disclaimer as React.ComponentType<Record<string, unknown>> | undefined;
     const MessageView = messageView as React.ComponentType<Record<string, unknown>> | undefined;
+    const shouldShowWelcome = Array.isArray(messages) &&
+      messages.length === 0 &&
+      welcomeScreen !== false &&
+      !isConnecting &&
+      !hasExplicitThreadId;
+    const WelcomeScreen = typeof welcomeScreen === "function"
+      ? welcomeScreen as React.ComponentType<{ input: React.ReactNode; suggestionView: React.ReactNode }>
+      : undefined;
+    const inputElement = (
+      <textarea
+        aria-label="Ask about this investigation"
+        disabled={Boolean(textAreaProps?.disabled)}
+        maxLength={Number(textAreaProps?.maxLength)}
+      />
+    );
+    const welcomeInput = (
+      <>
+        {inputElement}
+        {inputProps.showDisclaimer && Disclaimer ? <Disclaimer /> : null}
+      </>
+    );
     return (
       <div>
-        {MessageView ? (
-          <MessageView
-            {...props}
-            messages={messages}
-            isRunning={isRunning}
-          />
-        ) : null}
-        <textarea
-          aria-label="Ask about this investigation"
-          disabled={Boolean(textAreaProps?.disabled)}
-          maxLength={Number(textAreaProps?.maxLength)}
-        />
-        {inputProps.showDisclaimer && Disclaimer ? <Disclaimer /> : null}
+        {shouldShowWelcome && WelcomeScreen ? (
+          <WelcomeScreen input={welcomeInput} suggestionView={null} />
+        ) : (
+          <>
+            {MessageView ? (
+              <MessageView
+                {...props}
+                messages={messages}
+                isRunning={isRunning}
+              />
+            ) : null}
+            {inputElement}
+            {inputProps.showDisclaimer && Disclaimer ? <Disclaimer /> : null}
+          </>
+        )}
       </div>
     );
   };
@@ -84,6 +115,8 @@ vi.mock("@copilotkit/react-core/v2", () => {
       <ChatView
         messages={mocks.messages}
         isRunning={mocks.isRunning}
+        isConnecting={mocks.isConnecting}
+        hasExplicitThreadId={Boolean(props.threadId)}
       />
     ) : null;
   };
@@ -116,6 +149,12 @@ const citation: CopilotCitation = {
   summary: "Inspection completed with no critical findings.",
 };
 
+const entityCitation: CopilotCitation = {
+  citationId: "cite:entity:entity%3A1",
+  kind: "entity",
+  label: "Housing",
+};
+
 const answer: CopilotAnswer = {
   answer: "The assembly is ready for review.",
   claims: [{ text: "The inspection passed.", kind: "fact", citationIds: [citation.citationId] }],
@@ -128,7 +167,7 @@ const answer: CopilotAnswer = {
   uncertainties: ["The latest supplier certificate is not available."],
   followUpQuestions: ["Would you like a release-readiness checklist?"],
   snapshotRevision: 42,
-  citations: [citation, citation],
+  citations: [entityCitation, citation, citation],
 };
 
 const cue: InvestigationReviewCue = {
@@ -161,6 +200,7 @@ describe("CopilotKit investigation chat surface", () => {
     mocks.suggestions = undefined;
     mocks.messages = [];
     mocks.isRunning = false;
+    mocks.isConnecting = false;
     mocks.inputProps = undefined;
     mocks.cursorProps = undefined;
     mocks.assistantMessage = undefined;
@@ -191,6 +231,34 @@ describe("CopilotKit investigation chat surface", () => {
     expect(messageFilter(messages)).toEqual([messages[2]]);
   });
 
+  it("shows the Lattice welcome for an empty selected thread after its initial connection", () => {
+    const markup = renderSurface();
+
+    expect(markup).toContain("Grounded in this investigation");
+    expect(markup).toContain("Ask about the current evidence");
+  });
+
+  it("keeps the Lattice welcome hidden while an empty selected thread is connecting", () => {
+    mocks.isConnecting = true;
+
+    const markup = renderSurface();
+
+    expect(markup).not.toContain("Grounded in this investigation");
+  });
+
+  it("keeps the Lattice welcome hidden when the selected thread has restored messages", () => {
+    mocks.messages = [{
+      id: "restored-user",
+      role: "user",
+      content: "What changed?",
+    }];
+
+    const markup = renderSurface();
+
+    expect(markup).toContain("What changed?");
+    expect(markup).not.toContain("Grounded in this investigation");
+  });
+
   it("renders validated answer details and unique clickable Lattice citations", () => {
     mocks.messages = [{
       id: "assistant-1",
@@ -206,6 +274,7 @@ describe("CopilotKit investigation chat surface", () => {
     expect(markup).toContain("The latest supplier certificate is not available.");
     expect(markup).toContain("Would you like a release-readiness checklist?");
     expect(markup).toContain("Gearbox inspection record");
+    expect(markup).toContain("evidence reference");
     expect(markup.match(/<button/g)).toHaveLength(1);
 
     const AssistantMessage = mocks.assistantMessage as React.FunctionComponent<{ message: Record<string, unknown> }>;
@@ -230,7 +299,9 @@ describe("CopilotKit investigation chat surface", () => {
         return node as React.ReactElement<{ onClick?: () => void }>;
       if (
         typeof node.type === "function" &&
-        (node.type.name === "LatticeAssistantMessage" || node.type.name === "CitationButton")
+        (node.type.name === "LatticeAssistantMessage" ||
+          node.type.name === "CitationView" ||
+          node.type.name === "CitationButton")
       ) {
         const Component = node.type as React.FunctionComponent<Record<string, unknown>>;
         return findButton(Component(node.props as Record<string, unknown>) as unknown as React.ReactNode);
@@ -240,7 +311,7 @@ describe("CopilotKit investigation chat surface", () => {
     const citationButton = findButton(renderedMessage);
     expect(citationButton).toBeDefined();
     citationButton?.props.onClick?.();
-    expect(defaultProps.onCitationSelect).toHaveBeenCalledWith(citation);
+    expect(defaultProps.onCitationSelect).toHaveBeenCalledWith(entityCitation);
   });
 
   it("falls back to safe plain text when restored answer metadata is missing", () => {
@@ -276,6 +347,7 @@ describe("CopilotKit investigation chat surface", () => {
 
   it("shows an accessible working orb only while a run is active", () => {
     mocks.isRunning = true;
+    mocks.messages = [{ id: "active-user", role: "user", content: "What changed?" }];
     const markup = renderSurface();
 
     expect(markup).toContain('role="status"');

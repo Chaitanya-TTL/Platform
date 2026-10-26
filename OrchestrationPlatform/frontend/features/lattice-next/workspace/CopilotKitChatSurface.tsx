@@ -120,6 +120,22 @@ function uniqueCitations(citations: readonly CopilotCitation[] | undefined): Cop
   });
 }
 
+function isNavigableCitation(citation: CopilotCitation): boolean {
+  if (citation.kind !== "entity" && citation.kind !== "relationship") return false;
+
+  const prefix = `cite:${citation.kind}:`;
+  if (!citation.citationId.startsWith(prefix)) return false;
+  const encodedId = citation.citationId.slice(prefix.length);
+  if (!encodedId) return false;
+
+  try {
+    const decodedId = decodeURIComponent(encodedId);
+    return decodedId.length > 0 && encodeURIComponent(decodedId) === encodedId;
+  } catch {
+    return false;
+  }
+}
+
 type CitationButtonProps = {
   citation: CopilotCitation;
   onCitationSelect: CopilotKitChatSurfaceProps["onCitationSelect"];
@@ -130,12 +146,35 @@ function CitationButton({ citation, onCitationSelect }: CitationButtonProps) {
     <button
       type="button"
       className="min-h-11 rounded-md border border-cyan-800/60 bg-cyan-950/40 px-3 py-2 text-left text-sm font-medium text-cyan-800 transition-colors hover:border-cyan-600 hover:bg-cyan-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500 dark:border-cyan-900 dark:bg-cyan-950/50 dark:text-cyan-200 dark:hover:border-cyan-700 dark:hover:bg-cyan-950"
-      aria-label={`Open evidence: ${citation.label}`}
+      aria-label={`Open ${citation.kind}: ${citation.label}`}
       onClick={() => onCitationSelect(citation)}
     >
       {citation.label}
     </button>
   );
+}
+
+function CitationReference({ citation }: { citation: CopilotCitation }) {
+  return (
+    <span
+      className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+      aria-label={`${citation.kind} reference: ${citation.label}`}
+    >
+      <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+        {citation.kind} reference
+      </span>
+      {citation.label}
+    </span>
+  );
+}
+
+function CitationView({
+  citation,
+  onCitationSelect,
+}: CitationButtonProps) {
+  return isNavigableCitation(citation)
+    ? <CitationButton citation={citation} onCitationSelect={onCitationSelect} />
+    : <CitationReference citation={citation} />;
 }
 
 type LatticeAssistantMessageProps = CopilotChatAssistantMessageProps & {
@@ -201,7 +240,7 @@ function LatticeAssistantMessage({
                 <ul className="mt-2 flex flex-wrap gap-2">
                   {citations.map((citation) => (
                     <li key={citation.citationId}>
-                      <CitationButton citation={citation} onCitationSelect={onCitationSelect} />
+                      <CitationView citation={citation} onCitationSelect={onCitationSelect} />
                     </li>
                   ))}
                 </ul>
@@ -323,6 +362,8 @@ type ChatViewProps = ComponentProps<typeof CopilotChat.View>;
 function LatticeChatView(props: ChatViewProps) {
   const context = useContext(ChatSurfaceContext);
   const isRunning = Boolean(props.isRunning);
+  const shouldSuppressSelectedThreadWelcome =
+    Boolean(props.isConnecting) || (props.messages?.length ?? 0) > 0;
   const onSubmitMessage = props.onSubmitMessage;
 
   useEffect(() => {
@@ -351,6 +392,9 @@ function LatticeChatView(props: ChatViewProps) {
           ? { disclaimer: ArchivedComposerNotice, showDisclaimer: true }
           : {}),
       }}
+      hasExplicitThreadId={Boolean(
+        props.hasExplicitThreadId && shouldSuppressSelectedThreadWelcome,
+      )}
       welcomeScreen={LatticeWelcomeScreen}
     />
   );
