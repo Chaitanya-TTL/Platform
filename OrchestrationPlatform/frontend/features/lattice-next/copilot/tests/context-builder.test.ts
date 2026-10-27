@@ -129,6 +129,20 @@ describe("investigation copilot context", () => {
     }));
   });
 
+  it("includes incoming relationships when the focal entity is the target", () => {
+    const packet = buildInvestigationContext(
+      snapshot(canonical([windchillPart, sapMaterial], [relation])),
+      "Trace SAP material 000000000000004200",
+      { relationshipDocument },
+    );
+
+    expect(packet.relationships).toContainEqual(expect.objectContaining({
+      relationshipId: relation.id,
+      sourceEntityId: windchillPart.id,
+      targetEntityId: sapMaterial.id,
+    }));
+  });
+
   it("preserves path endpoints and evidence when context is trimmed", () => {
     const packet = buildInvestigationContext(
       snapshot(canonical([windchillPart, sapMaterial], [relation])),
@@ -147,7 +161,8 @@ describe("investigation copilot context", () => {
         }
       }
     } else {
-      expect(packet.uncertainties.join(" ")).toContain(relation.id);
+      expect(packet.omissions.omittedCounts.relationships).toBeGreaterThan(0);
+      expect(packet.uncertainties.join(" ")).toMatch(/omitted \d+ relationship path/i);
     }
     expect(JSON.stringify(packet).length).toBeLessThanOrEqual(2_048);
   });
@@ -314,6 +329,73 @@ describe("investigation copilot context", () => {
       kind: "evaluation",
       summary: expect.stringContaining("No approved linkage evidence was found."),
     }));
+  });
+
+  it("does not leave unresolved-evaluation evidence citations dangling after trimming", () => {
+    const evaluation = {
+      ruleId: "CB_REQUIREMENT_SET_TO_CONFIGIT_MODEL" as const,
+      relationshipType: "requirement-set-model-link",
+      status: "unresolved" as const,
+      sourceApplication: "codebeamer",
+      sourceKinds: ["requirement-set"],
+      targetApplication: "configit",
+      targetKinds: ["model"],
+      sourceCandidates: [],
+      targetCandidates: [],
+      compatibleSourceCandidates: [],
+      compatibleTargetCandidates: [],
+      sourceCandidateCount: 0,
+      targetCandidateCount: 0,
+      sourceCandidatesTruncated: false,
+      targetCandidatesTruncated: false,
+      observedSourceKinds: [],
+      observedTargetKinds: [],
+      evidenceIds: ["evidence:zzz"],
+      reasonCode: "linkage-evidence-not-found" as const,
+      reason: "No approved linkage evidence was found.",
+      technicalContext: {
+        integrationName: "fixture",
+        protocol: "fixture",
+        direction: "codebeamer to configit",
+        sourceObjectType: "requirement-set",
+        targetObjectType: "model",
+        documentation: [],
+      },
+      evaluatedAt: temporal.assembledAt,
+    };
+    const value = {
+      ...canonical(),
+      evidence: [
+        { id: "evidence:aaa", kind: "source-record", summary: "Unrelated source record", source: "windchill", provenance: relation.provenance, temporal },
+        { id: "evidence:zzz", kind: "source-record", summary: "Archived ledger entry", source: "codebeamer", provenance: relation.provenance, temporal },
+      ],
+      universalRelationshipEvaluations: [evaluation],
+    };
+    const packet = buildInvestigationContext(
+      snapshot(value),
+      "Why is this unresolved?",
+      { maxItemsPerCategory: 1 },
+    );
+    const retainedEvidenceCitationIds = new Set(packet.evidence.map((item) => item.citationId));
+
+    expect(packet.unresolvedEvaluations).toHaveLength(1);
+    expect(packet.unresolvedEvaluations[0].evidenceCitationIds.every((id) => retainedEvidenceCitationIds.has(id))).toBe(true);
+  });
+
+  it("keeps oversized relationship omission metadata within the context limit", () => {
+    const manyRelationships = Array.from({ length: 30 }, (_, index) => link(
+      `relationship-${String(index).padStart(2, "0")}-${"x".repeat(90)}`,
+      windchillPart.id,
+      sapMaterial.id,
+    ));
+    const packet = buildInvestigationContext(
+      snapshot(canonical([windchillPart, sapMaterial], manyRelationships)),
+      "Trace OR:wt.part.WTPart:1001",
+      { maxContextChars: 2_048, maxItemsPerCategory: 1 },
+    );
+
+    expect(JSON.stringify(packet).length).toBeLessThanOrEqual(2_048);
+    expect(packet.omissions.omittedCounts.relationships).toBeGreaterThan(0);
   });
 
   it("is deterministic and discloses omissions when bounded", () => {

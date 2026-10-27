@@ -320,25 +320,30 @@ function orderRelationshipsFromFocus(
     return relationships.map((item) => ({ ...item, distance: 0 }));
   }
 
-  const outgoingBySource = new Map<string, typeof relationships[number][]>();
+  const relationshipsByEntity = new Map<string, typeof relationships[number][]>();
   for (const item of relationships) {
-    const outgoing = outgoingBySource.get(item.relation.sourceEntityId) ?? [];
-    outgoing.push(item);
-    outgoingBySource.set(item.relation.sourceEntityId, outgoing);
+    for (const entityId of [item.relation.sourceEntityId, item.relation.targetEntityId]) {
+      const connected = relationshipsByEntity.get(entityId) ?? [];
+      connected.push(item);
+      relationshipsByEntity.set(entityId, connected);
+    }
   }
 
   const distances = new Map<string, number>([[focalEntityId, 0]]);
   const selected = new Map<string, { relation: RelationshipLike; score: number; distance: number }>();
   const queue = [focalEntityId];
   for (let cursor = 0; cursor < queue.length; cursor++) {
-    const sourceEntityId = queue[cursor];
-    const distance = distances.get(sourceEntityId)!;
-    for (const item of outgoingBySource.get(sourceEntityId) ?? []) {
+    const currentEntityId = queue[cursor];
+    const distance = distances.get(currentEntityId)!;
+    for (const item of relationshipsByEntity.get(currentEntityId) ?? []) {
       if (selected.has(item.relation.id)) continue;
       selected.set(item.relation.id, { ...item, distance });
-      if (!distances.has(item.relation.targetEntityId)) {
-        distances.set(item.relation.targetEntityId, distance + 1);
-        queue.push(item.relation.targetEntityId);
+      const connectedEntityId = item.relation.sourceEntityId === currentEntityId
+        ? item.relation.targetEntityId
+        : item.relation.sourceEntityId;
+      if (!distances.has(connectedEntityId)) {
+        distances.set(connectedEntityId, distance + 1);
+        queue.push(connectedEntityId);
       }
     }
   }
@@ -573,6 +578,7 @@ export function buildInvestigationContext(
     const findings = allFindings.slice(0, counts.findings);
     const unresolved = allUnresolved.slice(0, counts.unresolvedEvaluations).map((evaluation) => ({
       ...evaluation,
+      evidenceCitationIds: evaluation.evidenceCitationIds.filter((citationId) => evidenceMap.has(citationId)),
       semanticGuidanceAvailable: selectedGuidancePairs.has(applicationPairKey(evaluation.sourceApplication, evaluation.targetApplication)),
     }));
     const citations = citationsFor(selectedSources.slice(0, counts.sourceSelections), unresolved, entities, relationships, findings, evidence);
@@ -588,11 +594,9 @@ export function buildInvestigationContext(
     const categories = Object.entries(omittedCounts).filter(([, count]) => count > 0).map(([category]) => category).sort();
     const uncertainties = buildUncertainties(hasCanonicalEvidence, partialSources, staleSources, conflicts, unsupportedIdentifiers);
     if (categories.length) uncertainties.push(`Context limit omitted items from: ${categories.join(", ")}; omitted content is unknown, not evidence of absence.`);
-    const omittedRelationshipIds = allRelationships
-      .filter(({ relation }) => !relationships.some((item) => item.relationshipId === relation.id))
-      .map(({ relation }) => relation.id);
-    if (omittedRelationshipIds.length) {
-      uncertainties.push(`Context limit omitted relationship path(s): ${omittedRelationshipIds.join(", ")}; omitted path content is unknown.`);
+    const omittedRelationshipCount = allRelationships.length - relationships.length;
+    if (omittedRelationshipCount > 0) {
+      uncertainties.push(`Context limit omitted ${omittedRelationshipCount} relationship path(s); omitted path content is unknown.`);
     }
     for (const relationship of relationships) {
       if (!relationship.identitySupported) {
