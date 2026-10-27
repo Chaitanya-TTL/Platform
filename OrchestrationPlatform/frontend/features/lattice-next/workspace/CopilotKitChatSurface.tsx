@@ -34,13 +34,27 @@ export interface CopilotRunFailure {
   validationIssue?: string;
 }
 
+export interface CopilotAnswerContext {
+  messageId: string;
+  answer: CopilotAnswer;
+}
+
+export interface CopilotCitationSelection extends CopilotAnswerContext {
+  citation: CopilotCitation;
+}
+
+export type SafeSubmitMessage = (value: string) => void;
+
 export interface CopilotKitChatSurfaceProps {
   investigationId: string;
   snapshotRevision: number;
   threadId: string;
   isArchived: boolean;
   cues: readonly InvestigationReviewCue[];
-  onCitationSelect(citation: CopilotCitation): void;
+  onAnswerContextAvailable(context: CopilotAnswerContext): void;
+  onWhySelect(answerContext: CopilotAnswerContext): void;
+  onCitationSelect(selection: CopilotCitationSelection): void;
+  onSubmitMessageAvailable(submitMessage: SafeSubmitMessage | undefined): void;
   onRunStateChange(isRunning: boolean): void;
   onFailure(failure: CopilotRunFailure | undefined): void;
   onDismissCue(cueId: string): void;
@@ -50,11 +64,14 @@ interface ChatSurfaceContextValue {
   isArchived: boolean;
   isRunning: boolean;
   isConnecting: boolean;
+  onAnswerContextAvailable: CopilotKitChatSurfaceProps["onAnswerContextAvailable"];
+  onWhySelect: CopilotKitChatSurfaceProps["onWhySelect"];
   onCitationSelect: CopilotKitChatSurfaceProps["onCitationSelect"];
+  cues: readonly InvestigationReviewCue[];
+  onDismissCue: CopilotKitChatSurfaceProps["onDismissCue"];
+  onSubmitMessageAvailable: CopilotKitChatSurfaceProps["onSubmitMessageAvailable"];
   onRunStateChange: CopilotKitChatSurfaceProps["onRunStateChange"];
   onFailure: CopilotKitChatSurfaceProps["onFailure"];
-  cues: CopilotKitChatSurfaceProps["cues"];
-  onDismissCue: CopilotKitChatSurfaceProps["onDismissCue"];
   submitMessage?: (value: string) => void;
   clearFailure(): void;
 }
@@ -120,81 +137,43 @@ function isCopilotAnswer(value: unknown): value is CopilotAnswer {
   return validClaims && validRecommendations;
 }
 
-function uniqueCitations(citations: readonly CopilotCitation[] | undefined): CopilotCitation[] {
-  const seen = new Set<string>();
-  return (citations ?? []).filter((citation) => {
-    if (seen.has(citation.citationId)) return false;
-    seen.add(citation.citationId);
-    return true;
-  });
+export function getValidatedAnswerContext(message: {
+  id?: unknown;
+  metadata?: unknown;
+}): CopilotAnswerContext | undefined {
+  if (typeof message.id !== "string" || message.id.length === 0) return undefined;
+  const metadata = isRecord(message.metadata) ? message.metadata : undefined;
+  const answer = isCopilotAnswer(metadata?.latticeAnswer) ? metadata.latticeAnswer : undefined;
+  return answer ? { messageId: message.id, answer } : undefined;
 }
 
-function isNavigableCitation(citation: CopilotCitation): boolean {
-  if (citation.kind !== "entity" && citation.kind !== "relationship") return false;
-
-  const prefix = `cite:${citation.kind}:`;
-  if (!citation.citationId.startsWith(prefix)) return false;
-  const encodedId = citation.citationId.slice(prefix.length);
-  if (!encodedId) return false;
-
-  try {
-    const decodedId = decodeURIComponent(encodedId);
-    return decodedId.length > 0 && encodeURIComponent(decodedId) === encodedId;
-  } catch {
-    return false;
+export function reportLatestValidatedAnswerContext(
+  messages: readonly Message[],
+  onAnswerContextAvailable: CopilotKitChatSurfaceProps["onAnswerContextAvailable"],
+): void {
+  for (const message of [...messages].reverse()) {
+    if (message.role !== "assistant") continue;
+    const answerContext = getValidatedAnswerContext(message);
+    if (!answerContext) continue;
+    onAnswerContextAvailable(answerContext);
+    return;
   }
 }
 
-type CitationButtonProps = {
-  citation: CopilotCitation;
-  onCitationSelect: CopilotKitChatSurfaceProps["onCitationSelect"];
-};
-
-function CitationButton({ citation, onCitationSelect }: CitationButtonProps) {
-  return (
-    <button
-      type="button"
-      className="min-h-11 rounded-sm px-1 text-left text-sm font-medium text-cyan-800 underline decoration-cyan-700/60 decoration-1 underline-offset-4 transition-colors hover:text-cyan-600 hover:decoration-cyan-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500 dark:text-cyan-200 dark:decoration-cyan-300/60 dark:hover:text-cyan-100 dark:hover:decoration-cyan-200"
-      aria-label={`Open ${citation.kind}: ${citation.label}`}
-      onClick={() => onCitationSelect(citation)}
-    >
-      {citation.label}
-    </button>
-  );
-}
-
-function CitationReference({ citation }: { citation: CopilotCitation }) {
-  return (
-    <span className="inline-flex min-h-11 items-center gap-1.5 px-1 text-sm text-slate-700 dark:text-slate-300">
-      <span className="text-slate-500 dark:text-slate-400">{citation.kind} reference</span>
-      <span>{citation.label}</span>
-    </span>
-  );
-}
-
-function CitationView({
-  citation,
-  onCitationSelect,
-}: CitationButtonProps) {
-  return isNavigableCitation(citation)
-    ? <CitationButton citation={citation} onCitationSelect={onCitationSelect} />
-    : <CitationReference citation={citation} />;
-}
-
 type LatticeAssistantMessageProps = CopilotChatAssistantMessageProps & {
-  onCitationSelect: CopilotKitChatSurfaceProps["onCitationSelect"];
+  onWhySelect: CopilotKitChatSurfaceProps["onWhySelect"];
 };
 
 function LatticeAssistantMessage({
   message,
-  onCitationSelect,
+  onWhySelect,
   className,
 }: LatticeAssistantMessageProps) {
-  const metadata = isRecord(message.metadata) ? message.metadata : undefined;
-  const answer = isCopilotAnswer(metadata?.latticeAnswer) ? metadata.latticeAnswer : undefined;
+  const answerContext = getValidatedAnswerContext(message);
+  const answer = answerContext?.answer;
   const fallbackText = typeof message.content === "string" ? message.content : "";
 
-  if (!answer) {
+  if (!answerContext || !answer) {
     return (
       <article className={`lattice-assistant-message ${className ?? ""}`}>
         <p className="whitespace-pre-wrap break-words text-sm leading-6 text-slate-800 dark:text-slate-100">
@@ -204,122 +183,19 @@ function LatticeAssistantMessage({
     );
   }
 
-  const citations = uniqueCitations(answer.citations);
-  const citationById = new Map(citations.map((citation) => [citation.citationId, citation]));
-  const citedIds = new Set([
-    ...answer.claims.flatMap((claim) => claim.citationIds),
-    ...answer.recommendations.flatMap((recommendation) => recommendation.citationIds),
-  ]);
-  const uncitedReferences = citations.filter((citation) => !citedIds.has(citation.citationId));
-  const hasDetails =
-    answer.claims.length > 0 ||
-    uncitedReferences.length > 0 ||
-    answer.recommendations.length > 0 ||
-    answer.uncertainties.length > 0 ||
-    answer.followUpQuestions.length > 0;
-
   return (
     <article className={`lattice-assistant-message ${className ?? ""}`}>
       <p className="whitespace-pre-wrap break-words text-sm leading-6 text-slate-800 dark:text-slate-100">
         {answer.answer}
       </p>
-      {hasDetails ? (
-        <details className="mt-3 rounded-lg border border-slate-200 bg-slate-50/80 text-sm dark:border-slate-700 dark:bg-slate-900/70">
-          <summary className="min-h-11 cursor-pointer px-3 py-2 font-medium text-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500 dark:text-slate-200">
-            Evidence and details
-          </summary>
-          <div className="space-y-4 border-t border-slate-200 px-3 py-3 dark:border-slate-700">
-            {answer.claims.length ? (
-              <section aria-label="Claims">
-                <h3 className="font-semibold text-slate-800 dark:text-slate-100">Claims</h3>
-                <ul className="mt-2 list-disc space-y-1 pl-5 text-slate-700 dark:text-slate-300">
-                  {answer.claims.map((claim, index) => (
-                    <li key={`${claim.kind}-${index}`}>
-                      <span className="mr-1 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                        {claim.kind}
-                      </span>
-                      <span>{claim.text}</span>
-                      {claim.citationIds.some((id) => citationById.has(id)) ? (
-                        <span className="mt-1 flex flex-wrap items-center gap-x-2">
-                          <span className="text-xs text-slate-600 dark:text-slate-400">Supported by</span>
-                          {claim.citationIds.flatMap((id) => {
-                            const citation = citationById.get(id);
-                            return citation
-                              ? [<CitationView key={id} citation={citation} onCitationSelect={onCitationSelect} />]
-                              : [];
-                          })}
-                        </span>
-                      ) : null}
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            ) : null}
-            {uncitedReferences.length ? (
-              <section aria-label="Citations">
-                <h3 className="font-semibold text-slate-800 dark:text-slate-100">Additional sources</h3>
-                <ul className="mt-2 flex flex-wrap gap-2">
-                  {uncitedReferences.map((citation) => (
-                    <li key={citation.citationId}>
-                      <CitationView citation={citation} onCitationSelect={onCitationSelect} />
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            ) : null}
-            {answer.recommendations.length ? (
-              <section aria-label="Recommendations">
-                <h3 className="font-semibold text-slate-800 dark:text-slate-100">Recommendations</h3>
-                <ul className="mt-2 list-disc space-y-2 pl-5 text-slate-700 dark:text-slate-300">
-                  {answer.recommendations.map((recommendation, index) => (
-                    <li key={`recommendation-${index}`}>
-                      <p>{recommendation.text}</p>
-                      <p className="mt-1 text-slate-600 dark:text-slate-400">{recommendation.rationale}</p>
-                      {recommendation.citationIds.some((id) => citationById.has(id)) ? (
-                        <span className="mt-1 flex flex-wrap items-center gap-x-2">
-                          <span className="text-xs text-slate-600 dark:text-slate-400">Based on</span>
-                          {recommendation.citationIds.flatMap((id) => {
-                            const citation = citationById.get(id);
-                            return citation
-                              ? [<CitationView key={id} citation={citation} onCitationSelect={onCitationSelect} />]
-                              : [];
-                          })}
-                        </span>
-                      ) : null}
-                      <p className="mt-1 text-xs font-medium text-amber-800 dark:text-amber-200">
-                        Approval required
-                      </p>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            ) : null}
-            {answer.uncertainties.length ? (
-              <section aria-label="Uncertainties">
-                <h3 className="font-semibold text-slate-800 dark:text-slate-100">Uncertainties</h3>
-                <ul className="mt-2 list-disc space-y-1 pl-5 text-slate-700 dark:text-slate-300">
-                  {answer.uncertainties.map((uncertainty, index) => (
-                    <li key={`uncertainty-${index}`}>{uncertainty}</li>
-                  ))}
-                </ul>
-              </section>
-            ) : null}
-            {answer.followUpQuestions.length ? (
-              <section aria-label="Follow-up questions">
-                <h3 className="font-semibold text-slate-800 dark:text-slate-100">Follow-up questions</h3>
-                <ul className="mt-2 list-disc space-y-1 pl-5 text-slate-700 dark:text-slate-300">
-                  {answer.followUpQuestions.map((question, index) => (
-                    <li key={`follow-up-${index}`}>{question}</li>
-                  ))}
-                </ul>
-              </section>
-            ) : null}
-            <p className="border-t border-slate-200 pt-2 text-xs text-slate-600 dark:border-slate-700 dark:text-slate-400">
-              Based on investigation revision {answer.snapshotRevision}
-            </p>
-          </div>
-        </details>
-      ) : null}
+      <button
+        type="button"
+        className="mt-1 inline-flex min-h-11 items-center rounded-sm px-1 text-sm font-medium text-cyan-800 underline decoration-cyan-700/60 underline-offset-4 transition-colors hover:text-cyan-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500 dark:text-cyan-200 dark:decoration-cyan-300/60 dark:hover:text-cyan-100"
+        aria-label="Why this answer?"
+        onClick={() => onWhySelect(answerContext)}
+      >
+        Why?
+      </button>
     </article>
   );
 }
@@ -337,65 +213,13 @@ function ActiveRunCursor() {
   );
 }
 
-function LatticeReviewSuggestions() {
-  const context = useContext(ChatSurfaceContext);
-  if (!context?.cues.length || context.isArchived) return null;
-
-  return (
-    <details className="shrink-0 rounded-md border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900/70">
-      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-sm font-medium text-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-cyan-500 dark:text-slate-100">
-        <span>Review suggestions</span>
-        <span className="tabular-nums text-slate-600 dark:text-slate-300">
-          {context.cues.length}
-        </span>
-      </summary>
-      <ul className="grid max-h-48 gap-1 overflow-y-auto px-3 pb-2">
-        {context.cues.map((cue) => (
-          <li
-            key={cue.id}
-            className="flex flex-wrap items-center justify-between gap-2 border-l border-cyan-700 py-2 pl-3 dark:border-cyan-400"
-          >
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{cue.title}</p>
-              <p className="mt-1 text-sm leading-5 text-slate-700 dark:text-slate-300">{cue.detail}</p>
-            </div>
-            <div className="flex shrink-0 items-center gap-1">
-              <button
-                type="button"
-                disabled={
-                  context.isArchived ||
-                  context.isRunning ||
-                  context.isConnecting ||
-                  !context.submitMessage
-                }
-                onClick={() => context.submitMessage?.(cue.prompt)}
-                className="min-h-11 rounded-sm px-2 text-sm font-medium text-cyan-800 underline decoration-cyan-700/60 underline-offset-4 transition-colors hover:text-cyan-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-cyan-200 dark:hover:text-cyan-100"
-              >
-                Ask about this
-              </button>
-              <button
-                type="button"
-                aria-label={`Dismiss ${cue.title}`}
-                onClick={() => context.onDismissCue(cue.id)}
-                className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md text-slate-600 transition-colors hover:bg-slate-200 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
-              >
-                Dismiss
-              </button>
-            </div>
-          </li>
-        ))}
-      </ul>
-    </details>
-  );
-}
-
 function LatticeWelcomeScreen({
   input,
 }: {
   input: ReactNode;
 }) {
   return (
-    <section className="mx-auto flex w-full max-w-2xl flex-col gap-4 px-4 py-6 sm:px-6">
+    <section className="lattice-copilot-welcome mx-auto flex min-h-0 w-full max-w-2xl flex-1 flex-col gap-4 px-4 py-6 sm:px-6">
       <div>
         <h2 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-white">
           Grounded in this investigation
@@ -404,8 +228,9 @@ function LatticeWelcomeScreen({
           Ask about the selected evidence, source coverage, or a relationship. Answers cite the saved snapshot.
         </p>
       </div>
-      <LatticeReviewSuggestions />
-      {input}
+      <div className="lattice-copilot-welcome-input w-full min-w-0">
+        {input}
+      </div>
     </section>
   );
 }
@@ -413,18 +238,25 @@ function LatticeWelcomeScreen({
 function LatticeMessageView(props: CopilotChatMessageViewProps) {
   const context = useContext(ChatSurfaceContext);
   const assistantMessage = useMemo(() => {
-    const onCitationSelect = context?.onCitationSelect ?? (() => undefined);
+    const onWhySelect = context?.onWhySelect ?? (() => undefined);
     return function AssistantMessageSlot(slotProps: CopilotChatAssistantMessageProps) {
-      return <LatticeAssistantMessage {...slotProps} onCitationSelect={onCitationSelect} />;
+      return (
+        <LatticeAssistantMessage
+          {...slotProps}
+          onWhySelect={onWhySelect}
+        />
+      );
     };
-  }, [context?.onCitationSelect]);
+  }, [context?.onWhySelect]);
 
   return (
-    <CopilotChatMessageView
-      {...props}
-      assistantMessage={assistantMessage as typeof CopilotChatAssistantMessage}
-      cursor={ActiveRunCursor}
-    />
+    <div className="lattice-copilot-message-content flex min-h-0 flex-1 flex-col justify-end">
+      <CopilotChatMessageView
+        {...props}
+        assistantMessage={assistantMessage as typeof CopilotChatAssistantMessage}
+        cursor={ActiveRunCursor}
+      />
+    </div>
   );
 }
 
@@ -438,6 +270,13 @@ function LatticeChatView(props: ChatViewProps) {
     Boolean(props.isConnecting) || (props.messages?.length ?? 0) > 0;
   const onSubmitMessage = props.onSubmitMessage;
 
+  const onAnswerContextAvailable = context?.onAnswerContextAvailable;
+  useEffect(() => {
+    if (onAnswerContextAvailable) {
+      reportLatestValidatedAnswerContext(props.messages ?? [], onAnswerContextAvailable);
+    }
+  }, [onAnswerContextAvailable, props.messages]);
+
   useEffect(() => {
     context?.onRunStateChange(isRunning);
     if (isRunning) {
@@ -450,7 +289,13 @@ function LatticeChatView(props: ChatViewProps) {
     if (!context?.isArchived && value.length <= MAX_MESSAGE_LENGTH)
       onSubmitMessage?.(value);
   }, [context?.isArchived, onSubmitMessage]);
-  const hasMessages = (props.messages?.length ?? 0) > 0;
+  const onSubmitMessageAvailable = context?.onSubmitMessageAvailable;
+  useEffect(() => {
+    onSubmitMessageAvailable?.(
+      isRunning || isConnecting ? undefined : handleSubmit,
+    );
+    return () => onSubmitMessageAvailable?.(undefined);
+  }, [handleSubmit, isConnecting, isRunning, onSubmitMessageAvailable]);
   const chatContext = useMemo(() => context ? {
     ...context,
     isRunning,
@@ -471,11 +316,6 @@ function LatticeChatView(props: ChatViewProps) {
             <span>Restoring this conversation…</span>
           </div>
         ) : null}
-        {hasMessages ? (
-          <div className="mx-3 mb-2 shrink-0">
-            <LatticeReviewSuggestions />
-          </div>
-        ) : null}
         <CopilotChat.View
           {...props}
           className="min-h-0 flex-1"
@@ -494,6 +334,41 @@ function LatticeChatView(props: ChatViewProps) {
           )}
           welcomeScreen={LatticeWelcomeScreen}
         />
+        {(props.messages?.length ?? 0) > 0 &&
+        !isConnecting &&
+        !context?.isArchived &&
+        context?.cues.length ? (
+          <section
+            aria-label="Review follow-up suggestions"
+            className="shrink-0 border-t border-slate-200/70 px-3 py-1 dark:border-slate-700/70"
+          >
+            <ul className="divide-y divide-slate-200/70 dark:divide-slate-700/70">
+              {context.cues.map((cue) => (
+                <li key={cue.id} className="flex min-h-11 items-center gap-2 py-1">
+                  <span className="min-w-0 flex-1 truncate text-xs text-slate-500 dark:text-slate-400">
+                    Follow-up · {cue.title}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={isRunning || !context.submitMessage}
+                    onClick={() => context.submitMessage?.(cue.prompt)}
+                    className="min-h-11 shrink-0 rounded-sm px-2 text-xs font-medium text-cyan-800 underline underline-offset-4 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500 dark:text-cyan-200"
+                  >
+                    Ask
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`Dismiss ${cue.title}`}
+                    onClick={() => context.onDismissCue(cue.id)}
+                    className="min-h-11 shrink-0 rounded-sm px-2 text-xs text-slate-500 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500 dark:text-slate-400 dark:hover:text-white"
+                  >
+                    Dismiss
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
       </div>
     </ChatSurfaceContext.Provider>
   );
@@ -575,18 +450,24 @@ function CopilotKitChatContents(props: CopilotKitChatSurfaceProps) {
     isArchived: props.isArchived,
     isRunning: false,
     isConnecting: false,
+    onAnswerContextAvailable: props.onAnswerContextAvailable,
+    onWhySelect: props.onWhySelect,
     onCitationSelect: props.onCitationSelect,
-    onRunStateChange: props.onRunStateChange,
-    onFailure: props.onFailure,
     cues: props.cues,
     onDismissCue: props.onDismissCue,
+    onSubmitMessageAvailable: props.onSubmitMessageAvailable,
+    onRunStateChange: props.onRunStateChange,
+    onFailure: props.onFailure,
     clearFailure: () => setFailure(undefined),
   }), [
     props.isArchived,
+    props.onAnswerContextAvailable,
+    props.onWhySelect,
     props.onCitationSelect,
-    props.onFailure,
     props.cues,
     props.onDismissCue,
+    props.onSubmitMessageAvailable,
+    props.onFailure,
     props.onRunStateChange,
   ]);
   const handleError = useCallback((event: {
@@ -697,6 +578,35 @@ function CopilotKitChatContents(props: CopilotKitChatSurfaceProps) {
         }
         .lattice-copilot-chat [data-copilotkit] .copilotKitInput [data-testid="copilot-add-menu-button"] {
           display: none;
+        }
+        .lattice-copilot-chat [data-copilotkit] .lattice-copilot-welcome {
+          justify-content: safe center;
+          overflow-y: auto;
+        }
+        .lattice-copilot-chat [data-copilotkit] .lattice-copilot-welcome-input [class*="max-w-3xl"] {
+          width: 100%;
+          min-width: 0;
+        }
+        .lattice-copilot-chat [data-testid="copilot-chat"] > div > div:has([data-testid="copilot-scroll-content"]) {
+          display: flex;
+          flex: 1 1 auto;
+          flex-direction: column;
+          min-height: 0;
+        }
+        .lattice-copilot-chat [data-testid="copilot-chat"] div:has(> [data-testid="copilot-scroll-content"]) {
+          display: flex;
+          flex: 1 0 auto;
+          flex-direction: column;
+        }
+        .lattice-copilot-chat [data-testid="copilot-chat"] [data-testid="copilot-scroll-content"] {
+          display: flex;
+          flex: 1 0 auto;
+          flex-direction: column;
+        }
+        .lattice-copilot-chat [data-testid="copilot-chat"] [data-testid="copilot-scroll-content"] > div:has(> .lattice-copilot-message-content) {
+          display: flex;
+          flex: 1 0 auto;
+          flex-direction: column;
         }
         .lattice-copilot-chat [data-copilotkit] .copilotKitUserMessage {
           background: transparent;

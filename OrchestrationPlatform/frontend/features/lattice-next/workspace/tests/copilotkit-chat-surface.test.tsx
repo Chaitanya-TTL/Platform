@@ -1,4 +1,5 @@
 import React from "react";
+import type { Message } from "@ag-ui/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CopilotCitation, CopilotAnswer } from "../../copilot/contracts";
@@ -143,7 +144,12 @@ vi.mock("thinking-orbs", () => ({
   },
 }));
 
-import { CopilotKitChatSurface, CopilotKitRetryControl } from "../CopilotKitChatSurface";
+import {
+  CopilotKitChatSurface,
+  CopilotKitRetryControl,
+  getValidatedAnswerContext,
+  reportLatestValidatedAnswerContext,
+} from "../CopilotKitChatSurface";
 
 const citation: CopilotCitation = {
   citationId: "evidence-42",
@@ -161,11 +167,15 @@ const entityCitation: CopilotCitation = {
 
 const answer: CopilotAnswer = {
   answer: "The assembly is ready for review.",
-  claims: [{ text: "The inspection passed.", kind: "fact", citationIds: [citation.citationId] }],
+  claims: [{
+    text: "The inspection passed.",
+    kind: "fact",
+    citationIds: [citation.citationId, citation.citationId],
+  }],
   recommendations: [{
     text: "Review the release package.",
     rationale: "The package is the remaining approval step.",
-    citationIds: [citation.citationId],
+    citationIds: [citation.citationId, citation.citationId],
     approvalRequired: true,
   }],
   uncertainties: ["The latest supplier certificate is not available."],
@@ -188,7 +198,10 @@ const defaultProps = {
   threadId: "thread-7",
   isArchived: false,
   cues: [cue],
+  onAnswerContextAvailable: vi.fn(),
+  onWhySelect: vi.fn(),
   onCitationSelect: vi.fn(),
+  onSubmitMessageAvailable: vi.fn(),
   onRunStateChange: vi.fn(),
   onFailure: vi.fn(),
   onDismissCue: vi.fn(),
@@ -214,6 +227,9 @@ describe("CopilotKit investigation chat surface", () => {
     };
     mocks.copilotkit = { runAgent: vi.fn().mockResolvedValue(undefined) };
     defaultProps.onCitationSelect.mockClear();
+    defaultProps.onAnswerContextAvailable.mockClear();
+    defaultProps.onWhySelect.mockClear();
+    defaultProps.onSubmitMessageAvailable.mockClear();
     defaultProps.onRunStateChange.mockClear();
     defaultProps.onFailure.mockClear();
     defaultProps.onDismissCue.mockClear();
@@ -243,9 +259,24 @@ describe("CopilotKit investigation chat surface", () => {
 
   it("shows the Lattice welcome for an empty selected thread after its initial connection", () => {
     const markup = renderSurface();
+    const welcomeClassName =
+      markup.match(/<section class="([^"]*lattice-copilot-welcome[^"]*)"/)?.[1] ?? "";
 
     expect(markup).toContain("Grounded in this investigation");
-    expect(markup).toContain("Ask about the current evidence");
+    expect(markup).toContain("Ask about the selected evidence");
+    expect(welcomeClassName).toContain("flex-1");
+    expect(welcomeClassName).toContain("min-h-0");
+    expect(welcomeClassName).not.toContain("overflow-y-auto");
+    expect(markup).toContain("lattice-copilot-welcome-input");
+    expect(markup).toContain(
+      '.lattice-copilot-welcome-input [class*="max-w-3xl"] {\n          width: 100%;\n          min-width: 0;',
+    );
+    expect(markup).toContain(
+      ".lattice-copilot-welcome {\n          justify-content: safe center;\n          overflow-y: auto;",
+    );
+    expect(markup).toContain("justify-content: safe center;");
+    expect(markup).toContain("<textarea");
+    expect(markup).not.toContain("Try asking");
   });
 
   it("keeps the Lattice welcome hidden while an empty selected thread is connecting", () => {
@@ -266,62 +297,104 @@ describe("CopilotKit investigation chat surface", () => {
     const markup = renderSurface();
 
     expect(markup).toContain("What changed?");
+    expect(markup).toContain(
+      'class="lattice-copilot-message-content flex min-h-0 flex-1 flex-col justify-end"',
+    );
+    expect(markup).toContain(
+      'div:has(> [data-testid="copilot-scroll-content"])',
+    );
+    expect(markup).toContain(
+      '[data-testid="copilot-chat"] > div > div:has([data-testid="copilot-scroll-content"])',
+    );
     expect(markup).not.toContain("Grounded in this investigation");
   });
 
-  it("renders validated answer details and unique clickable Lattice citations", () => {
-    mocks.messages = [{
+  it("renders_the_answer_as_the_primary_narrative_without_duplicate_details", () => {
+    const message = {
       id: "assistant-1",
       role: "assistant",
       content: answer.answer,
       metadata: { latticeAnswer: answer },
-    }];
+    };
+    mocks.messages = [message];
     const markup = renderSurface();
 
-    expect(markup).toContain(answer.answer);
-    expect(markup).toContain("The inspection passed.");
-    expect(markup).toContain("Review the release package.");
-    expect(markup).toContain("The latest supplier certificate is not available.");
-    expect(markup).toContain("Would you like a release-readiness checklist?");
-    expect(markup).toContain("Gearbox inspection record");
-    expect(markup).toContain("evidence reference");
-    expect(markup.match(/<button/g)).toHaveLength(1);
+    expect(getValidatedAnswerContext(message)).toEqual({
+      messageId: "assistant-1",
+      answer,
+    });
+    expect(getValidatedAnswerContext({
+      id: "assistant-invalid",
+      metadata: { latticeAnswer: { answer: "not a validated answer" } },
+    })).toBeUndefined();
+    expect(getValidatedAnswerContext({
+      id: "assistant-unvalidated",
+      metadata: { other: answer },
+    })).toBeUndefined();
+    const onAnswerContextAvailable = vi.fn();
+    reportLatestValidatedAnswerContext([message as unknown as Message], onAnswerContextAvailable);
+    expect(onAnswerContextAvailable).toHaveBeenCalledWith({
+      messageId: "assistant-1",
+      answer,
+    });
+    const onInvalidAnswerContextAvailable = vi.fn();
+    reportLatestValidatedAnswerContext([{
+      id: "assistant-invalid",
+      role: "assistant",
+      metadata: { latticeAnswer: { answer: "not validated" } },
+    } as unknown as Message], onInvalidAnswerContextAvailable);
+    expect(onInvalidAnswerContextAvailable).not.toHaveBeenCalled();
 
-    const AssistantMessage = mocks.assistantMessage as React.FunctionComponent<{ message: Record<string, unknown> }>;
-    const renderedMessage = AssistantMessage({
-      message: {
-        id: "assistant-1",
-        role: "assistant",
-        content: answer.answer,
-        metadata: { latticeAnswer: answer },
-      },
-    }) as unknown as React.ReactNode;
-    const findButton = (node: React.ReactNode): React.ReactElement<{ onClick?: () => void }> | undefined => {
-      if (Array.isArray(node)) {
-        for (const child of node) {
-          const button = findButton(child);
-          if (button) return button;
-        }
-        return undefined;
-      }
-      if (!React.isValidElement(node)) return undefined;
-      if (node.type === "button")
-        return node as React.ReactElement<{ onClick?: () => void }>;
-      if (
-        typeof node.type === "function" &&
-        (node.type.name === "LatticeAssistantMessage" ||
-          node.type.name === "CitationView" ||
-          node.type.name === "CitationButton")
-      ) {
-        const Component = node.type as React.FunctionComponent<Record<string, unknown>>;
-        return findButton(Component(node.props as Record<string, unknown>) as unknown as React.ReactNode);
-      }
-      return findButton((node.props as { children?: React.ReactNode }).children);
+    expect(markup).toContain("The assembly is ready for review.");
+    expect(markup).toContain(answer.answer);
+    const assistantMarkup =
+      markup.match(/<article class="lattice-assistant-message[^"]*">[\s\S]*?<\/article>/)?.[0] ?? "";
+    expect(assistantMarkup).toContain("Why?");
+    expect(assistantMarkup).not.toContain("Evidence and details");
+    expect(assistantMarkup).not.toContain("The inspection passed.");
+    expect(assistantMarkup).not.toContain("Review the release package.");
+    expect(assistantMarkup).not.toContain("The latest supplier certificate is not available.");
+    expect(assistantMarkup).not.toContain("Gearbox inspection record");
+    expect(assistantMarkup).not.toContain("<details");
+
+    expect(assistantMarkup).not.toContain('aria-label="Claims"');
+    expect(assistantMarkup).not.toContain('aria-label="Recommendations"');
+    expect(assistantMarkup).not.toContain('aria-label="Citations"');
+    expect(assistantMarkup).not.toContain('aria-label="Uncertainties"');
+  });
+
+  it("passes_the_exact_answer_context_when_why_is_selected", () => {
+    const expectedAnswerContext = {
+      messageId: "assistant-why",
+      answer,
     };
-    const citationButton = findButton(renderedMessage);
-    expect(citationButton).toBeDefined();
-    citationButton?.props.onClick?.();
-    expect(defaultProps.onCitationSelect).toHaveBeenCalledWith(entityCitation);
+    const message = {
+      id: "assistant-why",
+      role: "assistant",
+      content: answer.answer,
+      metadata: { latticeAnswer: answer },
+    };
+    mocks.messages = [message];
+    renderSurface();
+
+    const answerSlot = mocks.assistantMessage as React.FunctionComponent<{
+      message: Record<string, unknown>;
+    }>;
+    const slotElement = answerSlot({ message }) as React.ReactElement<Record<string, unknown>>;
+    const assistantElement = (
+      slotElement.type as React.FunctionComponent<Record<string, unknown>>
+    )(slotElement.props) as React.ReactElement<{ children?: React.ReactNode }>;
+    const whyButton = React.Children.toArray(assistantElement.props.children).find(
+      (child) => React.isValidElement(child) && child.type === "button",
+    ) as React.ReactElement<{
+      onClick?: () => void;
+      "aria-label"?: string;
+    }> | undefined;
+
+    expect(whyButton?.props["aria-label"]).toBe("Why this answer?");
+    whyButton?.props.onClick?.();
+    expect(defaultProps.onWhySelect).toHaveBeenCalledOnce();
+    expect(defaultProps.onWhySelect).toHaveBeenCalledWith(expectedAnswerContext);
   });
 
   it("falls back to safe plain text when restored answer metadata is missing", () => {
@@ -337,24 +410,30 @@ describe("CopilotKit investigation chat surface", () => {
     expect(markup).not.toContain("Evidence details");
   });
 
-  it("shows review cues in one collapsed disclosure without native suggestion chips", () => {
+  it("keeps_review_cue_dismissal_available_as_a_quiet_follow_up", () => {
     const emptyThreadMarkup = renderSurface();
 
-    expect(emptyThreadMarkup).toContain("Review suggestions");
-    expect(emptyThreadMarkup.match(/<details/g)).toHaveLength(1);
-    expect(emptyThreadMarkup).toContain(cue.title);
-    expect(emptyThreadMarkup).not.toContain("Verify cited evidence");
+    expect(emptyThreadMarkup).not.toContain("Review follow-up suggestions");
+    expect(emptyThreadMarkup).not.toContain(cue.title);
+    expect(emptyThreadMarkup.match(/<details/g)).toBeNull();
     expect(mocks.suggestions).toBeNull();
 
     mocks.messages = [{ id: "existing-user", role: "user", content: "What changed?" }];
     const activeThreadMarkup = renderSurface();
 
-    expect(activeThreadMarkup.match(/<details/g)).toHaveLength(1);
-    expect(activeThreadMarkup).toContain("Review suggestions");
+    expect(activeThreadMarkup).toContain('aria-label="Review follow-up suggestions"');
+    expect(activeThreadMarkup).toContain(`Follow-up · ${cue.title}`);
+    expect(activeThreadMarkup).toContain(`aria-label="Dismiss ${cue.title}"`);
+    expect(activeThreadMarkup).toContain(">Ask</button>");
+    expect(activeThreadMarkup).not.toContain(cue.detail);
+    expect(activeThreadMarkup).not.toContain("Review suggestions");
+    expect(activeThreadMarkup.match(/<details/g)).toBeNull();
+    expect(activeThreadMarkup).not.toContain('role="tab"');
     expect(mocks.suggestions).toBeNull();
   });
 
   it("disables the archived composer and review suggestions while explaining read-only state", () => {
+    mocks.messages = [{ id: "archived-user", role: "user", content: "What changed?" }];
     const markup = renderSurface({ isArchived: true });
 
     expect(markup).toContain("disabled");
@@ -364,6 +443,7 @@ describe("CopilotKit investigation chat surface", () => {
     });
     expect(mocks.inputProps?.showDisclaimer).toBe(false);
     expect(markup).not.toContain("Review suggestions");
+    expect(markup).not.toContain("Review follow-up suggestions");
     expect(mocks.suggestions).toBeNull();
   });
 
