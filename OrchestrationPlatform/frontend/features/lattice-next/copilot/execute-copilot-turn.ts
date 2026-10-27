@@ -1,6 +1,8 @@
 import "server-only";
 
 import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import type { InvestigationId } from "../kernel/contracts/investigation-identity";
 import { serverKernel } from "../kernel/server/server-kernel-runtime";
 import { FileCopilotConversationStore } from "../kernel/server/file-copilot-conversation-store";
@@ -9,6 +11,7 @@ import type { InvestigationSnapshot } from "../kernel/contracts/investigation-sn
 import type { CopilotAnswer, CopilotContextPacket } from "./contracts";
 import { CopilotAnswerValidationError, validateCopilotAnswer } from "./answer-validator";
 import { buildInvestigationContext } from "./context-builder";
+import { parseRelationshipGuidance } from "./relationship-guidance";
 import { completeCopilotTurn, type AzureChatRequest } from "./azure-openai-client";
 import { COPILOT_POLICY_VERSION, COPILOT_SYSTEM_POLICY } from "./policy";
 
@@ -19,6 +22,7 @@ const RATE_LIMIT_REQUESTS = 10;
 const AZURE_FAILURE_CODES = new Set(["invalid-configuration", "timeout", "network-error", "provider-http-error", "invalid-provider-response", "usage-ledger-error"]);
 const store = new FileCopilotConversationStore();
 const requestTimes = new Map<string, number[]>();
+const relationshipDocumentPath = resolve(process.cwd(), "..", "docs", "relationships.md");
 
 export interface CopilotTurnCommand {
   investigationId: InvestigationId;
@@ -80,7 +84,7 @@ function conversationMessages(messages: readonly CopilotConversationMessage[]) {
 
 const answerFormat = (snapshotRevision: number) => `Return exactly one JSON object and no markdown:
 {"answer":"string","claims":[{"text":"string","kind":"fact|hypothesis","citationIds":["citation-id"]}],"recommendations":[{"text":"string","rationale":"string","citationIds":["citation-id"],"approvalRequired":true}],"uncertainties":["string"],"followUpQuestions":["string"],"snapshotRevision":${snapshotRevision}}
-Write answer as a concise synthesis of at most two short sentences; do not enumerate records, repeat claim details, or include raw citation IDs in answer text. Include at most three distinct claims that add supporting detail without restating the answer. Use kind=fact only for claims directly established by context and cite each fact. Use kind=hypothesis for analysis. Every recommendation must cite supporting IDs and require approval.`;
+Lead with the relevant engineering consequence and why it matters when the supplied evidence supports one. Explain the evidence and uncertainty needed to make the synthesis clear; be concise without a fixed sentence or claim count. Do not enumerate unrelated records, repeat claim details, or include raw citation IDs in answer text. Use kind=fact only for claims directly established by investigation context and cite each fact. Use kind=hypothesis for analysis and disclose uncertainty. Relationship definitions explain semantics but do not prove that a specific relationship instance exists; cite actual relationship or source evidence for instance claims. A MAY_IMPACT path indicates potential impact, not causation. Every recommendation must cite supporting IDs and require approval.`;
 
 async function loadSnapshot(investigationId: InvestigationId): Promise<InvestigationSnapshot | undefined> {
   return serverKernel.load(investigationId);
@@ -106,6 +110,15 @@ export async function executeCopilotTurn(command: CopilotTurnCommand): Promise<C
   if (snapshot.archivedAt) return failure(409, "Restore the investigation before adding copilot messages.");
   if (snapshot.identity.revision !== expectedSnapshotRevision)
     return failure(409, "The investigation changed before the message could be saved.", { revision: snapshot.identity.revision });
+
+  let relationshipDocument: string;
+  try {
+    relationshipDocument = readFileSync(relationshipDocumentPath, "utf8");
+    if (!parseRelationshipGuidance(relationshipDocument).length)
+      throw new Error("The relationship document contains no recognized relationship guidance.");
+  } catch {
+    return failure(503, "Authoritative relationship guidance is unavailable. Copilot cannot safely answer this request.");
+  }
 
   let threadId = command.threadId ?? randomUUID();
   let existingThread = command.threadId ? await store.loadThread(investigationId, threadId) : undefined;
@@ -164,7 +177,7 @@ export async function executeCopilotTurn(command: CopilotTurnCommand): Promise<C
     new Date().toISOString(),
     idempotencyKey,
   );
-  const contextPacket: CopilotContextPacket = buildInvestigationContext(snapshot, message);
+  const contextPacket: CopilotContextPacket = buildInvestigationContext(snapshot, message, { relationshipDocument });
   const existingMessages = existingThread.messages.at(-1)?.role === "user" && existingThread.messages.at(-1)?.idempotencyKey === idempotencyKey
     ? existingThread.messages.slice(0, -1)
     : existingThread.messages;

@@ -12,7 +12,11 @@ export type CopilotEvaluationCategory =
   | "unsupported-question"
   | "investigation-isolation"
   | "prompt-injection-evidence"
-  | "oversized-context";
+  | "oversized-context"
+  | "cross-system-consequence"
+  | "potential-impact"
+  | "undocumented-path"
+  | "lexical-distractor";
 
 export interface CopilotEvaluationCase {
   id: string;
@@ -22,6 +26,8 @@ export interface CopilotEvaluationCase {
   maxContextChars?: number;
   expectedEntityIds?: readonly string[];
   expectedUncertainty?: boolean;
+  expectedInsight?: string;
+  requiredRelationshipIds?: readonly string[];
 }
 
 const baseSnapshot: InvestigationSnapshot<EngineeringIntelligenceInvestigationV1> = {
@@ -107,6 +113,45 @@ const manyEntities: IntelligenceEntity[] = Array.from({ length: 150 }, (_, index
   properties: { ...fixture.entities[0].properties, syntheticNumber: { type: "text", text: `SYN-${index}` } },
 }));
 
+const windchillChangeNotice: IntelligenceEntity = {
+  ...fixture.entities.find((entity) => entity.provenance.source === "windchill")!,
+  id: "wc:change-notice",
+  kind: "change-notice",
+  displayName: "Change Notice CN-9001",
+  properties: { changeNoticeNumber: { type: "text", text: "CN-9001" } },
+  provenance: {
+    ...fixture.entities.find((entity) => entity.provenance.source === "windchill")!.provenance,
+    nativeId: "CN-9001",
+  },
+};
+
+const teamcenterPart: IntelligenceEntity = {
+  ...fixture.entities.find((entity) => entity.provenance.source === "windchill")!,
+  id: "teamcenter:part",
+  displayName: "Teamcenter part TC-1001",
+  provenance: {
+    ...fixture.entities.find((entity) => entity.provenance.source === "windchill")!.provenance,
+    source: "teamcenter",
+    nativeId: "TC-1001",
+  },
+};
+
+function relationshipFor(
+  id: string,
+  kind: string,
+  sourceEntityId: string,
+  targetEntityId: string,
+): IntelligenceRelationship {
+  return {
+    ...relationship,
+    id,
+    kind,
+    sourceEntityId,
+    targetEntityId,
+    evidenceIds: [],
+  };
+}
+
 export const COPILOT_EVALUATION_CASES: readonly CopilotEvaluationCase[] = [
   {
     id: "native-id-lookup",
@@ -176,5 +221,62 @@ export const COPILOT_EVALUATION_CASES: readonly CopilotEvaluationCase[] = [
     question: "List all synthetic components.",
     snapshot: withCanonical({ ...fixture, entities: manyEntities }),
     maxContextChars: 6_000,
+  },
+  {
+    id: "supported-cross-system-consequence",
+    category: "cross-system-consequence",
+    question: "What operational consequence follows from this Windchill part being represented as a SAP material?",
+    snapshot: withCanonical({
+      ...fixture,
+      relationships: [relationshipFor("eval:relationship:wc-sap-consequence", "operationally-represented-as", "wc:part", "sap:material")],
+    }),
+    expectedEntityIds: ["wc:part", "sap:material"],
+    expectedInsight: "The engineering part is represented by an operational SAP material, enabling an engineer to inspect its corresponding operational data.",
+    requiredRelationshipIds: ["eval:relationship:wc-sap-consequence"],
+  },
+  {
+    id: "potential-impact-without-causation",
+    category: "potential-impact",
+    question: "Could change notice CN-9001 affect SAP material MAT-200, and what is established?",
+    snapshot: withCanonical({
+      ...fixture,
+      entities: [...fixture.entities, windchillChangeNotice],
+      relationships: [relationshipFor("eval:relationship:change-impact", "MAY_IMPACT", "wc:change-notice", "sap:material")],
+    }),
+    expectedEntityIds: ["wc:change-notice", "sap:material"],
+    expectedUncertainty: true,
+    expectedInsight: "The documented path indicates potential impact only; it does not establish that the change notice caused a SAP transaction or change.",
+    requiredRelationshipIds: ["eval:relationship:change-impact"],
+  },
+  {
+    id: "undocumented-teamcenter-path",
+    category: "undocumented-path",
+    question: "What does this Teamcenter-to-SAP link mean for part TC-1001?",
+    snapshot: withCanonical({
+      ...fixture,
+      entities: [...fixture.entities, teamcenterPart],
+      relationships: [relationshipFor("eval:relationship:teamcenter-sap", "related-to", "teamcenter:part", "sap:material")],
+    }),
+    expectedEntityIds: ["teamcenter:part", "sap:material"],
+    expectedUncertainty: true,
+    expectedInsight: "A Teamcenter-to-SAP instance link is recorded, but the authoritative relationship guide does not define its semantics or consequence.",
+    requiredRelationshipIds: ["eval:relationship:teamcenter-sap"],
+  },
+  {
+    id: "irrelevant-lexical-distractor",
+    category: "lexical-distractor",
+    question: "Could Windchill Change Notice CN-9001 impact SAP material MAT-200?",
+    snapshot: withCanonical({
+      ...fixture,
+      entities: [...fixture.entities, windchillChangeNotice],
+      relationships: [
+        relationshipFor("eval:relationship:change-impact-target", "MAY_IMPACT", "wc:change-notice", "sap:material"),
+        relationshipFor("eval:relationship:windchill-sap-change-impact-distractor", "specified-by", "configit:model", "cb:req"),
+      ],
+    }),
+    expectedEntityIds: ["wc:change-notice", "sap:material"],
+    expectedUncertainty: true,
+    expectedInsight: "Prioritize the supported change-notice-to-material path; lexical overlap in the unrelated Configit-to-Codebeamer path does not make it relevant.",
+    requiredRelationshipIds: ["eval:relationship:change-impact-target"],
   },
 ];

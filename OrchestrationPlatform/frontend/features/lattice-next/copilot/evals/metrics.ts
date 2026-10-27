@@ -14,11 +14,13 @@ export interface CopilotEvaluationRun {
   maxTotalTokens: number;
   maxEstimatedCostUsd?: number;
   uncertaintyExpected: boolean;
+  requiredRelationshipCitationIds?: readonly string[];
 }
 
 export interface CopilotEvaluationMetrics {
   citationPrecision: number;
   unsupportedClaimRate: number;
+  requiredPathCitationCoverage?: number;
   correctUncertainty: boolean;
   investigationIsolation: boolean;
   latencyMs: number;
@@ -38,6 +40,14 @@ export function scoreCopilotEvaluation(run: CopilotEvaluationRun): CopilotEvalua
     ...factualClaims.flatMap((claim) => claim.citationIds),
     ...(run.answer?.recommendations.flatMap((recommendation) => recommendation.citationIds) ?? []),
   ];
+  const requiredRelationshipCitationIds = run.requiredRelationshipCitationIds === undefined
+    ? undefined
+    : [...new Set(run.requiredRelationshipCitationIds)];
+  const requiredPathCitationCoverage = requiredRelationshipCitationIds === undefined
+    ? undefined
+    : requiredRelationshipCitationIds.length === 0
+      ? 1
+      : requiredRelationshipCitationIds.filter((citationId) => usedCitationIds.includes(citationId)).length / requiredRelationshipCitationIds.length;
   const validCitationCount = usedCitationIds.filter((citationId) => available.has(citationId)).length;
   const unsupportedClaimCount = factualClaims.filter((claim) =>
     claim.citationIds.length === 0 || claim.citationIds.some((citationId) => !available.has(citationId)),
@@ -54,6 +64,7 @@ export function scoreCopilotEvaluation(run: CopilotEvaluationRun): CopilotEvalua
   return {
     citationPrecision: usedCitationIds.length ? validCitationCount / usedCitationIds.length : factualClaims.length ? 0 : 1,
     unsupportedClaimRate: factualClaims.length ? unsupportedClaimCount / factualClaims.length : 0,
+    ...(requiredPathCitationCoverage !== undefined ? { requiredPathCitationCoverage } : {}),
     correctUncertainty: run.uncertaintyExpected === answerHasUncertainty,
     investigationIsolation: run.expectedInvestigationId === run.actualInvestigationId && run.context.investigationId === run.expectedInvestigationId,
     latencyMs: Math.max(0, Math.round(run.latencyMs)),

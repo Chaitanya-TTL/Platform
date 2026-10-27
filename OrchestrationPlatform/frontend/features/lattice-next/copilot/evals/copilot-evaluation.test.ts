@@ -27,8 +27,12 @@ describe("synthetic copilot evaluation set", () => {
       "investigation-isolation",
       "prompt-injection-evidence",
       "oversized-context",
+      "cross-system-consequence",
+      "potential-impact",
+      "undocumented-path",
+      "lexical-distractor",
     ]));
-    expect(COPILOT_EVALUATION_CASES).toHaveLength(10);
+    expect(COPILOT_EVALUATION_CASES).toHaveLength(14);
   });
 
   it("satisfies the expected context grounding and uncertainty signal for every case", () => {
@@ -65,6 +69,31 @@ describe("synthetic copilot evaluation set", () => {
       sourceApplication: "Windchill",
       targetApplication: "SAP",
     }));
+  });
+
+  it("defines intended consequences with matching relationship-instance citations", () => {
+    const consequenceCases = COPILOT_EVALUATION_CASES.filter((evaluationCase) => evaluationCase.expectedInsight);
+    expect(consequenceCases).toHaveLength(4);
+    for (const evaluationCase of consequenceCases) {
+      const packet = contexts.get(evaluationCase.id)!;
+      expect(evaluationCase.expectedInsight?.trim(), evaluationCase.id).toBeTruthy();
+      expect(evaluationCase.requiredRelationshipIds?.length, evaluationCase.id).toBeGreaterThan(0);
+      for (const relationshipId of evaluationCase.requiredRelationshipIds ?? []) {
+        const relationship = packet.relationships.find((item) => item.relationshipId === relationshipId);
+        expect(relationship, `${evaluationCase.id}: ${relationshipId}`).toBeDefined();
+        expect(packet.citations.some((citation) => citation.citationId === relationship?.citationId)).toBe(true);
+      }
+    }
+
+    const potentialImpact = consequenceCases.find((item) => item.category === "potential-impact")!;
+    const potentialPacket = contexts.get(potentialImpact.id)!;
+    expect(potentialPacket.relationships.find((item) => item.relationshipId === potentialImpact.requiredRelationshipIds?.[0]))
+      .toMatchObject({ kind: "MAY_IMPACT", semanticGuidanceAvailable: true });
+
+    const undocumentedPath = consequenceCases.find((item) => item.category === "undocumented-path")!;
+    const undocumentedPacket = contexts.get(undocumentedPath.id)!;
+    expect(undocumentedPacket.relationships.find((item) => item.relationshipId === undocumentedPath.requiredRelationshipIds?.[0]))
+      .toMatchObject({ semanticGuidanceAvailable: false });
   });
 
   it("retains change context while making partial, stale, conflicting, and unsupported uncertainty explicit", () => {
@@ -148,5 +177,63 @@ describe("synthetic copilot evaluation set", () => {
       uncertaintyExpected: true,
     });
     expect(metrics).toMatchObject({ citationPrecision: 0, unsupportedClaimRate: 1, correctUncertainty: false, investigationIsolation: false, withinLatencyBudget: false, withinTokenBudget: false, estimatedCostUsd: 0.0012, withinCostBudget: false });
+  });
+
+  it("measures citation coverage for the required consequence path", () => {
+    const evaluationCase = COPILOT_EVALUATION_CASES.find((item) => item.id === "supported-cross-system-consequence")!;
+    const context = contexts.get(evaluationCase.id)!;
+    const requiredCitationId = context.relationships.find((item) =>
+      item.relationshipId === evaluationCase.requiredRelationshipIds?.[0],
+    )!.citationId;
+    const metrics = scoreCopilotEvaluation({
+      expectedInvestigationId: String(evaluationCase.snapshot.identity.investigationId),
+      actualInvestigationId: String(evaluationCase.snapshot.identity.investigationId),
+      context,
+      answer: {
+        answer: "The engineering part is represented by an operational SAP material.",
+        claims: [{ text: "The part is represented as a SAP material.", kind: "fact", citationIds: [requiredCitationId] }],
+        recommendations: [],
+        uncertainties: [],
+        followUpQuestions: [],
+        snapshotRevision: context.snapshotRevision,
+      },
+      latencyMs: 200,
+      maxLatencyMs: 1_000,
+      maxTotalTokens: 1_000,
+      uncertaintyExpected: false,
+      requiredRelationshipCitationIds: [requiredCitationId],
+    });
+    expect(metrics.requiredPathCitationCoverage).toBe(1);
+
+    const unsupportedPathMetrics = scoreCopilotEvaluation({
+      expectedInvestigationId: String(evaluationCase.snapshot.identity.investigationId),
+      actualInvestigationId: String(evaluationCase.snapshot.identity.investigationId),
+      context,
+      answer: {
+        answer: "The path may be relevant.",
+        claims: [{ text: "This is an ungrounded interpretation.", kind: "hypothesis", citationIds: [requiredCitationId] }],
+        recommendations: [],
+        uncertainties: [],
+        followUpQuestions: [],
+        snapshotRevision: context.snapshotRevision,
+      },
+      latencyMs: 200,
+      maxLatencyMs: 1_000,
+      maxTotalTokens: 1_000,
+      uncertaintyExpected: false,
+      requiredRelationshipCitationIds: [requiredCitationId],
+    });
+    expect(unsupportedPathMetrics.requiredPathCitationCoverage).toBe(0);
+
+    const withoutRequiredPaths = scoreCopilotEvaluation({
+      expectedInvestigationId: String(evaluationCase.snapshot.identity.investigationId),
+      actualInvestigationId: String(evaluationCase.snapshot.identity.investigationId),
+      context,
+      latencyMs: 200,
+      maxLatencyMs: 1_000,
+      maxTotalTokens: 1_000,
+      uncertaintyExpected: false,
+    });
+    expect(withoutRequiredPaths).not.toHaveProperty("requiredPathCitationCoverage");
   });
 });
