@@ -1,11 +1,17 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { buildInvestigationContext } from "../context-builder";
 import { COPILOT_EVALUATION_CASES } from "./cases";
 import { scoreCopilotEvaluation, summarizeCopilotEvaluation } from "./metrics";
 
+const relationshipDocument = readFileSync(resolve(process.cwd(), "..", "docs", "relationships.md"), "utf8");
 const contexts = new Map(COPILOT_EVALUATION_CASES.map((evaluationCase) => [
   evaluationCase.id,
-  buildInvestigationContext(evaluationCase.snapshot, evaluationCase.question, { maxContextChars: evaluationCase.maxContextChars }),
+  buildInvestigationContext(evaluationCase.snapshot, evaluationCase.question, {
+    maxContextChars: evaluationCase.maxContextChars,
+    relationshipDocument,
+  }),
 ]));
 
 describe("synthetic copilot evaluation set", () => {
@@ -47,6 +53,17 @@ describe("synthetic copilot evaluation set", () => {
       targetEntityId: "sap:material",
       sourceNativeId: "OR:wt.part.WTPart:9001",
       targetNativeId: "MAT-200",
+      semanticGuidanceAvailable: true,
+    }));
+    const relationship = relationPacket.relationships.find((item) => item.sourceEntityId === "wc:part" && item.targetEntityId === "sap:material")!;
+    expect(relationPacket.entities.some((entity) => entity.entityId === relationship.sourceEntityId)).toBe(true);
+    expect(relationPacket.entities.some((entity) => entity.entityId === relationship.targetEntityId)).toBe(true);
+    for (const evidenceCitationId of relationship.evidenceCitationIds) {
+      expect(relationPacket.evidence.some((item) => item.citationId === evidenceCitationId)).toBe(true);
+    }
+    expect(relationPacket.relationshipGuidance).toContainEqual(expect.objectContaining({
+      sourceApplication: "Windchill",
+      targetApplication: "SAP",
     }));
   });
 

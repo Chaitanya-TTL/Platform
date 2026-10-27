@@ -1,6 +1,7 @@
 import type { InvestigationId } from "../kernel/contracts/investigation-identity";
 import type { InvestigationLifecycle } from "../kernel/contracts/investigation-lifecycle";
 import type { SourceOperationStatus } from "../kernel/contracts/source-operation";
+import type { RelationshipGuidanceSection } from "./relationship-guidance";
 
 export type CopilotClaimKind = "fact" | "hypothesis";
 export type CopilotCitationKind = "entity" | "relationship" | "evidence" | "finding" | "source" | "evaluation";
@@ -29,6 +30,7 @@ export interface CopilotEntityContext {
   citationId: string;
   displayName: string;
   kind: string;
+  identityQuality: "native" | "deterministic-derived" | "provisional";
   source?: string;
   nativeId?: string;
   properties: Readonly<Record<string, string>>;
@@ -47,6 +49,8 @@ export interface CopilotRelationshipContext {
   targetCitationId: string;
   targetNativeId?: string;
   evidenceCitationIds: readonly string[];
+  semanticGuidanceAvailable: boolean;
+  identitySupported: boolean;
   assertion?: string;
   status?: string;
   summary?: string;
@@ -76,6 +80,9 @@ export interface CopilotUnresolvedEvaluationContext {
   citationId: string;
   ruleId: string;
   relationshipType: string;
+  sourceApplication: string;
+  targetApplication: string;
+  semanticGuidanceAvailable: boolean;
   reasonCode: string;
   reason: string;
   sourceEntityIds: readonly string[];
@@ -98,6 +105,7 @@ export interface CopilotContextPacket {
   sourceSelections: readonly CopilotSourceContext[];
   entities: readonly CopilotEntityContext[];
   relationships: readonly CopilotRelationshipContext[];
+  relationshipGuidance: readonly RelationshipGuidanceSection[];
   findings: readonly CopilotFindingContext[];
   unresolvedEvaluations: readonly CopilotUnresolvedEvaluationContext[];
   evidence: readonly CopilotEvidenceContext[];
