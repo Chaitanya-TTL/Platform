@@ -12,9 +12,12 @@ import { toast } from "sonner";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
+  IconArchive,
   IconAlertTriangle,
   IconArrowLeft,
   IconChevronLeft,
+  IconMessageCircle,
+  IconRefresh,
   IconSearch,
   IconX,
 } from "@tabler/icons-react";
@@ -25,7 +28,10 @@ import { investigateWindchill } from "../infrastructure/windchill-intelligence-c
 import { investigateSap } from "../infrastructure/sap-intelligence-client";
 import { investigateConfigit } from "../infrastructure/configit-intelligence-client";
 import { mergeSourceIntelligence } from "../infrastructure/merge-source-intelligence";
-import { createCurrentInvestigationRuntime } from "../kernel/infrastructure/current-investigation-runtime";
+import { createCurrentInvestigationRuntime, type InvestigationRefreshResult } from "../kernel/infrastructure/current-investigation-runtime";
+import type { InvestigationSnapshot } from "../kernel/contracts/investigation-snapshot";
+import { InvestigationCopilotPanel } from "./InvestigationCopilotPanel";
+import { buildInvestigationReviewCues } from "../copilot/review-cues";
 import { HttpInvestigationAuthority } from "../kernel/infrastructure/http-investigation-authority";
 import { asInvestigationId } from "../kernel/contracts/investigation-identity";
 import { isEngineeringIntelligenceInvestigationV1 } from "../contracts/intelligence-v1";
@@ -80,8 +86,10 @@ export function LatticeNextWorkspace() {
   const [direct, setDirect] = useState<LatticeHandoff | null>(null);
   const [directCanonical, setDirectCanonical] =
     useState<EngineeringIntelligenceInvestigationV1 | null>(null);
+  const [directSnapshotRevision, setDirectSnapshotRevision] = useState<number | null>(null);
+  const [directSnapshot, setDirectSnapshot] = useState<InvestigationSnapshot<EngineeringIntelligenceInvestigationV1> | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [serverRestored, setServerRestored] = useState<{ handoff: LatticeHandoff; canonical: EngineeringIntelligenceInvestigationV1 } | null>(null);
+  const [serverRestored, setServerRestored] = useState<{ handoff: LatticeHandoff; canonical: EngineeringIntelligenceInvestigationV1; snapshot: InvestigationSnapshot<EngineeringIntelligenceInvestigationV1>; investigationId: string; revision: number } | null>(null);
   const [serverRestorePending, setServerRestorePending] = useState(Boolean(investigationId));
   useEffect(() => {
     if (!investigationId || direct) { setServerRestorePending(false); return; }
@@ -97,6 +105,9 @@ export function LatticeNextWorkspace() {
       const createdAt = snapshot.createdAt;
       setServerRestored({
         canonical,
+        snapshot: snapshot as InvestigationSnapshot<EngineeringIntelligenceInvestigationV1>,
+        investigationId: String(snapshot.identity.investigationId),
+        revision: snapshot.identity.revision,
         handoff: {
           version: 2,
           handoffId: String(snapshot.identity.investigationId),
@@ -129,6 +140,8 @@ export function LatticeNextWorkspace() {
   const startNewInvestigation = useCallback(() => {
     setDirect(null);
     setDirectCanonical(null);
+    setDirectSnapshotRevision(null);
+    setDirectSnapshot(null);
     setMessage(null);
     router.replace("/lattice");
   }, [router]);
@@ -137,6 +150,9 @@ export function LatticeNextWorkspace() {
     return (
       <Investigation
         handoffId={direct.handoffId}
+        investigationId={direct.handoffId}
+        initialRevision={directSnapshotRevision ?? undefined}
+        snapshot={directSnapshot ?? undefined}
         handoff={direct}
         canonical={directCanonical}
         onStartNew={startNewInvestigation}
@@ -145,7 +161,7 @@ export function LatticeNextWorkspace() {
   }
 
   if (serverRestored) {
-    return <Investigation handoffId={serverRestored.handoff.handoffId} handoff={serverRestored.handoff} canonical={serverRestored.canonical} onStartNew={startNewInvestigation} />;
+    return <Investigation handoffId={serverRestored.handoff.handoffId} investigationId={serverRestored.investigationId} initialRevision={serverRestored.revision} snapshot={serverRestored.snapshot} handoff={serverRestored.handoff} canonical={serverRestored.canonical} onStartNew={startNewInvestigation} />;
   }
   if (serverRestorePending) {
     return <main className="flex min-h-[calc(100vh-64px)] items-center justify-center bg-slate-950 text-sm text-slate-400">Restoring durable investigation...</main>;
@@ -171,6 +187,7 @@ export function LatticeNextWorkspace() {
   return (
     <>
       <DiscoveryWorkspace
+        mode={params.get("view") === "history" ? "history" : "recent"}
         onInvestigate={async (selected, subjectLabel) => {
           const runtime = createCurrentInvestigationRuntime();
           const toastId = toast.loading("Creating engineering investigation", { description: "Preparing selected source evidence and opening the governed investigation workflow." });
@@ -182,6 +199,8 @@ export function LatticeNextWorkspace() {
             buildIntelligenceInvestigation(result.canonical);
             setDirectCanonical(result.canonical);
             setDirect(result.handoff);
+            setDirectSnapshotRevision(result.snapshot.identity.revision);
+            setDirectSnapshot(result.snapshot);
             router.replace(`/lattice?investigation=${encodeURIComponent(String(result.snapshot.identity.investigationId))}`);
             toast.success("Investigation ready", { id: toastId, description: "Canonical evidence passed validation and the investigation workspace is opening." });
             if (result.snapshot.lifecycle === "partial" || result.snapshot.completeness.overall === "partial") {
@@ -195,6 +214,7 @@ export function LatticeNextWorkspace() {
             console.error("Lattice investigation failure", cause);
             setMessage(detail);
             toast.error("Investigation could not be created", { id: toastId, description: detail });
+            throw new Error(detail);
           }
         }}
       />
@@ -224,11 +244,17 @@ function Restored({ canonical }: { canonical: CanonicalInvestigation }) {
 
 function Investigation({
   handoffId,
+  investigationId,
+  initialRevision,
+  snapshot,
   handoff,
   onStartNew,
   canonical,
 }: {
   handoffId: string;
+  investigationId?: string;
+  initialRevision?: number;
+  snapshot?: InvestigationSnapshot<EngineeringIntelligenceInvestigationV1>;
   onStartNew: () => void;
   canonical?: EngineeringIntelligenceInvestigationV1 | null;
   handoff: Extract<HandoffReadResult, { ok: true }>["value"] | LatticeHandoff;
@@ -236,19 +262,27 @@ function Investigation({
   const reducedMotion = useReducedMotion();
   const [workspaceFullscreen, setWorkspaceFullscreen] = useState(false);
   const [arranging, setArranging] = useState(false);
+  const [activeCanonical, setActiveCanonical] = useState(canonical);
+  const [activeSnapshot, setActiveSnapshot] = useState(snapshot);
+  const [activeRevision, setActiveRevision] = useState(initialRevision);
+  const [refreshing, setRefreshing] = useState(false);
+  const [archiving, setArchiving] = useState(false);
+  const [refreshSummary, setRefreshSummary] = useState<InvestigationRefreshResult | null>(null);
+  const [copilotOpen, setCopilotOpen] = useState(false);
   const domain = useMemo(
     () =>
-      canonical
+      activeCanonical
         ? buildIntelligenceInvestigation({
-            ...canonical,
+            ...activeCanonical,
             subject: {
-              ...canonical.subject,
-              displayName: handoff.subjectLabel || canonical.subject.displayName,
+              ...activeCanonical.subject,
+              displayName: handoff.subjectLabel || activeCanonical.subject.displayName,
             },
           })
         : buildInvestigation(handoff),
-    [canonical, handoff],
+    [activeCanonical, handoff],
   );
+  const reviewCues = useMemo(() => activeSnapshot ? buildInvestigationReviewCues(activeSnapshot, refreshSummary) : [], [activeSnapshot, refreshSummary]);
   const core = useMemo(() => createInvestigationGraphCore(domain), [domain]);
   const sources = useMemo(
     () => [...new Set(domain.entities.map((entity) => entity.source))],
@@ -288,19 +322,61 @@ function Investigation({
   }, []);
 
   useEffect(() => {
-    if (!workspaceFullscreen) return;
+    if (!workspaceFullscreen || copilotOpen) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") setWorkspaceFullscreen(false);
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [workspaceFullscreen]);
+  }, [copilotOpen, workspaceFullscreen]);
 
   const startNewInvestigation = useCallback(() => {
     dispatch({ type: "start-new-investigation" });
     clearInvestigation(handoffId);
     onStartNew();
   }, [handoffId, onStartNew]);
+
+  const refreshSavedInvestigation = async () => {
+    if (!investigationId || activeRevision === undefined || refreshing || archiving) return;
+    setRefreshing(true);
+    setRefreshSummary(null);
+    const toastId = toast.loading("Refreshing investigation", { description: "The saved snapshot remains visible while selected sources run." });
+    try {
+      const runtime = createCurrentInvestigationRuntime();
+      const result = await runtime.refresh(investigationId, activeRevision);
+      setRefreshSummary(result);
+      setActiveRevision(result.revision);
+      const refreshedSnapshot = await runtime.kernel.load(asInvestigationId(investigationId));
+      const refreshedCanonical = refreshedSnapshot?.canonical?.value;
+      if (isEngineeringIntelligenceInvestigationV1(refreshedCanonical)) {
+        setActiveCanonical(refreshedCanonical);
+        setActiveSnapshot(refreshedSnapshot as InvestigationSnapshot<EngineeringIntelligenceInvestigationV1>);
+      }
+      if (result.lifecycle === "failed") {
+        toast.warning("Refresh finished with unavailable evidence", { id: toastId, description: `Revision ${result.revision} was recorded; the last usable canonical snapshot remains visible.` });
+      } else {
+        toast.success("Investigation refreshed", { id: toastId, description: `Revision ${result.revision}: ${result.changedEntityIds.length} changed, ${result.addedEntityIds.length} added, ${result.removedEntityIds.length} removed.` });
+      }
+    } catch (cause) {
+      toast.error("Investigation refresh failed", { id: toastId, description: cause instanceof Error ? cause.message : "Source refresh could not complete." });
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const archiveSavedInvestigation = async () => {
+    if (!investigationId || archiving || refreshing) return;
+    setArchiving(true);
+    try {
+      await new HttpInvestigationAuthority().archive(asInvestigationId(investigationId));
+      toast.success("Investigation archived");
+      startNewInvestigation();
+    } catch (cause) {
+      toast.error("Investigation could not be archived", { description: cause instanceof Error ? cause.message : "Archive failed." });
+    } finally {
+      setArchiving(false);
+    }
+  };
 
   useEffect(() => {
     const existing = loadCanonicalInvestigation(`lattice-${handoff.handoffId}`);
@@ -383,6 +459,27 @@ function Investigation({
         </div>
       </header> */}
 
+        {investigationId ? (
+          <section className="mb-3 flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3" aria-label="Investigation actions">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-slate-100">{handoff.subjectLabel}</p>
+              <p className="mt-1 text-xs text-slate-500">Saved investigation · Revision {activeRevision ?? "unknown"}</p>
+              {refreshSummary ? <p role="status" className="mt-1 text-xs text-cyan-200">Refresh: {refreshSummary.changedEntityIds.length} changed, {refreshSummary.addedEntityIds.length} added, {refreshSummary.removedEntityIds.length} removed.</p> : null}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={() => setCopilotOpen(true)} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-cyan-500/30 px-3 text-sm text-cyan-100 hover:bg-cyan-500/10 disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-cyan-300">
+                <IconMessageCircle aria-hidden="true" className="h-4 w-4" /> Copilot
+              </button>
+              <button type="button" onClick={() => void refreshSavedInvestigation()} disabled={refreshing || archiving} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-700 px-3 text-sm text-slate-200 hover:bg-slate-800 disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-cyan-300">
+                <IconRefresh aria-hidden="true" className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} /> {refreshing ? "Refreshing" : "Refresh sources"}
+              </button>
+              <button type="button" onClick={() => void archiveSavedInvestigation()} disabled={archiving || refreshing} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-700 px-3 text-sm text-slate-300 hover:bg-slate-800 disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-cyan-300">
+                <IconArchive aria-hidden="true" className="h-4 w-4" /> {archiving ? "Archiving" : "Close and archive"}
+              </button>
+            </div>
+          </section>
+        ) : null}
+
         {/* <div className="relative mb-3">
         <IconSearch className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-slate-500" />
         <input
@@ -457,6 +554,7 @@ function Investigation({
             <LatticeFlowProvider>
               <RelationshipCanvas
                 projection={projection}
+                listenToWorkspaceEvents={!copilotOpen}
                 orientation={state.orientation}
                 pinnedPositions={state.interaction.pinnedPositions}
                 viewport={state.interaction.viewport}
@@ -607,6 +705,18 @@ function Investigation({
           ) : null}
         </motion.section>
       </main>
+      {copilotOpen && investigationId && activeRevision !== undefined ? (
+        <InvestigationCopilotPanel
+          key={investigationId}
+          investigationId={investigationId}
+          snapshotRevision={activeRevision}
+          isArchived={Boolean(activeSnapshot?.archivedAt)}
+          cues={reviewCues}
+          domain={domain}
+          core={core}
+          onClose={() => setCopilotOpen(false)}
+        />
+      ) : null}
     </MotionConfig>
   );
 }

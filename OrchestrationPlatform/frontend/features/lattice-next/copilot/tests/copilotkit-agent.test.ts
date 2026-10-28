@@ -50,14 +50,14 @@ describe("Lattice CopilotKit agent", () => {
     expect(events.map((event) => (event as { type: string }).type)).toEqual([
       EventType.RUN_STARTED,
       EventType.TEXT_MESSAGE_START,
-      EventType.TEXT_MESSAGE_CONTENT,
       EventType.TEXT_MESSAGE_END,
       EventType.RUN_FINISHED,
     ]);
     expect(events[1]).toMatchObject({ metadata: { latticeAnswer: answer } });
-    expect(events[2]).toMatchObject({ delta: answer.answer });
     expect((events[1] as { metadata: { latticeAnswer: typeof answer } }).metadata.latticeAnswer.snapshotRevision)
       .toBe(3);
+    expect(events.some((event) => (event as { type: string }).type === EventType.TEXT_MESSAGE_CONTENT))
+      .toBe(false);
   });
 
   it("preserves investigation configuration when CopilotKit clones the agent", async () => {

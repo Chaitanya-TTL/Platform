@@ -31,6 +31,7 @@ function structureHandoff(
       nativeId: selection.nativeId,
       jobId: payload.jobId,
       capturedAt: envelope.observedAt,
+      sourceMetadata: selection.metadata,
       completeness: payload.state === "ready" ? "complete" : "partial",
       intelligencePayload: payload.intelligencePayload,
     });
@@ -63,9 +64,9 @@ export class CurrentCanonicalAssemblyAdapter
         return leftSource.localeCompare(rightSource) || left.investigationId.localeCompare(right.investigationId);
       });
     const native = intelligence;
-    if (native.length) return native.length === 1 ? native[0] : mergeSourceIntelligence(native);
+    if (native.length) return mergeSourceIntelligence(native);
     const handoff = structureHandoff(snapshot, evidence);
-    if (handoff) return legacyHandoffToIntelligence(handoff);
+    if (handoff) return mergeSourceIntelligence([legacyHandoffToIntelligence(handoff)]);
     throw new Error("No accepted evidence is available for current canonical assembly.");
   }
 }

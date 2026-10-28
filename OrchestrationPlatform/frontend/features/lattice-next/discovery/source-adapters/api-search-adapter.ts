@@ -24,7 +24,12 @@ function normalize(source: LatticeSource, candidate: ItemSearchCandidate): Norma
     matchCategory: category(candidate),
     matchReason: candidate.matchReasons.join(" ") || "Returned by the source connector.",
     capabilityHints: [],
-    sourceMetadata: Object.fromEntries(Object.entries(candidate.context).filter((entry): entry is [string, string] => typeof entry[1] === "string")),
+    sourceMetadata: Object.fromEntries(
+      Object.entries(candidate.context).filter(
+        (entry): entry is [string, string | boolean] =>
+          typeof entry[1] === "string" || typeof entry[1] === "boolean",
+      ),
+    ),
     provenance: {
       providerMode: candidate.providerMode === "live" ? "live" : "capability",
       retrievedAt: candidate.retrievedAt,
@@ -63,5 +68,4 @@ export class ApiSearchAdapter implements SourceSearchAdapter {
     };
   }
 }
-
 

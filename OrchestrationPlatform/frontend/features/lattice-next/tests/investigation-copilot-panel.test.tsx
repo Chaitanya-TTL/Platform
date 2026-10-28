@@ -499,7 +499,7 @@ describe("investigation copilot panel", () => {
     vi.stubGlobal("HTMLElement", class {});
   });
 
-  it("loads the latest saved Lattice thread into CopilotKit and offers accessible thread controls", async () => {
+  it("loads the latest saved Lattice thread into CopilotKit and offers accessible history controls", async () => {
     clientMocks.getCopilotThreads.mockResolvedValue(threadResponse([
       summary("thread-older", "Older conversation"),
       summary(latestThreadId, "Latest conversation"),
@@ -509,31 +509,34 @@ describe("investigation copilot panel", () => {
 
     expect(clientMocks.getCopilotThreads).toHaveBeenCalledWith("investigation-1");
     expect(surfaceProbe.props?.threadId).toBe(latestThreadId);
-    const selector = byLabel(renderPanel(), "Conversations");
-    expect(selector.type).toBe("select");
-    expect(selector.props.value).toBe(latestThreadId);
-    expect(textContent(selector)).toContain("Latest conversation");
-    expect(textContent(selector)).toContain("Older conversation");
-    const conversationControls = findElements(renderPanel(), (element) =>
+    const tree = renderPanel();
+    expect(findElements(tree, (element) => element.type === "select")).toHaveLength(0);
+    expect(textContent(tree)).toContain("Latest conversation");
+    expect(textContent(tree)).toContain("Older conversation");
+    const historyToggle = byLabel(tree, "Toggle conversation history");
+    expect(historyToggle.props["aria-expanded"]).toBe(true);
+    expect(historyToggle.props["aria-controls"]).toBe("copilot-conversation-history");
+    const conversationControls = findElements(tree, (element) =>
       element.props.role === "group" && element.props["aria-label"] === "Conversation controls",
     )[0];
     expect(conversationControls).toBeDefined();
     expect(findElements(conversationControls, (element) =>
-      element.type === "select" || element.props["aria-label"] === "New conversation",
-    )).toHaveLength(2);
+      element.props["aria-label"] === "New conversation",
+    )).toHaveLength(1);
   });
 
-  it("restores the selected saved thread through the CopilotKit surface", async () => {
+  it("restores the selected saved thread through the conversation rail", async () => {
     clientMocks.getCopilotThreads.mockResolvedValue(threadResponse([
       summary("thread-older", "Older conversation"),
       summary(latestThreadId, "Latest conversation"),
     ], latestThreadId));
 
     await resolvedPanel();
-    const selector = byLabel(renderPanel(), "Conversations");
-    (selector.props.onChange as (event: { target: { value: string } }) => void)({
-      target: { value: "thread-older" },
-    });
+    const olderThreadButton = findElements(renderPanel(), (element) =>
+      element.type === "button" && textContent(element).includes("Older conversation"),
+    )[0];
+    if (!olderThreadButton) throw new Error("Expected the older conversation in the rail.");
+    (olderThreadButton.props.onClick as () => void)();
     renderPanel();
 
     expect(surfaceProbe.props?.threadId).toBe("thread-older");
@@ -792,10 +795,11 @@ describe("investigation copilot panel", () => {
     surfaceProbe.props?.onCitationSelect({ ...context, citation });
 
     let tree = renderPanel();
-    const selector = byLabel(tree, "Conversations");
-    (selector.props.onChange as (event: { target: { value: string } }) => void)({
-      target: { value: "thread-older" },
-    });
+    const olderThreadButton = findElements(tree, (element) =>
+      element.type === "button" && textContent(element).includes("Older conversation"),
+    )[0];
+    if (!olderThreadButton) throw new Error("Expected the older conversation in the rail.");
+    (olderThreadButton.props.onClick as () => void)();
     tree = renderPanel();
     expect(dialog(tree).props["data-context-open"]).toBe(false);
     expect(dialog(tree).props["data-latest-answer-message-id"]).toBeUndefined();
@@ -872,7 +876,10 @@ describe("investigation copilot panel", () => {
     (byLabel(tree, "Simulate active run").props.onClick as () => void)();
     tree = renderPanel();
 
-    expect(byLabel(tree, "Conversations").props.disabled).toBe(true);
+    const latestThreadButton = findElements(tree, (element) =>
+      element.type === "button" && textContent(element).includes("Latest conversation"),
+    )[0];
+    expect(latestThreadButton?.props.disabled).toBe(true);
     expect(byLabel(tree, "New conversation").props.disabled).toBe(true);
     expect(byLabel(tree, "Stop generating").props.disabled).not.toBe(true);
 
@@ -881,7 +888,7 @@ describe("investigation copilot panel", () => {
     tree = renderPanel();
     expect(clientMocks.getCopilotThreads).toHaveBeenCalledTimes(2);
     expect(surfaceProbe.props?.threadId).toBe(activeThreadId);
-    expect(textContent(byLabel(tree, "Conversations"))).toContain("Conversation after run");
+    expect(textContent(tree)).toContain("Conversation after run");
     expect(clientMocks.postCopilotMessage).not.toHaveBeenCalled();
   });
 

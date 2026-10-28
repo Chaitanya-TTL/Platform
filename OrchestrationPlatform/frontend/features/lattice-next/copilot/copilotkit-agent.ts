@@ -81,7 +81,6 @@ export class LatticeCopilotAgent extends AbstractAgent {
           role: "assistant",
           metadata: { latticeAnswer: answer },
         });
-        subscriber.next({ type: EventType.TEXT_MESSAGE_CONTENT, messageId, delta: answer.answer });
         subscriber.next({ type: EventType.TEXT_MESSAGE_END, messageId });
         subscriber.next({ type: EventType.RUN_FINISHED, threadId: runtimeThreadId, runId: input.runId });
         subscriber.complete();

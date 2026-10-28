@@ -1,0 +1,92 @@
+<h2>How should evidence open beside the conversation?</h2>
+<p class="subtitle">Your side-expansion idea is strongest when it protects reading space. Compare what happens to the chat when the panel opens.</p>
+
+<style>
+  .choices { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,430px),1fr)); gap:18px; }
+  .choice { background:#0b1220; border:1px solid #29364a; border-radius:12px; overflow:hidden; color:#e7edf5; cursor:pointer; transition:border-color .15s,box-shadow .15s; }
+  .choice:hover { border-color:#38bdf8; }
+  .choice.selected { border:2px solid #38bdf8; box-shadow:0 0 0 2px #38bdf833; }
+  .copy { padding:13px 15px 15px; }
+  .copy h3 { color:#f8fafc; margin-bottom:5px; }
+  .copy p { color:#aab8ca; font-size:.88rem; margin-bottom:9px; }
+  .trade { color:#d5e0ed; font-size:.8rem; border-top:1px solid #29364a; padding-top:8px; }
+  .window { background:#080d18; height:355px; display:flex; flex-direction:column; font:11px/1.45 system-ui,sans-serif; overflow:hidden; }
+  .bar { height:38px; flex:none; display:flex; align-items:center; justify-content:space-between; padding:0 12px; border-bottom:1px solid #1f2c3d; color:#e5edf6; }
+  .bar small,.subtle { color:#92a4b8; }
+  .case { flex:1; min-height:0; display:flex; }
+  .graph { position:relative; flex:1; min-width:90px; background:radial-gradient(ellipse at 48% 50%,#12253a,#0b1220 70%); }
+  .node { position:absolute; border:1px solid #347186; background:#0d2634; color:#d9f6fc; border-radius:5px; padding:5px 7px; font-size:9px; }
+  .n1 { top:22%; left:34%; } .n2 { left:5%; bottom:21%; } .n3 { right:5%; bottom:20%; }
+  .edge { position:absolute; height:1px; background:#477588; width:42%; left:28%; top:53%; transform:rotate(22deg); }
+  .copilot { width:235px; flex:none; display:flex; flex-direction:column; border-left:1px solid #26384a; background:#090f1a; }
+  .copilot-head { padding:9px 10px 7px; border-bottom:1px solid #1f2c3d; }
+  .copilot-title { display:flex; justify-content:space-between; color:#edf4fc; font-weight:600; }
+  .threads { color:#95a8bc; font-size:9px; margin-top:5px; }
+  .chat { flex:1; min-height:0; padding:10px; overflow:hidden; }
+  .answer { color:#e7eff8; font-size:10px; line-height:1.55; margin:4px 0 8px; }
+  .claim { border-left:2px solid #22d3ee; background:#0d1724; padding:6px 7px; color:#cbd9e8; font-size:9px; margin:6px 0; }
+  .cite { display:inline-block; border-bottom:1px solid #36788a; color:#8ce7f8; font-size:8px; margin-top:4px; }
+  .composer { border:1px solid #35485c; border-radius:7px; color:#899caf; padding:8px; margin-top:10px; font-size:9px; }
+  .tabs { display:flex; gap:5px; margin:0 0 8px; }
+  .tab { color:#a8b8c9; border:1px solid #29394d; border-radius:5px; padding:4px 7px; font-size:9px; }
+  .tab.active { color:#d8f6fc; border-color:#24738a; background:#102a37; }
+  .review { margin-top:7px; border:1px solid #243348; border-radius:6px; padding:6px 7px; color:#ced9e6; font-size:9px; }
+  .evidence { width:0; overflow:hidden; transition:width .15s; border-left:1px solid #26384a; }
+  .evidence-inner { width:225px; padding:10px; }
+  .expanded .copilot { width:460px; }
+  .expanded .evidence { width:225px; }
+  .source { border-bottom:1px solid #26384a; padding:8px 0; }
+  .source strong { display:block; font-size:9px; color:#e4edf7; }
+  .source p { color:#91a4b8; font-size:8px; margin-top:3px; }
+  .quote { border-left:2px solid #3c7282; padding-left:7px; color:#c5d3e2; margin-top:6px; font-size:8px; }
+  .expand-note { padding:5px 10px; background:#0f1d2b; color:#9db1c5; font-size:8px; border-bottom:1px solid #26384a; }
+  .phone-note { display:none; }
+  @media(max-width:620px) {
+    .window { height:330px; }
+    .graph { display:none; }
+    .copilot { width:100%; }
+    .expanded .copilot { width:100%; }
+    .expanded .evidence { display:none; }
+    .phone-note { display:block; }
+  }
+</style>
+
+<div class="choices">
+  <div class="choice" data-choice="grow-workspace" onclick="toggleSelect(this)">
+    <div class="window expanded">
+      <div class="bar"><strong>Fan · Investigation</strong><small>Revision 1</small></div>
+      <div class="case">
+        <div class="graph"><span class="edge"></span><span class="node n1">Steering spec</span><span class="node n2">Accounting 000001</span><span class="node n3">Accounting 000002</span></div>
+        <section class="copilot">
+          <div class="copilot-head"><div class="copilot-title"><span>Investigation copilot</span><span>×</span></div><div class="threads">Conversation: Relationships summary</div></div>
+          <div class="expand-note">Workspace expanded to make room for evidence. <span class="phone-note">On phone, evidence opens over the conversation.</span></div>
+          <div class="chat"><div class="answer">The saved snapshot links the Steering Requirements Specification to four accounting lines. It does not contain debit/credit values.</div><div class="claim">Recorded relationships are supported by the investigation snapshot.<br><span class="cite">contains · relationship</span></div><div class="composer">Ask a follow-up…</div></div>
+        </section>
+        <aside class="evidence"><div class="evidence-inner"><div class="tabs"><span class="tab active">Evidence</span><span class="tab">Review suggestions</span></div><strong>Evidence for this answer</strong><div class="source"><strong>Steering Requirements Specification</strong><p>Windchill · snapshot revision 1</p><div class="quote">Relationship direction and type are recorded. Debit/credit values are not present.</div></div><div class="source"><strong>Accounting line 000001</strong><p>Relationship: contains</p></div><div class="source"><strong>Review suggestions · 4</strong><p>Open the other tab to inspect available cues.</p></div></div></aside>
+      </div>
+    </div>
+    <div class="copy">
+      <h3>A · Expand the workbench</h3>
+      <p>Opening Evidence or Review suggestions widens the Copilot workspace and places one contextual panel beside the transcript. The graph remains visible behind it.</p>
+      <div class="trade"><strong>Benefit:</strong> chat keeps readable width; evidence stays adjacent. <strong>Cost:</strong> a larger overlay changes more of the screen. On mobile, the evidence view replaces chat until closed.</div>
+    </div>
+  </div>
+
+  <div class="choice" data-choice="inside-drawer" onclick="toggleSelect(this)">
+    <div class="window">
+      <div class="bar"><strong>Fan · Investigation</strong><small>Revision 1</small></div>
+      <div class="case">
+        <div class="graph"><span class="edge"></span><span class="node n1">Steering spec</span><span class="node n2">Accounting 000001</span><span class="node n3">Accounting 000002</span></div>
+        <section class="copilot">
+          <div class="copilot-head"><div class="copilot-title"><span>Investigation copilot</span><span>×</span></div><div class="threads">Conversation: Relationships summary</div></div>
+          <div class="chat"><div class="tabs"><span class="tab active">Chat</span><span class="tab">Evidence</span><span class="tab">Review</span></div><div class="answer">The saved snapshot links the Steering Requirements Specification to four accounting lines. Debit/credit values are not recorded.</div><div class="claim">Four relationships are present in the investigation.<br><span class="cite">contains · relationship</span></div><div class="composer">Ask a follow-up…</div></div>
+        </section>
+      </div>
+    </div>
+    <div class="copy">
+      <h3>B · Keep the 520px drawer</h3>
+      <p>Chat, Evidence, and Review are separate views inside the existing Copilot drawer; opening either switches the drawer away from the transcript and a Chat tab returns you.</p>
+      <div class="trade"><strong>Benefit:</strong> calmer, familiar footprint and no extra page scroll. <strong>Cost:</strong> evidence is no longer visible beside its answer; users switch views to compare them.</div>
+    </div>
+  </div>
+</div>

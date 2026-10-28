@@ -35,6 +35,7 @@ import type { LayoutSession } from "../layout/layout-session";
 import type { LatticeFlowEdge, LatticeFlowNode, LatticePinnedPositions } from "../canvas/lattice-flow-types";
 import type { LatticeNodeActionIntent } from "../canvas/lattice-node-actions";
 import type { LatticeEdgeActionIntent } from "../canvas/lattice-edge-actions";
+import { isCanvasEventForScope } from "../canvas/canvas-event-scope";
 import {
   LATTICE_DEFAULT_EDGE_OPTIONS,
   LATTICE_EDGE_TYPES,
@@ -44,6 +45,8 @@ import {
   LATTICE_PRO_OPTIONS,
   LATTICE_SNAP_GRID,
 } from "../canvas/lattice-flow-config";
+
+const EMPTY_FOCUS_TARGET_IDS: readonly string[] = [];
 
 export type RelationshipCanvasProps = {
   projection: RelationshipProjection;
@@ -63,6 +66,10 @@ export type RelationshipCanvasProps = {
   onBilateralReflow: (positions: Record<string, XYPosition>) => void;
   onBilateralReflowStart: () => void;
   onCollapseAll: () => void;
+  canvasScopeId?: string;
+  listenToWorkspaceEvents?: boolean;
+  focusTargetIds?: readonly string[];
+  showSelectionToolbar?: boolean;
 };
 
 function RelationshipCanvasComponent(props: RelationshipCanvasProps) {
@@ -71,14 +78,48 @@ function RelationshipCanvasComponent(props: RelationshipCanvasProps) {
 
 export const RelationshipCanvas = memo(RelationshipCanvasComponent);
 
-function RelationshipCanvasInner({ projection, orientation, pinnedPositions, viewport, onSelectEntity, onSelectRelationship, onToggle, onViewport, onPinPosition, onClearTransient, onEscape, onNodeAction, onEdgeAction, layoutMode, onBilateralReflow, onBilateralReflowStart, onCollapseAll }: RelationshipCanvasProps) {
+function scopeGraphToCanvas(
+  graph: { nodes: LatticeFlowNode[]; edges: LatticeFlowEdge[] },
+  canvasScopeId: string,
+) {
+  return {
+    nodes: graph.nodes.map(
+      (node) =>
+        ({
+          ...node,
+          data: { ...node.data, canvasScopeId },
+        }) as LatticeFlowNode,
+    ),
+    edges: graph.edges.map(
+      (edge) =>
+        ({
+          ...edge,
+          data: { ...edge.data!, canvasScopeId },
+        }) as LatticeFlowEdge,
+    ),
+  };
+}
+
+function eventCanvasScopeId(event: Event): string | undefined {
+  const detail = (event as CustomEvent<{ canvasScopeId?: unknown }>).detail;
+  return typeof detail?.canvasScopeId === "string"
+    ? detail.canvasScopeId
+    : undefined;
+}
+
+function RelationshipCanvasInner({ projection, orientation, pinnedPositions, viewport, onSelectEntity, onSelectRelationship, onToggle, onViewport, onPinPosition, onClearTransient, onEscape, onNodeAction, onEdgeAction, layoutMode, onBilateralReflow, onBilateralReflowStart, onCollapseAll, canvasScopeId = "main", listenToWorkspaceEvents = true, focusTargetIds = EMPTY_FOCUS_TARGET_IDS, showSelectionToolbar = true }: RelationshipCanvasProps) {
   const reducedMotion = useReducedMotion();
   const [motionScope, animate] = useAnimate();
   const geometryBusy = useRef(new Set<string>());
   const settlementFrame = useRef<number | null>(null);
   const { setViewport, fitView } = useReactFlow<LatticeFlowNode, LatticeFlowEdge>();
   const updateNodeInternals = useUpdateNodeInternals();
-  const [initialGraph] = useState(() => toReactFlow(projection, {}, pinnedPositions, orientation));
+  const [initialGraph] = useState(() =>
+    scopeGraphToCanvas(
+      toReactFlow(projection, {}, pinnedPositions, orientation),
+      canvasScopeId,
+    ),
+  );
   const [nodes, setNodes] = useState<LatticeFlowNode[]>(initialGraph.nodes);
   const [edges, setEdges] = useState<LatticeFlowEdge[]>(initialGraph.edges);
   const canvasRef = useRef<HTMLDivElement | null>(null);
@@ -94,33 +135,45 @@ function RelationshipCanvasInner({ projection, orientation, pinnedPositions, vie
   const escapePressed = useKeyPress("Escape");
 
   useEffect(() => {
-    if (escapePressed) (callbacks.current.onEscape ?? callbacks.current.onClearTransient)();
-  }, [escapePressed]);
+    if (listenToWorkspaceEvents && escapePressed) {
+      (callbacks.current.onEscape ?? callbacks.current.onClearTransient)();
+    }
+  }, [escapePressed, listenToWorkspaceEvents]);
 
   useEffect(() => {
-    const handleFit = () => void fitView({ padding: .18, duration: reducedMotion ? 0 : 320 });
-    const handleCollapse = () => onCollapseAll();
+    if (!listenToWorkspaceEvents) return;
+    const handleFit = (event: Event) => {
+      if (!isCanvasEventForScope(eventCanvasScopeId(event), canvasScopeId)) return;
+      void fitView({ padding: .18, duration: reducedMotion ? 0 : 320 });
+    };
+    const handleCollapse = (event: Event) => {
+      if (isCanvasEventForScope(eventCanvasScopeId(event), canvasScopeId)) {
+        onCollapseAll();
+      }
+    };
     window.addEventListener("lattice:fit-view", handleFit);
     window.addEventListener("lattice:collapse-all", handleCollapse);
     return () => { window.removeEventListener("lattice:fit-view", handleFit); window.removeEventListener("lattice:collapse-all", handleCollapse); };
-  }, [fitView, reducedMotion, onCollapseAll]);
+  }, [canvasScopeId, fitView, listenToWorkspaceEvents, reducedMotion, onCollapseAll]);
 
   useEffect(() => {
-    const handleReflow = () => {
+    if (!listenToWorkspaceEvents) return;
+    const handleReflow = (event: Event) => {
+      if (!isCanvasEventForScope(eventCanvasScopeId(event), canvasScopeId)) return;
       callbacks.current.onBilateralReflowStart();
       const result = bilateralReflow(nodesRef.current, edges);
       if (!result) { callbacks.current.onBilateralReflow({}); return; }
-      window.dispatchEvent(new CustomEvent("lattice:geometry-motion", { detail: { active: true, id: "bilateral-reflow" } }));
+      window.dispatchEvent(new CustomEvent("lattice:geometry-motion", { detail: { active: true, id: "bilateral-reflow", canvasScopeId } }));
       const nextNodes = nodesRef.current.map((node) => ({ ...node, position: result.positions[node.id] ?? node.position, data: { ...node.data, layoutDirection: result.sideByNode[node.id] === "LEFT" ? "LEFT" : result.sideByNode[node.id] === "RIGHT" ? "RIGHT" : node.data.layoutDirection } } as LatticeFlowNode));
       const nextEdges = edges.map((edge) => { const port=result.ports[edge.id], route=result.routes[edge.id]; return { ...edge, sourceHandle: port ? `source:${port.sourceSide}:${edge.sourceHandle?.split(":").at(-1) ?? "structure"}` : edge.sourceHandle, targetHandle: port ? `target:${port.targetSide}:${edge.targetHandle?.split(":").at(-1) ?? "structure"}` : edge.targetHandle, data: { ...edge.data!, layoutRoute: route, animation: "resolved" } } as LatticeFlowEdge; });
       nodesRef.current = nextNodes; setNodes(nextNodes); setEdges(nextEdges);
       requestAnimationFrame(() => requestAnimationFrame(() => updateNodeInternals(nextNodes.map((node) => node.id))));
       callbacks.current.onBilateralReflow(result.positions);
-      window.setTimeout(() => window.dispatchEvent(new CustomEvent("lattice:geometry-motion", { detail: { active: false, id: "bilateral-reflow" } })), reducedMotion ? 0 : 520);
+      window.setTimeout(() => window.dispatchEvent(new CustomEvent("lattice:geometry-motion", { detail: { active: false, id: "bilateral-reflow", canvasScopeId } })), reducedMotion ? 0 : 520);
     };
     window.addEventListener("lattice:bilateral-reflow", handleReflow);
     return () => window.removeEventListener("lattice:bilateral-reflow", handleReflow);
-  }, [edges, reducedMotion, updateNodeInternals]);
+  }, [canvasScopeId, edges, listenToWorkspaceEvents, reducedMotion, updateNodeInternals]);
   useEffect(() => {
     void setViewport(viewport, { duration: 0 });
     // Restore persisted camera at mount only. Live motion remains internal until move-end.
@@ -130,22 +183,23 @@ function RelationshipCanvasInner({ projection, orientation, pinnedPositions, vie
 
   useEffect(() => {
     const handleGeometry = (event: Event) => {
-      const detail = (event as CustomEvent<{active:boolean;id:string}>).detail;
+      const detail = (event as CustomEvent<{active:boolean;id:string;canvasScopeId?:string}>).detail;
       if (!detail) return;
+      if (!isCanvasEventForScope(detail.canvasScopeId, canvasScopeId)) return;
       detail.active ? geometryBusy.current.add(detail.id) : geometryBusy.current.delete(detail.id);
-      const labels=Array.from(document.querySelectorAll<HTMLElement>(".lattice-edge-label"));
+      const labels=Array.from(canvasRef.current?.querySelectorAll<HTMLElement>(".lattice-edge-label") ?? []);
       if(labels.length){void animate(labels,{opacity:geometryBusy.current.size?0:1},{duration:reducedMotion?0:geometryBusy.current.size?0.08:0.14});}
       if (!geometryBusy.current.size) {
         if (settlementFrame.current) cancelAnimationFrame(settlementFrame.current);
         settlementFrame.current = requestAnimationFrame(() => requestAnimationFrame(() => {
           layoutSequence.current += 1;
-          window.dispatchEvent(new CustomEvent("lattice:routes-settled"));
+          window.dispatchEvent(new CustomEvent("lattice:routes-settled", { detail: { canvasScopeId } }));
         }));
       }
     };
     window.addEventListener("lattice:geometry-motion", handleGeometry);
     return () => { window.removeEventListener("lattice:geometry-motion", handleGeometry); if (settlementFrame.current) cancelAnimationFrame(settlementFrame.current); };
-  }, [animate, reducedMotion]);
+  }, [animate, canvasScopeId, reducedMotion]);
 
   useEffect(() => {
     const element = canvasRef.current;
@@ -173,6 +227,7 @@ function RelationshipCanvasInner({ projection, orientation, pinnedPositions, vie
         layoutSessionRef.current = result.session;
         const previousCount = visibleCountRef.current;
         const previousIds = new Set(nodesRef.current.map((node) => node.id));
+        converted = scopeGraphToCanvas(converted, canvasScopeId);
         const stagedNodes = converted.nodes.map((node, index) => ({
           ...node,
           data: { ...node.data, entering: !previousIds.has(node.id), revealIndex: index },
@@ -192,11 +247,30 @@ function RelationshipCanvasInner({ projection, orientation, pinnedPositions, vie
           });
           setEdges((current) => current.map((edge) => ({ ...edge, data: { ...edge.data!, animation: edge.selected ? "selected" : "settled" } } as LatticeFlowEdge)));
         }, 520);
-        if (previousCount === 0 && converted.nodes.length > 0) requestAnimationFrame(() => { void fitView({ padding: .22, duration: 320, interpolate: "smooth" }); });
+        if (converted.nodes.length > 0 && (previousCount === 0 || focusTargetIds.length > 0)) requestAnimationFrame(() => {
+          const targets = focusTargetIds.map((id) => ({ id }));
+          void fitView({
+            ...(targets.length > 0 ? { nodes: targets, padding: 0.28 } : { padding: .22 }),
+            duration: reducedMotion ? 0 : 320,
+            interpolate: "smooth",
+          });
+        });
       })
       .catch(() => undefined);
     return () => { layoutSequence.current += 1; };
-  }, [fitView, orientation, pinnedPositions, projection, layoutViewport, layoutMode]);
+  }, [canvasScopeId, fitView, focusTargetIds, orientation, pinnedPositions, projection, layoutViewport, layoutMode, reducedMotion]);
+
+  const focusTargetKey = focusTargetIds.join("\0");
+  useEffect(() => {
+    if (!focusTargetKey) return;
+    const targets = focusTargetKey.split("\0").map((id) => ({ id }));
+    void fitView({
+      nodes: targets,
+      padding: 0.28,
+      duration: reducedMotion ? 0 : 360,
+      interpolate: "smooth",
+    });
+  }, [fitView, focusTargetKey, reducedMotion]);
 
   useEffect(() => () => {
     if (revealTimerRef.current) window.clearTimeout(revealTimerRef.current);
@@ -224,7 +298,7 @@ function RelationshipCanvasInner({ projection, orientation, pinnedPositions, vie
 
   return (
     <MotionConfig reducedMotion="user" transition={{ type: "spring", stiffness: 280, damping: 30, mass: 0.8 }}>
-    <div ref={canvasRef} className="lattice-flow h-full" onClick={(event) => {
+    <div ref={canvasRef} className="lattice-flow h-full" data-canvas-scope-id={canvasScopeId} onClick={(event) => {
       const target = event.target as HTMLElement;
       const edgeActionElement=target.closest<HTMLElement>("[data-edge-action]");
       if(edgeActionElement?.dataset.edgeAction&&edgeActionElement.dataset.edgeId){
@@ -292,7 +366,7 @@ function RelationshipCanvasInner({ projection, orientation, pinnedPositions, vie
         autoPanOnNodeFocus
         proOptions={LATTICE_PRO_OPTIONS}
       >
-        {selectedNodes.length > 1 ? (
+        {showSelectionToolbar && selectedNodes.length > 1 ? (
           <Panel position="top-center" className="lattice-multi-toolbar nodrag nopan nowheel">
             <span>{selectedNodes.length} selected</span>
             <button type="button" onClick={fitSelected}>Fit selected</button>

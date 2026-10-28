@@ -23,7 +23,9 @@ export type InvestigationCommand =
       canonical: unknown;
       occurredAt: string;
     }
-  | { type: "refresh"; investigationId: InvestigationId; occurredAt: string }
+  | { type: "refresh"; investigationId: InvestigationId; expectedRevision: number; occurredAt: string }
+  | { type: "archive"; investigationId: InvestigationId; occurredAt: string }
+  | { type: "restore"; investigationId: InvestigationId; occurredAt: string }
   | { type: "cancel"; investigationId: InvestigationId; occurredAt: string }
   | {
       type: "fail";

@@ -8,6 +8,8 @@ export interface SourceExecutionSnapshot {
   status: SourceOperationStatus;
   startedAt?: string;
   completedAt?: string;
+  capturedAt?: string;
+  freshness?: "current" | "stale" | "unknown";
   warnings: readonly string[];
   errorCode?: string;
   errorMessage?: string;
@@ -32,4 +34,27 @@ export interface InvestigationSnapshot<TCanonical = unknown> {
   warnings: readonly string[];
   createdAt: string;
   updatedAt: string;
+  archivedAt?: string;
+}
+
+export interface InvestigationListSourceStatus {
+  source: string;
+  status: SourceOperationStatus | "not-started";
+  capturedAt?: string;
+  freshness: "current" | "stale" | "unknown";
+}
+
+export interface InvestigationListItem {
+  investigationId: InvestigationIdentity["investigationId"];
+  subjectLabel: string;
+  lifecycle: InvestigationLifecycle;
+  revision: number;
+  createdAt: string;
+  updatedAt: string;
+  archivedAt?: string;
+  sourceStatuses: readonly InvestigationListSourceStatus[];
+  capturedFreshness: {
+    capturedAt?: string;
+    freshness: "current" | "stale" | "unknown";
+  };
 }

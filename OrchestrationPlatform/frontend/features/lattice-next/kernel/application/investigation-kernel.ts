@@ -2,7 +2,8 @@ import type { InvestigationCommand } from "../contracts/investigation-command";
 import type { InvestigationId } from "../contracts/investigation-identity";
 import type { InvestigationSnapshot } from "../contracts/investigation-snapshot";
 import type { InvestigationEventStore } from "../ports/investigation-event-store";
-import type { InvestigationRepository } from "../ports/investigation-repository";
+import type { InvestigationListItem } from "../contracts/investigation-snapshot";
+import type { InvestigationListOptions, InvestigationRepository } from "../ports/investigation-repository";
 import { reduceInvestigationEvent } from "./investigation-event-reducer";
 import { InvestigationCommandHandler } from "./investigation-command-handler";
 
@@ -35,6 +36,10 @@ export class InvestigationKernel {
 
   load(id: InvestigationId): Promise<InvestigationSnapshot | undefined> {
     return this.repository.load(id);
+  }
+
+  list(options?: InvestigationListOptions): Promise<readonly InvestigationListItem[]> {
+    return this.repository.list(options);
   }
 
   subscribe(id: InvestigationId, subscriber: InvestigationSubscriber): () => void {

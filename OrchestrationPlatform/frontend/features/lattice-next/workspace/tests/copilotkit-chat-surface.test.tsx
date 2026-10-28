@@ -129,6 +129,9 @@ vi.mock("@copilotkit/react-core/v2", () => {
     CopilotKitProvider: MockCopilotKitProvider,
     CopilotChat: MockCopilotChat,
     CopilotChatMessageView: MockMessageView,
+    CopilotChatAssistantMessage: {
+      MarkdownRenderer: ({ content }: { content: string }) => <div>{content}</div>,
+    },
     useAgent: () => ({ agent: mocks.agent, isReady: true }),
     useCopilotKit: () => ({ copilotkit: mocks.copilotkit }),
     useConfigureSuggestions: (config: Record<string, unknown> | null) => {
@@ -147,6 +150,8 @@ vi.mock("thinking-orbs", () => ({
 import {
   CopilotKitChatSurface,
   CopilotKitRetryControl,
+  LatticeAssistantMessage,
+  filterUnparsedAssistantMessages,
   getValidatedAnswerContext,
   reportLatestValidatedAnswerContext,
 } from "../CopilotKitChatSurface";
@@ -375,15 +380,12 @@ describe("CopilotKit investigation chat surface", () => {
       metadata: { latticeAnswer: answer },
     };
     mocks.messages = [message];
-    renderSurface();
-
-    const answerSlot = mocks.assistantMessage as React.FunctionComponent<{
-      message: Record<string, unknown>;
-    }>;
-    const slotElement = answerSlot({ message }) as React.ReactElement<Record<string, unknown>>;
-    const assistantElement = (
-      slotElement.type as React.FunctionComponent<Record<string, unknown>>
-    )(slotElement.props) as React.ReactElement<{ children?: React.ReactNode }>;
+    const assistantElement = LatticeAssistantMessage({
+      message: message as never,
+      onWhySelect: defaultProps.onWhySelect,
+      onCitationSelect: defaultProps.onCitationSelect,
+      typewriter: false,
+    }) as React.ReactElement<{ children?: React.ReactNode }>;
     const whyButton = React.Children.toArray(assistantElement.props.children).find(
       (child) => React.isValidElement(child) && child.type === "button",
     ) as React.ReactElement<{
@@ -395,6 +397,43 @@ describe("CopilotKit investigation chat surface", () => {
     whyButton?.props.onClick?.();
     expect(defaultProps.onWhySelect).toHaveBeenCalledOnce();
     expect(defaultProps.onWhySelect).toHaveBeenCalledWith(expectedAnswerContext);
+  });
+
+  it("keeps the assistant message slot stable when citation handlers change", () => {
+    renderSurface();
+    const firstAssistantMessage = mocks.assistantMessage;
+
+    renderSurface({ onCitationSelect: vi.fn() });
+
+    expect(mocks.assistantMessage).toBe(firstAssistantMessage);
+  });
+
+  it("hides unparsed assistant stream messages after submit but keeps restored and validated answers", () => {
+    const restoredMessage = {
+      id: "assistant-restored",
+      role: "assistant",
+      content: "A restored legacy answer.",
+    };
+    const streamMessage = {
+      id: "assistant-stream",
+      role: "assistant",
+      content: "The raw generated response.",
+    };
+    const validatedMessage = {
+      id: "assistant-validated",
+      role: "assistant",
+      content: "A generated response.",
+      metadata: { latticeAnswer: answer },
+    };
+    const userMessage = { id: "user-current", role: "user", content: "Explain this." };
+
+    expect(
+      filterUnparsedAssistantMessages(
+        [restoredMessage, userMessage, streamMessage, validatedMessage],
+        new Set([restoredMessage.id]),
+        true,
+      ),
+    ).toEqual([restoredMessage, userMessage, validatedMessage]);
   });
 
   it("falls back to safe plain text when restored answer metadata is missing", () => {
@@ -410,7 +449,7 @@ describe("CopilotKit investigation chat surface", () => {
     expect(markup).not.toContain("Evidence details");
   });
 
-  it("keeps_review_cue_dismissal_available_as_a_quiet_follow_up", () => {
+  it("does_not_render_the_fixed_follow_up_cue_strip", () => {
     const emptyThreadMarkup = renderSurface();
 
     expect(emptyThreadMarkup).not.toContain("Review follow-up suggestions");
@@ -421,10 +460,11 @@ describe("CopilotKit investigation chat surface", () => {
     mocks.messages = [{ id: "existing-user", role: "user", content: "What changed?" }];
     const activeThreadMarkup = renderSurface();
 
-    expect(activeThreadMarkup).toContain('aria-label="Review follow-up suggestions"');
-    expect(activeThreadMarkup).toContain(`Follow-up · ${cue.title}`);
-    expect(activeThreadMarkup).toContain(`aria-label="Dismiss ${cue.title}"`);
-    expect(activeThreadMarkup).toContain(">Ask</button>");
+    expect(activeThreadMarkup).not.toContain('aria-label="Review follow-up suggestions"');
+    expect(activeThreadMarkup).not.toContain(`Follow-up · ${cue.title}`);
+    expect(activeThreadMarkup).not.toContain(`aria-label="Dismiss ${cue.title}"`);
+    expect(activeThreadMarkup).not.toContain(">Ask</button>");
+    expect(activeThreadMarkup).not.toContain(cue.title);
     expect(activeThreadMarkup).not.toContain(cue.detail);
     expect(activeThreadMarkup).not.toContain("Review suggestions");
     expect(activeThreadMarkup.match(/<details/g)).toBeNull();
@@ -447,14 +487,13 @@ describe("CopilotKit investigation chat surface", () => {
     expect(mocks.suggestions).toBeNull();
   });
 
-  it("shows an accessible working orb only while a run is active", () => {
+  it("does not show a stale thinking line for a restored thread without a submitted request", () => {
     mocks.isRunning = true;
     mocks.messages = [{ id: "active-user", role: "user", content: "What changed?" }];
     const markup = renderSurface();
 
-    expect(markup).toContain('role="status"');
-    expect(markup).toContain("Thinking");
-    expect(mocks.cursorProps).toMatchObject({ state: "working", size: 20 });
+    expect(markup).not.toContain('class="lattice-thought-line');
+    expect(markup).not.toContain('role="status"');
   });
 
   it("reads server failure metadata from the V2 RUN_ERROR event and exposes only a safe message", async () => {

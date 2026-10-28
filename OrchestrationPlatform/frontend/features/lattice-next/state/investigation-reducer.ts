@@ -46,7 +46,7 @@ export function initialInvestigation(roots: string[], sources: string[]): Invest
     inspectorOpen: false,
     revision: 3,
     activeSources: new Set(sources),
-    activeRelationships: new Set(["contains", "corresponds-to"]),
+    activeRelationships: new Set(["contains", "corresponds-to", "operationally-represented-as", "configured-by", "specified-by", "supplies-material-for", "specifies"]),
     orientation: "RIGHT",
   };
 }

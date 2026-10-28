@@ -74,7 +74,7 @@ export class CurrentSourceExecutionAdapter implements SourceExecutionPort {
     return `${source}:${nativeId}`;
   }
 
-  resolvedHandoff(investigationId: string, subjectLabel: string, selections: readonly { source: string; nativeId: string }[]): LatticeHandoff | undefined {
+  resolvedHandoff(investigationId: string, subjectLabel: string, selections: readonly { source: string; nativeId: string; metadata?: Readonly<Record<string, string>> }[]): LatticeHandoff | undefined {
     const sources = selections.flatMap((selection) => {
       const cached = this.resolvedStructures.get(this.structureKey(selection.source, selection.nativeId));
       if (!cached) return [];
@@ -85,6 +85,7 @@ export class CurrentSourceExecutionAdapter implements SourceExecutionPort {
         nativeId: selection.nativeId,
         jobId: cached.value.jobId,
         capturedAt: cached.observedAt,
+        sourceMetadata: selection.metadata,
         completeness: cached.value.state === "ready" ? "complete" as const : "partial" as const,
         intelligencePayload: cached.value.intelligencePayload,
       }];
@@ -117,6 +118,7 @@ export class CurrentSourceExecutionAdapter implements SourceExecutionPort {
         nativeId: command.selection.nativeId,
         jobId: cached.value.jobId,
         capturedAt: cached.observedAt,
+        sourceMetadata: command.selection.metadata,
         completeness: cached.value.state === "ready" ? "complete" : "partial",
         intelligencePayload: cached.value.intelligencePayload,
       }],

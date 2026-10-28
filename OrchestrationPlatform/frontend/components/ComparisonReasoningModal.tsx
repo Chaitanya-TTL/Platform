@@ -24,6 +24,7 @@ const sourceLabels: Record<SourceType, string> = {
   windchill: "Windchill",
   configit: "Configit",
   sap: "SAP",
+  codebeamer: "Codebeamer",
   excel: "Excel BOM",
 };
 

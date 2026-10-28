@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { InvestigationCommand } from "@/features/lattice-next/kernel/contracts/investigation-command";
-import { asInvestigationId } from "@/features/lattice-next/kernel/contracts/investigation-identity";
+import type { InvestigationId } from "@/features/lattice-next/kernel/contracts/investigation-identity";
 import { serverKernel } from "@/features/lattice-next/kernel/server/server-kernel-runtime";
 
 export const dynamic = "force-dynamic";
@@ -8,7 +8,7 @@ type Context = { params: Promise<{ investigationId: string }> };
 
 export async function GET(_: Request, context: Context) {
   const { investigationId } = await context.params;
-  const snapshot = await serverKernel.load(asInvestigationId(investigationId));
+  const snapshot = await serverKernel.load(investigationId as InvestigationId);
   return snapshot ? NextResponse.json(snapshot) : NextResponse.json({ message: "Investigation was not found." }, { status: 404 });
 }
 

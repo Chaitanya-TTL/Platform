@@ -1,4 +1,5 @@
 import type { SourceType } from "@/types/bom-comparison";
+import type { UniversalRelationshipEvidence, UniversalRelationshipEvaluation } from "../plm-brain/universal/contracts/universal-relationship";
 export type EntitySource = SourceType | "unified" | "platform";
 export type EntityKind = "assembly" | "component" | "identity" | "source-representation" | "finding" | "evidence" | "part" | "part-occurrence" | "material" | "requirement" | "requirement-revision" | "change-notice" | "change-task" | "production-order" | "configuration-feature" | "configuration-option" | "document" | "accounting-document" | "plant" | "storage-location" | "material-master" | "stock-position" | "valuation-context" | "material-movement" | "physical-attribute" | "product-context" | "product-detail" | "stock-metric" | "accounting-line" | "history-metric" | "sap-field" | "configuration-family" | "configuration-rule" | "configuration-rule-field" | "localization-language" | "localization-translation" | "source-evidence-group" | "source-evidence-field" | "requirement-detail";
 export type RelationshipKind =
@@ -37,7 +38,9 @@ export type RelationshipKind =
   | "has-language"
   | "contains-translation"
   | "operationally-represented-as"
-  | "specified-by";
+  | "specified-by"
+  | "supplies-material-for"
+  | "specifies";
 export type RelationshipEvidence = {
   sourceLabel: string;
   reason: string;
@@ -81,7 +84,7 @@ export type InvestigationGraph = {
   roots: string[];
   byId: Record<string, EngineeringEntity>;
   relationshipById: Record<string, EngineeringRelationship>;
-  metadata?: { investigationId?: string; contractVersion?: string; sourceStatuses?: Record<string,string>; identityClusters?: Array<{ id:string; entityIds:string[]; confidence:string; reasons:string[] }>; evidence?: Record<string,{ id:string; kind:string; summary:string; source:string }>; findings?: Array<{ id:string; kind:string; title:string; summary:string; subjectEntityIds:string[]; evidenceIds:string[] }>; entityAliases?: Readonly<Record<string,string>>; plmBrain?: import("../plm-brain/contracts/validated-relationship").PLMBrainSnapshot };
+  metadata?: { investigationId?: string; contractVersion?: string; sourceStatuses?: Record<string,string>; identityClusters?: Array<{ id:string; entityIds:string[]; confidence:string; reasons:string[] }>; evidence?: Record<string,{ id:string; kind:string; summary:string; source:string }>; findings?: Array<{ id:string; kind:string; title:string; summary:string; subjectEntityIds:string[]; evidenceIds:string[] }>; entityAliases?: Readonly<Record<string,string>>; plmBrain?: import("../plm-brain/contracts/validated-relationship").PLMBrainSnapshot; universalRelationshipEvidence?: UniversalRelationshipEvidence[]; universalRelationshipEvaluations?: UniversalRelationshipEvaluation[]; universalRelationshipDiagnostics?: { schemaVersion:"1.0"; evaluatedAt:string; confirmedCount:number; unresolved:Array<{ruleId:string;sourceEntityId?:string;reason:string}> } };
 };
 export type InvestigationSelection =
   | { type: "none" }
