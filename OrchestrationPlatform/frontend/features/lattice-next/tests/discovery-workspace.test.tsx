@@ -108,6 +108,16 @@ describe("discovery workspace", () => {
     expect(html).not.toContain("Engineering discovery");
   });
 
+  it("uses a responsive minimum-width grid for source filters", () => {
+    const html = renderToStaticMarkup(createElement(DiscoveryWorkspace, {
+      onInvestigate: vi.fn(),
+    }));
+
+    expect(html).toContain(
+      "grid-cols-[repeat(auto-fit,minmax(min(100%,220px),1fr))]",
+    );
+  });
+
   it("renders the full history state separately from the fresh search", () => {
     const html = renderToStaticMarkup(createElement(DiscoveryWorkspace, {
       mode: "history",

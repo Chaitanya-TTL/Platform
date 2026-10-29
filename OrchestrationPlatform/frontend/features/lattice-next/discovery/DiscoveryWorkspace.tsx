@@ -175,7 +175,7 @@ export function DiscoveryWorkspace({
             </form>
             <fieldset className="mt-6">
               <legend className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">Search in</legend>
-              <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-5">
+              <div className="mt-3 grid grid-cols-[repeat(auto-fit,minmax(min(100%,220px),1fr))] gap-2">
                 {LATTICE_SOURCES.map((source) => {
                   const included = state.selectedSources.has(source);
                   return (
