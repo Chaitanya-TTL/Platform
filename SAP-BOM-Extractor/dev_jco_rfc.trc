@@ -2142,3 +2142,303 @@ COUNTER     2
 	error group: 102
 	key: RFC_ERROR_COMMUNICATION
 
+
+**** Error file opened at 20261022 175028 India Standard Time Rel. 3.0.21 (2020-12-04) [753.1018]
+Error:   >Thu Oct 22 17:50:28,961<    RfcException raised by system [<unknown>]:
+	message: Connect to SAP gateway failed
+	connection parameters: TYPE=A DESTINATION=S4H_DESTINATION ASHOST=172.28.236.12 SYSNR=00 PCS=1
+
+LOCATION    CPIC (TCP/IP) on local host with Unicode
+ERROR       partner '172.28.236.12:3300' not reached
+TIME        Thu Oct 22 17:50:28 2026
+RELEASE     753
+COMPONENT   NI (network interface)
+VERSION     40
+RC          -10
+MODULE      D:/depot/bas/753_REL/src/base/ni/nixxi.cpp
+LINE        3454
+DETAIL      NiPConnect2: 172.28.236.12:3300
+SYSTEM CALL connect
+ERRNO       10060
+ERRNO TEXT  WSAETIMEDOUT: Connection timed out
+COUNTER     2
+
+	return code: RFC_FAILURE (1)
+	error group: 102
+	key: RFC_ERROR_COMMUNICATION
+
+
+**** Error file opened at 20261023 102433 India Standard Time Rel. 3.0.21 (2020-12-04) [753.1018]
+Error:   >Fri Oct 23 10:24:33,849<    RfcException raised by system [<unknown>]:
+	message: Connect to SAP gateway failed
+	connection parameters: TYPE=A DESTINATION=S4H_DESTINATION ASHOST=172.28.236.12 SYSNR=00 PCS=1
+
+LOCATION    CPIC (TCP/IP) on local host with Unicode
+ERROR       partner '172.28.236.12:3300' not reached
+TIME        Fri Oct 23 10:24:33 2026
+RELEASE     753
+COMPONENT   NI (network interface)
+VERSION     40
+RC          -10
+MODULE      D:/depot/bas/753_REL/src/base/ni/nixxi.cpp
+LINE        3454
+DETAIL      NiPConnect2: 172.28.236.12:3300
+SYSTEM CALL connect
+ERRNO       10060
+ERRNO TEXT  WSAETIMEDOUT: Connection timed out
+COUNTER     2
+
+	return code: RFC_FAILURE (1)
+	error group: 102
+	key: RFC_ERROR_COMMUNICATION
+
+
+**** Error file opened at 20261023 115549 India Standard Time Rel. 3.0.21 (2020-12-04) [753.1018]
+Error:   >Fri Oct 23 11:55:49,215<    RfcException raised by system [<unknown>]:
+	message: Connect to SAP gateway failed
+	connection parameters: TYPE=A DESTINATION=S4H_DESTINATION ASHOST=172.28.236.12 SYSNR=00 PCS=1
+
+LOCATION    CPIC (TCP/IP) on local host with Unicode
+ERROR       partner '172.28.236.12:3300' not reached
+TIME        Fri Oct 23 11:55:49 2026
+RELEASE     753
+COMPONENT   NI (network interface)
+VERSION     40
+RC          -10
+MODULE      D:/depot/bas/753_REL/src/base/ni/nixxi.cpp
+LINE        3454
+DETAIL      NiPConnect2: 172.28.236.12:3300
+SYSTEM CALL connect
+ERRNO       10060
+ERRNO TEXT  WSAETIMEDOUT: Connection timed out
+COUNTER     2
+
+	return code: RFC_FAILURE (1)
+	error group: 102
+	key: RFC_ERROR_COMMUNICATION
+
+
+**** Error file opened at 20261023 122449 India Standard Time Rel. 3.0.21 (2020-12-04) [753.1018]
+Error:   >Fri Oct 23 12:24:49,210<    RfcException raised by system [<unknown>]:
+	message: Connect to SAP gateway failed
+	connection parameters: TYPE=A DESTINATION=S4H_DESTINATION ASHOST=172.28.236.12 SYSNR=00 PCS=1
+
+LOCATION    CPIC (TCP/IP) on local host with Unicode
+ERROR       partner '172.28.236.12:3300' not reached
+TIME        Fri Oct 23 12:24:49 2026
+RELEASE     753
+COMPONENT   NI (network interface)
+VERSION     40
+RC          -10
+MODULE      D:/depot/bas/753_REL/src/base/ni/nixxi.cpp
+LINE        3454
+DETAIL      NiPConnect2: 172.28.236.12:3300
+SYSTEM CALL connect
+ERRNO       10060
+ERRNO TEXT  WSAETIMEDOUT: Connection timed out
+COUNTER     2
+
+	return code: RFC_FAILURE (1)
+	error group: 102
+	key: RFC_ERROR_COMMUNICATION
+
+
+**** Error file opened at 20261023 125317 India Standard Time Rel. 3.0.21 (2020-12-04) [753.1018]
+Error:   >Fri Oct 23 12:53:17,437<    RfcException raised by system [<unknown>]:
+	message: Connect to SAP gateway failed
+	connection parameters: TYPE=A DESTINATION=S4H_DESTINATION ASHOST=172.28.236.12 SYSNR=00 PCS=1
+
+LOCATION    CPIC (TCP/IP) on local host with Unicode
+ERROR       partner '172.28.236.12:3300' not reached
+TIME        Fri Oct 23 12:53:17 2026
+RELEASE     753
+COMPONENT   NI (network interface)
+VERSION     40
+RC          -10
+MODULE      D:/depot/bas/753_REL/src/base/ni/nixxi.cpp
+LINE        3454
+DETAIL      NiPConnect2: 172.28.236.12:3300
+SYSTEM CALL connect
+ERRNO       10060
+ERRNO TEXT  WSAETIMEDOUT: Connection timed out
+COUNTER     2
+
+	return code: RFC_FAILURE (1)
+	error group: 102
+	key: RFC_ERROR_COMMUNICATION
+
+
+**** Error file opened at 20261026 113655 India Standard Time Rel. 3.0.21 (2020-12-04) [753.1018]
+Error:   >Mon Oct 26 11:36:55,485<    RfcException raised by system [<unknown>]:
+	message: Connect to SAP gateway failed
+	connection parameters: TYPE=A DESTINATION=S4H_DESTINATION ASHOST=172.28.236.12 SYSNR=00 PCS=1
+
+LOCATION    CPIC (TCP/IP) on local host with Unicode
+ERROR       partner '172.28.236.12:3300' not reached
+TIME        Mon Oct 26 11:36:55 2026
+RELEASE     753
+COMPONENT   NI (network interface)
+VERSION     40
+RC          -10
+MODULE      D:/depot/bas/753_REL/src/base/ni/nixxi.cpp
+LINE        3454
+DETAIL      NiPConnect2: 172.28.236.12:3300
+SYSTEM CALL connect
+ERRNO       10060
+ERRNO TEXT  WSAETIMEDOUT: Connection timed out
+COUNTER     2
+
+	return code: RFC_FAILURE (1)
+	error group: 102
+	key: RFC_ERROR_COMMUNICATION
+
+
+**** Error file opened at 20261026 114622 India Standard Time Rel. 3.0.21 (2020-12-04) [753.1018]
+Error:   >Mon Oct 26 11:46:22,806<    RfcException raised by system [<unknown>]:
+	message: Connect to SAP gateway failed
+	connection parameters: TYPE=A DESTINATION=S4H_DESTINATION ASHOST=172.28.236.12 SYSNR=00 PCS=1
+
+LOCATION    CPIC (TCP/IP) on local host with Unicode
+ERROR       partner '172.28.236.12:3300' not reached
+TIME        Mon Oct 26 11:46:22 2026
+RELEASE     753
+COMPONENT   NI (network interface)
+VERSION     40
+RC          -10
+MODULE      D:/depot/bas/753_REL/src/base/ni/nixxi.cpp
+LINE        3454
+DETAIL      NiPConnect2: 172.28.236.12:3300
+SYSTEM CALL connect
+ERRNO       10060
+ERRNO TEXT  WSAETIMEDOUT: Connection timed out
+COUNTER     2
+
+	return code: RFC_FAILURE (1)
+	error group: 102
+	key: RFC_ERROR_COMMUNICATION
+
+
+**** Error file opened at 20261027 144129 India Standard Time Rel. 3.0.21 (2020-12-04) [753.1018]
+Error:   >Tue Oct 27 14:41:29,078<    RfcException raised by system [<unknown>]:
+	message: Connect to SAP gateway failed
+	connection parameters: TYPE=A DESTINATION=S4H_DESTINATION ASHOST=172.28.236.12 SYSNR=00 PCS=1
+
+LOCATION    CPIC (TCP/IP) on local host with Unicode
+ERROR       partner '172.28.236.12:3300' not reached
+TIME        Tue Oct 27 14:41:29 2026
+RELEASE     753
+COMPONENT   NI (network interface)
+VERSION     40
+RC          -10
+MODULE      D:/depot/bas/753_REL/src/base/ni/nixxi.cpp
+LINE        3454
+DETAIL      NiPConnect2: 172.28.236.12:3300
+SYSTEM CALL connect
+ERRNO       10060
+ERRNO TEXT  WSAETIMEDOUT: Connection timed out
+COUNTER     2
+
+	return code: RFC_FAILURE (1)
+	error group: 102
+	key: RFC_ERROR_COMMUNICATION
+
+
+**** Error file opened at 20261028 124509 India Standard Time Rel. 3.0.21 (2020-12-04) [753.1018]
+Error:   >Wed Oct 28 12:45:09,991<    RfcException raised by system [<unknown>]:
+	message: Connect to SAP gateway failed
+	connection parameters: TYPE=A DESTINATION=S4H_DESTINATION ASHOST=172.28.236.12 SYSNR=00 PCS=1
+
+LOCATION    CPIC (TCP/IP) on local host with Unicode
+ERROR       partner '172.28.236.12:3300' not reached
+TIME        Wed Oct 28 12:45:09 2026
+RELEASE     753
+COMPONENT   NI (network interface)
+VERSION     40
+RC          -10
+MODULE      D:/depot/bas/753_REL/src/base/ni/nixxi.cpp
+LINE        3454
+DETAIL      NiPConnect2: 172.28.236.12:3300
+SYSTEM CALL connect
+ERRNO       10060
+ERRNO TEXT  WSAETIMEDOUT: Connection timed out
+COUNTER     2
+
+	return code: RFC_FAILURE (1)
+	error group: 102
+	key: RFC_ERROR_COMMUNICATION
+
+
+**** Error file opened at 20261028 153612 India Standard Time Rel. 3.0.21 (2020-12-04) [753.1018]
+Error:   >Wed Oct 28 15:36:12,634<    RfcException raised by system [<unknown>]:
+	message: Connect to SAP gateway failed
+	connection parameters: TYPE=A DESTINATION=S4H_DESTINATION ASHOST=172.28.236.12 SYSNR=00 PCS=1
+
+LOCATION    CPIC (TCP/IP) on local host with Unicode
+ERROR       partner '172.28.236.12:3300' not reached
+TIME        Wed Oct 28 15:36:12 2026
+RELEASE     753
+COMPONENT   NI (network interface)
+VERSION     40
+RC          -10
+MODULE      D:/depot/bas/753_REL/src/base/ni/nixxi.cpp
+LINE        3454
+DETAIL      NiPConnect2: 172.28.236.12:3300
+SYSTEM CALL connect
+ERRNO       10060
+ERRNO TEXT  WSAETIMEDOUT: Connection timed out
+COUNTER     2
+
+	return code: RFC_FAILURE (1)
+	error group: 102
+	key: RFC_ERROR_COMMUNICATION
+
+
+**** Error file opened at 20261028 162403 India Standard Time Rel. 3.0.21 (2020-12-04) [753.1018]
+Error:   >Wed Oct 28 16:24:03,609<    RfcException raised by system [<unknown>]:
+	message: Connect to SAP gateway failed
+	connection parameters: TYPE=A DESTINATION=S4H_DESTINATION ASHOST=172.28.236.12 SYSNR=00 PCS=1
+
+LOCATION    CPIC (TCP/IP) on local host with Unicode
+ERROR       partner '172.28.236.12:3300' not reached
+TIME        Wed Oct 28 16:24:03 2026
+RELEASE     753
+COMPONENT   NI (network interface)
+VERSION     40
+RC          -10
+MODULE      D:/depot/bas/753_REL/src/base/ni/nixxi.cpp
+LINE        3454
+DETAIL      NiPConnect2: 172.28.236.12:3300
+SYSTEM CALL connect
+ERRNO       10060
+ERRNO TEXT  WSAETIMEDOUT: Connection timed out
+COUNTER     2
+
+	return code: RFC_FAILURE (1)
+	error group: 102
+	key: RFC_ERROR_COMMUNICATION
+
+
+**** Error file opened at 20261029 100224 India Standard Time Rel. 3.0.21 (2020-12-04) [753.1018]
+Error:   >Thu Oct 29 10:02:24,444<    RfcException raised by system [<unknown>]:
+	message: Connect to SAP gateway failed
+	connection parameters: TYPE=A DESTINATION=S4H_DESTINATION ASHOST=172.28.236.12 SYSNR=00 PCS=1
+
+LOCATION    CPIC (TCP/IP) on local host with Unicode
+ERROR       partner '172.28.236.12:3300' not reached
+TIME        Thu Oct 29 10:02:24 2026
+RELEASE     753
+COMPONENT   NI (network interface)
+VERSION     40
+RC          -10
+MODULE      D:/depot/bas/753_REL/src/base/ni/nixxi.cpp
+LINE        3454
+DETAIL      NiPConnect2: 172.28.236.12:3300
+SYSTEM CALL connect
+ERRNO       10060
+ERRNO TEXT  WSAETIMEDOUT: Connection timed out
+COUNTER     2
+
+	return code: RFC_FAILURE (1)
+	error group: 102
+	key: RFC_ERROR_COMMUNICATION
+

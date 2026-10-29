@@ -82,6 +82,8 @@ export function reduceInvestigationEvent(
         status: event.result.status,
         startedAt: event.result.startedAt,
         completedAt: event.result.completedAt,
+        capturedAt: event.result.evidence?.observedAt,
+        freshness: event.result.evidence?.freshness ?? "unknown",
         warnings: event.result.warnings,
         errorCode: event.result.error?.code,
         errorMessage: event.result.error?.message,
@@ -108,7 +110,13 @@ export function reduceInvestigationEvent(
     case "canonical-assembly-requested":
       return transition("assembling");
     case "canonical-published": { const completeness=assessCompleteness(current.selections.map(x=>x.source),current.executions); const lifecycle=completeness.overall==="complete"?"ready":completeness.overall==="failed"?"failed":"partial"; assertTransition(current.lifecycle,lifecycle); return {...current,lifecycle,canonical:{revision:event.revision,publishedAt:event.occurredAt,value:event.canonical},completeness,updatedAt:event.occurredAt}; }
-    case "investigation-refreshed": { assertTransition(current.lifecycle,"refreshing"); return {...current,identity:event.identity,lifecycle:"refreshing",executions:{},acceptedEvidenceIds:[],completeness:assessCompleteness(current.selections.map(x=>x.source),{}),warnings:[],updatedAt:event.occurredAt}; }
+    case "investigation-refreshed": { assertTransition(current.lifecycle,"refreshing"); return {...current,identity:event.identity,lifecycle:"refreshing",executions:{},completeness:assessCompleteness(current.selections.map(x=>x.source),{}),warnings:[],updatedAt:event.occurredAt}; }
+    case "investigation-archived":
+      return { ...current, archivedAt: event.occurredAt, updatedAt: event.occurredAt };
+    case "investigation-restored": {
+      const { archivedAt: _archivedAt, ...restored } = current;
+      return { ...restored, updatedAt: event.occurredAt };
+    }
     case "investigation-cancelled":
       return transition("cancelled");
     case "investigation-failed": { assertTransition(current.lifecycle,"failed"); return {...current,lifecycle:"failed",warnings:[...current.warnings,`${event.code}: ${event.message}`],updatedAt:event.occurredAt}; }

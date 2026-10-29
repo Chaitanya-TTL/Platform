@@ -11,6 +11,7 @@ export type LatticeSourceEnvelope = {
   nativeId?: string;
   jobId?: string;
   capturedAt?: string;
+  sourceMetadata?: Readonly<Record<string, string>>;
   completeness: "complete" | "partial";
   intelligencePayload?: Record<string, unknown>;
 };

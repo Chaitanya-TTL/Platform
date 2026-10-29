@@ -109,6 +109,7 @@ export async function searchEngineeringSource(source: EnterpriseSource, query: s
           version: candidate.version,
           lifecycleState: candidate.lifecycleState,
           objectType: candidate.entityType,
+          partNumber: candidate.sourceMetadata?.partNumber ?? undefined,
           plant: candidate.sourceMetadata?.plant ?? undefined,
           configuration: candidate.sourceMetadata?.packagePath ?? undefined,
           logicalPackagePath: candidate.sourceMetadata?.logicalPackagePath ?? undefined,

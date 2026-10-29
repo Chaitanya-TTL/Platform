@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Orchestration.API.Tests")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+673ab079bf3ebdd94997b23e5ec5b6f4219d7273")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+25d9934bd10ef56fad3091ff16e02531b8f3b32f")]
 [assembly: System.Reflection.AssemblyProductAttribute("Orchestration.API.Tests")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Orchestration.API.Tests")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

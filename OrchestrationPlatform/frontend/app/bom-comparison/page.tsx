@@ -122,6 +122,7 @@ const labels: Record<SourceType, string> = {
   windchill: "Windchill",
   sap: "SAP",
   configit: "Configit",
+  codebeamer: "Codebeamer",
   excel: "Excel BOM",
 };
 const meta = (type: SourceType) => defs.find((item) => item.type === type)!;

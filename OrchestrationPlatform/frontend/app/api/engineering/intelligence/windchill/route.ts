@@ -1,6 +1,7 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
 import { legacyHandoffToIntelligence } from "@/features/lattice-next/engines/legacy-handoff-to-intelligence";
 import type { LatticeHandoff } from "@/features/lattice-next/contracts/handoff";
+import { attachLiveWindchillPartNumber } from "@/features/lattice-next/plm-brain/source-adapters/windchill-part-identity";
 import type {
   EngineeringIntelligenceInvestigationV1,
   IntelligenceEntity,
@@ -181,7 +182,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const entities: IntelligenceEntity[] = [...canonical.entities];
+    let entities: IntelligenceEntity[] = [...canonical.entities];
     const relationships: IntelligenceRelationship[] = [
       ...canonical.relationships,
     ];
@@ -190,6 +191,12 @@ export async function POST(request: NextRequest) {
     const sourceEntityId =
       canonical.sources.find((source) => source.source === "windchill")
         ?.entityId ?? canonical.subject.id;
+    entities = attachLiveWindchillPartNumber(
+      entities,
+      sourceEntityId,
+      windchill.sourceMetadata?.partNumber,
+      windchill.sourceMetadata?.discoveryProviderMode,
+    );
     const provenance = (
       provider: string,
       id?: string,

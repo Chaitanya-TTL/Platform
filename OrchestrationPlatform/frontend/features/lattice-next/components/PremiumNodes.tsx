@@ -236,28 +236,28 @@ function Shell({
       onAnimationStart={() =>
         window.dispatchEvent(
           new CustomEvent("lattice:geometry-motion", {
-            detail: { active: true, id },
+            detail: { active: true, id, canvasScopeId: data.canvasScopeId },
           }),
         )
       }
       onAnimationComplete={() =>
         window.dispatchEvent(
           new CustomEvent("lattice:geometry-motion", {
-            detail: { active: false, id },
+            detail: { active: false, id, canvasScopeId: data.canvasScopeId },
           }),
         )
       }
       onLayoutAnimationStart={() =>
         window.dispatchEvent(
           new CustomEvent("lattice:geometry-motion", {
-            detail: { active: true, id },
+            detail: { active: true, id, canvasScopeId: data.canvasScopeId },
           }),
         )
       }
       onLayoutAnimationComplete={() =>
         window.dispatchEvent(
           new CustomEvent("lattice:geometry-motion", {
-            detail: { active: false, id },
+            detail: { active: false, id, canvasScopeId: data.canvasScopeId },
           }),
         )
       }

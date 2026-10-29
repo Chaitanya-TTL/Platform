@@ -43,7 +43,56 @@ export function buildHierarchicalLatticeExport(graph: InvestigationGraph) {
     const roots = members.filter((entity) => !memberIds.has(parentByChild.get(entity.id) ?? ""));
     return { id: `projection:domain:${definition.id}`, label: definition.title, children: roots.map((entity) => entityJson(entity, memberIds)).filter(Boolean) };
   }).filter(Boolean);
-  return { subject: subject ? { id: subject.id, label: subject.name, source: subject.source, domains } : null, relationships: graph.relationships.map((relationship) => ({ id: relationship.id, source: relationship.from, target: relationship.to, kind: relationship.kind, label: relationship.label, confidence: relationship.confidence })), metadata: { exportedAt: new Date().toISOString(), investigationId: graph.metadata?.investigationId, contractVersion: graph.metadata?.contractVersion, sources: [...new Set(graph.entities.map((entity) => entity.source).filter((source) => !["platform", "unified"].includes(source)))].sort(), plmBrain: graph.metadata?.plmBrain } };
+  const universalEvidence = graph.metadata?.universalRelationshipEvidence ?? [];
+  const endpoint = (id: string) => {
+    const entity = graph.byId[id];
+    return entity ? {
+      entityId: entity.id,
+      source: entity.source,
+      kind: entity.canonicalKind ?? entity.kind,
+      label: entity.name,
+      nativeId: entity.provenance.nativeId ?? entity.sourceNodeId,
+      revision: entity.attributes.Revision ?? entity.attributes.revision ?? undefined,
+    } : { entityId: id, unresolved: true as const };
+  };
+  const relationships = graph.relationships.map((relationship) => {
+    const evidenceDetails = universalEvidence.filter((item) =>
+      relationship.evidenceIds?.includes(item.id) ||
+      (item.source.entityId === relationship.from && item.target.entityId === relationship.to),
+    );
+    return {
+      id: relationship.id,
+      source: relationship.from,
+      target: relationship.to,
+      sourceEndpoint: endpoint(relationship.from),
+      targetEndpoint: endpoint(relationship.to),
+      kind: relationship.kind,
+      label: relationship.label,
+      confidence: relationship.confidence,
+      verified: relationship.verified,
+      family: relationship.family,
+      assertion: relationship.assertion,
+      evidenceIds: relationship.evidenceIds,
+      evidence: relationship.evidence,
+      evidenceDetails,
+      ruleId: evidenceDetails[0]?.ruleId,
+      relationshipStatus: evidenceDetails[0]?.status,
+    };
+  });
+  return {
+    subject: subject ? { id: subject.id, label: subject.name, source: subject.source, domains } : null,
+    relationships,
+    universalRelationshipEvidence: universalEvidence,
+    universalRelationshipEvaluations: graph.metadata?.universalRelationshipEvaluations ?? [],
+    metadata: {
+      exportedAt: new Date().toISOString(),
+      investigationId: graph.metadata?.investigationId,
+      contractVersion: graph.metadata?.contractVersion,
+      sources: [...new Set(graph.entities.map((entity) => entity.source).filter((source) => !["platform", "unified"].includes(source)))].sort(),
+      plmBrain: graph.metadata?.plmBrain,
+      universalRelationshipDiagnostics: graph.metadata?.universalRelationshipDiagnostics,
+    },
+  };
 }
 export function downloadHierarchicalLatticeJson(graph: InvestigationGraph) {
   const blob = new Blob([JSON.stringify(buildHierarchicalLatticeExport(graph), null, 2)], { type: "application/json" }); const url = URL.createObjectURL(blob); const anchor = document.createElement("a"); const subject = graph.roots[0] ? graph.byId[graph.roots[0]]?.name : "lattice";

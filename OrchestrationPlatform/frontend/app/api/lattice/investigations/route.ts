@@ -4,6 +4,26 @@ import { serverClock, serverIds, serverKernel } from "@/features/lattice-next/ke
 
 export const dynamic = "force-dynamic";
 
+export async function GET(request: Request) {
+  const parameters = new URL(request.url).searchParams;
+  const includeArchivedValue = parameters.get("includeArchived");
+  if (includeArchivedValue !== null && includeArchivedValue !== "true" && includeArchivedValue !== "false")
+    return NextResponse.json({ message: "includeArchived must be true or false." }, { status: 400 });
+
+  const limitValue = parameters.get("limit");
+  if (limitValue !== null && !/^\d+$/.test(limitValue))
+    return NextResponse.json({ message: "limit must be a positive integer." }, { status: 400 });
+  const requestedLimit = limitValue === null ? 20 : Number(limitValue);
+  const limit = Number.isFinite(requestedLimit) ? Math.max(1, Math.min(100, requestedLimit)) : 100;
+
+  try {
+    const items = await serverKernel.list({ includeArchived: includeArchivedValue === "true", limit });
+    return NextResponse.json(items);
+  } catch {
+    return NextResponse.json({ message: "Investigations could not be listed." }, { status: 500 });
+  }
+}
+
 type CreateInvestigationRequest = {
   subjectLabel?: unknown;
   query?: unknown;

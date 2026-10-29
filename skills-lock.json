@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "skills": {
+    "browser-use": {
+      "source": "browser-use/browser-use",
+      "sourceType": "github",
+      "skillPath": "skills/browser-use/SKILL.md",
+      "computedHash": "6a1bfb5049a851c4c4dae9fc6b586d9801865c79d87595d8bddbec21c41c8b5d"
+    },
+    "frontend-ui-engineering": {
+      "source": "addyosmani/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/frontend-ui-engineering/SKILL.md",
+      "computedHash": "49bb6ccfc41753bdd679f368ce75629ae9d424c5b8abc33faf949a4a55f919a1"
+    },
+    "impeccable": {
+      "source": "pbakaus/impeccable",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/impeccable/SKILL.md",
+      "computedHash": "11ccdc26fba1f9b424ba142e88102e7cad54625c315210a6b890b8d8192321af"
+    },
+    "pick-ui-library": {
+      "source": "emilkowalski/skills",
+      "sourceType": "github",
+      "skillPath": "skills/pick-ui-library/SKILL.md",
+      "computedHash": "95f37cddc1c5f7cf5c60c8f8f07c938f2ddd1a70dd45f50c37e7e522fcde5bb9"
+    },
+    "simple": {
+      "source": "roin-orca/skills",
+      "sourceType": "github",
+      "skillPath": "skills/simple/SKILL.md",
+      "computedHash": "33c6d82002c7d88bc5a29e647d847f6546e13786a9030bfc0e330e3731939c6c"
+    },
+    "tailwind-design-system": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "skillPath": "plugins/frontend-mobile-development/skills/tailwind-design-system/SKILL.md",
+      "computedHash": "9e60f9fad6a645b173f076102b76f67d2dc4a1c0867e26c4bff9b9c7dd7f99cd"
+    }
+  }
+}

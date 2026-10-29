@@ -5,6 +5,7 @@ const labels = {
   configit: "Configit",
   windchill: "Windchill",
   sap: "SAP",
+  codebeamer: "Codebeamer",
   excel: "Excel BOM",
 };
 export function RequirementTimeline({

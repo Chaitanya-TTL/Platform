@@ -42,7 +42,7 @@ public sealed class WindchillEngineeringAdapter : IEngineeringSourceAdapter
                     candidates.Add(new($"windchill:{oid}", Source, oid, Text(item,"name") ?? number, "windchill-wtpart",
                         Text(item,"revision"), Text(item,"version"), null, Text(item,"state"), MatchCategory.SourceSearchResult,
                         "Returned by the live Windchill product search.", ConfidenceClass.Probable, ["structure","versions","change-context"],
-                        Metadata(item, number), new(ProvenanceKind.LiveSource,"windchill-python-odata",DateTimeOffset.UtcNow), true));
+                        Metadata(item, Text(item,"number")), new(ProvenanceKind.LiveSource,"windchill-python-odata",DateTimeOffset.UtcNow), true));
                 }
             return new(Source, candidates.Count > 0 ? StandardStatus.Success : StandardStatus.Empty, Capability(), candidates, [], [], true);
         }
@@ -81,6 +81,6 @@ public sealed class WindchillEngineeringAdapter : IEngineeringSourceAdapter
     private SourceDiscoveryOutcome Unavailable(string code,string message,bool retryable=false,StandardStatus status=StandardStatus.Unavailable) =>
         new(Source,status,Capability(),[],[],[new(code,Source,EngineeringStage.Discovery,message,message,retryable,DateTimeOffset.UtcNow)],retryable);
     private static string? Text(JsonElement item,string property) => item.TryGetProperty(property,out var value) && value.ValueKind != JsonValueKind.Null ? value.ToString() : null;
-    private static IReadOnlyDictionary<string,string?> Metadata(JsonElement item,string number) => new Dictionary<string,string?> { ["oid"]=Text(item,"partId"), ["numericObjectId"]=Text(item,"numericPartId"), ["partNumber"]=number, ["versionId"]=Text(item,"versionId"), ["view"]=Text(item,"view"), ["latest"]=Text(item,"latest"), ["objectType"]=Text(item,"objectType") };
+    private static IReadOnlyDictionary<string,string?> Metadata(JsonElement item,string? partNumber) => new Dictionary<string,string?> { ["oid"]=Text(item,"partId"), ["numericObjectId"]=Text(item,"numericPartId"), ["partNumber"]=partNumber, ["versionId"]=Text(item,"versionId"), ["view"]=Text(item,"view"), ["latest"]=Text(item,"latest"), ["objectType"]=Text(item,"objectType") };
     private static SourceCapability Capability() => new(Source:EngineeringSource.Windchill,Readiness:SourceReadiness.Ready,DiscoveryModes:[DiscoveryMode.ExactId,DiscoveryMode.Name,DiscoveryMode.Number],SupportsExactId:true,SupportsNameSearch:true,SupportsNumberSearch:true,SupportsStructureExtraction:true,SupportsRevisionContext:true,SupportsChangeContext:true,SupportsRequirements:false,SupportsOperationalImpact:false,SupportsConfigurationContext:false,SupportsCancellation:true,SupportsRetry:true,SupportsPartialSuccess:true,RequiredOrganizationContext:[],KnownLimitations:["Connected capability depends on configured Windchill credentials and OData access."]);
 }

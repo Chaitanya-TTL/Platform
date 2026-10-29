@@ -1,0 +1,109 @@
+.root {
+  color: var(--thought-ink, currentColor);
+  font-size: var(--thought-size, 14px);
+}
+
+.toggle {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  gap: 0.55rem;
+  border: 0;
+  background: transparent;
+  padding: 0.25rem 0.35rem;
+  text-align: left;
+  color: inherit;
+}
+
+.glyph {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  color: var(--thought-glyph, currentColor);
+  transform-origin: center;
+  transition: opacity var(--thought-settle-duration, 350ms) ease-out;
+}
+
+.label {
+  position: relative;
+  display: inline-block;
+  color: inherit;
+  opacity: 0.75;
+  transition: opacity var(--thought-settle-duration, 350ms) ease-out, filter var(--thought-settle-duration, 350ms) ease-out;
+}
+
+.working .label {
+  opacity: 1;
+}
+
+.shimmer {
+  color: var(--thought-ink, currentColor);
+  background: linear-gradient(
+    100deg,
+    var(--thought-ink, currentColor) 25%,
+    color-mix(in srgb, var(--thought-ink, currentColor) 76%, transparent) 50%,
+    var(--thought-ink, currentColor) 75%
+  );
+  background-size: 220% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shimmer var(--thought-shimmer-duration, 1.8s) linear infinite;
+}
+
+.timer {
+  margin-left: 0.1rem;
+  color: color-mix(in srgb, currentColor 68%, transparent);
+  font-variant-numeric: tabular-nums;
+}
+
+.chevron {
+  display: inline-flex;
+  margin-left: 0.1rem;
+  opacity: 0.6;
+  transition: transform 180ms ease-out;
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+}
+
+.trace {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0.1rem 0 0.65rem 1.25rem;
+  padding: 0;
+  list-style: none;
+  color: color-mix(in srgb, currentColor 72%, transparent);
+  font-size: 0.92em;
+}
+
+.traceItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.tick {
+  flex: 0 0 auto;
+  margin-top: 0.12rem;
+  opacity: 0.7;
+}
+
+@keyframes shimmer {
+  to { background-position: -220% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shimmer {
+    animation: none;
+    background: none;
+    color: inherit;
+    -webkit-text-fill-color: currentColor;
+  }
+
+  .chevron {
+    transition: none;
+  }
+}

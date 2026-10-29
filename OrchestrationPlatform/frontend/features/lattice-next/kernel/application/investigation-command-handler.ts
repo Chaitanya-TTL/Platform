@@ -64,6 +64,9 @@ export class InvestigationCommandHandler {
         }];
       case "refresh":
         if (!snapshot) throw new Error("Investigation does not exist.");
+        if (snapshot.archivedAt) throw new Error("Archived investigations must be restored before refresh.");
+        if (snapshot.identity.revision !== command.expectedRevision)
+          throw new Error(`Investigation revision conflict: expected ${command.expectedRevision}, found ${snapshot.identity.revision}.`);
         return [{
           ...metadata(),
           type: "investigation-refreshed",
@@ -73,6 +76,14 @@ export class InvestigationCommandHandler {
             executionEpoch: snapshot.identity.executionEpoch + 1,
           },
         }];
+      case "archive":
+        if (!snapshot) throw new Error("Investigation does not exist.");
+        if (snapshot.archivedAt) throw new Error("Investigation is already archived.");
+        return [{ ...metadata(), type: "investigation-archived", investigationId: command.investigationId }];
+      case "restore":
+        if (!snapshot) throw new Error("Investigation does not exist.");
+        if (!snapshot.archivedAt) throw new Error("Investigation is not archived.");
+        return [{ ...metadata(), type: "investigation-restored", investigationId: command.investigationId }];
       case "cancel":
         return [{ ...metadata(), type: "investigation-cancelled", investigationId: command.investigationId }];
       case "fail":

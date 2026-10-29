@@ -14,6 +14,7 @@ import type {
   LatticeEdgeCategory,
   LatticeFlowEdge,
 } from "../canvas/lattice-flow-types";
+import { isCanvasEventForScope } from "../canvas/canvas-event-scope";
 import { latticeMotion } from "../motion/lattice-motion";
 
 const palette: Record<LatticeEdgeCategory, string> = {
@@ -109,8 +110,17 @@ function EdgeView({
 
   useEffect(() => {
     const handleGeometryMotion = (event: Event) => {
-      const detail = (event as CustomEvent<{ active?: boolean }>).detail;
-      if (typeof detail?.active === "boolean") {
+      const detail = (event as CustomEvent<{
+        active?: boolean;
+        canvasScopeId?: string;
+      }>).detail;
+      if (
+        typeof detail?.active === "boolean" &&
+        isCanvasEventForScope(
+          detail.canvasScopeId,
+          data?.canvasScopeId ?? "main",
+        )
+      ) {
         setGeometryMoving(detail.active);
       }
     };
@@ -121,7 +131,7 @@ function EdgeView({
         "lattice:geometry-motion",
         handleGeometryMotion,
       );
-  }, []);
+  }, [data?.canvasScopeId]);
 
   const edgeData =
     data ??

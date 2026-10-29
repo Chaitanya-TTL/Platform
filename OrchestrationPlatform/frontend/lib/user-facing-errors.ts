@@ -13,6 +13,7 @@ const sourceNames: Record<SourceType, string> = {
   windchill: "Windchill",
   sap: "SAP",
   configit: "Configit",
+  codebeamer: "Codebeamer",
   excel: "Excel",
 };
 

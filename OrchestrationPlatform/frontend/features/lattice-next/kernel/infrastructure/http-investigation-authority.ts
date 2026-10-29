@@ -3,8 +3,10 @@
 import type { InvestigationCommand } from "../contracts/investigation-command";
 import { asInvestigationId, type InvestigationId } from "../contracts/investigation-identity";
 import type { InvestigationSnapshot } from "../contracts/investigation-snapshot";
+import type { InvestigationListItem } from "../contracts/investigation-snapshot";
 import type { SourceSelection } from "../contracts/source-operation";
-import type { InvestigationAuthorityPort } from "../ports/investigation-authority-port";
+import type { InvestigationManagementAuthorityPort, InvestigationRefreshStarted } from "../ports/investigation-authority-port";
+import type { InvestigationListOptions } from "../ports/investigation-repository";
 
 export class InvestigationAuthorityError extends Error {
   constructor(readonly status: number, message: string) { super(message); }
@@ -16,7 +18,7 @@ async function read<T>(response: Response): Promise<T> {
   return value as T;
 }
 
-export class HttpInvestigationAuthority implements InvestigationAuthorityPort {
+export class HttpInvestigationAuthority implements InvestigationManagementAuthorityPort {
   constructor(private readonly baseUrl = "/api/lattice/investigations") {}
 
   async create(subjectLabel: string, query: string, selections: readonly SourceSelection[]): Promise<InvestigationSnapshot> {
@@ -27,6 +29,33 @@ export class HttpInvestigationAuthority implements InvestigationAuthorityPort {
       cache: "no-store",
     });
     return read<InvestigationSnapshot>(response);
+  }
+
+  async list(options: InvestigationListOptions = {}): Promise<readonly InvestigationListItem[]> {
+    const query = new URLSearchParams({
+      includeArchived: String(options.includeArchived ?? false),
+      limit: String(options.limit ?? 20),
+    });
+    const response = await fetch(`${this.baseUrl}?${query.toString()}`, { cache: "no-store" });
+    return read<readonly InvestigationListItem[]>(response);
+  }
+
+  archive(id: InvestigationId): Promise<InvestigationSnapshot> {
+    return this.dispatch({ type: "archive", investigationId: id, occurredAt: new Date().toISOString() });
+  }
+
+  restore(id: InvestigationId): Promise<InvestigationSnapshot> {
+    return this.dispatch({ type: "restore", investigationId: id, occurredAt: new Date().toISOString() });
+  }
+
+  async beginRefresh(id: InvestigationId, expectedRevision: number): Promise<InvestigationRefreshStarted> {
+    const response = await fetch(`${this.baseUrl}/${encodeURIComponent(id)}/refresh`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ expectedRevision }),
+      cache: "no-store",
+    });
+    return read<InvestigationRefreshStarted>(response);
   }
 
   async dispatch(command: InvestigationCommand): Promise<InvestigationSnapshot> {

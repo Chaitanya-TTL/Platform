@@ -31,6 +31,8 @@ export type InvestigationEvent =
       type: "investigation-refreshed";
       identity: InvestigationIdentity;
     })
+  | (EventMetadata & { type: "investigation-archived"; investigationId: InvestigationId })
+  | (EventMetadata & { type: "investigation-restored"; investigationId: InvestigationId })
   | (EventMetadata & { type: "investigation-cancelled"; investigationId: InvestigationId })
   | (EventMetadata & {
       type: "investigation-failed";

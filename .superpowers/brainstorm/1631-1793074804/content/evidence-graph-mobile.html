@@ -1,0 +1,106 @@
+<h2>Focused evidence, with the graph one click away</h2>
+<p class="subtitle">Desktop: open a contextual panel beside the answer. Phone: the panel takes focus, with an explicit way back to chat.</p>
+
+<style>
+  .preview { max-width:1100px; margin:0 auto 18px; border:1px solid #29364a; border-radius:12px; overflow:hidden; background:#080d18; color:#e7edf5; font:12px/1.45 system-ui,sans-serif; }
+  .top { min-height:40px; display:flex; align-items:center; justify-content:space-between; padding:0 14px; border-bottom:1px solid #1f2c3d; }
+  .top small { color:#91a4b8; }
+  .workspace { display:flex; height:390px; }
+  .transcript { width:43%; min-width:250px; display:flex; flex-direction:column; padding:15px; border-right:1px solid #1f2c3d; }
+  .thread { color:#8ea2b8; font-size:10px; margin-bottom:18px; }
+  .question { align-self:flex-end; max-width:84%; border:1px solid #293a4f; border-left:2px solid #26788e; border-radius:7px; padding:9px 10px; color:#c8d6e5; margin-bottom:15px; }
+  .answer-label { color:#92a7bd; font-size:9px; margin-bottom:5px; }
+  .answer { font-size:13px; line-height:1.55; color:#f0f5fb; margin-bottom:11px; }
+  .fact { border-left:2px solid #22d3ee; padding:7px 9px; background:#0d1724; margin:7px 0; color:#d5e2ef; font-size:10px; }
+  .citation { color:#8ce7f8; border-bottom:1px solid #36788a; margin-top:5px; display:inline-block; font-size:9px; }
+  .composer { margin-top:auto; border:1px solid #34485e; border-radius:8px; padding:11px; color:#8b9db0; background:#0b1420; }
+  .side { flex:1; min-width:0; display:flex; flex-direction:column; background:#0a111d; }
+  .side-head { padding:12px 14px 0; }
+  .side-title { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+  .side-title small { color:#90a2b5; }
+  .tabs { display:flex; gap:4px; border-bottom:1px solid #263549; }
+  .tab { color:#aab8c8; padding:8px 11px; border-bottom:2px solid transparent; font-size:10px; }
+  .tab.active { color:#dff8fc; border-color:#22d3ee; }
+  .panel { flex:1; min-height:0; padding:13px 15px; overflow:auto; }
+  .graph { min-height:210px; max-height:255px; position:relative; border:1px solid #25364a; border-radius:9px; background:#080e18; overflow:hidden; }
+  .graph-label { position:absolute; top:10px; left:12px; color:#91a5ba; font-size:9px; }
+  .edge { position:absolute; height:2px; background:#218ca0; transform-origin:left center; }
+  .e1 { width:30%; left:26%; top:53%; transform:rotate(-23deg); }
+  .e2 { width:30%; left:47%; top:43%; transform:rotate(28deg); }
+  .node { position:absolute; border:1px solid #37647a; background:#102332; color:#e0f6fb; border-radius:7px; padding:8px 9px; width:126px; text-align:center; font-size:9px; box-shadow:0 0 0 2px #22d3ee18; }
+  .entity { top:40%; left:5%; }
+  .relation { top:25%; left:calc(50% - 63px); border-color:#22d3ee; background:#103140; color:#e6fbff; }
+  .target { top:53%; right:5%; }
+  .parent { top:75%; left:8%; width:auto; color:#98aabd; border-color:#374659; background:#111a26; }
+  .edge-label { position:absolute; top:39%; left:28%; color:#93e5f4; font-size:8px; background:#080e18; padding:1px 3px; }
+  .legend { display:flex; flex-wrap:wrap; gap:12px; color:#9bacc0; font-size:9px; margin:9px 1px; }
+  .legend i { width:7px; height:7px; display:inline-block; border-radius:50%; margin-right:4px; background:#22d3ee; }
+  .legend .context { background:#68798c; }
+  .footnote { color:#91a2b5; font-size:9px; padding:7px 0 0; }
+  .source-list { display:grid; gap:7px; margin-top:9px; }
+  .source-row { border:1px solid #25364a; border-radius:7px; padding:9px; display:flex; justify-content:space-between; gap:8px; color:#d5e2ef; font-size:10px; }
+  .source-row small { display:block; color:#93a6ba; margin-top:3px; }
+  .status { flex:none; color:#91a4b8; font-size:9px; }
+  .review-row { border-left:2px solid #5b778c; padding:8px 10px; margin:6px 0; background:#0d1724; color:#d3deea; font-size:10px; }
+  .explain { color:#9bacc0; font-size:9px; margin-top:9px; }
+  .mobile-back { display:none; }
+  .mobile-guide { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr)); gap:10px; }
+  .guide { background:#0d1420; border:1px solid #29364a; border-radius:9px; padding:11px; color:#b9c7d7; font-size:10px; }
+  .guide strong { color:#e9f2fa; display:block; margin-bottom:4px; }
+  @media(max-width:650px) {
+    .workspace { height:400px; }
+    .transcript { display:none; }
+    .mobile-back { display:block; color:#8ce7f8; border:1px solid #2a5969; border-radius:5px; padding:4px 7px; font-size:9px; }
+    .side-head { padding:9px 10px 0; }
+    .side-title { gap:8px; }
+    .tabs { gap:2px; }
+    .tab { padding:8px 10px; }
+    .panel { padding:10px; }
+    .graph { min-height:210px; }
+    .node { width:100px; padding:7px 5px; font-size:8px; }
+    .relation { left:calc(50% - 50px); }
+    .parent { display:none; }
+    .entity { left:3%; } .target { right:3%; }
+  }
+</style>
+
+<div class="preview">
+  <div class="top"><strong>Fan · Investigation</strong><small>Revision 1 · saved snapshot</small></div>
+  <div class="workspace">
+    <section class="transcript">
+      <div class="thread">Conversation · Relationships summary</div>
+      <div class="question">What do these relationships tell us about the specification?</div>
+      <div class="answer-label">ANSWER · REVISION 1</div>
+      <div class="answer">The saved investigation records relationships between the specification and accounting lines. Debit/credit values are not present in this snapshot.</div>
+      <div class="fact">Recorded relationship evidence supports the connection.<br><span class="citation">View cited relationship</span></div>
+      <div class="composer">Ask a follow-up…</div>
+    </section>
+    <section class="side">
+      <div class="side-head">
+        <div class="side-title"><strong>Investigation context</strong><span class="mobile-back">‹ Back to answer</span><small>Close panel</small></div>
+        <nav class="tabs"><span class="tab">Evidence</span><span class="tab active">Graph</span><span class="tab">Review · 4</span></nav>
+      </div>
+      <div class="panel">
+        <div class="answer-label">CITED ITEMS · REVISION 1</div>
+        <div class="graph">
+          <div class="graph-label">Focused view · cited relationship and entities</div>
+          <span class="edge e1"></span><span class="edge e2"></span>
+          <div class="node entity">Specification</div>
+          <div class="node relation">Cited relationship</div>
+          <div class="node target">Accounting line</div>
+          <div class="node parent">Parent context</div>
+          <span class="edge-label">cited</span>
+        </div>
+        <div class="legend"><span><i></i>Evidence cited by this answer</span><span><i class="context"></i>Minimum context path</span></div>
+        <p class="footnote">Only answer-linked items are shown here. Other investigation nodes remain unchanged.</p>
+        <div class="explain">Select a highlighted node to inspect its existing Lattice details. Sources without a graph node stay listed in Evidence.</div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<div class="mobile-guide">
+  <div class="guide"><strong>On desktop</strong>The answer and composer stay visible. The side panel expands on request and switches between Evidence, Graph, and Review.</div>
+  <div class="guide"><strong>On a phone</strong>Graph or Evidence takes the full panel, not a squeezed split column. “Back to answer” returns to the transcript; the same three tabs stay available.</div>
+  <div class="guide"><strong>Graph stays focused</strong>Only cited graph items, their relationship endpoints, and the minimum parent path appear. Non-graph citations stay readable in Evidence; no nodes are invented.</div>
+</div>
