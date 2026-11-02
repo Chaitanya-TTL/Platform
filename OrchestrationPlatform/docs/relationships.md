@@ -90,6 +90,247 @@ Identifiers, rules, units, numeric constraints, and supported Configit syntax mu
 
 ---
 
+## 2.8 Machine-readable Lattice Relationship Ontology
+
+The versioned JSON block below is the executable relationship ontology for
+Lattice. Keep its meanings synchronized with the explanatory sections in this
+document. Runtime relationship construction reads this block; it must not
+maintain a second application-specific rule catalog in source code.
+
+An evidence rule may create a relationship only when the declared properties
+are present on the selected source and target entities and satisfy the stated
+operator. `exact-scalar` compares normalized scalar values exactly.
+`exact-list-reference` requires the source scalar to equal one element of the
+target list. Missing evidence produces an unresolved evaluation, never a
+relationship based only on names or co-occurrence.
+
+```lattice-relationship-ontology
+{
+  "schemaVersion": "1.0",
+  "ontologyVersion": "1.1.0",
+  "applications": ["windchill", "sap", "configit", "codebeamer", "teamcenter"],
+  "relationshipDefinitions": [
+    {
+      "id": "WC_PART_TO_SAP_MATERIAL",
+      "sourceApplications": ["windchill"],
+      "sourceKinds": ["part", "component", "assembly", "part-occurrence", "source-representation"],
+      "targetApplications": ["sap"],
+      "targetKinds": ["material", "material-master", "source-representation"],
+      "forward": {
+        "type": "operationally-represented-as",
+        "meaning": "The Windchill engineering part has an evidence-backed operational SAP material representation."
+      },
+      "inverse": {
+        "type": "operational-representation-of",
+        "meaning": "The SAP material is the evidence-backed operational representation of the Windchill engineering part."
+      },
+      "impactTraversal": true,
+      "evidenceRules": [
+        {
+          "id": "esi-material-publication",
+          "sourcePath": "esiMaterialNumber",
+          "targetPath": "materialNumber",
+          "operator": "exact-scalar",
+          "mechanism": "windchill-esi-material-publication",
+          "status": "SOURCE_EXPLICIT",
+          "strength": "STRONG",
+          "authority": "source-authoritative"
+        },
+        {
+          "id": "governed-part-number",
+          "sourcePath": "partNumber",
+          "targetPath": "materialNumber",
+          "operator": "exact-scalar",
+          "mechanism": "governed-enterprise-identity",
+          "status": "CONFIRMED",
+          "strength": "STRONG",
+          "authority": "source-authoritative"
+        },
+        {
+          "id": "governed-enterprise-identity",
+          "sourcePath": "enterpriseIdentity",
+          "targetPath": "enterpriseIdentity",
+          "operator": "exact-scalar",
+          "mechanism": "governed-enterprise-identity",
+          "status": "CONFIRMED",
+          "strength": "STRONG",
+          "authority": "source-authoritative"
+        }
+      ]
+    },
+    {
+      "id": "WC_PART_TO_CONFIGIT_MODEL",
+      "sourceApplications": ["windchill"],
+      "sourceKinds": ["part", "component", "assembly", "part-occurrence", "source-representation"],
+      "targetApplications": ["configit"],
+      "targetKinds": ["work-item", "product-model", "configuration-family", "source-representation"],
+      "forward": {
+        "type": "configured-by",
+        "meaning": "The Windchill engineering object is explicitly referenced by or governed in the Configit model."
+      },
+      "inverse": {
+        "type": "configures",
+        "meaning": "The Configit model explicitly references or governs the Windchill engineering object."
+      },
+      "impactTraversal": true,
+      "evidenceRules": [
+        {
+          "id": "configit-component-reference",
+          "sourcePath": "partNumber",
+          "targetPath": "plmComponentReferences",
+          "operator": "exact-list-reference",
+          "mechanism": "configit-plm-component-reference",
+          "status": "SOURCE_EXPLICIT",
+          "strength": "STRONG",
+          "authority": "source-authoritative"
+        },
+        {
+          "id": "governed-product-context",
+          "sourcePath": "productContextId",
+          "targetPath": "productContextId",
+          "operator": "exact-scalar",
+          "mechanism": "governed-product-context",
+          "status": "CONFIRMED",
+          "strength": "STRONG",
+          "authority": "source-authoritative"
+        }
+      ]
+    },
+    {
+      "id": "WC_PART_TO_CB_REQUIREMENT",
+      "sourceApplications": ["windchill"],
+      "sourceKinds": ["part", "component", "assembly", "part-occurrence", "source-representation"],
+      "targetApplications": ["codebeamer"],
+      "targetKinds": ["requirement", "requirement-set", "requirement-group", "source-representation"],
+      "forward": {
+        "type": "specified-by",
+        "meaning": "The engineering object is explicitly traced to or governed by the Codebeamer requirement."
+      },
+      "inverse": {
+        "type": "specifies",
+        "meaning": "The Codebeamer requirement explicitly specifies the engineering object."
+      },
+      "impactTraversal": true,
+      "evidenceRules": [
+        {
+          "id": "codebeamer-oslc-trace",
+          "sourcePath": "windchillResourceUri",
+          "targetPath": "oslcTraceLinkTargetUris",
+          "operator": "exact-list-reference",
+          "mechanism": "codebeamer-oslc-trace-link",
+          "status": "SOURCE_EXPLICIT",
+          "strength": "STRONG",
+          "authority": "source-authoritative"
+        },
+        {
+          "id": "codebeamer-reference-field",
+          "sourcePath": "windchillResourceUri",
+          "targetPath": "externalReferences",
+          "operator": "exact-list-reference",
+          "mechanism": "codebeamer-reference-field",
+          "status": "SOURCE_EXPLICIT",
+          "strength": "STRONG",
+          "authority": "source-authoritative"
+        }
+      ]
+    },
+    {
+      "id": "SAP_MATERIAL_TO_CONFIGIT_MODEL",
+      "sourceApplications": ["sap"],
+      "sourceKinds": ["material", "material-master", "source-representation"],
+      "targetApplications": ["configit"],
+      "targetKinds": ["work-item", "product-model", "configuration-family", "source-representation"],
+      "forward": {
+        "type": "supplies-material-for",
+        "meaning": "The SAP material is explicitly referenced as a material for the Configit model."
+      },
+      "inverse": {
+        "type": "uses-material",
+        "meaning": "The Configit model explicitly uses the SAP material."
+      },
+      "impactTraversal": true,
+      "evidenceRules": [
+        {
+          "id": "configit-sap-material-reference",
+          "sourcePath": "materialNumber",
+          "targetPath": "sapMaterialReferences",
+          "operator": "exact-list-reference",
+          "mechanism": "configit-sap-material-reference",
+          "status": "SOURCE_EXPLICIT",
+          "strength": "STRONG",
+          "authority": "source-authoritative"
+        },
+        {
+          "id": "configit-model-membership",
+          "sourcePath": "materialNumber",
+          "targetPath": "materialMembership",
+          "operator": "exact-list-reference",
+          "mechanism": "configit-model-membership",
+          "status": "SOURCE_EXPLICIT",
+          "strength": "STRONG",
+          "authority": "source-authoritative"
+        }
+      ]
+    },
+    {
+      "id": "CB_REQUIREMENT_SET_TO_CONFIGIT_MODEL",
+      "sourceApplications": ["codebeamer"],
+      "sourceKinds": ["requirement-set", "requirement-group"],
+      "targetApplications": ["configit"],
+      "targetKinds": ["work-item", "product-model", "configuration-family", "source-representation"],
+      "forward": {
+        "type": "specifies",
+        "meaning": "The Codebeamer requirement set explicitly specifies or references the Configit product model."
+      },
+      "inverse": {
+        "type": "specified-by",
+        "meaning": "The Configit model is explicitly specified by the Codebeamer requirement set."
+      },
+      "impactTraversal": true,
+      "evidenceRules": [
+        {
+          "id": "codebeamer-configit-model-code",
+          "sourcePath": "configitModelCode",
+          "targetPath": "productModelCode",
+          "operator": "exact-scalar",
+          "mechanism": "codebeamer-configit-model-reference",
+          "status": "SOURCE_EXPLICIT",
+          "strength": "STRONG",
+          "authority": "source-authoritative"
+        },
+        {
+          "id": "governed-product-context",
+          "sourcePath": "productContextId",
+          "targetPath": "productContextId",
+          "operator": "exact-scalar",
+          "mechanism": "governed-product-context",
+          "status": "CONFIRMED",
+          "strength": "STRONG",
+          "authority": "source-authoritative"
+        }
+      ]
+    }
+  ],
+  "impactPathTemplates": [
+    {
+      "id": "ENGINEERING_PART_TO_OPERATIONAL_MATERIAL",
+      "relationshipDefinitionIds": ["WC_PART_TO_SAP_MATERIAL"],
+      "meaning": "An engineering part has a governed operational material representation."
+    },
+    {
+      "id": "REQUIREMENT_TO_CONFIGURATION_MODEL",
+      "relationshipDefinitionIds": ["CB_REQUIREMENT_SET_TO_CONFIGIT_MODEL"],
+      "meaning": "A requirement set has an evidence-backed configuration-model relationship; this does not prove a configuration test passed."
+    },
+    {
+      "id": "REQUIREMENT_TO_ENGINEERING_TO_OPERATIONAL",
+      "relationshipDefinitionIds": ["WC_PART_TO_CB_REQUIREMENT", "WC_PART_TO_SAP_MATERIAL"],
+      "meaning": "A requirement may be traversed to an engineering object and its operational material only when both relationship instances are independently evidenced. The path is not a causal claim."
+    }
+  ]
+}
+```
+
 ## 3. Application Responsibilities
 
 ### Windchill

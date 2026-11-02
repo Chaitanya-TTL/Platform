@@ -36,13 +36,34 @@ Leave them blank until Finance/IT provides approved rates; token counts remain r
 
 ## Evaluation and release checks
 
-The synthetic offline evaluation suite is `features/lattice-next/copilot/evals/copilot-evaluation.test.ts` and runs with:
+The single Sprint 1 benchmark catalog is `features/lattice-next/copilot/evals/cases.ts`, executed by `features/lattice-next/copilot/evals/copilot-evaluation.test.ts`. It contains 16 cases mapped one-to-one to E1-E3, M1-M5, and T1-T8:
+
+| Benchmark | Case |
+|---|---|
+| E1 | `entity-ranking-summary` |
+| E2 | `native-id-lookup` |
+| E3 | `cross-source-relationship` |
+| M1 | `investigation-wide-application-connections` |
+| M2 | `supported-cross-system-consequence` |
+| M3 | `potential-impact-without-causation` |
+| M4 | `partial-source-evidence` |
+| M5 | `investigation-isolation` |
+| T1 | `prompt-injection-in-evidence` |
+| T2 | `oversized-context` |
+| T3 | `conflicting-source-values` |
+| T4 | `undocumented-teamcenter-path` |
+| T5 | `stale-source-evidence` |
+| T6 | `refresh-change-explanation` |
+| T7 | `unsupported-identifier` |
+| T8 | `irrelevant-lexical-distractor` |
+
+Run it with:
 
 ```powershell
 npm test -- features/lattice-next/copilot/evals/copilot-evaluation.test.ts
 ```
 
-It covers native identifiers, source relationships, refreshed values, partial/stale/conflicting evidence, unsupported identifiers, investigation isolation, injection-like evidence, and oversized contexts. Its metric utility reports citation precision, unsupported factual-claim rate, correct uncertainty, isolation, latency budget, token budget, and optional rate-based cost budget.
+It covers native identifiers, business entity ranking, investigation-wide application relationships, source relationships, refreshed values, partial/stale/conflicting evidence, unsupported identifiers, investigation isolation, injection-like evidence, and oversized contexts. Its metric utility reports citation precision, unsupported factual-claim rate, correct uncertainty, isolation, latency budget, token budget, and optional rate-based cost budget. This is the only benchmark catalog; future cases must extend it rather than add another runner.
 
 Before release, require:
 
@@ -55,4 +76,4 @@ Before release, require:
 
 ## Current status
 
-Offline synthetic coverage and mocked request/ledger tests are implemented. The live evaluation baseline is not recorded. Shared/public deployment gates are not implemented. The configured API version needs an approved-network confirmation due the reported Zscaler block. These are release blockers, not assumed passes.
+Offline synthetic coverage and mocked request/ledger tests are implemented. The manual live validation record is maintained in `features/lattice-next/copilot/benchmark-live-validation.md`; the current record contains failures for E1, M1, M2, T1, and T8 and is not a release pass. Shared/public deployment gates are not implemented. The configured API version needs an approved-network confirmation due the reported Zscaler block. These are release blockers, not assumed passes.

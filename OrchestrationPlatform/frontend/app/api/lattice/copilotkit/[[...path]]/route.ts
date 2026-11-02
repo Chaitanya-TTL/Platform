@@ -8,18 +8,17 @@ export const dynamic = "force-dynamic";
 const agent = new LatticeCopilotAgent(async (input, signal) => {
   const outcome = await executeCopilotTurn({ ...input, createIfMissing: true, signal });
   if (!outcome.ok) {
-    const validationIssue = typeof outcome.body.validationIssue === "string" ? outcome.body.validationIssue : undefined;
     const billingWarning = outcome.body.requestMayHaveBeenBilled === true
       ? " The request may have been billed; check the usage ledger before retrying."
       : "";
-    const message = `${String(outcome.body.message ?? "Copilot could not complete the request.")}${validationIssue ? ` Detail: ${validationIssue}` : ""}${billingWarning}`;
+    const message = `${String(outcome.body.message ?? "Copilot could not complete the request.")}${billingWarning}`;
     const code = typeof outcome.body.failureCode === "string" ? outcome.body.failureCode : `http-${outcome.status}`;
     throw new CopilotKitAgentError(
       message,
       code,
       outcome.body.retryable === true,
       outcome.body.requestMayHaveBeenBilled === true,
-      validationIssue,
+      undefined,
     );
   }
   return outcome.answer;
