@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { buildInvestigationContext } from "../context-builder";
-import { COPILOT_EVALUATION_CASES } from "./cases";
+import { COPILOT_EVALUATION_CASES, type RoadmapBenchmarkId } from "./cases";
 import { scoreCopilotEvaluation, summarizeCopilotEvaluation } from "./metrics";
 
 const relationshipDocument = readFileSync(resolve(process.cwd(), "..", "docs", "relationships.md"), "utf8");
@@ -15,8 +15,21 @@ const contexts = new Map(COPILOT_EVALUATION_CASES.map((evaluationCase) => [
 ]));
 
 describe("synthetic copilot evaluation set", () => {
+  it("covers each Sprint 1 roadmap benchmark exactly once", () => {
+    const expectedRoadmapIds: RoadmapBenchmarkId[] = [
+      "E1", "E2", "E3", "M1", "M2", "M3", "M4", "M5",
+      "T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8",
+    ];
+    const roadmapIds = COPILOT_EVALUATION_CASES.flatMap((evaluationCase) => evaluationCase.roadmapIds);
+    expect(COPILOT_EVALUATION_CASES).toHaveLength(16);
+    expect(new Set(COPILOT_EVALUATION_CASES.map((evaluationCase) => evaluationCase.id)).size).toBe(16);
+    expect(roadmapIds).toHaveLength(expectedRoadmapIds.length);
+    expect(new Set(roadmapIds)).toEqual(new Set(expectedRoadmapIds));
+  });
+
   it("includes all planned synthetic/redacted grounding and safety cases", () => {
     expect(COPILOT_EVALUATION_CASES.map((evaluationCase) => evaluationCase.category)).toEqual(expect.arrayContaining([
+      "entity-ranking",
       "native-id",
       "relationship-traversal",
       "change-explanation",
@@ -32,7 +45,25 @@ describe("synthetic copilot evaluation set", () => {
       "undocumented-path",
       "lexical-distractor",
     ]));
-    expect(COPILOT_EVALUATION_CASES).toHaveLength(14);
+    expect(COPILOT_EVALUATION_CASES).toHaveLength(16);
+  });
+
+  it("validates the E1 business ranking and M1 investigation-wide relationship contract", () => {
+    const rankingCase = COPILOT_EVALUATION_CASES.find((evaluationCase) => evaluationCase.id === "entity-ranking-summary")!;
+    const rankingPacket = contexts.get(rankingCase.id)!;
+    expect(rankingPacket.ambiguity.clarificationRequired).toBe(false);
+    expect(rankingCase.expectedEntityIds).toEqual(expect.arrayContaining(["wc:part", "sap:material", "configit:model", "cb:req"]));
+    expect(rankingPacket.entities.map((entity) => entity.entityId)).toEqual(expect.arrayContaining([...(rankingCase.expectedEntityIds ?? [])]));
+
+    const applicationCase = COPILOT_EVALUATION_CASES.find((evaluationCase) => evaluationCase.id === "investigation-wide-application-connections")!;
+    const applicationPacket = contexts.get(applicationCase.id)!;
+    expect(applicationPacket.questionIntent).toBe("relationship");
+    expect(applicationPacket.ambiguity.clarificationRequired).toBe(false);
+    expect(applicationPacket.selectedEntityIds).toEqual([]);
+    expect(applicationPacket.relationships).toEqual(expect.arrayContaining([
+      expect.objectContaining({ family: "projection:domain:cross-source" }),
+    ]));
+    expect(new Set(applicationPacket.entities.map((entity) => entity.source))).toEqual(new Set(["windchill", "sap", "configit", "codebeamer"]));
   });
 
   it("satisfies the expected context grounding and uncertainty signal for every case", () => {

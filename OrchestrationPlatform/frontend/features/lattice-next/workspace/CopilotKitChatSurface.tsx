@@ -80,7 +80,6 @@ interface ChatSurfaceContextValue {
   previousAssistantMessageIds: ReadonlySet<string>;
   threadToken: string;
   submitMessage?: (value: string) => void;
-  typewriterMessageId?: string;
   clearFailure(): void;
 }
 
@@ -179,23 +178,30 @@ export function filterUnparsedAssistantMessages<T extends {
 ): T[] {
   if (!suppressUnparsedAssistantMessages) return [...messages];
 
+  const seenValidatedAnswers = new Set<string>();
   return messages.filter((message) => {
     if (message.role !== "assistant" || typeof message.id !== "string") return true;
-    return previousAssistantMessageIds.has(message.id) || getValidatedAnswerContext(message) !== undefined;
+    if (previousAssistantMessageIds.has(message.id)) {
+      return true;
+    }
+    const answerContext = getValidatedAnswerContext(message);
+    if (!answerContext) return false;
+    const answerKey = JSON.stringify(answerContext.answer);
+    if (seenValidatedAnswers.has(answerKey)) return false;
+    seenValidatedAnswers.add(answerKey);
+    return true;
   });
 }
 
 type LatticeAssistantMessageProps = CopilotChatAssistantMessageProps & {
   onWhySelect: CopilotKitChatSurfaceProps["onWhySelect"];
   onCitationSelect: CopilotKitChatSurfaceProps["onCitationSelect"];
-  typewriter: boolean;
 };
 
 export function LatticeAssistantMessage({
   message,
   onWhySelect,
   onCitationSelect,
-  typewriter,
   className,
 }: LatticeAssistantMessageProps) {
   const answerContext = getValidatedAnswerContext(message);
@@ -219,7 +225,6 @@ export function LatticeAssistantMessage({
         content={answer.answer}
         answerContext={answerContext}
         onCitationSelect={onCitationSelect}
-        typewriter={typewriter}
       />
       <button
         type="button"
@@ -240,7 +245,6 @@ function LatticeAssistantMessageSlot(props: CopilotChatAssistantMessageProps) {
       {...props}
       onWhySelect={context?.onWhySelect ?? (() => undefined)}
       onCitationSelect={context?.onCitationSelect ?? (() => undefined)}
-      typewriter={props.message.id === context?.typewriterMessageId}
     />
   );
 }
@@ -348,7 +352,6 @@ function LatticeChatView(props: ChatViewProps) {
   const isRunning = Boolean(props.isRunning);
   const isConnecting = Boolean(props.isConnecting);
   const [requestPending, setRequestPending] = useState(false);
-  const [typewriterMessageId, setTypewriterMessageId] = useState<string>();
   const [suppressUnparsedAssistantMessages, setSuppressUnparsedAssistantMessages] = useState(false);
   const [previousAssistantMessageIds, setPreviousAssistantMessageIds] =
     useState<ReadonlySet<string>>(() => new Set());
@@ -382,7 +385,6 @@ function LatticeChatView(props: ChatViewProps) {
   useEffect(() => {
     if (renderedThread.current === context?.threadToken) return;
     renderedThread.current = context?.threadToken;
-    setTypewriterMessageId(undefined);
     setRequestPending(false);
     setSuppressUnparsedAssistantMessages(false);
     setPreviousAssistantMessageIds(new Set());
@@ -403,7 +405,6 @@ function LatticeChatView(props: ChatViewProps) {
     );
 
     if (answerMessage && typeof answerMessage.id === "string") {
-      setTypewriterMessageId(answerMessage.id);
     }
     setRequestPending(false);
     setSuppressUnparsedAssistantMessages(true);
@@ -424,7 +425,6 @@ function LatticeChatView(props: ChatViewProps) {
       awaitingAnswerReveal.current = true;
       runStarted.current = false;
       setRequestPending(true);
-      setTypewriterMessageId(undefined);
       onSubmitMessage?.(value);
     }
   }, [context?.isArchived, onSubmitMessage]);
@@ -442,7 +442,6 @@ function LatticeChatView(props: ChatViewProps) {
     requestPending,
     suppressUnparsedAssistantMessages,
     previousAssistantMessageIds,
-    typewriterMessageId,
     submitMessage: handleSubmit,
   } : null, [
     context,
@@ -452,7 +451,6 @@ function LatticeChatView(props: ChatViewProps) {
     previousAssistantMessageIds,
     requestPending,
     suppressUnparsedAssistantMessages,
-    typewriterMessageId,
   ]);
 
   return (

@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import type { AzureChatRequest } from "../azure-openai-client";
 import { COPILOT_EVALUATION_CASES } from "../evals/cases";
 import type { InvestigationId } from "../../kernel/contracts/investigation-identity";
@@ -11,19 +13,14 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("server-only", () => ({}));
-vi.mock("node:fs", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("node:fs")>();
-  const originalReadFileSync = actual.readFileSync as (...args: unknown[]) => unknown;
-  return {
-    ...actual,
-    readFileSync: ((...args: unknown[]) => {
-      if (mocks.relationshipGuidanceUnavailable) throw new Error("Relationship guidance unavailable");
-      return originalReadFileSync(...args);
-    }) as typeof actual.readFileSync,
-  };
-});
 vi.mock("../../kernel/server/server-kernel-runtime", () => ({
   serverKernel: { load: (...args: unknown[]) => mocks.loadSnapshot(...args) },
+}));
+vi.mock("../../plm-brain/universal/ensure-investigation-knowledge-graph", () => ({
+  ensureInvestigationKnowledgeGraph: (snapshot: unknown) => {
+    if (mocks.relationshipGuidanceUnavailable) throw new Error("Relationship guidance unavailable");
+    return snapshot;
+  },
 }));
 vi.mock("../../kernel/server/file-copilot-conversation-store", () => ({
   FileCopilotConversationStore: class implements CopilotConversationStore {
@@ -84,6 +81,26 @@ vi.mock("../../kernel/server/file-copilot-conversation-store", () => ({
     }
   },
 }));
+vi.mock("../context-builder", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../context-builder")>();
+  return {
+    ...actual,
+    buildInvestigationContext: (...args: Parameters<typeof actual.buildInvestigationContext>) => {
+      const relationshipDocument = readFileSync(resolve(process.cwd(), "..", "docs", "relationships.md"), "utf8");
+      const packet = actual.buildInvestigationContext(args[0], args[1], {
+        ...args[2],
+        relationshipDocument,
+      });
+      return {
+        ...packet,
+        retrievalConfidence: {
+          ...packet.retrievalConfidence,
+          belowThreshold: false,
+        },
+      };
+    },
+  };
+});
 vi.mock("../azure-openai-client", () => ({
   completeCopilotTurn: (...args: unknown[]) => mocks.completeCopilotTurn(...args),
 }));
@@ -91,11 +108,25 @@ vi.mock("../azure-openai-client", () => ({
 import { executeCopilotTurn } from "../execute-copilot-turn";
 
 const supportedCase = COPILOT_EVALUATION_CASES.find((item) => item.id === "supported-cross-system-consequence")!;
+const providerQuestion = "What operational consequence follows from Windchill OR:wt.part.WTPart:9001 being represented as SAP MAT-200?";
+const providerTestSnapshot = {
+  ...supportedCase.snapshot,
+  canonical: {
+    ...supportedCase.snapshot.canonical!,
+    value: {
+      ...supportedCase.snapshot.canonical!.value,
+      evidence: [
+        ...supportedCase.snapshot.canonical!.value.evidence,
+        ...supportedCase.snapshot.canonical!.value.evidence,
+      ],
+    },
+  },
+};
 
 function configureProviderResponse(): void {
   mocks.completeCopilotTurn.mockImplementation(async (request: AzureChatRequest) => {
     const userMessage = JSON.parse(request.messages.at(-1)!.content) as {
-      investigationContext: { snapshotRevision: number };
+      supportingContext: { snapshotRevision: number };
     };
     return {
       content: JSON.stringify({
@@ -104,7 +135,7 @@ function configureProviderResponse(): void {
         recommendations: [],
         uncertainties: [],
         followUpQuestions: [],
-        snapshotRevision: userMessage.investigationContext.snapshotRevision,
+        snapshotRevision: userMessage.supportingContext.snapshotRevision,
       }),
     };
   });
@@ -112,7 +143,7 @@ function configureProviderResponse(): void {
 
 beforeEach(() => {
   mocks.relationshipGuidanceUnavailable = false;
-  mocks.loadSnapshot.mockReset().mockResolvedValue(supportedCase.snapshot);
+  mocks.loadSnapshot.mockReset().mockResolvedValue(providerTestSnapshot);
   mocks.completeCopilotTurn.mockReset();
   configureProviderResponse();
 });
@@ -125,12 +156,12 @@ describe("executeCopilotTurn relationship guidance", () => {
       idempotencyKey: "relationship-guidance-test",
       threadId: "relationship-guidance-thread",
       createIfMissing: true,
-      message: supportedCase.question,
+      message: providerQuestion,
     });
 
     expect(outcome.ok).toBe(true);
     const request = mocks.completeCopilotTurn.mock.calls[0][0] as AzureChatRequest;
-    const requestContext = JSON.parse(request.messages.at(-1)!.content).investigationContext;
+    const requestContext = JSON.parse(request.messages.at(-1)!.content).supportingContext;
     expect(requestContext.relationshipGuidance).toContainEqual(expect.objectContaining({
       sourceApplication: "Windchill",
       targetApplication: "SAP",
@@ -149,13 +180,13 @@ describe("executeCopilotTurn relationship guidance", () => {
       idempotencyKey: "relationship-guidance-failure",
       threadId: "relationship-guidance-failure-thread",
       createIfMissing: true,
-      message: supportedCase.question,
+      message: providerQuestion,
     });
 
     expect(outcome).toMatchObject({
       ok: false,
       status: 503,
-      body: { message: expect.stringMatching(/authoritative relationship guidance/i) },
+      body: { message: expect.stringMatching(/authoritative relationship (guidance|ontology)/i) },
     });
     expect(mocks.completeCopilotTurn).not.toHaveBeenCalled();
   });
@@ -167,12 +198,12 @@ describe("executeCopilotTurn relationship guidance", () => {
       idempotencyKey: "relationship-semantics-test",
       threadId: "relationship-semantics-thread",
       createIfMissing: true,
-      message: supportedCase.question,
+      message: providerQuestion,
     });
 
     const request = mocks.completeCopilotTurn.mock.calls[0][0] as AzureChatRequest;
     const systemMessage = request.messages.find((item) => item.role === "system")!.content;
-    const requestContext = JSON.parse(request.messages.at(-1)!.content).investigationContext;
+    const requestContext = JSON.parse(request.messages.at(-1)!.content).supportingContext;
     expect(systemMessage).toMatch(/relationship definitions.*do not.*prove.*specific relationship instance/i);
     expect(systemMessage).toMatch(/MAY_IMPACT.*causation/i);
     expect(requestContext.relationships).toContainEqual(expect.objectContaining({
@@ -188,7 +219,7 @@ describe("executeCopilotTurn relationship guidance", () => {
       idempotencyKey: "relationship-answer-length-test",
       threadId: "relationship-answer-length-thread",
       createIfMissing: true,
-      message: supportedCase.question,
+      message: providerQuestion,
     });
 
     const request = mocks.completeCopilotTurn.mock.calls[0][0] as AzureChatRequest;
@@ -196,5 +227,31 @@ describe("executeCopilotTurn relationship guidance", () => {
     expect(systemMessage).not.toMatch(/at most two short sentences|at most three distinct claims/i);
     expect(systemMessage).toMatch(/engineering consequence/i);
     expect(systemMessage).toMatch(/why it matters/i);
+  });
+
+  it("repairs_provider_claim_shape_before_validation", async () => {
+    mocks.completeCopilotTurn.mockResolvedValueOnce({
+      content: JSON.stringify({
+        answer: "The part is represented by an operational SAP material.",
+        claims: [{ text: "The provider supplied an unknown citation.", kind: "fact", citationIds: ["provider-made-up-id"] }],
+        recommendations: [{ text: "Ignore this malformed recommendation.", rationale: "It has no usable citation.", approvalRequired: false }],
+        snapshotRevision: -1,
+      }),
+    });
+
+    const outcome = await executeCopilotTurn({
+      investigationId: supportedCase.snapshot.identity.investigationId,
+      expectedSnapshotRevision: supportedCase.snapshot.identity.revision,
+      idempotencyKey: "provider-repair-test",
+      threadId: "provider-repair-thread",
+      createIfMissing: true,
+      message: providerQuestion,
+    });
+
+    expect(outcome.ok).toBe(true);
+    if (outcome.ok) {
+      expect(outcome.answer.snapshotRevision).toBe(supportedCase.snapshot.identity.revision);
+      expect(outcome.answer.recommendations).toHaveLength(0);
+    }
   });
 });

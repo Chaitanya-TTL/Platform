@@ -384,7 +384,6 @@ describe("CopilotKit investigation chat surface", () => {
       message: message as never,
       onWhySelect: defaultProps.onWhySelect,
       onCitationSelect: defaultProps.onCitationSelect,
-      typewriter: false,
     }) as React.ReactElement<{ children?: React.ReactNode }>;
     const whyButton = React.Children.toArray(assistantElement.props.children).find(
       (child) => React.isValidElement(child) && child.type === "button",
@@ -425,11 +424,15 @@ describe("CopilotKit investigation chat surface", () => {
       content: "A generated response.",
       metadata: { latticeAnswer: answer },
     };
+    const replayedValidatedMessage = {
+      ...validatedMessage,
+      id: "assistant-validated-replay",
+    };
     const userMessage = { id: "user-current", role: "user", content: "Explain this." };
 
     expect(
       filterUnparsedAssistantMessages(
-        [restoredMessage, userMessage, streamMessage, validatedMessage],
+        [restoredMessage, userMessage, streamMessage, validatedMessage, replayedValidatedMessage],
         new Set([restoredMessage.id]),
         true,
       ),

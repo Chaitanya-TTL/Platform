@@ -84,6 +84,30 @@ export function buildHierarchicalLatticeExport(graph: InvestigationGraph) {
     relationships,
     universalRelationshipEvidence: universalEvidence,
     universalRelationshipEvaluations: graph.metadata?.universalRelationshipEvaluations ?? [],
+    knowledgeGraph: graph.metadata?.knowledgeGraph,
+    relationshipOntologyVersion: graph.metadata?.knowledgeGraph?.ontologyVersion,
+    knowledgeGraphSummary: graph.metadata?.knowledgeGraph?.knowledgeGraphSummary,
+    graphGenerationDepth: graph.metadata?.knowledgeGraph?.confidenceMetadata.maxTraversalDepth,
+    resolvedRelationships: graph.metadata?.knowledgeGraph?.resolvedRelationships ?? [],
+    relationshipPaths: graph.metadata?.knowledgeGraph?.relationshipPaths ?? [],
+    impactPaths: graph.metadata?.knowledgeGraph?.impactPaths ?? [],
+    impactChains: graph.metadata?.knowledgeGraph?.impactChains ?? [],
+    relationshipEvidence: graph.metadata?.knowledgeGraph?.relationshipEvidence ?? [],
+    relationshipStrength: graph.metadata?.knowledgeGraph?.resolvedRelationships.map((relationship) => ({
+      relationshipId: relationship.id,
+      strength: relationship.strength,
+    })) ?? [],
+    relationshipStatus: graph.metadata?.knowledgeGraph?.resolvedRelationships.map((relationship) => ({
+      relationshipId: relationship.id,
+      status: relationship.status,
+    })) ?? [],
+    relationshipProvenance: graph.metadata?.knowledgeGraph?.resolvedRelationships.map((relationship) => ({
+      relationshipId: relationship.id,
+      provenance: relationship.provenance,
+    })) ?? [],
+    crossApplicationMappings: graph.metadata?.knowledgeGraph?.crossApplicationMappings ?? [],
+    graphTraversalIndexes: graph.metadata?.knowledgeGraph?.traversalIndexes ?? { outgoing: {}, incoming: {} },
+    confidenceMetadata: graph.metadata?.knowledgeGraph?.confidenceMetadata,
     metadata: {
       exportedAt: new Date().toISOString(),
       investigationId: graph.metadata?.investigationId,
@@ -98,4 +122,3 @@ export function downloadHierarchicalLatticeJson(graph: InvestigationGraph) {
   const blob = new Blob([JSON.stringify(buildHierarchicalLatticeExport(graph), null, 2)], { type: "application/json" }); const url = URL.createObjectURL(blob); const anchor = document.createElement("a"); const subject = graph.roots[0] ? graph.byId[graph.roots[0]]?.name : "lattice";
   anchor.href = url; anchor.download = `${safeName(subject ?? "lattice")}-lattice-${new Date().toISOString().replace(/[:.]/g, "-")}.json`; document.body.appendChild(anchor); anchor.click(); anchor.remove(); URL.revokeObjectURL(url);
 }
-

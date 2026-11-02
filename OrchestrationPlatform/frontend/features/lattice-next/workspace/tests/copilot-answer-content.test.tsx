@@ -8,7 +8,7 @@ vi.mock("@copilotkit/react-core/v2", () => ({
   },
 }));
 
-import { formatAnswerCitations } from "../CopilotAnswerContent";
+import { CopilotAnswerContent, formatAnswerCitations } from "../CopilotAnswerContent";
 import type { CopilotCitation } from "../../copilot/contracts";
 import ThoughtLine from "../ThoughtLine";
 
@@ -37,6 +37,17 @@ describe("Copilot answer content", () => {
         citations,
       ),
     ).toBe("(cite:entity:unknown) (cite:relationship:entity%3A1) (cite:entity:)");
+  });
+
+  it("renders finalized answer content only once", () => {
+    const markup = renderToStaticMarkup(
+      <CopilotAnswerContent
+        content="The validated answer."
+        onCitationSelect={vi.fn()}
+      />,
+    );
+
+    expect(markup.match(/The validated answer\./g)).toHaveLength(1);
   });
 
   it("renders a readable, accessible working thought line", () => {
