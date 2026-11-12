@@ -4,19 +4,19 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { NextRequest, NextResponse } from "next/server";
+import { findPythonExecutable } from "@/lib/extractors/python-runtime";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 export const runtime = "nodejs";
 const execFileAsync = promisify(execFile);
 async function exists(candidate:string){try{await fs.access(candidate);return true}catch{return false}}
 async function findDir(start:string){let current=path.resolve(start);for(let i=0;i<6;i++){const candidate=path.resolve(current,"configit_extractor");if(await exists(candidate))return candidate;const parent=path.dirname(current);if(parent===current)break;current=parent}return null}
-async function pythonOf(dir:string){for(const candidate of [path.resolve(dir,".venv","Scripts","python.exe"),path.resolve(dir,".venv","bin","python"),"python","python3"]){if(candidate==="python"||candidate==="python3"){try{await execFileAsync(candidate,["--version"]);return candidate}catch{continue}}if(await exists(candidate))return candidate}return null}
 export async function GET(request:NextRequest){
   const params=request.nextUrl.searchParams;
   const query=(params.get("query")??params.get("packagePath")??params.get("productId"))?.trim();
   if(!query)return NextResponse.json({error:"Enter a Configit product or work-item name."},{status:400});
   const dir=await findDir(process.cwd());if(!dir)return NextResponse.json({error:"Configit extractor directory is unavailable."},{status:500});
-  const script=path.resolve(dir,"extractor.py"),python=await pythonOf(dir);if(!(await exists(script))||!python)return NextResponse.json({error:"Configit extractor runtime is unavailable."},{status:500});
+  const script=path.resolve(dir,"extractor.py"),python=await findPythonExecutable(dir);if(!(await exists(script))||!python)return NextResponse.json({error:"Configit extractor runtime is unavailable."},{status:500});
   const temp=await fs.mkdtemp(path.join(os.tmpdir(),"configit-"));const output=path.join(temp,"normalized-bom.json");
   const args=[script,"--query",query,"--output",output];
   try{

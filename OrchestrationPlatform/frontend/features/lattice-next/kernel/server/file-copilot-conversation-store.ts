@@ -65,7 +65,7 @@ function validateAnswer(answer: CopilotAnswer, snapshotRevision: number): Copilo
   let citations: CopilotCitation[] | undefined;
   if (answer.citations !== undefined) {
     if (!Array.isArray(answer.citations) || answer.citations.some((citation) =>
-      !citation || typeof citation.citationId !== "string" || !["entity", "relationship", "evidence", "finding", "source", "evaluation"].includes(citation.kind) || typeof citation.label !== "string"))
+      !citation || typeof citation.citationId !== "string" || !["entity", "relationship", "evidence", "finding", "source", "evaluation", "retrieval-document"].includes(citation.kind) || typeof citation.label !== "string"))
       throw new CopilotAnswerValidationError("Assistant answer contains malformed citation records.");
     citations = answer.citations.map((citation) => ({
       citationId: citation.citationId,

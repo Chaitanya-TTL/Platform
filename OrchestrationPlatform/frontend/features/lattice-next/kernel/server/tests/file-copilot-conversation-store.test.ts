@@ -85,6 +85,36 @@ describe("file copilot conversation store", () => {
       .resolves.toMatchObject({ messages: [{ role: "user" }, { role: "assistant", answer: { citations: [sourceCitation] } }] });
   });
 
+  it("persists retrieval-document citation records", async () => {
+    const store = new FileCopilotConversationStore(await temporaryRoot());
+    const retrievalCitation = {
+      citationId: "cite:retrieval-document:v1:steering-spec:A:chunk-1",
+      kind: "retrieval-document" as const,
+      label: "Steering specification, revision A",
+      source: "windchill",
+      nativeId: "DOC-42",
+    };
+    const retrievalAnswer: CopilotAnswer = {
+      ...answer,
+      claims: [{
+        text: "The specification states the torque range.",
+        kind: "fact",
+        citationIds: [retrievalCitation.citationId],
+      }],
+      citations: [retrievalCitation],
+    };
+    await store.createThread(firstInvestigation, "thread-retrieval", "Specification");
+    await store.appendUserMessage(firstInvestigation, "thread-retrieval", 0, "Summarize the specification", 4);
+    await store.appendTurn(firstInvestigation, "thread-retrieval", 1, "Summarize the specification", {
+      answer: retrievalAnswer,
+      at: "2026-10-26T00:00:00.000Z",
+      snapshotRevision: 4,
+    });
+
+    await expect(store.loadThread(firstInvestigation, "thread-retrieval"))
+      .resolves.toMatchObject({ messages: [{ role: "user" }, { role: "assistant", answer: { citations: [retrievalCitation] } }] });
+  });
+
   it("deduplicates staged messages and completed turns by idempotency key", async () => {
     const store = new FileCopilotConversationStore(await temporaryRoot());
     await store.createThread(firstInvestigation, "thread-retry", "Retry safely");

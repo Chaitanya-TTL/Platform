@@ -20,6 +20,14 @@ export interface CopilotKitTurnInput {
 
 export type CopilotKitTurnExecutor = (input: CopilotKitTurnInput, signal: AbortSignal) => Promise<CopilotAnswer>;
 
+export interface CopilotKitFailureDetails {
+  requestId?: string;
+  failureCode?: string;
+  failingStage?: string;
+  providerStatus?: number;
+  validationCategory?: string;
+}
+
 export class CopilotKitAgentError extends Error {
   constructor(
     message: string,
@@ -27,8 +35,10 @@ export class CopilotKitAgentError extends Error {
     readonly retryable = false,
     readonly requestMayHaveBeenBilled = true,
     readonly validationIssue?: string,
+    readonly details: CopilotKitFailureDetails = {},
+    cause?: unknown,
   ) {
-    super(message);
+    super(message, { cause });
     this.name = "CopilotKitAgentError";
   }
 }
@@ -93,17 +103,27 @@ export class LatticeCopilotAgent extends AbstractAgent {
               "LATTICE_COPILOT_ERROR",
               false,
               true,
+              undefined,
+              {
+                requestId: userMessage.id,
+                failureCode: "unknown-runtime-error",
+                failingStage: "turn-started",
+                validationCategory: "unknown-runtime-error",
+              },
+              cause,
             );
         subscriber.next({
           type: EventType.RUN_ERROR,
-          threadId: runtimeThreadId,
-          runId: input.runId,
           message: error.message,
           code: error.code,
           metadata: {
             retryable: error.retryable,
             requestMayHaveBeenBilled: error.requestMayHaveBeenBilled,
-            ...(error.validationIssue ? { validationIssue: error.validationIssue } : {}),
+            failureCode: error.details.failureCode ?? error.code,
+            failingStage: error.details.failingStage ?? "turn-started",
+            ...(error.details.requestId ? { requestId: error.details.requestId } : {}),
+            ...(error.details.providerStatus !== undefined ? { providerStatus: error.details.providerStatus } : {}),
+            ...(error.details.validationCategory ? { validationCategory: error.details.validationCategory } : {}),
           },
         });
         subscriber.complete();

@@ -233,4 +233,21 @@ describe("investigation copilot orchestration route", () => {
     expect((await POST(oversized, routeContext)).status).toBe(413);
     expect(mocks.completeCopilotTurn).not.toHaveBeenCalled();
   });
+
+  it("rejects client-supplied principal and retrieval runtime fields", async () => {
+    for (const field of ["principal", "retrievalPrincipal", "retrievalRuntime", "tenantId"]) {
+      const response = await POST(post({
+        expectedSnapshotRevision: 4,
+        message: userMessage,
+        idempotencyKey,
+        [field]: { principalId: "client-user", tenantId: "client-tenant" },
+      }), routeContext);
+
+      expect(response.status, field).toBe(400);
+      await expect(response.json()).resolves.toMatchObject({
+        message: "Copilot request contains unsupported fields.",
+      });
+    }
+    expect(mocks.completeCopilotTurn).not.toHaveBeenCalled();
+  });
 });

@@ -1,10 +1,12 @@
 import type {
   EngineeringIntelligenceInvestigationV1,
   IntelligenceEntity,
+  IntelligenceRelationship,
 } from "../contracts/intelligence-v1";
 import type { InvestigationSnapshot, SourceExecutionSnapshot } from "../kernel/contracts/investigation-snapshot";
 import type {
   CopilotCitation,
+  ConsequenceEvidenceState,
   CopilotConflictContext,
   CopilotContextPacket,
   CopilotEntityCandidate,
@@ -24,8 +26,12 @@ import type {
   ReasoningPath,
   InvestigationReasoningSummary,
   RelationshipFlowDiagnostics,
+  SubjectTraceabilityNarrative,
+  SubjectTraceabilityRelationshipArtifact,
+  SubjectApplicationParticipation,
 } from "./contracts";
 import { COPILOT_RETRIEVAL_CONFIG } from "./retrieval-config";
+import type { RetrievalEvidence } from "./retrieval/contracts";
 import {
   parseRelationshipGuidance,
   selectRelationshipGuidance,
@@ -37,6 +43,7 @@ const DEFAULT_MAX_CHARS = 24_000;
 const DEFAULT_MAX_ITEMS = 60;
 const MAX_MESSAGE_CHARS = 2_000;
 const MAX_FIELD_CHARS = 1_200;
+const APPLICATION_PRESENTATION_ORDER = ["codebeamer", "windchill", "sap", "configit"] as const;
 
 export interface ContextBuilderOptions {
   maxContextChars?: number;
@@ -51,6 +58,7 @@ type CanonicalFinding = Canonical["findings"][number];
 type RelationshipDirection = "forward" | "reverse" | "either";
 type RelationshipLike = {
   id: string;
+  category?: CopilotRelationshipContext["category"];
   kind?: string;
   type?: string;
   family?: string;
@@ -61,7 +69,18 @@ type RelationshipLike = {
   strength?: string;
   assertion?: string;
   status?: string;
-  provenance?: { source?: string; provider?: string; authority?: string; observedAt?: string; ontologyVersion?: string };
+  provenance?: {
+    source?: string;
+    provider?: string;
+    authority?: string;
+    observedAt?: string;
+    ontologyVersion?: string;
+    sourceApplication?: string;
+    sourceNativeId?: string;
+    sourceProvider?: string;
+    sourceAuthority?: string;
+    sourceObservedAt?: string;
+  };
   confidence?: string;
   evidenceRuleId?: string;
 };
@@ -123,6 +142,32 @@ function normalizedEntity(entity: IntelligenceEntity): CopilotEntityContext {
   };
 }
 
+function normalizedSubjectEntity(entity: InvestigationKnowledgeGraph["entities"][number]): CopilotEntityContext {
+  return {
+    entityId: entity.id,
+    citationId: entity.citationId,
+    displayName: short(entity.label, 240),
+    kind: entity.kind,
+    identityQuality: "deterministic-derived",
+    properties: {},
+    freshness: entity.provenance.freshness === "stale"
+      ? "stale"
+      : entity.provenance.freshness === "current"
+        ? "current"
+        : "unknown",
+  };
+}
+
+function compactInvestigationEntity(entity: CopilotEntityContext): CopilotEntityContext {
+  return {
+    ...entity,
+    displayName: short(entity.displayName, 160),
+    kind: short(entity.kind, 80),
+    ...(entity.nativeId ? { nativeId: short(entity.nativeId, 120) } : {}),
+    properties: {},
+  };
+}
+
 function relevance(query: string, values: readonly string[]): number {
   const normalizedQuery = query.toLocaleLowerCase();
   const joined = values.join(" ").toLocaleLowerCase();
@@ -176,11 +221,13 @@ function relationshipDirection(message: string): RelationshipDirection {
 function classifyQuestion(message: string): CopilotContextPacket["questionIntent"] {
   if (/\b(root cause|why did|why does|caused by)\b/i.test(message)) return "root-cause";
   if (/\b(risk|hazard|failure mode|exposure)\b/i.test(message)) return "risk";
-  if (/\b(change|changed|revision|notice|task)\b/i.test(message)) return "change-analysis";
+  if (/\b(changes?|changed|revision|notice|task)\b/i.test(message)) return "change-analysis";
   if (/\b(impact|impacted|affected|downstream|consequence)\b/i.test(message)) return "impact";
   if (/\b(depend|dependency|dependencies|upstream|input|feeds)\b/i.test(message)) return "dependency";
   if (/\b(evidence|prove|support|citation|source)\b/i.test(message)) return "evidence";
-  if (/\b(relationship|connected|linked|trace|path|related)\b/i.test(message)) return "relationship";
+  if (/\b(relationship|connected|linked|trace|path|related)\b/i.test(message) ||
+      /\b(?:what|which)\s+(?:entities|applications?)\s+(?:participate|are involved)\b/i.test(message)) return "relationship";
+  if (/\b(document|specification|requirements?|manual)\b/i.test(message)) return "document";
   return "summary";
 }
 
@@ -188,11 +235,13 @@ function isInvestigationScopedQuestion(
   message: string,
   questionIntent: CopilotContextPacket["questionIntent"],
 ): boolean {
-  if (questionIntent === "summary") return true;
   if (identifierCandidates(message).length > 0) return false;
+  if (questionIntent === "summary") return true;
   if (questionIntent === "evidence") return true;
   return [
     /\bapplication(?:s)?\b.*\b(involved|connected|represented|covered)\b/i,
+    /\bhow\s+are\s+(?:the\s+)?(?:applications|systems)\s+connected\b/i,
+    /\bwhat\s+entities\s+(?:participate|are involved)\b/i,
     /\b(?:cross[- ]system|system[- ]level)\b/i,
     /\b(?:relationship|connection|link|traceability)\b.*\b(?:exist|overview|involved|connected|investigation)\b/i,
     /\b(?:evidence|finding|findings)\b.*\b(?:exist|overview|available|investigation|top)\b/i,
@@ -210,7 +259,7 @@ function normalizedBusinessText(value: string): string {
   return value.toLocaleLowerCase().replace(/[-_:]/g, " ").replace(/\s+/g, " ").trim();
 }
 
-function businessWeight(entity: CopilotEntityContext): number {
+function businessWeight(entity: Pick<CopilotEntityContext, "kind" | "displayName">): number {
   const text = normalizedBusinessText(`${entity.kind} ${entity.displayName}`);
   const weights: readonly [string, number][] = [
     ["investigation subject", 1],
@@ -332,7 +381,7 @@ function sourceContext(snapshot: InvestigationSnapshot, canonical?: Canonical): 
   });
 }
 
-function relationshipList(canonical?: Canonical): RelationshipLike[] {
+function relationshipList(canonical?: Canonical, includeSubjectTraceability = false): RelationshipLike[] {
   if (!canonical) return [];
   const identityRelationships: RelationshipLike[] = [];
   const entitiesById = new Map(canonical.entities.map((entity) => [entity.id, entity]));
@@ -367,9 +416,13 @@ function relationshipList(canonical?: Canonical): RelationshipLike[] {
     }
   };
   for (const cluster of canonical.identityClusters) addIdentityRelationships(cluster.id, cluster.entityIds, cluster.evidenceIds);
-  addIdentityRelationships(`subject:${canonical.subject.id}`, canonical.subject.candidateIds);
+  const canonicalRelationships = canonical.relationships.map((relationship) => ({
+    ...relationship,
+    category: "canonical" as const,
+  }));
   const resolved = canonical.knowledgeGraph?.resolvedRelationships.map((relationship) => ({
     id: relationship.id,
+    category: "ontology-resolved" as const,
     kind: relationship.forwardType,
     type: relationship.forwardType,
     family: relationship.definitionId,
@@ -383,8 +436,24 @@ function relationshipList(canonical?: Canonical): RelationshipLike[] {
     provenance: relationship.provenance,
     confidence: relationship.strength,
   })) ?? [];
+  const subjectTraceability = includeSubjectTraceability
+    ? canonical.knowledgeGraph?.subjectTraceabilityRelationships.map((relationship) => ({
+        id: relationship.id,
+        category: relationship.category,
+        kind: relationship.relationshipType,
+        type: relationship.relationshipType,
+        sourceEntityId: relationship.sourceEntityId,
+        targetEntityId: relationship.targetEntityId,
+        evidenceIds: [],
+        assertion: "inference",
+        status: relationship.status,
+        strength: relationship.strength,
+        provenance: relationship.provenance,
+      })) ?? []
+    : [];
+  const contextualIdentityRelationships = includeSubjectTraceability ? [] : identityRelationships;
   if (canonical.knowledgeGraph)
-    return [...canonical.relationships, ...resolved, ...identityRelationships]
+    return [...canonicalRelationships, ...resolved, ...contextualIdentityRelationships, ...subjectTraceability]
       .filter((item, index, all) => all.findIndex((candidate) => candidate.id === item.id) === index);
   const plm = canonical.plmBrain?.relationships.map((relationship) => ({
     id: relationship.id,
@@ -404,7 +473,7 @@ function relationshipList(canonical?: Canonical): RelationshipLike[] {
     evidenceId: evidence.id,
     status: evidence.status,
   })) ?? [];
-  return [...canonical.relationships, ...plm, ...universal, ...resolved, ...identityRelationships]
+  return [...canonicalRelationships, ...plm, ...universal, ...resolved, ...contextualIdentityRelationships]
     .filter((item, index, all) => all.findIndex((candidate) => candidate.id === item.id) === index);
 }
 
@@ -437,7 +506,17 @@ function evidenceList(canonical?: Canonical): EvidenceLike[] {
   const ontologyEvidence: EvidenceLike[] = canonical.knowledgeGraph?.relationshipEvidence.map((item) => ({
     id: item.id,
     kind: "ontology-relationship-property",
-    summary: `${item.application ?? "source"} ${item.path}=${item.value} (provider: ${item.provider}; authority: ${item.authority})`,
+    summary: [
+      `${item.application ?? "source"} ${item.path}=${item.value} (provider: ${item.provider}; authority: ${item.authority})`,
+      ...(item.mappingId ? [
+        `mappingId=${item.mappingId}`,
+        `mappingReference=${item.mappingReference ?? "unavailable"}`,
+        `mappingBasis=${item.mappingBasis ?? "unavailable"}`,
+        `handshakeEvidenceId=${item.handshakeEvidenceId ?? "unavailable"}`,
+        `ontologyRuleId=${item.ontologyRuleId ?? "unavailable"}`,
+        `ontologyField=${item.ontologyFieldPath ?? "unavailable"}=${item.ontologyFieldValue ?? "unavailable"}`,
+      ] : []),
+    ].join("; "),
     source: item.application,
     provenance: { source: item.application, observedAt: item.observedAt },
   })) ?? [];
@@ -470,6 +549,7 @@ function normalizedRelationship(
   return {
     relationshipId: relation.id,
     citationId: stableCitationId("relationship", relation.id),
+    ...(relation.category ? { category: relation.category } : {}),
     kind: short(relation.kind ?? relation.type ?? "relationship", 120),
     ...(relation.family ? { family: short(relation.family, 120) } : {}),
     sourceEntityId: relation.sourceEntityId,
@@ -491,6 +571,11 @@ function normalizedRelationship(
         ...(relation.provenance.authority ? { authority: relation.provenance.authority } : {}),
         ...(relation.provenance.observedAt ? { observedAt: relation.provenance.observedAt } : {}),
         ...(relation.provenance.ontologyVersion ? { ontologyVersion: relation.provenance.ontologyVersion } : {}),
+        ...(relation.provenance.sourceApplication ? { sourceApplication: relation.provenance.sourceApplication } : {}),
+        ...(relation.provenance.sourceNativeId ? { sourceNativeId: relation.provenance.sourceNativeId } : {}),
+        ...(relation.provenance.sourceProvider ? { sourceProvider: relation.provenance.sourceProvider } : {}),
+        ...(relation.provenance.sourceAuthority ? { sourceAuthority: relation.provenance.sourceAuthority } : {}),
+        ...(relation.provenance.sourceObservedAt ? { sourceObservedAt: relation.provenance.sourceObservedAt } : {}),
       },
     } : {}),
     summary: `${source.displayName} (${source.source ?? "unknown source"}${source.nativeId ? `:${source.nativeId}` : ""}) ${short(relation.kind ?? relation.type ?? "relates to", 100)} ${target.displayName} (${target.source ?? "unknown source"}${target.nativeId ? `:${target.nativeId}` : ""})`,
@@ -565,6 +650,184 @@ function unresolvedEvaluations(
   }) ?? [];
   return [...persistedEvaluations, ...ontologyEvaluations]
     .sort((left, right) => left.ruleId.localeCompare(right.ruleId) || left.citationId.localeCompare(right.citationId));
+}
+
+function consequenceEvidenceState(
+  message: string,
+  enabled: boolean,
+  entities: readonly CopilotEntityContext[],
+  relationships: readonly RelationshipLike[],
+  impactPaths: readonly OntologyRelationshipPath[],
+  unresolvedEvaluations: readonly CopilotUnresolvedEvaluationContext[],
+  graph: InvestigationKnowledgeGraph | undefined,
+): ConsequenceEvidenceState | undefined {
+  if (!enabled) return undefined;
+
+  const entityById = new Map(entities.map((entity) => [entity.entityId, entity]));
+  const matchesRequestedPair = (sourceId: string, targetId: string): boolean =>
+    entityById.get(sourceId)?.source?.toLocaleLowerCase() === "windchill" &&
+    entityById.get(targetId)?.source?.toLocaleLowerCase() === "sap";
+  const resolvedRelationships = relationships.filter((relationship) =>
+    relationship.category === "ontology-resolved" &&
+    relationship.family === "WC_PART_TO_SAP_MATERIAL" &&
+    relationship.kind === "operationally-represented-as" &&
+    matchesRequestedPair(relationship.sourceEntityId, relationship.targetEntityId),
+  );
+  const matchingEvaluations = unresolvedEvaluations.filter((evaluation) =>
+    evaluation.ruleId === "WC_PART_TO_SAP_MATERIAL" &&
+    evaluation.sourceApplication.toLocaleLowerCase() === "windchill" &&
+    evaluation.targetApplication.toLocaleLowerCase() === "sap",
+  );
+  const firstResolved = resolvedRelationships[0];
+  const matchingEvaluation = matchingEvaluations[0];
+  const selectEndpoint = (application: "windchill" | "sap", candidates: readonly string[], kindHint: string): CopilotEntityContext | undefined => {
+    const candidateIds = new Set(candidates);
+    return entities
+      .filter((entity) =>
+        entity.source?.toLocaleLowerCase() === application &&
+        !entity.kind.toLocaleLowerCase().includes("investigation-subject") &&
+        !entity.entityId.toLocaleLowerCase().startsWith("subject:") &&
+        (!candidateIds.size || candidateIds.has(entity.entityId)),
+      )
+      .sort((left, right) =>
+        relevance(message, [right.displayName, right.kind, right.nativeId ?? "", ...Object.values(right.properties)]) -
+          relevance(message, [left.displayName, left.kind, left.nativeId ?? "", ...Object.values(left.properties)]) ||
+        Number(right.kind.toLocaleLowerCase().includes(kindHint)) - Number(left.kind.toLocaleLowerCase().includes(kindHint)) ||
+        left.entityId.localeCompare(right.entityId),
+      )[0];
+  };
+  const sourceCandidateIds = matchingEvaluation?.sourceEntityIds ?? [];
+  const targetCandidateIds = matchingEvaluation?.targetEntityIds ?? [];
+  const source = firstResolved
+    ? entityById.get(firstResolved.sourceEntityId)
+    : selectEndpoint("windchill", sourceCandidateIds, "part");
+  const target = firstResolved
+    ? entityById.get(firstResolved.targetEntityId)
+    : selectEndpoint("sap", targetCandidateIds, "material");
+  const sourceEntityId = source?.entityId;
+  const targetEntityId = target?.entityId;
+  const endpointPairMatches = (sourceId: string, targetId: string): boolean =>
+    Boolean(sourceEntityId && targetEntityId &&
+      (sourceId === sourceEntityId && targetId === targetEntityId ||
+        sourceId === targetEntityId && targetId === sourceEntityId));
+  const resolvedRelationshipIds = new Set(resolvedRelationships.map((relationship) => relationship.id));
+  const matchingImpactPaths = impactPaths.filter((path) =>
+    path.impactEligible &&
+    endpointPairMatches(path.sourceEntityId, path.targetEntityId) &&
+    path.relationshipIds.some((id) => resolvedRelationshipIds.has(id)),
+  );
+  const matchingImpactChains = (graph?.impactChains ?? []).filter((chain) =>
+    endpointPairMatches(chain.sourceEntityId, chain.impactedEntityId) &&
+    chain.relationshipIds.some((id) => resolvedRelationshipIds.has(id)),
+  );
+  const impactPathCitationIds = [...new Set(matchingImpactPaths.flatMap((path) => path.citationIds))];
+  const impactChainCitationIds = [...new Set(matchingImpactChains.flatMap((chain) => chain.citationIds))];
+  const unresolvedEvaluationCitationIds = matchingEvaluation ? [matchingEvaluation.citationId] : [];
+  const resolvedRelationshipCitationIds = resolvedRelationships.map((relationship) =>
+    stableCitationId("relationship", relationship.id),
+  );
+  const sourceEntityCitationIds = source ? [source.citationId] : [];
+  const targetEntityCitationIds = target ? [target.citationId] : [];
+  const sameSubjectEntityIds = new Set<string>();
+  const subjectTraceabilityCitationIds: string[] = [];
+  for (const edge of graph?.subjectTraceabilityRelationships ?? []) {
+    const sourceEntity = entityById.get(edge.sourceEntityId);
+    const targetEntity = entityById.get(edge.targetEntityId);
+    const subjectEntityId = graph?.entities.find((entity) =>
+      entity.kind === "investigation-subject" &&
+      (entity.id === edge.sourceEntityId || entity.id === edge.targetEntityId),
+    )?.id;
+    if (!subjectEntityId) continue;
+    const participant = edge.sourceEntityId === subjectEntityId ? targetEntity : sourceEntity;
+    if (participant?.source?.toLocaleLowerCase() === "windchill" ||
+        participant?.source?.toLocaleLowerCase() === "sap") {
+      sameSubjectEntityIds.add(`${subjectEntityId}\u0000${participant.source.toLocaleLowerCase()}`);
+    }
+  }
+  const subjectIds = new Set([...sameSubjectEntityIds].map((item) => item.split("\u0000")[0]));
+  const sameInvestigationSubject = [...subjectIds].some((subjectId) =>
+    sameSubjectEntityIds.has(`${subjectId}\u0000windchill`) &&
+    sameSubjectEntityIds.has(`${subjectId}\u0000sap`),
+  );
+  const effectCitationIds = [...new Set([...impactPathCitationIds, ...impactChainCitationIds])];
+  const effectCategories: Readonly<Record<string, RegExp>> = {
+    inventory: /\binventory|stock\b/i,
+    "production-planning": /\bproduction|planning\b/i,
+    procurement: /\bprocurement|purchas/i,
+    compliance: /\bcompliance|regulatory\b/i,
+    "manufacturing-disruption": /\bmanufactur|disruption\b/i,
+    "material-management": /\bmaterial.?management\b/i,
+    "downstream-cost": /\bdownstream cost|cost impact\b/i,
+    "automatic-sap-changes": /\bautomatic(?:ally)? (?:update|change|propagat)/i,
+    "guaranteed-propagation": /\bguaranteed propagation|guarantee(?:d)? (?:impact|change|propagation)/i,
+  };
+  const specificEffectCitationIdsByCategory = Object.fromEntries(
+    Object.entries(effectCategories).map(([category, pattern]) => [
+      category,
+      [...new Set(effectCitationIds.filter((citationId) =>
+        graph?.relationshipEvidence.some((item) =>
+          stableCitationId("evidence", item.id) === citationId &&
+          pattern.test(`${item.path} ${item.value}`),
+        ) ?? false,
+      ))],
+    ]),
+  );
+  const specificEffectCitationIds = [...new Set(Object.values(specificEffectCitationIdsByCategory).flat())];
+  const allowedCitationIds = [...new Set([
+    ...sourceEntityCitationIds,
+    ...targetEntityCitationIds,
+    ...subjectTraceabilityCitationIds,
+    ...unresolvedEvaluationCitationIds,
+    ...resolvedRelationshipCitationIds,
+    ...impactPathCitationIds,
+    ...impactChainCitationIds,
+    ...specificEffectCitationIds,
+  ])].sort();
+  const ontologyRelationshipEstablished = resolvedRelationships.length > 0;
+  const eligibleImpactPathAvailable = matchingImpactPaths.length > 0;
+  const eligibleImpactChainAvailable = matchingImpactChains.length > 0;
+
+  return {
+    intent: "consequence",
+    requestedRelationshipType: "operationally-represented-as",
+    sourceApplication: "windchill",
+    targetApplication: "sap",
+    ...(sourceEntityId ? { sourceEntityId } : {}),
+    ...(targetEntityId ? { targetEntityId } : {}),
+    sameInvestigationSubject,
+    ontologyRelationshipEstablished,
+    eligibleImpactPathAvailable,
+    eligibleImpactChainAvailable,
+    unresolvedEvaluationAvailable: matchingEvaluations.length > 0,
+    allowedConclusion: ontologyRelationshipEstablished && (eligibleImpactPathAvailable || eligibleImpactChainAvailable)
+      ? "evidence-backed-potential-impact"
+      : "insufficient-evidence",
+    allowedCitationIds,
+    sourceEntityCitationIds,
+    targetEntityCitationIds,
+    subjectTraceabilityCitationIds,
+    unresolvedEvaluationCitationIds,
+    resolvedRelationshipCitationIds,
+    impactPathIds: matchingImpactPaths.map((path) => path.id),
+    impactChainIds: matchingImpactChains.map((chain) => chain.id),
+    impactPathCitationIds,
+    impactChainCitationIds,
+    specificEffectCitationIds,
+    specificEffectCitationIdsByCategory,
+    prohibitedClaimCategories: [
+      "unsupported-operational-representation",
+      "unsupported-dependency",
+      "unsupported-operational-impact",
+      "inventory-effects-without-specific-evidence",
+      "production-planning-effects-without-specific-evidence",
+      "procurement-effects-without-specific-evidence",
+      "compliance-effects-without-specific-evidence",
+      "manufacturing-disruption-without-specific-evidence",
+      "downstream-cost-without-specific-evidence",
+      "automatic-sap-changes",
+      "guaranteed-operational-propagation",
+    ],
+  };
 }
 
 function applicationPairKey(sourceApplication: string, targetApplication: string): string {
@@ -700,6 +963,280 @@ function strengthScore(value?: string): number {
   return 0.45;
 }
 
+function displayApplicationName(value: string): string {
+  const knownNames: Readonly<Record<string, string>> = {
+    codebeamer: "Codebeamer",
+    configit: "Configit",
+    sap: "SAP",
+    windchill: "Windchill",
+  };
+  return knownNames[value.toLocaleLowerCase()] ??
+    value.replace(/[-_]+/g, " ").replace(/\b\w/g, (letter) => letter.toLocaleUpperCase());
+}
+
+function compareApplications(left: string, right: string): number {
+  const leftOrder = APPLICATION_PRESENTATION_ORDER.indexOf(left.toLocaleLowerCase() as typeof APPLICATION_PRESENTATION_ORDER[number]);
+  const rightOrder = APPLICATION_PRESENTATION_ORDER.indexOf(right.toLocaleLowerCase() as typeof APPLICATION_PRESENTATION_ORDER[number]);
+  return (leftOrder < 0 ? Number.MAX_SAFE_INTEGER : leftOrder) -
+    (rightOrder < 0 ? Number.MAX_SAFE_INTEGER : rightOrder) ||
+    left.localeCompare(right);
+}
+
+function joinApplicationNames(applications: readonly string[]): string {
+  if (applications.length < 2) return applications[0] ?? "";
+  if (applications.length === 2) return `${applications[0]} and ${applications[1]}`;
+  return `${applications.slice(0, -1).join(", ")}, and ${applications.at(-1)}`;
+}
+
+const FOUR_APPLICATION_SUBJECT_SET = new Set(["codebeamer", "windchill", "sap", "configit"]);
+
+function hasFourSubjectApplications(applications: readonly string[]): boolean {
+  const applicationSet = new Set(applications.map((application) => application.toLocaleLowerCase()));
+  return applicationSet.size === FOUR_APPLICATION_SUBJECT_SET.size &&
+    [...FOUR_APPLICATION_SUBJECT_SET].every((application) => applicationSet.has(application));
+}
+
+function isFourApplicationSubjectParticipation(
+  participation: readonly (Pick<SubjectApplicationParticipation, "application"> & { subjectId?: string })[],
+): boolean {
+  const subjectIds = new Set(participation.map((item) => item.subjectId).filter(Boolean));
+  return participation.length === FOUR_APPLICATION_SUBJECT_SET.size &&
+    subjectIds.size === 1 &&
+    hasFourSubjectApplications(participation.map((item) => item.application));
+}
+
+function fourApplicationConnectivitySentence(
+  applications: readonly string[],
+  subjectLabel: string,
+): string {
+  return `${joinApplicationNames(applications)} contribute records to the same ${subjectLabel} investigation subject.`;
+}
+
+function representativePriority(entity: CopilotEntityContext, application: string): number {
+  const kind = normalizedBusinessText(entity.kind);
+  const label = normalizedBusinessText(entity.displayName);
+  const metadataTerms = [
+    "lifecycle", "priority", "document type", "material type", "base unit",
+    "status", "generic attribute", "metadata", "catalog status", "origin", "language",
+    "translation", "severity", "version", "view",
+  ];
+  if (metadataTerms.some((term) => kind.includes(term) || label === term || label.startsWith(`${term} `))) return 0;
+  if (kind === "source" || label === "source") return 0;
+  if (
+    application.toLocaleLowerCase() === "sap" &&
+    kind.includes("source representation") &&
+    /^mat[0-9]/i.test(entity.nativeId ?? "")
+  ) return 75;
+  const priorities: readonly [string, number][] = [
+    ["part occurrence", 120],
+    ["part", 115],
+    ["assembly", 110],
+    ["material master", 110],
+    ["material movement", 35],
+    ["material", 105],
+    ["bom", 100],
+    ["requirement set", 100],
+    ["requirement group", 98],
+    ["requirement detail", 30],
+    ["requirement", 95],
+    ["product model", 95],
+    ["configuration family", 92],
+    ["accounting document", 25],
+    ["document", 90],
+    ["cad object", 88],
+    ["change notice", 85],
+    ["change task", 82],
+    ["production order", 80],
+    ["purchase order", 78],
+    ["transaction", 20],
+  ];
+  const domainPriority: Readonly<Record<string, readonly string[]>> = {
+    windchill: ["part", "assembly", "document", "cad", "change"],
+    sap: ["material", "bom", "production", "purchase"],
+    codebeamer: ["requirement"],
+    configit: ["product model", "configuration", "family", "rule"],
+  };
+  const matched = priorities.find(([term]) => kind.includes(term));
+  if (!matched) return kind.includes("source representation") ? 1 : 0;
+  const domainMatch = domainPriority[application.toLocaleLowerCase()]?.some((term) => kind.includes(term));
+  return matched[1] + (domainMatch ? 10 : 0);
+}
+
+type ConfigitRepresentativeCategory =
+  | "product/work-item subject"
+  | "product model"
+  | "product context"
+  | "configuration model"
+  | "configuration family"
+  | "feature"
+  | "configuration rule or expression"
+  | "metadata or attribute";
+
+function configitRepresentativeCategory(entity: CopilotEntityContext): ConfigitRepresentativeCategory {
+  const kind = normalizedBusinessText(entity.kind);
+  const sourceRole = normalizedBusinessText(entity.properties.sourceRole ?? "");
+  if (
+    sourceRole === "participating source subject" ||
+    kind.includes("work item subject") ||
+    kind.includes("product subject")
+  ) return "product/work-item subject";
+  if (kind.includes("product model")) return "product model";
+  if (kind.includes("product context")) return "product context";
+  if (kind.includes("configuration model")) return "configuration model";
+  if (kind.includes("configuration family") || kind === "family") return "configuration family";
+  if (kind.includes("feature")) return "feature";
+  if (kind.includes("rule") || kind.includes("expression")) return "configuration rule or expression";
+  return "metadata or attribute";
+}
+
+const CONFIGIT_REPRESENTATIVE_CATEGORY_PRIORITY: Readonly<Record<ConfigitRepresentativeCategory, number>> = {
+  "product/work-item subject": 0,
+  "product model": 1,
+  "product context": 2,
+  "configuration model": 3,
+  "configuration family": 4,
+  feature: 5,
+  "configuration rule or expression": 6,
+  "metadata or attribute": 7,
+};
+
+export function selectConfigitRepresentative(
+  entities: readonly CopilotEntityContext[],
+): CopilotEntityContext | undefined {
+  return [...entities].sort((left, right) =>
+    CONFIGIT_REPRESENTATIVE_CATEGORY_PRIORITY[configitRepresentativeCategory(left)] -
+      CONFIGIT_REPRESENTATIVE_CATEGORY_PRIORITY[configitRepresentativeCategory(right)] ||
+    Number(Boolean(right.nativeId && right.displayName)) - Number(Boolean(left.nativeId && left.displayName)) ||
+    left.entityId.localeCompare(right.entityId),
+  )[0];
+}
+
+function representativeSemanticRole(entity: CopilotEntityContext, application: string): string {
+  if (application.toLocaleLowerCase() === "configit") {
+    return configitRepresentativeCategory(entity);
+  }
+  if (
+    application.toLocaleLowerCase() === "sap" &&
+    normalizedBusinessText(entity.kind).includes("source representation") &&
+    /^mat[0-9]/i.test(entity.nativeId ?? "")
+  ) return "operational material";
+  return entity.kind;
+}
+
+function subjectApplicationParticipation(
+  subjectRelationships: readonly InvestigationKnowledgeGraph["subjectTraceabilityRelationships"][number][],
+  entities: readonly CopilotEntityContext[],
+  fallbackSubject: string,
+  canonicalRelationships: readonly IntelligenceRelationship[] = [],
+): SubjectApplicationParticipation[] {
+  const entityById = new Map(entities.map((entity) => [entity.entityId, entity]));
+  const groups = new Map<string, typeof subjectRelationships[number][]>();
+  for (const relationship of subjectRelationships) {
+    const application = relationship.sourceApplication ??
+      relationship.provenance.sourceApplication ??
+      entityById.get(relationship.sourceEntityId)?.source;
+    if (!application) continue;
+    const subjectId = relationship.provenance.subjectId || relationship.targetEntityId;
+    const key = `${subjectId}\u0000${application}`;
+    groups.set(key, [...(groups.get(key) ?? []), relationship]);
+  }
+  return [...groups.entries()]
+    .sort(([, left], [, right]) => {
+      const leftApplication = left[0].sourceApplication ?? left[0].provenance.sourceApplication ?? "";
+      const rightApplication = right[0].sourceApplication ?? right[0].provenance.sourceApplication ?? "";
+      return compareApplications(leftApplication, rightApplication) ||
+        left[0].provenance.subjectId.localeCompare(right[0].provenance.subjectId);
+    })
+    .map(([, group]) => {
+      const sourceEntityIds = [...new Set(group.map((relationship) => relationship.sourceEntityId))];
+      const sourceEntities = sourceEntityIds
+        .map((entityId) => entityById.get(entityId))
+        .filter((entity): entity is CopilotEntityContext => Boolean(entity));
+      const application = group[0].sourceApplication ??
+        group[0].provenance.sourceApplication ??
+        sourceEntities[0]?.source ??
+        "unknown";
+      const businessCandidates = sourceEntities
+        .map((entity) => ({ entity, priority: representativePriority(entity, application) }))
+        .filter(({ priority }) => priority > 1)
+        .sort((left, right) =>
+          right.priority - left.priority ||
+          left.entity.entityId.localeCompare(right.entity.entityId),
+        );
+      const representativeCandidates = businessCandidates.length
+        ? businessCandidates
+        : sourceEntities
+          .map((entity) => ({ entity, priority: representativePriority(entity, application) }))
+          .filter(({ priority }) => priority === 1)
+          .sort((left, right) => left.entity.entityId.localeCompare(right.entity.entityId));
+      const representatives = application.toLocaleLowerCase() === "configit"
+        ? [selectConfigitRepresentative(sourceEntities)].filter((entity): entity is CopilotEntityContext => Boolean(entity))
+        : representativeCandidates.slice(0, 1).map(({ entity }) => entity);
+      const hasMaterialDetail = sourceEntities.some((entity) =>
+        entity.kind.toLocaleLowerCase() === "product-detail" &&
+        entity.displayName.toLocaleLowerCase().includes("material type"),
+      );
+      const subjectEntity = entityById.get(group[0].targetEntityId);
+      const representative = representatives[0];
+      const representativeEntityStatus = representative && application.toLocaleLowerCase() === "configit"
+        ? canonicalRelationships
+          .filter((relationship) =>
+            relationship.sourceEntityId === representative.entityId &&
+            normalizedBusinessText(relationship.kind) === "has product context",
+          )
+          .map((relationship) => entityById.get(relationship.targetEntityId))
+          .find((entity) =>
+            entity &&
+            normalizedBusinessText(entity.displayName).includes("status") &&
+            entity.properties.value?.trim(),
+          )?.properties.value
+        : undefined;
+      return {
+        subjectId: group[0].provenance.subjectId || group[0].targetEntityId,
+        subjectLabel: fallbackSubject || subjectEntity?.displayName || "",
+        application: displayApplicationName(application),
+        participantCount: sourceEntityIds.length,
+        uniqueEntityCount: sourceEntityIds.length,
+        representativeEntityIds: representatives.map((entity) => entity.entityId),
+        representativeEntityLabels: representatives.map((entity) => {
+          if (application.toLocaleLowerCase() === "sap" && hasMaterialDetail && /^mat[0-9]/i.test(entity.nativeId ?? "")) {
+            return `Material ${entity.nativeId}`;
+          }
+          if (application.toLocaleLowerCase() === "codebeamer" &&
+              normalizedBusinessText(entity.kind).includes("requirement")) {
+            return entity.displayName;
+          }
+          if (normalizedBusinessText(entity.kind).includes("part occurrence") && entity.nativeId) {
+            return `${entity.displayName} part ${entity.nativeId.split(/[\/#]/)[0]}`;
+          }
+          if (application.toLocaleLowerCase() === "configit" &&
+              configitRepresentativeCategory(entity) === "product/work-item subject" &&
+              entity.nativeId) {
+            return `${entity.displayName}, Work-item ID ${entity.nativeId}`;
+          }
+          if (application.toLocaleLowerCase() === "configit" &&
+              normalizedBusinessText(entity.kind).includes("family") &&
+              entity.nativeId) {
+            return `${entity.displayName} ${entity.nativeId}`;
+          }
+          return entity.nativeId && !entity.displayName.includes(entity.nativeId)
+            ? `${entity.displayName} (${entity.nativeId})`
+            : entity.displayName;
+        }),
+        representativeEntityKinds: representatives.map((entity) => entity.kind),
+        ...(representativeEntityStatus ? { representativeEntityStatus } : {}),
+        sourceKinds: [...new Set(sourceEntities.map((entity) => entity.kind))].sort(),
+        relationshipType: "represents-subject" as const,
+        category: "subject-traceability-summary" as const,
+        status: "subject-derived" as const,
+        authority: "investigation" as const,
+        strength: "informational" as const,
+        impactEligible: false as const,
+        ...(!representatives.length ? { diagnosticReason: "No non-metadata business entity is available for this application." } : {}),
+      };
+    });
+}
+
 function statusScore(value?: string): number {
   if (value === "SOURCE_EXPLICIT") return 1;
   if (value === "CONFIRMED") return 0.95;
@@ -794,6 +1331,8 @@ function pathNarrative(
 export function buildReasoningPackage(input: {
   subject: string;
   questionIntent: CopilotContextPacket["questionIntent"];
+  includeSubjectTraceability?: boolean;
+  subjectApplicationParticipation?: readonly SubjectApplicationParticipation[];
   entities: readonly CopilotEntityContext[];
   relationships: readonly CopilotRelationshipContext[];
   relationshipPaths: readonly OntologyRelationshipPath[];
@@ -807,6 +1346,36 @@ export function buildReasoningPackage(input: {
 }): ReasoningPackage {
   const entityById = new Map(input.entities.map((entity) => [entity.entityId, entity]));
   const relationshipsById = new Map(input.relationships.map((relationship) => [relationship.relationshipId, relationship]));
+  const subjectApplicationParticipation = [...(input.subjectApplicationParticipation ?? [])];
+  const compactFourApplicationSubject = Boolean(
+    input.includeSubjectTraceability && isFourApplicationSubjectParticipation(subjectApplicationParticipation),
+  );
+  const subjectTraceabilityRelationships: SubjectTraceabilityRelationshipArtifact[] = [];
+  const subjectTraceabilityNarratives: SubjectTraceabilityNarrative[] = input.includeSubjectTraceability && !compactFourApplicationSubject
+    ? subjectApplicationParticipation.map((participation) => {
+    const representativeEntities = participation.representativeEntityIds
+      .map((entityId) => entityById.get(entityId))
+      .filter((entity): entity is CopilotEntityContext => Boolean(entity));
+    const examples = representativeEntities.map((entity) =>
+      entity.nativeId && !entity.displayName.includes(entity.nativeId)
+        ? `${entity.displayName} (${entity.nativeId})`
+        : entity.displayName,
+    );
+    const recordLabel = participation.participantCount === 1 ? "record" : "records";
+    return {
+        id: `subject-traceability:${participation.subjectId}:${participation.application}`,
+        category: "subject-traceability",
+        text: `${participation.application} contributes ${participation.participantCount} ${recordLabel} to the ${participation.subjectLabel} investigation subject${examples.length ? `, including ${examples.join(" and ")}` : ""}.`,
+        meaning: "informational",
+        authority: "investigation",
+        strength: "informational",
+        impactEligible: false,
+        application: participation.application,
+        participantCount: participation.participantCount,
+        citationIds: representativeEntities.map((entity) => entity.citationId),
+      };
+    })
+    : [];
   const scoredPaths = input.relationshipPaths
     .map((path) => scoreReasoningPath(path, entityById, relationshipsById))
     .sort((left, right) => right.score - left.score || left.path.relationshipIds.length - right.path.relationshipIds.length || left.path.id.localeCompare(right.path.id));
@@ -864,14 +1433,25 @@ export function buildReasoningPackage(input: {
       (importanceByEntity[right.entityId]?.score ?? 0) - (importanceByEntity[left.entityId]?.score ?? 0) ||
       left.entityId.localeCompare(right.entityId),
     );
-  const diversePrimaryEntities = [...rankedPrimaryEntities.reduce((selected, entity) => {
-    const source = entity.source ?? "unknown";
-    if (!selected.has(source)) selected.set(source, entity);
-    return selected;
-  }, new Map<string, typeof rankedPrimaryEntities[number]>()).values()];
+  const applicationRepresentativeEntities = [
+    ...subjectApplicationParticipation.flatMap((participation) =>
+      participation.representativeEntityIds.slice(0, 1).flatMap((entityId) => {
+        const entity = rankedPrimaryEntities.find((candidate) => candidate.entityId === entityId);
+        return entity ? [entity] : [];
+      }),
+    ),
+    ...subjectApplicationParticipation.flatMap((participation) =>
+      participation.representativeEntityIds.slice(1).flatMap((entityId) => {
+      const entity = rankedPrimaryEntities.find((candidate) => candidate.entityId === entityId);
+      return entity ? [entity] : [];
+      }),
+    ),
+  ];
   const primaryEntities = [
-    ...diversePrimaryEntities,
-    ...rankedPrimaryEntities.filter((entity) => !diversePrimaryEntities.some((selected) => selected.entityId === entity.entityId)),
+    ...applicationRepresentativeEntities,
+    ...rankedPrimaryEntities.filter((entity) =>
+      !applicationRepresentativeEntities.some((selected) => selected.entityId === entity.entityId),
+    ),
   ]
     .slice(0, COPILOT_RETRIEVAL_CONFIG.maxPrimaryEntities)
     .map((entity) => {
@@ -883,7 +1463,16 @@ export function buildReasoningPackage(input: {
         crossApplicationCount: 0,
         ontologyStrength: 0,
       };
-      return { ...entity, importanceScore: importance.score, importance };
+      return {
+        entityId: entity.entityId,
+        citationId: entity.citationId,
+        displayName: entity.displayName,
+        kind: entity.kind,
+        importanceScore: importance.score,
+        ...(entity.source ? { source: entity.source } : {}),
+        ...(entity.nativeId ? { nativeId: entity.nativeId } : {}),
+        importance,
+      };
     });
 
   const relationshipNarratives = scoredPaths
@@ -1110,32 +1699,91 @@ export function buildReasoningPackage(input: {
     const application = entity.source ?? "unknown";
     applicationCoverage[application] = (applicationCoverage[application] ?? 0) + 1;
   }
+  const applicationsPresent = [...new Set(subjectApplicationParticipation.map((participation) => participation.application))]
+    .sort(compareApplications);
+  const subjectDisplayName = subjectApplicationParticipation[0]?.subjectLabel ?? input.subject;
+  const evidenceBoundaryStatement = compactFourApplicationSubject
+    ? "Shared subject participation does not establish a direct engineering relationship between their records."
+    : "Shared subject participation does not prove that the source records represent the same enterprise object or have a direct engineering dependency.";
+  const subjectParticipationSummary = compactFourApplicationSubject
+    ? ""
+    : subjectTraceabilityNarratives
+    .map((narrative) => `${narrative.text.split(", including")[0]}.`)
+    .join(" ");
+  const representativeEntitiesByApplication = compactFourApplicationSubject ? {} : Object.fromEntries(
+    subjectApplicationParticipation.reduce((groups, participation) => {
+      const current = groups.get(participation.application) ?? [];
+      groups.set(participation.application, [
+        ...new Set([...current, ...participation.representativeEntityLabels]),
+      ]);
+      return groups;
+    }, new Map<string, string[]>()),
+  );
+  const participatingApplications = new Set(subjectApplicationParticipation.map((participation) =>
+    participation.application.toLocaleLowerCase(),
+  ));
+  const ontologyResolvedCrossSystemCount = input.relationships.filter((relationship) => {
+    if (relationship.category !== "ontology-resolved") return false;
+    const source = entityById.get(relationship.sourceEntityId)?.source?.toLocaleLowerCase();
+    const target = entityById.get(relationship.targetEntityId)?.source?.toLocaleLowerCase();
+    return Boolean(
+      source &&
+      target &&
+      source !== target &&
+      participatingApplications.has(source) &&
+      participatingApplications.has(target),
+    );
+  }).length;
+  const crossSystemParticipationSummary = compactFourApplicationSubject
+    ? fourApplicationConnectivitySentence(applicationsPresent, subjectDisplayName)
+    : applicationsPresent.length > 1
+    ? `${joinApplicationNames(applicationsPresent)} contribute source-authoritative records to the same ${subjectDisplayName} investigation subject and are connected at the investigation level through subject-traceability. This shared participation does not establish a direct engineering relationship between those records. ${
+        ontologyResolvedCrossSystemCount
+          ? `${ontologyResolvedCrossSystemCount} ontology-resolved cross-system engineering relationship(s) are also present.`
+          : "No ontology-resolved engineering relationship currently exists between these systems."
+      }`
+    : applicationsPresent.length === 1
+      ? `${applicationsPresent[0]} contributes source-authoritative records to the ${subjectDisplayName} investigation subject through investigation-level subject traceability. ${evidenceBoundaryStatement}`
+      : "";
   const crossApplicationCount = input.relationships.filter((relationship) => {
     const source = entityById.get(relationship.sourceEntityId)?.source;
     const target = entityById.get(relationship.targetEntityId)?.source;
     return Boolean(source && target && source !== target);
   }).length;
   const summary: InvestigationReasoningSummary = {
-    crossSystemSummary: crossApplicationCount
+    applicationsPresent,
+    subjectParticipationSummary,
+    crossSystemParticipationSummary,
+    representativeEntitiesByApplication,
+    evidenceBoundaryStatement,
+    crossSystemSummary: compactFourApplicationSubject
+      ? ""
+      : crossSystemParticipationSummary || (crossApplicationCount
       ? `${input.subject}: ${crossApplicationCount} retrieved relationship(s) connect different applications across ${Object.keys(applicationCoverage).length} represented application(s).`
-      : `${input.subject}: no cross-application relationship was retrieved across ${Object.keys(applicationCoverage).length} represented application(s).`,
+      : `${input.subject}: no cross-application relationship was retrieved across ${Object.keys(applicationCoverage).length} represented application(s).`),
     relationshipCount: input.knowledgeGraphSummary?.relationshipCount ?? input.relationships.length,
-    relationshipSummary: [
-      `${input.knowledgeGraphSummary?.relationshipCount ?? input.relationships.length} relationship(s) are represented in this investigation package.`,
+    relationshipSummary: `${input.knowledgeGraphSummary?.relationshipCount ?? input.relationships.length} relationship(s) are represented; ${
       crossApplicationCount
         ? `${crossApplicationCount} retrieved relationship(s) cross application boundaries.`
-        : "No cross-application relationship was retrieved.",
-      ...relationshipNarratives.slice(0, 3).map((item) => item.text),
-    ].join(" "),
+        : "no cross-application relationship was retrieved."
+    }`,
     applicationCoverage,
-    keyDependencies: scoredPaths.filter((item) => item.path.steps.length > 1).slice(0, 5).map((item) => pathNarrative(item, entityById, false)?.text ?? ""),
-    mostConnectedEntities: primaryEntities.slice(0, 5).map((entity) => entity.displayName),
-    highestValueRelationships: relationshipNarratives.slice(0, 5).map((item) => item.text),
-    strongestEvidence: strongestEvidence.slice(0, 5).map((item) => item.summary),
-    strongestImpactChains: impactNarratives.slice(0, 5).map((item) => item.text),
+    keyDependencies: scoredPaths
+      .filter((item) => item.path.steps.length > 1)
+      .slice(0, 1)
+      .map((item) => short(pathNarrative(item, entityById, false)?.text ?? "", 300)),
+    mostConnectedEntities: primaryEntities.slice(0, 5).map((entity) => short(entity.displayName, 120)),
+    highestValueRelationships: relationshipNarratives.slice(0, 1).map((item) => short(item.text, 300)),
+    strongestEvidence: strongestEvidence.slice(0, 1).map((item) => short(item.summary, 300)),
+    strongestImpactChains: impactNarratives.slice(0, 1).map((item) => short(item.text, 300)),
   };
 
   return {
+    applicationsPresent: summary.applicationsPresent,
+    subjectParticipationSummary: summary.subjectParticipationSummary,
+    crossSystemParticipationSummary: summary.crossSystemParticipationSummary,
+    representativeEntitiesByApplication: summary.representativeEntitiesByApplication,
+    evidenceBoundaryStatement: summary.evidenceBoundaryStatement,
     primaryEntities,
     entityImportance: importanceByEntity,
     keyDependencies: scoredPaths.filter((item) => item.path.steps.length > 1).slice(0, COPILOT_RETRIEVAL_CONFIG.maxReasoningItems),
@@ -1143,6 +1791,9 @@ export function buildReasoningPackage(input: {
     strongestEvidence,
     engineeringFindings: engineeringFindings.slice(0, COPILOT_RETRIEVAL_CONFIG.maxReasoningItems),
     relationshipNarratives: relationshipNarratives.slice(0, COPILOT_RETRIEVAL_CONFIG.maxReasoningItems),
+    subjectTraceabilityRelationships,
+    subjectTraceabilityNarratives,
+    subjectApplicationParticipation,
     impactNarratives: impactNarratives.slice(0, COPILOT_RETRIEVAL_CONFIG.maxReasoningItems),
     unresolvedRelationships: input.unresolvedRelationships.slice(0, COPILOT_RETRIEVAL_CONFIG.maxReasoningItems),
     missingEvidence: missingEvidence.slice(0, COPILOT_RETRIEVAL_CONFIG.maxReasoningItems),
@@ -1156,6 +1807,7 @@ export function buildEngineeringBrief(
   entities: readonly CopilotEntityContext[],
   relationshipFlow: Omit<RelationshipFlowDiagnostics, "copilotContext" | "engineeringBrief">,
   evidence: readonly CopilotEvidenceContext[],
+  compactFourApplicationSubject = false,
 ): EngineeringBrief {
   const insightKinds = [
     "highest-risk-dependency-signal",
@@ -1175,6 +1827,8 @@ export function buildEngineeringBrief(
   const topFindings = reasoningPackage.engineeringFindings.slice(0, 5);
   const topImpactChains = reasoningPackage.impactChains.slice(0, 5);
   const relationshipNarratives = reasoningPackage.relationshipNarratives.slice(0, 5);
+  const subjectTraceabilityRelationships: ReasoningPackage["subjectTraceabilityRelationships"] = [];
+  const subjectTraceabilityNarratives = reasoningPackage.subjectTraceabilityNarratives;
   const impactNarratives = reasoningPackage.impactNarratives.slice(0, 5);
   const strongestEvidence = reasoningPackage.strongestEvidence.slice(0, 5);
   const missingEvidence = reasoningPackage.missingEvidence.slice(0, 5);
@@ -1188,6 +1842,7 @@ export function buildEngineeringBrief(
     : " No governed potential impact chain was available in the reasoning package; this is not proof that no downstream impact exists.";
   const entityById = new Map(entities.map((entity) => [entity.entityId, entity]));
   const majorRelationships = [...relationships]
+    .filter((relationship) => relationship.category !== "subject-traceability")
     .sort((left, right) => {
       const crossesApplications = (relationship: CopilotRelationshipContext) => {
         const source = entityById.get(relationship.sourceEntityId)?.source;
@@ -1247,6 +1902,61 @@ export function buildEngineeringBrief(
   return {
     executiveSummary: `${reasoningPackage.investigationSummary.relationshipSummary}${impactSummary}`,
     crossSystemSummary: reasoningPackage.investigationSummary.crossSystemSummary,
+    applicationsPresent: reasoningPackage.investigationSummary.applicationsPresent,
+    subjectApplicationParticipation: reasoningPackage.subjectApplicationParticipation.map((participation) => {
+      const kinds = participation.sourceKinds.map(normalizedBusinessText);
+      const application = normalizedBusinessText(participation.application);
+      const contribution = application === "codebeamer"
+        ? "requirements"
+        : application === "windchill"
+          ? "engineering product records"
+          : application === "sap"
+            ? "operational material and transaction records"
+            : application === "configit"
+              ? "product models, features, families, and rules"
+              : kinds.some((kind) => kind.includes("requirement"))
+                ? "requirements"
+                : kinds.some((kind) => ["part", "assembly", "change", "document", "cad"].some((term) => kind.includes(term)))
+                  ? "engineering product records"
+                  : kinds.some((kind) => ["material", "movement", "accounting", "product detail"].some((term) => kind.includes(term)))
+                    ? "operational material and transaction records"
+                    : "source-authoritative records";
+      const representativeId = participation.representativeEntityIds[0];
+      const representative = representativeId ? entityById.get(representativeId) : undefined;
+      return {
+        ...(compactFourApplicationSubject ? { subjectId: participation.subjectId } : {}),
+        subjectLabel: participation.subjectLabel,
+        application: participation.application,
+        participantCount: participation.participantCount,
+        ...(compactFourApplicationSubject
+          ? representative
+            ? {
+                    representativeEntity: {
+                      entityId: representative.entityId,
+                      displayLabel: short(participation.representativeEntityLabels[0] ?? representative.displayName, 120),
+                      kind: representative.kind,
+                      sourceApplication: participation.application,
+                      citationId: representative.citationId,
+                      ...(representative.nativeId ? { nativeId: representative.nativeId } : {}),
+                      semanticRole: representativeSemanticRole(representative, participation.application),
+                      ...(participation.representativeEntityStatus
+                        ? { status: participation.representativeEntityStatus }
+                        : {}),
+                    },
+                  }
+            : {}
+          : {
+                  representativeEntityIds: participation.representativeEntityIds,
+                  representativeEntityLabels: participation.representativeEntityLabels,
+                  representativeEntityKinds: participation.representativeEntityKinds,
+            }),
+        contribution,
+      };
+    }),
+    representativeEntitiesByApplication: reasoningPackage.representativeEntitiesByApplication,
+    evidenceBoundaryStatement: reasoningPackage.evidenceBoundaryStatement,
+    subjectParticipationSummary: reasoningPackage.investigationSummary.subjectParticipationSummary,
+    crossSystemParticipationSummary: reasoningPackage.investigationSummary.crossSystemParticipationSummary,
     primaryEntities: briefEntities.map((entity) => ({
       entityId: entity.entityId,
       citationId: entity.citationId,
@@ -1258,6 +1968,8 @@ export function buildEngineeringBrief(
     })),
     majorRelationships,
     relationshipNarratives,
+    subjectTraceabilityRelationships,
+    subjectTraceabilityNarratives,
     impactNarratives,
     relationshipEvidence,
     engineeringInsights,
@@ -1276,37 +1988,221 @@ export function ensureEngineeringAnswerCoverage(
   brief: EngineeringBrief,
   citations: readonly CopilotCitation[],
   includePrimaryEntities: boolean,
+  questionIntent?: CopilotContextPacket["questionIntent"],
+  contextPacket?: Pick<CopilotContextPacket, "entities" | "relationships" | "impactPaths" | "subjectTraceabilityDiagnostics" | "consequenceEvidenceState">,
 ): unknown {
   if (!value || typeof value !== "object" || Array.isArray(value)) return value;
   const answer = value as Record<string, unknown>;
   if (typeof answer.answer !== "string" || !Array.isArray(answer.claims)) return value;
+  if (contextPacket?.consequenceEvidenceState) return value;
 
   const knownCitationIds = new Set(citations.map((citation) => citation.citationId));
   const claims = [...answer.claims];
   const sections: string[] = [];
   const originalText = answer.answer;
+  const participationWithRepresentatives = brief.subjectApplicationParticipation.map((participation) => {
+    const compactRepresentative = participation.representativeEntity;
+    const representativeEntityIds = compactRepresentative
+      ? [compactRepresentative.entityId]
+      : participation.representativeEntityIds ?? [];
+    const representativeEntityLabels = compactRepresentative
+      ? [compactRepresentative.displayLabel]
+      : participation.representativeEntityLabels ?? [];
+    const representativeEntityKinds = compactRepresentative
+      ? [compactRepresentative.kind]
+      : participation.representativeEntityKinds ?? [];
+    const representativeCitationIds = compactRepresentative
+      ? [compactRepresentative.citationId]
+      : brief.primaryEntities
+        .filter((entity) => representativeEntityIds.includes(entity.entityId))
+        .map((entity) => entity.citationId);
+    return {
+      participation,
+      representativeEntityIds,
+      representativeEntityLabels,
+      representativeEntityKinds,
+      representativeCitationIds: [...new Set(representativeCitationIds)]
+        .filter((citationId) => knownCitationIds.has(citationId)),
+    };
+  });
+  const primaryRepresentatives = (() => {
+    const applicationRepresentatives = participationWithRepresentatives.flatMap((item) => {
+      const participation = item.participation;
+      const compact = participation.representativeEntity;
+      const primaryEntity = compact
+        ? undefined
+        : brief.primaryEntities.find((entity) =>
+          item.representativeEntityIds.includes(entity.entityId),
+        );
+      const entityId = compact?.entityId ?? primaryEntity?.entityId;
+      const citationId = compact?.citationId ?? primaryEntity?.citationId;
+      const displayLabel = compact?.displayLabel ?? primaryEntity?.displayName;
+      if (!entityId || !citationId || !displayLabel || !knownCitationIds.has(citationId)) return [];
+      return [{
+        entityId,
+        citationId,
+        displayLabel,
+        kind: compact?.kind ?? primaryEntity?.kind ?? "",
+        semanticRole: compact?.semanticRole ?? primaryEntity?.kind ?? compact?.kind ?? "",
+        sourceApplication: compact?.sourceApplication ?? participation.application,
+        ...(compact?.nativeId ?? primaryEntity?.nativeId
+          ? { nativeId: compact?.nativeId ?? primaryEntity?.nativeId }
+          : {}),
+        ...(compact?.status ? { status: compact.status } : {}),
+      }];
+    });
+    const uniqueApplications = new Set<string>();
+    const balancedRepresentatives = applicationRepresentatives.filter((representative) => {
+      const application = representative.sourceApplication.toLocaleLowerCase();
+      if (uniqueApplications.has(application)) return false;
+      uniqueApplications.add(application);
+      return true;
+    });
+    if (balancedRepresentatives.length) return balancedRepresentatives;
+    return brief.primaryEntities
+      .filter((entity) => knownCitationIds.has(entity.citationId))
+      .map((entity) => ({
+        entityId: entity.entityId,
+        citationId: entity.citationId,
+        displayLabel: entity.displayName,
+        kind: entity.kind,
+        semanticRole: entity.kind,
+        sourceApplication: entity.source ?? "",
+        ...(entity.nativeId ? { nativeId: entity.nativeId } : {}),
+      }));
+  })();
+  const requiredApplications = ["Codebeamer", "Windchill", "SAP", "Configit"];
+  const requiresFourApplicationCoverage =
+    participationWithRepresentatives.some((item) => item.participation.representativeEntity !== undefined) ||
+    requiredApplications.every((application) =>
+      brief.applicationsPresent.some((present) => present.toLocaleLowerCase() === application.toLocaleLowerCase()),
+    );
+  if (requiresFourApplicationCoverage) {
+    for (const application of requiredApplications) {
+      const participation = participationWithRepresentatives.find((item) =>
+        item.participation.application.toLocaleLowerCase() === application.toLocaleLowerCase(),
+      );
+      if (!participation)
+        throw new Error(`M1 answer coverage is missing required application ${application}.`);
+      if (
+        !participation.representativeEntityIds.some((entityId) => entityId.trim()) ||
+        !participation.representativeEntityLabels.some((label) => label.trim())
+      )
+        throw new Error(`M1 answer coverage is missing a representative for ${application}.`);
+      if (participation.representativeCitationIds.length === 0)
+        throw new Error(`M1 answer coverage is missing a known representative citation for ${application}.`);
+    }
+  }
   const hasCitedClaim = (citationIds: readonly string[]) => claims.some((claim) =>
     Boolean(claim && typeof claim === "object" && "citationIds" in claim &&
       Array.isArray(claim.citationIds) &&
       claim.citationIds.some((id: unknown) => typeof id === "string" && citationIds.includes(id))),
   );
+  const windchillParticipation = participationWithRepresentatives.find((item) =>
+    item.participation.application.toLocaleLowerCase() === "windchill",
+  );
+  const sapParticipation = participationWithRepresentatives.find((item) =>
+    item.participation.application.toLocaleLowerCase() === "sap",
+  );
+  const entityById = new Map((contextPacket?.entities ?? []).map((entity) => [entity.entityId, entity]));
+  const hasOntologyResolvedWindchillSapRelationship =
+    contextPacket?.subjectTraceabilityDiagnostics.hasOntologyResolvedWindchillSapRelationship ??
+    (contextPacket?.relationships ?? []).some((relationship) => {
+    if (relationship.category !== "ontology-resolved") return false;
+    const sourceApplication = entityById.get(relationship.sourceEntityId)?.source?.toLocaleLowerCase();
+    const targetApplication = entityById.get(relationship.targetEntityId)?.source?.toLocaleLowerCase();
+    return sourceApplication === "windchill" && targetApplication === "sap" ||
+      sourceApplication === "sap" && targetApplication === "windchill";
+    });
+  const hasWindchillSapImpactPath =
+    contextPacket?.subjectTraceabilityDiagnostics.hasWindchillSapImpactPath ??
+    (contextPacket?.impactPaths ?? []).some((path) => {
+    if (!path.impactEligible) return false;
+    const sourceApplication = entityById.get(path.sourceEntityId)?.source?.toLocaleLowerCase();
+    const targetApplication = entityById.get(path.targetEntityId)?.source?.toLocaleLowerCase();
+    return sourceApplication === "windchill" && targetApplication === "sap" ||
+      sourceApplication === "sap" && targetApplication === "windchill";
+    });
+  if (
+    questionIntent === "impact" &&
+    windchillParticipation &&
+    sapParticipation &&
+    !hasOntologyResolvedWindchillSapRelationship &&
+    !hasWindchillSapImpactPath
+  ) {
+    const citationIds = [...new Set([
+      ...windchillParticipation.representativeCitationIds,
+      ...sapParticipation.representativeCitationIds,
+    ])];
+    return {
+      ...answer,
+      answer: `The investigation contains Windchill and SAP records associated with the same ${windchillParticipation.participation.subjectLabel} investigation subject, but the saved evidence does not establish that the Windchill part is operationally represented as the SAP material. Therefore, no operational consequence can currently be established.`,
+      claims: [{
+        text: `Windchill and SAP records participate in the ${windchillParticipation.participation.subjectLabel} investigation subject, but no ontology-resolved Windchill-to-SAP relationship or eligible impact path is available.`,
+        kind: "fact",
+        citationIds,
+      }],
+      recommendations: [],
+      uncertainties: ["The saved evidence does not establish the asserted Windchill-to-SAP operational representation."],
+      followUpQuestions: [],
+    };
+  }
 
   if (includePrimaryEntities) {
-    const missingEntities = brief.primaryEntities.filter((entity) => !originalText.includes(entity.displayName));
-    if (missingEntities.length) {
+    if (primaryRepresentatives.length) {
       sections.push([
         "Primary entities",
-        ...missingEntities.map((entity) =>
-          `- ${entity.displayName} (${entity.kind}${entity.source ? `; ${entity.source}` : ""})`,
+        ...primaryRepresentatives.map((entity) =>
+          `- ${entity.displayLabel}\n  ${entity.semanticRole}; ${entity.sourceApplication}`,
         ),
       ].join("\n"));
     }
-    for (const entity of brief.primaryEntities) {
+    for (const entity of primaryRepresentatives) {
       const citationIds = [entity.citationId].filter((id) => knownCitationIds.has(id));
       if (citationIds.length && !hasCitedClaim(citationIds)) claims.push({
-        text: `${entity.displayName} is present in the investigation as a ${entity.kind}${entity.source ? ` from ${entity.source}` : ""}.`,
+        text: `${entity.displayLabel} is present in the investigation as a ${entity.semanticRole}${entity.sourceApplication ? ` from ${entity.sourceApplication}` : ""}.`,
         kind: "fact",
         citationIds,
+      });
+    }
+  }
+
+  if (brief.subjectApplicationParticipation.length) {
+    const applicationLines = participationWithRepresentatives.map((item) => {
+      const participation = item.participation;
+      const contribution = participation.contribution;
+      const representatives = item.representativeEntityLabels
+        .map((label, index) => `${label}${item.representativeEntityKinds[index] ? ` (${item.representativeEntityKinds[index]})` : ""}`)
+        .join(" and ");
+      return `- ${participation.application}: ${participation.participantCount} participating records; contributes ${contribution}${representatives ? `; representative: ${representatives}` : ""}.`;
+    });
+    const subjectConnectivity = brief.crossSystemParticipationSummary;
+    const applicationSection = [
+      "Applications Present",
+      ...applicationLines,
+      ...(subjectConnectivity ? ["", "Subject Connectivity", subjectConnectivity] : []),
+      ...(brief.evidenceBoundaryStatement ? ["", "Evidence Boundary", brief.evidenceBoundaryStatement] : []),
+    ].join("\n");
+    if (!originalText.includes("Applications Present")) sections.push(applicationSection);
+    for (const item of participationWithRepresentatives) {
+      const participation = item.participation;
+      const citationIds = item.representativeCitationIds;
+      if (citationIds.length && !hasCitedClaim(citationIds)) {
+        claims.push({
+          text: `${participation.application} contributes ${participation.participantCount} source records to the ${participation.subjectLabel} investigation subject.`,
+          kind: "fact",
+          citationIds,
+        });
+      }
+    }
+    const connectivityCitations = [...new Set(participationWithRepresentatives.flatMap((item) =>
+      item.representativeCitationIds,
+    ))];
+    if (subjectConnectivity && connectivityCitations.length && !hasCitedClaim(connectivityCitations)) {
+      claims.push({
+        text: subjectConnectivity,
+        kind: "fact",
+        citationIds: connectivityCitations,
       });
     }
   }
@@ -1402,11 +2298,102 @@ export function ensureEngineeringAnswerCoverage(
     : value;
 }
 
-export function engineeringPromptPayload(question: string, contextPacket: CopilotContextPacket) {
+function includeRetrievedDocumentEvidence<T extends object>(
+  payload: T,
+  contextPacket: CopilotContextPacket,
+  retrievalEvidence?: readonly RetrievalEvidence[],
+): T | (T & {
+  retrievedDocumentEvidence: {
+    authority: "retrieved-document";
+    evidence: readonly RetrievalEvidence[];
+    uncertaintyBoundary?: string;
+  };
+}) {
+  if (!retrievalEvidence?.length) return payload;
+  return {
+    ...payload,
+    retrievedDocumentEvidence: {
+      authority: "retrieved-document",
+      evidence: retrievalEvidence,
+      ...(contextPacket.retrievalConfidence.belowThreshold
+        ? {
+            uncertaintyBoundary: "Graph confidence is below the configured threshold. Retrieved documents may support document-content claims only; they do not establish investigation-graph identity, relationships, impact paths, chains, or consequences.",
+          }
+        : {}),
+    },
+  };
+}
+
+export function engineeringPromptPayload(
+  question: string,
+  contextPacket: CopilotContextPacket,
+  retrievalEvidence?: readonly RetrievalEvidence[],
+) {
+  const consequence = contextPacket.consequenceEvidenceState;
+  if (consequence) {
+    const resolvedRelationshipIds = new Set(contextPacket.relationships
+      .filter((relationship) => consequence.resolvedRelationshipCitationIds.includes(relationship.citationId))
+      .map((relationship) => relationship.relationshipId));
+    const relevantPath = (path: OntologyRelationshipPath) =>
+      path.impactEligible &&
+      path.relationshipIds.some((relationshipId) => resolvedRelationshipIds.has(relationshipId));
+    const entities = contextPacket.entities
+      .filter((entity) => entity.entityId === consequence.sourceEntityId || entity.entityId === consequence.targetEntityId)
+      .map(({ entityId, citationId, displayName, kind, source, nativeId }) => ({
+        entityId,
+        citationId,
+        displayName: consequenceEndpointLabel(contextPacket, entityId, displayName),
+        kind,
+        ...(source ? { source } : {}),
+        ...(nativeId ? { nativeId } : {}),
+      }));
+    return includeRetrievedDocumentEvidence({
+      question,
+      consequenceEvidenceState: consequence,
+      requestedRelationshipType: consequence.requestedRelationshipType,
+      requestedEntities: entities,
+      resolvedRelationships: contextPacket.relationships.filter((relationship) =>
+        consequence.resolvedRelationshipCitationIds.includes(relationship.citationId),
+      ),
+      impactPaths: contextPacket.impactPaths.filter(relevantPath),
+      impactChains: contextPacket.reasoningPackage.impactChains.filter((chain) =>
+        chain.relationshipIds.some((relationshipId) => resolvedRelationshipIds.has(relationshipId)),
+      ),
+      unresolvedEvaluations: contextPacket.unresolvedEvaluations.filter((evaluation) =>
+        consequence.unresolvedEvaluationCitationIds.includes(evaluation.citationId),
+      ),
+      sameSubjectBackground: consequence.sameInvestigationSubject
+        ? `Windchill and SAP records participate in ${contextPacket.subject ? `the ${contextPacket.subject} investigation` : "the same investigation"}.`
+        : "",
+      evidenceBoundary: "Shared investigation participation does not prove operational representation, dependency, or operational consequence.",
+      citations: contextPacket.citations.filter((citation) => consequence.allowedCitationIds.includes(citation.citationId)),
+    }, contextPacket, retrievalEvidence);
+  }
+
   const { reasoningPackage, engineeringBrief, ...supportingContext } = contextPacket;
-  const promptSupportingContext = contextPacket.questionIntent === "summary"
+  const compactFourApplicationM1 = contextPacket.questionIntent === "summary" || contextPacket.questionIntent === "relationship"
+    ? isFourApplicationSubjectParticipation(engineeringBrief.subjectApplicationParticipation)
+    : false;
+  const promptSupportingContext = compactFourApplicationM1
+    ? {
+        schemaVersion: contextPacket.schemaVersion,
+        investigationId: contextPacket.investigationId,
+        snapshotRevision: contextPacket.snapshotRevision,
+        lifecycle: contextPacket.lifecycle,
+        userMessage: contextPacket.userMessage,
+        questionIntent: contextPacket.questionIntent,
+        citations: contextPacket.citations,
+        grounding: contextPacket.grounding,
+        uncertainties: contextPacket.uncertainties,
+        omissions: contextPacket.omissions,
+        retrievalConfidence: contextPacket.retrievalConfidence,
+      }
+    : contextPacket.questionIntent === "summary"
     ? {
         ...supportingContext,
+        relationships: supportingContext.relationships.filter((relationship) =>
+          relationship.category !== "subject-traceability",
+        ),
         entities: contextPacket.entities.map((entity) => ({
           entityId: entity.entityId,
           citationId: entity.citationId,
@@ -1425,6 +2412,8 @@ export function engineeringPromptPayload(question: string, contextPacket: Copilo
     ...contextPacket.relationshipFlow,
     promptPayload: {
       relationshipCount: engineeringBrief.majorRelationships.length,
+      subjectTraceabilityRelationshipCount: engineeringBrief.subjectTraceabilityRelationships.length,
+      subjectTraceabilityNarrativeCount: engineeringBrief.subjectTraceabilityNarratives.length,
       impactPathCount: engineeringBrief.impactNarratives.length,
       impactChainCount: engineeringBrief.topImpactChains.length,
       unresolvedRelationshipCount: engineeringBrief.unresolvedRelationships.length,
@@ -1434,11 +2423,56 @@ export function engineeringPromptPayload(question: string, contextPacket: Copilo
       ]).size,
     },
   };
-  return {
+  if (compactFourApplicationM1) {
+    const connectivityNarrative = [
+      engineeringBrief.crossSystemParticipationSummary,
+      engineeringBrief.evidenceBoundaryStatement,
+    ].filter(Boolean).join(" ");
+    return includeRetrievedDocumentEvidence({
+      question,
+      engineeringBrief: {
+        applicationsPresent: engineeringBrief.applicationsPresent,
+        subjectApplicationParticipation: engineeringBrief.subjectApplicationParticipation,
+        subjectParticipationSummary: "",
+        crossSystemParticipationSummary: connectivityNarrative,
+        primaryEntities: engineeringBrief.subjectApplicationParticipation.flatMap((participation) =>
+          participation.representativeEntity
+            ? [{
+                entityId: participation.representativeEntity.entityId,
+                citationId: participation.representativeEntity.citationId,
+                displayName: participation.representativeEntity.displayLabel,
+                kind: participation.representativeEntity.kind,
+                source: participation.application.toLocaleLowerCase(),
+              }]
+            : [],
+        ),
+        majorRelationships: engineeringBrief.majorRelationships,
+        relationshipNarratives: engineeringBrief.relationshipNarratives,
+        subjectTraceabilityRelationships: [],
+        subjectTraceabilityNarratives: [],
+        relationshipEvidence: engineeringBrief.relationshipEvidence,
+        relationshipFlow: promptRelationshipFlow,
+      },
+      engineeringInsights: [],
+      investigationSummary: { crossSystemParticipationSummary: "" },
+      topFindings: [],
+      topImpactChains: [],
+      strongestEvidence: [],
+      missingEvidence: [],
+      unresolvedRelationships: [],
+      recommendedInvestigationAreas: [],
+      supportingContext: promptSupportingContext,
+    }, contextPacket, retrievalEvidence);
+  }
+
+  return includeRetrievedDocumentEvidence({
     question,
     engineeringBrief: {
       executiveSummary: engineeringBrief.executiveSummary,
       crossSystemSummary: engineeringBrief.crossSystemSummary,
+      applicationsPresent: engineeringBrief.applicationsPresent,
+      subjectParticipationSummary: engineeringBrief.subjectParticipationSummary,
+      crossSystemParticipationSummary: engineeringBrief.crossSystemParticipationSummary,
       primaryEntities: engineeringBrief.primaryEntities.map((entity) => ({
         entityId: entity.entityId,
         citationId: entity.citationId,
@@ -1450,6 +2484,11 @@ export function engineeringPromptPayload(question: string, contextPacket: Copilo
       })),
       majorRelationships: engineeringBrief.majorRelationships,
       relationshipNarratives: engineeringBrief.relationshipNarratives,
+      subjectTraceabilityRelationships: engineeringBrief.subjectTraceabilityRelationships,
+      subjectTraceabilityNarratives: engineeringBrief.subjectTraceabilityNarratives,
+      subjectApplicationParticipation: engineeringBrief.subjectApplicationParticipation,
+      representativeEntitiesByApplication: engineeringBrief.representativeEntitiesByApplication,
+      evidenceBoundaryStatement: engineeringBrief.evidenceBoundaryStatement,
       impactNarratives: engineeringBrief.impactNarratives,
       relationshipEvidence: engineeringBrief.relationshipEvidence,
       relationshipFlow: promptRelationshipFlow,
@@ -1463,6 +2502,106 @@ export function engineeringPromptPayload(question: string, contextPacket: Copilo
     unresolvedRelationships: engineeringBrief.unresolvedRelationships,
     recommendedInvestigationAreas: engineeringBrief.recommendedInvestigationAreas,
     supportingContext: promptSupportingContext,
+  }, contextPacket, retrievalEvidence);
+}
+
+export function consequenceEndpointLabel(
+  context: CopilotContextPacket,
+  entityId: string | undefined,
+  fallback: string,
+): string {
+  const entity = context.entities.find((candidate) => candidate.entityId === entityId);
+  if (!entity) return fallback;
+
+  const source = entity.source?.toLocaleLowerCase();
+  const application = source === "sap"
+    ? "SAP"
+    : source === "windchill"
+      ? "Windchill"
+      : entity.source
+        ? `${entity.source[0].toLocaleUpperCase()}${entity.source.slice(1)}`
+        : undefined;
+  const entityKind = source === "windchill" && /part/i.test(entity.kind)
+    ? "part"
+    : source === "sap" && (/material/i.test(entity.kind) || entity.kind === "source-representation")
+      ? "material"
+      : entity.kind.replace(/[-_]/g, " ");
+  const nativeIdentifier = source === "windchill"
+    ? entity.properties.partNumber ??
+      entity.properties["Item ID"] ??
+      entity.nativeId?.split(/[\/#]/)[0]?.split(":").at(-1)
+    : source === "sap"
+      ? entity.properties.materialNumber ?? entity.nativeId
+      : entity.nativeId;
+  const safeIdentifier = nativeIdentifier &&
+    nativeIdentifier.length <= 120 &&
+    /^[A-Za-z0-9][A-Za-z0-9 .:_/#()-]*$/.test(nativeIdentifier)
+    ? nativeIdentifier
+    : undefined;
+
+  if (application && safeIdentifier) return `${application} ${entityKind} ${safeIdentifier}`;
+  const displayName = entity.displayName.trim();
+  if (application && displayName && displayName.length <= 120 &&
+      /^[A-Za-z0-9][A-Za-z0-9 .:_/#()-]*$/.test(displayName)) {
+    return `${application} ${displayName}`;
+  }
+  return displayName && displayName.length <= 120 &&
+    /^[A-Za-z0-9][A-Za-z0-9 .:_/#()-]*$/.test(displayName)
+    ? displayName
+    : fallback;
+}
+
+function projectM2EngineeringBrief(engineeringBrief: EngineeringBrief): EngineeringBrief {
+  return {
+    ...engineeringBrief,
+    executiveSummary: "",
+    crossSystemSummary: "",
+    applicationsPresent: [],
+    subjectParticipationSummary: "",
+    crossSystemParticipationSummary: "",
+    primaryEntities: [],
+    majorRelationships: [],
+    relationshipNarratives: [],
+    subjectTraceabilityRelationships: [],
+    subjectTraceabilityNarratives: [],
+    subjectApplicationParticipation: [],
+    representativeEntitiesByApplication: {},
+    evidenceBoundaryStatement: "",
+    impactNarratives: engineeringBrief.impactNarratives,
+    topImpactChains: [],
+    relationshipEvidence: [],
+    engineeringInsights: [],
+    topFindings: [],
+    strongestEvidence: [],
+    missingEvidence: [],
+    unresolvedRelationships: [],
+    recommendedInvestigationAreas: [],
+    relationshipFlow: {
+      ontologyGraph: {
+        relationshipCount: 0,
+        impactPathCount: 0,
+        impactChainCount: 0,
+        unresolvedRelationshipCount: 0,
+        evidenceCount: 0,
+        relationshipDefinitionCount: 0,
+      },
+      reasoningPackage: {
+        relationshipCount: 0,
+        impactPathCount: 0,
+        impactChainCount: 0,
+        unresolvedRelationshipCount: 0,
+        evidenceCount: 0,
+      },
+      engineeringBrief: {
+        relationshipCount: 0,
+        impactPathCount: 0,
+        impactChainCount: 0,
+        unresolvedRelationshipCount: 0,
+        evidenceCount: 0,
+        relationshipNarrativeCount: 0,
+        impactNarrativeCount: 0,
+      },
+    },
   };
 }
 
@@ -1476,10 +2615,51 @@ export function buildInvestigationContext(
   const message = short(userMessage.trim(), MAX_MESSAGE_CHARS);
   const canonical = isCanonical(snapshot.canonical?.value) ? snapshot.canonical.value : undefined;
   const selectedSources = sourceContext(snapshot, canonical).slice(0, 60);
-  const allEntityContexts = (canonical?.entities ?? []).map(normalizedEntity);
-  const entityById = new Map(allEntityContexts.map((entity) => [entity.entityId, entity]));
   const questionIntent = classifyQuestion(message);
   const investigationScoped = isInvestigationScopedQuestion(message, questionIntent);
+  const includeSubjectTraceability = investigationScoped &&
+    (questionIntent === "summary" || questionIntent === "relationship");
+  const subjectEntities = includeSubjectTraceability
+    ? canonical?.knowledgeGraph?.entities
+        .filter((entity) => entity.kind === "investigation-subject")
+        .map(normalizedSubjectEntity) ?? []
+    : [];
+  const allEntityContexts = [
+    ...(canonical?.entities ?? []).map(normalizedEntity),
+    ...subjectEntities,
+  ];
+  const entityById = new Map(allEntityContexts.map((entity) => [entity.entityId, entity]));
+  const graphSubjectTraceabilityEdgeCount = canonical?.knowledgeGraph?.subjectTraceabilityRelationships.length ?? 0;
+  const canonicalEntityApplication = new Map((canonical?.entities ?? []).map((entity) => [
+    entity.id,
+    entity.provenance.source?.toLocaleLowerCase(),
+  ]));
+  const hasOntologyResolvedWindchillSapRelationship = (canonical?.knowledgeGraph?.resolvedRelationships ?? []).some((relationship) => {
+    const sourceApplication = canonicalEntityApplication.get(relationship.sourceEntityId);
+    const targetApplication = canonicalEntityApplication.get(relationship.targetEntityId);
+    return sourceApplication === "windchill" && targetApplication === "sap" ||
+      sourceApplication === "sap" && targetApplication === "windchill";
+  });
+  const hasWindchillSapImpactPath = (canonical?.knowledgeGraph?.impactPaths ?? []).some((path) => {
+    if (!path.impactEligible) return false;
+    const sourceApplication = canonicalEntityApplication.get(path.sourceEntityId);
+    const targetApplication = canonicalEntityApplication.get(path.targetEntityId);
+    return sourceApplication === "windchill" && targetApplication === "sap" ||
+      sourceApplication === "sap" && targetApplication === "windchill";
+  });
+  const applicationParticipation = investigationScoped
+    ? subjectApplicationParticipation(
+        canonical?.knowledgeGraph?.subjectTraceabilityRelationships ?? [],
+        allEntityContexts,
+        snapshot.subjectLabel,
+        canonical?.relationships ?? [],
+      )
+    : [];
+  const compactFourApplicationSubject = includeSubjectTraceability &&
+    isFourApplicationSubjectParticipation(applicationParticipation);
+  const representativeSubjectEntityIds = new Set(applicationParticipation.flatMap((participation) =>
+    participation.representativeEntityIds,
+  ));
   const rankedEntityCandidates = rankEntityCandidates(message, allEntityContexts, canonical);
   const entityCandidates = questionIntent === "summary"
     ? allEntityContexts
@@ -1571,27 +2751,35 @@ export function buildInvestigationContext(
     return rightScore - leftScore || left.findingId.localeCompare(right.findingId);
   });
   const direction = relationshipDirection(message);
-  const scoredRelationships = relationshipList(canonical).map((relation) => ({
+  const scoredRelationships = relationshipList(canonical, includeSubjectTraceability)
+    .filter((relation) =>
+      relation.category !== "subject-traceability" ||
+      representativeSubjectEntityIds.has(relation.sourceEntityId),
+    )
+    .map((relation) => ({
     relation,
-    score: relevance(message, [
-      relation.id,
-      relation.kind ?? "",
-      relation.type ?? "",
-      relation.family ?? "",
-      relation.sourceEntityId,
-      relation.targetEntityId,
-      ...[relation.sourceEntityId, relation.targetEntityId].flatMap((entityId) => {
-        const endpoint = entityById.get(entityId);
-        return endpoint
-          ? [
-              endpoint.displayName,
-              endpoint.source ?? "",
-              endpoint.nativeId ?? "",
-              ...Object.entries(endpoint.properties).flat(),
-            ]
-          : [];
-      }),
-    ]),
+    score: Math.max(
+      relation.category === "subject-traceability" && investigationScoped ? 1 : 0,
+      relevance(message, [
+        relation.id,
+        relation.kind ?? "",
+        relation.type ?? "",
+        relation.family ?? "",
+        relation.sourceEntityId,
+        relation.targetEntityId,
+        ...[relation.sourceEntityId, relation.targetEntityId].flatMap((entityId) => {
+          const endpoint = entityById.get(entityId);
+          return endpoint
+            ? [
+                endpoint.displayName,
+                endpoint.source ?? "",
+                endpoint.nativeId ?? "",
+                ...Object.entries(endpoint.properties).flat(),
+              ]
+            : [];
+        }),
+      ]),
+    ),
   }));
   const focusEntity = questionIntent === "summary"
     ? undefined
@@ -1650,7 +2838,8 @@ export function buildInvestigationContext(
     .flatMap((key) => guidanceByPair.has(key) ? [guidanceByPair.get(key)!] : []);
   const allRelationshipPaths = canonical?.knowledgeGraph?.relationshipPaths ?? [];
   const allImpactPaths = canonical?.knowledgeGraph?.impactPaths ?? [];
-  const pathPool = questionIntent === "impact" || questionIntent === "dependency"
+  const impactLikeQuestion = ["impact", "dependency", "change-analysis", "risk", "root-cause"].includes(questionIntent);
+  const pathPool = impactLikeQuestion
     ? allImpactPaths
     : allRelationshipPaths;
   const relevantPathCandidates = clarificationRequired ? [] : pathPool
@@ -1725,11 +2914,28 @@ export function buildInvestigationContext(
     left.evidenceId.localeCompare(right.evidenceId),
   );
   const relevantUnresolvedCitationIds = new Set(relevantUnresolvedEvaluations.map((evaluation) => evaluation.citationId));
+  const isConsequenceQuestion = questionIntent === "impact" &&
+    /windchill/i.test(message) &&
+    /\bsap\b/i.test(message) &&
+    /(operational consequence|represented as|operationally represented)/i.test(message);
   const allUnresolved = unresolvedEvaluations(canonical, documentedPairs)
-    .filter((evaluation) => !focalEntityId || relevantUnresolvedCitationIds.has(evaluation.citationId));
+    .filter((evaluation) =>
+      isConsequenceQuestion || !focalEntityId || relevantUnresolvedCitationIds.has(evaluation.citationId),
+    );
+  const m2EvidenceState = consequenceEvidenceState(
+    message,
+    isConsequenceQuestion,
+    allEntityContexts,
+    allRelationships.map(({ relation }) => relation),
+    canonical?.knowledgeGraph?.impactPaths ?? allRelevantImpactPaths,
+    allUnresolved,
+    canonical?.knowledgeGraph,
+  );
   const fullReasoningPackage = buildReasoningPackage({
     subject: snapshot.subjectLabel,
     questionIntent,
+    includeSubjectTraceability,
+    subjectApplicationParticipation: applicationParticipation,
     entities: allEntityContexts,
     relationships: allRelationshipContexts,
     relationshipPaths: allRelevantPaths,
@@ -1773,6 +2979,7 @@ export function buildInvestigationContext(
     allEntityContexts,
     relationshipFlowBase,
     allEvidence,
+    compactFourApplicationSubject,
   );
   const allReasoningCitations = citationsFor(
     [],
@@ -1826,6 +3033,7 @@ export function buildInvestigationContext(
     subject: short(snapshot.subjectLabel, 300),
     userMessage: message,
     questionIntent,
+    ...(m2EvidenceState ? { consequenceEvidenceState: m2EvidenceState } : {}),
     entityCandidates,
     selectedEntityIds,
     entityConfidence,
@@ -1860,6 +3068,10 @@ export function buildInvestigationContext(
     reasoningStrongestEvidence: fullReasoningPackage.strongestEvidence.length,
     reasoningFindings: fullReasoningPackage.engineeringFindings.length,
     reasoningRelationshipNarratives: fullReasoningPackage.relationshipNarratives.length,
+    reasoningSubjectTraceabilityRelationships: fullReasoningPackage.subjectTraceabilityRelationships.length,
+    reasoningSubjectTraceabilityNarratives: compactFourApplicationSubject
+      ? 0
+      : fullReasoningPackage.subjectTraceabilityNarratives.length,
     reasoningImpactNarratives: fullReasoningPackage.impactNarratives.length,
     reasoningUnresolvedRelationships: fullReasoningPackage.unresolvedRelationships.length,
     reasoningMissingEvidence: fullReasoningPackage.missingEvidence.length,
@@ -1867,12 +3079,85 @@ export function buildInvestigationContext(
     sourceSelections: selectedSources.length,
     relationshipGuidance: Math.min(maxItems, relationshipGuidance.length),
   };
+  const isCompleteRelationshipGroup = (relation: RelationshipLike): boolean => {
+    const source = entityById.get(relation.sourceEntityId);
+    const target = entityById.get(relation.targetEntityId);
+    const evidenceIds = [...new Set([...(relation.evidenceIds ?? []), ...(relation.evidenceId ? [relation.evidenceId] : [])])];
+    return Boolean(
+      source &&
+      target &&
+      source.entityId !== target.entityId &&
+      evidenceIds.length > 0 &&
+      evidenceIds.length <= maxItems &&
+      evidenceIds.every((id) => allEvidence.some((item) => item.evidenceId === id)),
+    );
+  };
+  const protectedCandidate = m2EvidenceState
+    ? allRelationships.find(({ relation }) =>
+      m2EvidenceState.resolvedRelationshipCitationIds.includes(stableCitationId("relationship", relation.id)),
+    )
+    : allRelationships.find(({ relation }) =>
+      allRelevantImpactPaths.some((path) => path.relationshipIds.includes(relation.id)) &&
+      isCompleteRelationshipGroup(relation),
+    ) ?? allRelationships.find(({ relation }) => isCompleteRelationshipGroup(relation));
+  const protectedImpactPath = (questionIntent === "impact" || questionIntent === "change-analysis")
+    ? m2EvidenceState
+      ? canonical?.knowledgeGraph?.impactPaths.find((path) => m2EvidenceState.impactPathIds.includes(path.id))
+      : protectedCandidate
+        ? allRelevantImpactPaths.find((path) => path.relationshipIds.includes(protectedCandidate.relation.id))
+      : undefined
+    : undefined;
+  const protectedEntityIds = [...new Set([
+    ...(m2EvidenceState?.sourceEntityId ? [m2EvidenceState.sourceEntityId] : []),
+    ...(m2EvidenceState?.targetEntityId ? [m2EvidenceState.targetEntityId] : []),
+    ...(protectedCandidate
+      ? [protectedCandidate.relation.sourceEntityId, protectedCandidate.relation.targetEntityId]
+      : []),
+    ...fullReasoningPackage.subjectApplicationParticipation.flatMap((participation) =>
+      participation.representativeEntityIds.slice(0, 1),
+    ),
+  ])];
+  const protectedEvidenceIds = protectedCandidate
+    ? [...new Set([
+        ...(protectedCandidate.relation.evidenceIds ?? []),
+        ...(protectedCandidate.relation.evidenceId ? [protectedCandidate.relation.evidenceId] : []),
+      ])]
+    : [];
+  const protectedMinimums = {
+    entities: protectedEntityIds.length,
+    relationships: protectedCandidate ? 1 : 0,
+    evidence: protectedEvidenceIds.length,
+    paths: protectedImpactPath ? 1 : 0,
+    unresolvedEvaluations: m2EvidenceState?.unresolvedEvaluationAvailable ? 1 : 0,
+    reasoningPrimaryEntities: fullReasoningPackage.subjectApplicationParticipation.filter((participation) =>
+      participation.representativeEntityIds.length > 0,
+    ).length,
+    reasoningRelationshipNarratives: includeSubjectTraceability ? 0 : Number(fullReasoningPackage.relationshipNarratives.length > 0),
+    reasoningSubjectTraceabilityRelationships: fullReasoningPackage.subjectTraceabilityRelationships.length,
+    reasoningSubjectTraceabilityNarratives: fullReasoningPackage.subjectTraceabilityNarratives.length,
+    reasoningImpactNarratives: includeSubjectTraceability ? 0 : Number(fullReasoningPackage.impactNarratives.length > 0),
+    reasoningImpactChains: includeSubjectTraceability ? 0 : Number(fullReasoningPackage.impactChains.length > 0),
+  };
+  counts.entities = Math.max(counts.entities, protectedMinimums.entities);
+  counts.relationships = Math.max(counts.relationships, protectedMinimums.relationships);
+  counts.evidence = Math.max(counts.evidence, protectedMinimums.evidence);
+  counts.paths = Math.max(counts.paths, protectedMinimums.paths);
+  counts.unresolvedEvaluations = Math.max(counts.unresolvedEvaluations, protectedMinimums.unresolvedEvaluations);
+  counts.reasoningPrimaryEntities = Math.max(counts.reasoningPrimaryEntities, protectedMinimums.reasoningPrimaryEntities);
+  const beforeBudgetCounts = {
+    entities: allEntityContexts.length,
+    relationships: allRelationships.length,
+    evidence: allEvidence.length,
+    paths: allRelevantPaths.length,
+    impactPaths: allRelevantImpactPaths.length,
+    impactChains: fullReasoningPackage.impactChains.length,
+    reasoningNarratives: fullReasoningPackage.relationshipNarratives.length + fullReasoningPackage.impactNarratives.length,
+    subjectTraceabilityRelationships: fullReasoningPackage.subjectTraceabilityRelationships.length,
+    subjectTraceabilityNarratives: fullReasoningPackage.subjectTraceabilityNarratives.length,
+  };
   const trimOrder: (keyof typeof counts)[] = [
     "reasoningFindings",
-    "reasoningImpactNarratives",
-    "reasoningRelationshipNarratives",
     "reasoningStrongestEvidence",
-    "reasoningImpactChains",
     "reasoningKeyDependencies",
     "reasoningPrimaryEntities",
     "reasoningMissingEvidence",
@@ -1885,15 +3170,29 @@ export function buildInvestigationContext(
     "unresolvedEvaluations",
     "findings",
     "entities",
+    "reasoningImpactNarratives",
+    "reasoningRelationshipNarratives",
+    "reasoningSubjectTraceabilityRelationships",
+    "reasoningSubjectTraceabilityNarratives",
+    "reasoningImpactChains",
     "relationshipGuidance",
   ];
 
   const compose = (): CopilotContextPacket => {
-    const relevantPaths = allRelevantPaths.slice(0, counts.paths);
+    const prioritizedPaths = protectedImpactPath
+      ? [protectedImpactPath, ...allRelevantPaths.filter((path) => path !== protectedImpactPath)]
+      : allRelevantPaths;
+    const prioritizedImpactPaths = protectedImpactPath
+      ? [protectedImpactPath, ...allRelevantImpactPaths.filter((path) => path !== protectedImpactPath)]
+      : allRelevantImpactPaths;
+    const relevantPaths = prioritizedPaths.slice(0, counts.paths);
     const selectedRelationshipCandidates: typeof allRelationships = [];
     const requiredEntityIds = new Set<string>();
     const requiredEvidenceIds = new Set<string>();
-    for (const candidate of allRelationships) {
+    const prioritizedRelationships = protectedCandidate
+      ? [protectedCandidate, ...allRelationships.filter((candidate) => candidate !== protectedCandidate)]
+      : allRelationships;
+    for (const candidate of prioritizedRelationships) {
       if (selectedRelationshipCandidates.length >= counts.relationships) break;
       const { relation } = candidate;
       const source = entityById.get(relation.sourceEntityId);
@@ -1914,7 +3213,12 @@ export function buildInvestigationContext(
       path.sourceEntityId,
       ...path.steps.flatMap((step) => [step.fromEntityId, step.toEntityId]),
     ]);
-    const priorityEntityIds = [...new Set([...requiredEntityIds, ...candidateEntityIds, ...pathEntityIds])];
+    const priorityEntityIds = [...new Set([
+      ...protectedEntityIds,
+      ...requiredEntityIds,
+      ...candidateEntityIds,
+      ...pathEntityIds,
+    ])];
     const prioritizedEntities = [
       ...priorityEntityIds.map((id) => entityById.get(id)).filter((entity): entity is CopilotEntityContext => Boolean(entity)),
       ...entitiesByRelevance.filter((entity) => !priorityEntityIds.includes(entity.entityId)),
@@ -1945,8 +3249,41 @@ export function buildInvestigationContext(
         const normalized = normalizedRelationship(relation, entitiesMap, evidenceMap, semanticGuidanceAvailable);
         return normalized ? [normalized] : [];
       });
+    const projectedRelationships = compactFourApplicationSubject
+      ? relationships.filter((relationship) => {
+          const sourceApplication = entityById.get(relationship.sourceEntityId)?.source?.toLocaleLowerCase();
+          const targetApplication = entityById.get(relationship.targetEntityId)?.source?.toLocaleLowerCase();
+          return Boolean(
+            sourceApplication &&
+            targetApplication &&
+            (sourceApplication !== targetApplication || relationshipBusinessWeight(relationship) > 5),
+          );
+        })
+      : relationships;
+    const projectedRelationshipIds = new Set(projectedRelationships.map((relationship) => relationship.relationshipId));
+    const projectedPaths = compactFourApplicationSubject
+      ? relevantPaths.filter((path) =>
+          path.relationshipIds.length > 0 &&
+          path.relationshipIds.every((relationshipId) => projectedRelationshipIds.has(relationshipId)),
+        )
+      : relevantPaths;
+    const projectedRelationshipNarratives = compactFourApplicationSubject
+      ? fullReasoningPackage.relationshipNarratives.filter((narrative) =>
+          narrative.relationshipIds.length > 0 &&
+          narrative.relationshipIds.every((relationshipId) => projectedRelationshipIds.has(relationshipId)),
+        )
+      : fullReasoningPackage.relationshipNarratives;
+    const projectedRelationshipEvidenceIds = new Set(projectedRelationships.flatMap((relationship) =>
+      relationship.evidenceCitationIds,
+    ));
     const findings = allFindings.slice(0, counts.findings);
-    const unresolved = allUnresolved.slice(0, counts.unresolvedEvaluations).map((evaluation) => ({
+    const unresolved = (m2EvidenceState
+      ? allUnresolved.filter((evaluation) =>
+        m2EvidenceState.unresolvedEvaluationCitationIds.includes(evaluation.citationId),
+      )
+      : allUnresolved)
+      .slice(0, counts.unresolvedEvaluations)
+      .map((evaluation) => ({
       ...evaluation,
       evidenceCitationIds: evaluation.evidenceCitationIds.filter((citationId) => evidenceMap.has(citationId)),
       semanticGuidanceAvailable: Boolean(
@@ -1969,7 +3306,7 @@ export function buildInvestigationContext(
     dependency: [...dependencyEvidenceIds].filter((id) => selectedEvidenceIds.has(id)).sort(),
     impact: [...impactEvidenceIds].filter((id) => selectedEvidenceIds.has(id)).sort(),
     };
-    const impactPaths = allRelevantImpactPaths.slice(0, counts.paths);
+    const impactPaths = prioritizedImpactPaths.slice(0, counts.paths);
     const impactedEntityIds = [...new Set(impactPaths.map((path) => path.targetEntityId))]
       .filter((entityId) => entityId !== focalEntityId)
       .sort();
@@ -1989,16 +3326,70 @@ export function buildInvestigationContext(
     }
     const reasoningPackage: ReasoningPackage = {
       ...fullReasoningPackage,
-      entityImportance: selectedImportance,
-      primaryEntities: fullReasoningPackage.primaryEntities.slice(0, counts.reasoningPrimaryEntities),
-      keyDependencies: fullReasoningPackage.keyDependencies.slice(0, counts.reasoningKeyDependencies),
-      impactChains: fullReasoningPackage.impactChains.slice(0, counts.reasoningImpactChains),
-      strongestEvidence: fullReasoningPackage.strongestEvidence.slice(0, counts.reasoningStrongestEvidence),
-      engineeringFindings: fullReasoningPackage.engineeringFindings.slice(0, counts.reasoningFindings),
-      relationshipNarratives: fullReasoningPackage.relationshipNarratives.slice(0, counts.reasoningRelationshipNarratives),
-      impactNarratives: fullReasoningPackage.impactNarratives.slice(0, counts.reasoningImpactNarratives),
-      unresolvedRelationships: fullReasoningPackage.unresolvedRelationships.slice(0, counts.reasoningUnresolvedRelationships),
-      missingEvidence: fullReasoningPackage.missingEvidence.slice(0, counts.reasoningMissingEvidence),
+      applicationsPresent: compactFourApplicationSubject ? [] : fullReasoningPackage.applicationsPresent,
+      subjectParticipationSummary: compactFourApplicationSubject ? "" : fullReasoningPackage.subjectParticipationSummary,
+      crossSystemParticipationSummary: compactFourApplicationSubject ? "" : fullReasoningPackage.crossSystemParticipationSummary,
+      representativeEntitiesByApplication: compactFourApplicationSubject
+        ? {}
+        : fullReasoningPackage.representativeEntitiesByApplication,
+      evidenceBoundaryStatement: compactFourApplicationSubject ? "" : fullReasoningPackage.evidenceBoundaryStatement,
+      entityImportance: compactFourApplicationSubject ? {} : selectedImportance,
+      subjectApplicationParticipation: includeSubjectTraceability && !compactFourApplicationSubject
+        ? fullReasoningPackage.subjectApplicationParticipation
+        : [],
+      primaryEntities: compactFourApplicationSubject
+        ? []
+        : fullReasoningPackage.primaryEntities.slice(0, counts.reasoningPrimaryEntities),
+      keyDependencies: compactFourApplicationSubject
+        ? []
+        : fullReasoningPackage.keyDependencies.slice(0, counts.reasoningKeyDependencies),
+      impactChains: (compactFourApplicationSubject
+        ? []
+        : fullReasoningPackage.impactChains)
+        .filter((chain) => !m2EvidenceState || m2EvidenceState.impactChainIds.includes(chain.id))
+        .slice(0, counts.reasoningImpactChains),
+      strongestEvidence: compactFourApplicationSubject
+        ? []
+        : fullReasoningPackage.strongestEvidence.slice(0, counts.reasoningStrongestEvidence),
+      engineeringFindings: compactFourApplicationSubject
+        ? []
+        : fullReasoningPackage.engineeringFindings.slice(0, counts.reasoningFindings),
+      relationshipNarratives: compactFourApplicationSubject
+        ? []
+        : projectedRelationshipNarratives.slice(0, counts.reasoningRelationshipNarratives),
+      subjectTraceabilityRelationships: fullReasoningPackage.subjectTraceabilityRelationships.slice(0, counts.reasoningSubjectTraceabilityRelationships),
+      subjectTraceabilityNarratives: fullReasoningPackage.subjectTraceabilityNarratives
+        .slice(0, counts.reasoningSubjectTraceabilityNarratives)
+        .map((narrative) => includeSubjectTraceability
+          ? { ...narrative, text: short(narrative.text, 120) }
+          : narrative),
+      impactNarratives: compactFourApplicationSubject
+        ? []
+        : fullReasoningPackage.impactNarratives.slice(0, counts.reasoningImpactNarratives),
+      unresolvedRelationships: compactFourApplicationSubject
+        ? []
+        : fullReasoningPackage.unresolvedRelationships.slice(0, counts.reasoningUnresolvedRelationships),
+      missingEvidence: compactFourApplicationSubject
+        ? []
+        : fullReasoningPackage.missingEvidence.slice(0, counts.reasoningMissingEvidence),
+      investigationSummary: compactFourApplicationSubject
+        ? {
+            ...fullReasoningPackage.investigationSummary,
+            applicationsPresent: [],
+            subjectParticipationSummary: "",
+            crossSystemParticipationSummary: "",
+            representativeEntitiesByApplication: {},
+            evidenceBoundaryStatement: "",
+            crossSystemSummary: "",
+            relationshipSummary: "",
+            applicationCoverage: {},
+            keyDependencies: [],
+            mostConnectedEntities: [],
+            highestValueRelationships: [],
+            strongestEvidence: [],
+            strongestImpactChains: [],
+          }
+        : fullReasoningPackage.investigationSummary,
     };
     const reasoningCitationIds = new Set([
       ...reasoningPackage.primaryEntities.map((entity) => entity.citationId),
@@ -2007,6 +3398,12 @@ export function buildInvestigationContext(
       ...reasoningPackage.strongestEvidence.map((item) => item.citationId),
       ...reasoningPackage.engineeringFindings.flatMap((item) => item.citationIds),
       ...reasoningPackage.relationshipNarratives.flatMap((item) => item.citationIds),
+      ...reasoningPackage.subjectTraceabilityRelationships.flatMap((item) => [
+        item.citationId,
+        item.sourceCitationId,
+        item.targetCitationId,
+      ]),
+      ...reasoningPackage.subjectTraceabilityNarratives.flatMap((item) => item.citationIds),
       ...reasoningPackage.impactNarratives.flatMap((item) => item.citationIds),
       ...reasoningPackage.unresolvedRelationships.flatMap((item) => [item.citationId, ...item.evidenceCitationIds]),
       ...reasoningPackage.missingEvidence.flatMap((item) => item.citationIds),
@@ -2018,6 +3415,12 @@ export function buildInvestigationContext(
         ...item.evidenceCitationIds,
       ]),
       ...engineeringBrief.relationshipNarratives.flatMap((item) => item.citationIds),
+      ...engineeringBrief.subjectTraceabilityRelationships.flatMap((item) => [
+        item.citationId,
+        item.sourceCitationId,
+        item.targetCitationId,
+      ]),
+      ...engineeringBrief.subjectTraceabilityNarratives.flatMap((item) => item.citationIds),
       ...engineeringBrief.impactNarratives.flatMap((item) => item.citationIds),
       ...engineeringBrief.topImpactChains.flatMap((item) => item.citationIds),
       ...engineeringBrief.strongestEvidence.map((item) => item.citationId),
@@ -2025,12 +3428,40 @@ export function buildInvestigationContext(
       ...engineeringBrief.missingEvidence.flatMap((item) => item.citationIds),
     ]);
     const reasoningCitations = allReasoningCitations.filter((citation) => reasoningCitationIds.has(citation.citationId));
+    const consequenceSubjectCitations: CopilotCitation[] = m2EvidenceState
+      ? (graph?.subjectTraceabilityRelationships ?? [])
+        .filter((edge) => m2EvidenceState.subjectTraceabilityCitationIds.includes(edge.citationId))
+        .map((edge) => ({
+          citationId: edge.citationId,
+          kind: "relationship" as const,
+          label: "Shared investigation participation",
+          summary: "Informational subject participation only; it does not establish operational representation or impact.",
+        }))
+      : [];
     const citations = [...new Map([
       ...citationsFor(selectedSources.slice(0, counts.sourceSelections), unresolved, entities, relationships, findings, evidence),
       ...reasoningCitations,
       ...candidateCitations,
+      ...consequenceSubjectCitations,
     ].map((citation) => [citation.citationId, citation])).values()]
       .sort((left, right) => left.citationId.localeCompare(right.citationId));
+    const compactCitationIds = new Set([
+      ...engineeringBrief.subjectApplicationParticipation.flatMap((participation) =>
+        participation.representativeEntity ? [participation.representativeEntity.citationId] : [],
+      ),
+      ...projectedRelationships.flatMap((relationship) => [
+        relationship.citationId,
+        relationship.sourceCitationId,
+        relationship.targetCitationId,
+        ...relationship.evidenceCitationIds,
+      ]),
+      ...engineeringBrief.relationshipEvidence
+        .filter((item) => projectedRelationshipEvidenceIds.has(item.citationId))
+        .map((item) => item.citationId),
+    ]);
+    const projectedCitations = compactFourApplicationSubject
+      ? citations.filter((citation) => compactCitationIds.has(citation.citationId))
+      : citations;
     const reasoningOmittedCount =
       fullReasoningPackage.primaryEntities.length - reasoningPackage.primaryEntities.length +
       fullReasoningPackage.keyDependencies.length - reasoningPackage.keyDependencies.length +
@@ -2038,6 +3469,8 @@ export function buildInvestigationContext(
       fullReasoningPackage.strongestEvidence.length - reasoningPackage.strongestEvidence.length +
       fullReasoningPackage.engineeringFindings.length - reasoningPackage.engineeringFindings.length +
       fullReasoningPackage.relationshipNarratives.length - reasoningPackage.relationshipNarratives.length +
+      fullReasoningPackage.subjectTraceabilityRelationships.length - reasoningPackage.subjectTraceabilityRelationships.length +
+      fullReasoningPackage.subjectTraceabilityNarratives.length - reasoningPackage.subjectTraceabilityNarratives.length +
       fullReasoningPackage.impactNarratives.length - reasoningPackage.impactNarratives.length +
       fullReasoningPackage.unresolvedRelationships.length - reasoningPackage.unresolvedRelationships.length +
       fullReasoningPackage.missingEvidence.length - reasoningPackage.missingEvidence.length;
@@ -2049,6 +3482,10 @@ export function buildInvestigationContext(
       unresolvedEvaluations: allUnresolved.length - unresolved.length,
       paths: allRelevantPaths.length - relevantPaths.length,
       reasoningArtifacts: reasoningOmittedCount,
+      subjectTraceabilityRelationships:
+        fullReasoningPackage.subjectTraceabilityRelationships.length - reasoningPackage.subjectTraceabilityRelationships.length,
+      subjectTraceabilityNarratives:
+        fullReasoningPackage.subjectTraceabilityNarratives.length - reasoningPackage.subjectTraceabilityNarratives.length,
       ontologyDefinitions: relationshipDefinitions.length - counts.ontologyDefinitions,
       sourceSelections: sourceContext(snapshot, canonical).length - counts.sourceSelections,
       relationshipGuidance: relationshipGuidance.length - selectedGuidance.length,
@@ -2080,7 +3517,7 @@ export function buildInvestigationContext(
     const relationshipFlow: RelationshipFlowDiagnostics = {
       ...engineeringBrief.relationshipFlow,
       copilotContext: {
-        relationshipCount: relationships.length,
+        relationshipCount: projectedRelationships.length,
         impactPathCount: impactPaths.length,
         impactChainCount: reasoningPackage.impactChains.length,
         unresolvedRelationshipCount: unresolved.length,
@@ -2089,25 +3526,112 @@ export function buildInvestigationContext(
     };
     const boundedEngineeringBrief: EngineeringBrief = {
       ...engineeringBrief,
-      primaryEntities: engineeringBrief.primaryEntities.filter((entity) => entitiesMap.has(entity.entityId)),
-      majorRelationships: relationships,
-      relationshipNarratives: reasoningPackage.relationshipNarratives,
-      impactNarratives: reasoningPackage.impactNarratives,
-      relationshipEvidence: engineeringBrief.relationshipEvidence.filter((item) => evidenceMap.has(item.evidenceId)),
-      engineeringInsights: reasoningPackage.engineeringFindings,
-      topFindings: reasoningPackage.engineeringFindings,
-      topImpactChains: reasoningPackage.impactChains,
+      subjectParticipationSummary: compactFourApplicationSubject
+        ? ""
+        : includeSubjectTraceability
+        ? `Applications present participate in the same ${fullReasoningPackage.subjectApplicationParticipation[0]?.subjectLabel ?? snapshot.subjectLabel} investigation subject.`
+        : engineeringBrief.subjectParticipationSummary,
+      crossSystemParticipationSummary: compactFourApplicationSubject
+        ? fullReasoningPackage.crossSystemParticipationSummary
+        : engineeringBrief.crossSystemParticipationSummary,
+      primaryEntities: engineeringBrief.primaryEntities.filter((entity) =>
+        compactFourApplicationSubject
+          ? fullReasoningPackage.subjectApplicationParticipation.some((participation) =>
+              participation.representativeEntityIds[0] === entity.entityId,
+            )
+          : entitiesMap.has(entity.entityId) ||
+            (questionIntent === "summary" || questionIntent === "relationship") &&
+              fullReasoningPackage.subjectApplicationParticipation.some((participation) =>
+                participation.representativeEntityIds.includes(entity.entityId),
+              ),
+      ),
+      majorRelationships: compactFourApplicationSubject
+        ? projectedRelationships
+        : relationships.filter((relationship) => relationship.category !== "subject-traceability"),
+      relationshipNarratives: compactFourApplicationSubject
+        ? projectedRelationshipNarratives
+        : reasoningPackage.relationshipNarratives,
+      subjectTraceabilityRelationships: reasoningPackage.subjectTraceabilityRelationships,
+      subjectTraceabilityNarratives: compactFourApplicationSubject
+        ? []
+        : engineeringBrief.subjectTraceabilityNarratives.map((narrative) => ({
+            ...narrative,
+            text: short(narrative.text, 120),
+          })),
+      subjectApplicationParticipation: includeSubjectTraceability
+        ? engineeringBrief.subjectApplicationParticipation
+        : questionIntent === "impact"
+          ? engineeringBrief.subjectApplicationParticipation
+              .filter((participation) => ["windchill", "sap"].includes(participation.application.toLocaleLowerCase()))
+              .map((participation) => ({
+                ...participation,
+                ...(compactFourApplicationSubject
+                  ? { representativeEntity: undefined }
+                  : {
+                      representativeEntityIds: [],
+                      representativeEntityLabels: [],
+                      representativeEntityKinds: [],
+                    }),
+                contribution: "participates in the investigation subject; this is not evidence of an operational relationship",
+              }))
+          : engineeringBrief.subjectApplicationParticipation,
+      representativeEntitiesByApplication: compactFourApplicationSubject
+        ? {}
+        : reasoningPackage.representativeEntitiesByApplication,
+      evidenceBoundaryStatement: compactFourApplicationSubject
+        ? fullReasoningPackage.evidenceBoundaryStatement
+        : reasoningPackage.evidenceBoundaryStatement,
+      impactNarratives: includeSubjectTraceability
+        ? []
+        : reasoningPackage.impactNarratives.slice(0, 1).map((narrative) => ({
+            ...narrative,
+            text: short(narrative.text, 480),
+            engineeringMeaning: short(narrative.engineeringMeaning, 240),
+            ...(narrative.impactRationale ? { impactRationale: short(narrative.impactRationale, 240) } : {}),
+            entityIds: narrative.entityIds.slice(0, 4),
+            relationshipIds: narrative.relationshipIds.slice(0, 4),
+            citationIds: narrative.citationIds.slice(0, 8),
+          })),
+      relationshipEvidence: compactFourApplicationSubject
+        ? engineeringBrief.relationshipEvidence
+            .filter((item) => projectedRelationshipEvidenceIds.has(item.citationId))
+            .slice(0, 5)
+            .map((item) => ({ ...item, summary: short(item.summary, 240) }))
+        : includeSubjectTraceability
+          ? []
+        : engineeringBrief.relationshipEvidence
+          .filter((item) => evidenceMap.has(item.evidenceId))
+          .slice(0, 1)
+          .map((item) => ({ ...item, summary: short(item.summary, 240) })),
+      engineeringInsights: includeSubjectTraceability ? [] : engineeringBrief.engineeringInsights.slice(0, 3),
+      topFindings: includeSubjectTraceability ? [] : engineeringBrief.topFindings.slice(0, 3),
+      topImpactChains: includeSubjectTraceability
+        ? []
+        : reasoningPackage.impactChains.slice(0, 1).map((chain) => ({
+            ...chain,
+            relationshipSequence: chain.relationshipSequence.slice(0, 1),
+            supportingEvidence: chain.supportingEvidence.slice(0, 1),
+            citationIds: chain.citationIds.slice(0, 2),
+            engineeringExplanation: short(chain.engineeringExplanation, 120),
+            impactRationale: short(chain.impactRationale, 120),
+          })),
       strongestEvidence: reasoningPackage.strongestEvidence,
       missingEvidence: reasoningPackage.missingEvidence,
       unresolvedRelationships: reasoningPackage.unresolvedRelationships,
     };
     return {
       ...base,
-      relationshipPaths: relevantPaths,
+      relationshipPaths: projectedPaths,
       impactPaths,
-      relationshipDefinitions: relationshipDefinitions.slice(0, counts.ontologyDefinitions),
+      relationshipDefinitions: compactFourApplicationSubject
+        ? relationshipDefinitions.filter((definition) =>
+            projectedRelationships.some((relationship) => relationship.family === definition.id),
+          )
+        : relationshipDefinitions.slice(0, counts.ontologyDefinitions),
       reasoningPackage,
-      engineeringBrief: boundedEngineeringBrief,
+      engineeringBrief: m2EvidenceState
+        ? projectM2EngineeringBrief(boundedEngineeringBrief)
+        : boundedEngineeringBrief,
       relationshipFlow,
       impactSummary: {
         classification: "potential",
@@ -2116,29 +3640,175 @@ export function buildInvestigationContext(
         entitiesByKind,
         entitiesByApplication,
       },
-      sourceSelections: selectedSources.slice(0, counts.sourceSelections),
-      entities,
-      relationships,
-      relationshipGuidance: selectedGuidance,
-      findings,
-      unresolvedEvaluations: unresolved,
-      evidence,
-      evidenceGroups,
-      conflicts: conflicts.filter((conflict) => conflict.values.some((item) => entitiesMap.has(item.entityId))),
-      citations,
+      subjectTraceabilityDiagnostics: {
+        graphSubjectTraceabilityEdgeCount,
+        applicationParticipationSummaryCount: boundedEngineeringBrief.subjectApplicationParticipation.length,
+        applicationsPresent: boundedEngineeringBrief.applicationsPresent,
+        representativeEntityCountByApplication: Object.fromEntries(
+          boundedEngineeringBrief.subjectApplicationParticipation.map((participation) => [
+            participation.application,
+            Number(Boolean(participation.representativeEntity)),
+          ]),
+        ),
+        entityLevelSubjectEdgesIncludedInPrompt: reasoningPackage.subjectTraceabilityRelationships.length,
+        compactSubjectNarrativeCount: boundedEngineeringBrief.subjectTraceabilityNarratives.length +
+          Number(boundedEngineeringBrief.crossSystemParticipationSummary.length > 0),
+        hasOntologyResolvedWindchillSapRelationship,
+        hasWindchillSapImpactPath,
+        contextCharactersUsed: 0,
+        contextCharacterLimit: maxContextChars,
+        omittedEntityLevelSubjectEdges: Math.max(
+          0,
+          graphSubjectTraceabilityEdgeCount,
+        ),
+      },
+      sourceSelections: m2EvidenceState || compactFourApplicationSubject
+        ? []
+        : selectedSources.slice(0, counts.sourceSelections),
+      entities: m2EvidenceState
+        ? entities
+          .filter((entity) => entity.entityId === m2EvidenceState.sourceEntityId || entity.entityId === m2EvidenceState.targetEntityId)
+          .map(compactInvestigationEntity)
+        : investigationScoped && questionIntent === "summary"
+        ? []
+        : investigationScoped && questionIntent === "relationship"
+          ? protectedCandidate
+            ? entities.filter((entity) =>
+              entity.entityId === protectedCandidate.relation.sourceEntityId ||
+              entity.entityId === protectedCandidate.relation.targetEntityId,
+            )
+            : []
+        : investigationScoped && questionIntent === "impact"
+          ? entities.map(compactInvestigationEntity)
+          : entities,
+      relationships: m2EvidenceState
+        ? relationships.filter((relationship) => m2EvidenceState.resolvedRelationshipCitationIds.includes(relationship.citationId))
+        : compactFourApplicationSubject
+          ? projectedRelationships
+          : relationships,
+      relationshipGuidance: m2EvidenceState
+        ? selectedGuidance.filter((section) =>
+          applicationPairKey(section.sourceApplication, section.targetApplication) === applicationPairKey("windchill", "sap"),
+        )
+        : compactFourApplicationSubject
+          ? []
+          : selectedGuidance,
+      findings: m2EvidenceState
+        ? findings.filter((finding) =>
+          finding.subjectEntityIds.includes(m2EvidenceState.sourceEntityId ?? "") ||
+          finding.subjectEntityIds.includes(m2EvidenceState.targetEntityId ?? ""),
+        )
+        : compactFourApplicationSubject
+          ? []
+          : findings,
+      unresolvedEvaluations: m2EvidenceState
+        ? unresolved.filter((evaluation) => m2EvidenceState.unresolvedEvaluationCitationIds.includes(evaluation.citationId))
+        : compactFourApplicationSubject
+          ? []
+          : unresolved,
+      evidence: m2EvidenceState
+        ? evidence.filter((item) => m2EvidenceState.allowedCitationIds.includes(item.citationId))
+        : compactFourApplicationSubject
+          ? evidence.filter((item) => projectedRelationshipEvidenceIds.has(item.citationId))
+          : evidence,
+      evidenceGroups: compactFourApplicationSubject
+        ? {
+            direct: [],
+            relationship: evidenceGroups.relationship.filter((id) => projectedRelationshipEvidenceIds.has(id)),
+            dependency: [],
+            impact: [],
+          }
+        : evidenceGroups,
+      conflicts: compactFourApplicationSubject
+        ? []
+        : conflicts.filter((conflict) => conflict.values.some((item) => entitiesMap.has(item.entityId))),
+      citations: m2EvidenceState
+        ? citations.filter((citation) => m2EvidenceState.allowedCitationIds.includes(citation.citationId))
+        : projectedCitations,
       uncertainties,
-      omissions: { categories, omittedCounts, maxContextChars },
+      omissions: {
+        categories,
+        omittedCounts,
+        maxContextChars,
+        budgetTrace: {
+          before: beforeBudgetCounts,
+          after: {
+            entities: entities.length,
+            relationships: relationships.length,
+            evidence: evidence.length,
+            paths: relevantPaths.length,
+            impactPaths: impactPaths.length,
+            impactChains: reasoningPackage.impactChains.length,
+            reasoningNarratives: reasoningPackage.relationshipNarratives.length + reasoningPackage.impactNarratives.length,
+            subjectTraceabilityRelationships: reasoningPackage.subjectTraceabilityRelationships.length,
+            subjectTraceabilityNarratives: reasoningPackage.subjectTraceabilityNarratives.length,
+          },
+          ...(protectedCandidate ? { protectedRelationshipId: protectedCandidate.relation.id } : {}),
+        },
+      },
     };
   };
 
+  const canTrim = (key: keyof typeof counts): boolean => {
+    const minimum = key === "entities" ? protectedMinimums.entities
+      : key === "relationships" ? protectedMinimums.relationships
+      : key === "evidence" ? protectedMinimums.evidence
+      : key === "paths" ? protectedMinimums.paths
+      : key === "unresolvedEvaluations" ? protectedMinimums.unresolvedEvaluations
+      : key === "reasoningPrimaryEntities" ? protectedMinimums.reasoningPrimaryEntities
+      : key === "reasoningRelationshipNarratives" ? protectedMinimums.reasoningRelationshipNarratives
+      : key === "reasoningSubjectTraceabilityRelationships" ? protectedMinimums.reasoningSubjectTraceabilityRelationships
+      : key === "reasoningSubjectTraceabilityNarratives" ? protectedMinimums.reasoningSubjectTraceabilityNarratives
+      : key === "reasoningImpactNarratives" ? protectedMinimums.reasoningImpactNarratives
+      : key === "reasoningImpactChains" ? protectedMinimums.reasoningImpactChains
+      : 0;
+    return counts[key] > minimum;
+  };
+  const hasProtectedReasoning =
+    protectedMinimums.reasoningPrimaryEntities > 0 ||
+    protectedMinimums.reasoningRelationshipNarratives > 0 ||
+    protectedMinimums.reasoningSubjectTraceabilityRelationships > 0 ||
+    protectedMinimums.reasoningSubjectTraceabilityNarratives > 0 ||
+    protectedMinimums.reasoningImpactNarratives > 0 ||
+    protectedMinimums.reasoningImpactChains > 0;
   let packet = compose();
-  while (JSON.stringify(packet).length > maxContextChars && trimOrder.some((key) => counts[key] > 0)) {
-    const key = trimOrder.find((candidate) => counts[candidate] > 0);
+  while (JSON.stringify(packet).length > maxContextChars && trimOrder.some(canTrim)) {
+    const key = trimOrder.find(canTrim);
     if (!key) break;
     counts[key]--;
     packet = compose();
   }
-  if (options.maxContextChars !== undefined && JSON.stringify(packet).length > maxContextChars) {
+  if (JSON.stringify(packet).length > maxContextChars) {
+    const fallbackEntities = allEntityContexts
+      .filter((entity) => protectedEntityIds.includes(entity.entityId))
+      .map((entity) => investigationScoped && questionIntent === "impact"
+        ? compactInvestigationEntity(entity)
+        : entity);
+    const fallbackRelationships = packet.relationships.slice(0, protectedMinimums.relationships);
+    const fallbackEvidence = packet.evidence
+      .filter((item) => protectedEvidenceIds.includes(item.evidenceId))
+      .map((item) => ({ ...item, summary: short(item.summary, 240) }));
+    const fallbackCitationIds = new Set([
+      ...(m2EvidenceState?.allowedCitationIds ?? []),
+      ...fallbackEntities.map((entity) => entity.citationId),
+      ...packet.unresolvedEvaluations.flatMap((evaluation) => [evaluation.citationId, ...evaluation.evidenceCitationIds]),
+      ...fallbackRelationships.flatMap((relationship) => [
+        relationship.citationId,
+        relationship.sourceCitationId,
+        relationship.targetCitationId,
+        ...relationship.evidenceCitationIds,
+      ]),
+      ...fallbackEvidence.map((item) => item.citationId),
+      ...packet.reasoningPackage.relationshipNarratives.flatMap((item) => item.citationIds),
+      ...packet.reasoningPackage.subjectTraceabilityRelationships.flatMap((item) => [
+        item.citationId,
+        item.sourceCitationId,
+        item.targetCitationId,
+      ]),
+      ...packet.reasoningPackage.subjectTraceabilityNarratives.flatMap((item) => item.citationIds),
+      ...packet.reasoningPackage.impactNarratives.flatMap((item) => item.citationIds),
+      ...packet.reasoningPackage.impactChains.flatMap((item) => item.citationIds),
+    ]);
     packet = {
       ...packet,
       knowledgeGraphSummary: undefined,
@@ -2156,6 +3826,7 @@ export function buildInvestigationContext(
       },
       entityCandidates: [],
       selectedEntityIds: [],
+      knowledgeGraph: undefined,
       grounding: {
         hasCanonicalEvidence: packet.grounding.hasCanonicalEvidence,
         partialSources: packet.grounding.partialSources,
@@ -2163,23 +3834,32 @@ export function buildInvestigationContext(
         unsupportedIdentifiers: packet.grounding.unsupportedIdentifiers,
       },
       uncertainties: [
-        `Context limit omitted ${packet.omissions.omittedCounts.relationships} relationship path(s); omitted content is unknown.`,
+        `Context limit omitted ${beforeBudgetCounts.relationships - protectedMinimums.relationships} relationship path(s).`,
       ],
       ambiguity: { detected: false, clarificationRequired: false },
       sourceSelections: [],
-      entities: [],
-      relationships: [],
+      entities: fallbackEntities,
+      relationships: fallbackRelationships,
       relationshipPaths: [],
-      impactPaths: [],
+      impactPaths: packet.impactPaths.slice(0, protectedMinimums.paths),
       relationshipDefinitions: [],
       relationshipGuidance: [],
       findings: [],
-      unresolvedEvaluations: [],
-      evidence: [],
-      citations: [],
+      unresolvedEvaluations: m2EvidenceState
+        ? packet.unresolvedEvaluations.filter((evaluation) =>
+          m2EvidenceState.unresolvedEvaluationCitationIds.includes(evaluation.citationId),
+        )
+        : [],
+      evidence: fallbackEvidence,
+      evidenceGroups: { direct: [], relationship: [], dependency: [], impact: [] },
       reasoningPackage: {
         ...packet.reasoningPackage,
         investigationSummary: {
+          applicationsPresent: packet.reasoningPackage.investigationSummary.applicationsPresent,
+          subjectParticipationSummary: packet.reasoningPackage.investigationSummary.subjectParticipationSummary,
+          crossSystemParticipationSummary: packet.reasoningPackage.investigationSummary.crossSystemParticipationSummary,
+          representativeEntitiesByApplication: packet.reasoningPackage.investigationSummary.representativeEntitiesByApplication,
+          evidenceBoundaryStatement: packet.reasoningPackage.investigationSummary.evidenceBoundaryStatement,
           crossSystemSummary: "",
           relationshipCount: 0,
           relationshipSummary: "",
@@ -2191,13 +3871,22 @@ export function buildInvestigationContext(
           strongestImpactChains: [],
         },
         entityImportance: {},
-        primaryEntities: [],
+        primaryEntities: packet.reasoningPackage.primaryEntities.filter((entity) =>
+          packet.reasoningPackage.subjectApplicationParticipation.some((participation) =>
+            participation.representativeEntityIds.includes(entity.entityId),
+          ),
+        ),
         keyDependencies: [],
-        impactChains: [],
+        impactChains: packet.reasoningPackage.impactChains,
         strongestEvidence: [],
         engineeringFindings: [],
-        relationshipNarratives: [],
-        impactNarratives: [],
+        relationshipNarratives: packet.reasoningPackage.relationshipNarratives,
+        subjectTraceabilityRelationships: packet.reasoningPackage.subjectTraceabilityRelationships,
+        subjectTraceabilityNarratives: packet.reasoningPackage.subjectTraceabilityNarratives,
+        subjectApplicationParticipation: packet.reasoningPackage.subjectApplicationParticipation,
+        representativeEntitiesByApplication: packet.reasoningPackage.representativeEntitiesByApplication,
+        evidenceBoundaryStatement: packet.reasoningPackage.evidenceBoundaryStatement,
+        impactNarratives: packet.reasoningPackage.impactNarratives,
         unresolvedRelationships: [],
         missingEvidence: [],
       },
@@ -2205,46 +3894,158 @@ export function buildInvestigationContext(
         ...packet.engineeringBrief,
         executiveSummary: "",
         crossSystemSummary: "",
-        primaryEntities: [],
-        majorRelationships: [],
-        relationshipNarratives: [],
-        impactNarratives: [],
-        relationshipEvidence: [],
+        primaryEntities: packet.engineeringBrief.primaryEntities.filter((entity) =>
+          packet.engineeringBrief.subjectApplicationParticipation.some((participation) =>
+            participation.representativeEntity?.entityId === entity.entityId,
+          ),
+        ),
+        majorRelationships: packet.relationships
+          .filter((relationship) => relationship.category !== "subject-traceability")
+          .slice(0, protectedMinimums.relationships),
+        relationshipNarratives: packet.reasoningPackage.relationshipNarratives,
+        subjectTraceabilityRelationships: packet.reasoningPackage.subjectTraceabilityRelationships,
+        subjectTraceabilityNarratives: packet.engineeringBrief.subjectTraceabilityNarratives,
+        subjectApplicationParticipation: packet.engineeringBrief.subjectApplicationParticipation,
+        representativeEntitiesByApplication: packet.engineeringBrief.representativeEntitiesByApplication,
+        evidenceBoundaryStatement: packet.engineeringBrief.evidenceBoundaryStatement,
+        impactNarratives: packet.engineeringBrief.impactNarratives,
+        relationshipEvidence: packet.engineeringBrief.relationshipEvidence
+          .filter((item) => protectedEvidenceIds.includes(item.evidenceId))
+          .slice(0, 1)
+          .map((item) => ({ ...item, summary: short(item.summary, 240) })),
         engineeringInsights: [],
         topFindings: [],
-        topImpactChains: [],
+        topImpactChains: packet.engineeringBrief.topImpactChains,
         strongestEvidence: [],
         missingEvidence: [],
         unresolvedRelationships: [],
         recommendedInvestigationAreas: [],
-        relationshipFlow: {
-          ontologyGraph: { relationshipCount: 0, impactPathCount: 0, impactChainCount: 0, unresolvedRelationshipCount: 0, evidenceCount: 0, relationshipDefinitionCount: 0 },
-          reasoningPackage: { relationshipCount: 0, impactPathCount: 0, impactChainCount: 0, unresolvedRelationshipCount: 0, evidenceCount: 0 },
-          engineeringBrief: { relationshipCount: 0, impactPathCount: 0, impactChainCount: 0, unresolvedRelationshipCount: 0, evidenceCount: 0, relationshipNarrativeCount: 0, impactNarrativeCount: 0 },
-        },
+        relationshipFlow: packet.engineeringBrief.relationshipFlow,
       },
-      relationshipFlow: {
-        ...packet.relationshipFlow,
-        ontologyGraph: { relationshipCount: 0, impactPathCount: 0, impactChainCount: 0, unresolvedRelationshipCount: 0, evidenceCount: 0, relationshipDefinitionCount: 0 },
-        reasoningPackage: { relationshipCount: 0, impactPathCount: 0, impactChainCount: 0, unresolvedRelationshipCount: 0, evidenceCount: 0 },
-        engineeringBrief: { relationshipCount: 0, impactPathCount: 0, impactChainCount: 0, unresolvedRelationshipCount: 0, evidenceCount: 0, relationshipNarrativeCount: 0, impactNarrativeCount: 0 },
-        copilotContext: {
-          relationshipCount: 0,
-          impactPathCount: 0,
-          impactChainCount: 0,
-          unresolvedRelationshipCount: 0,
-          evidenceCount: 0,
-        },
+      citations: packet.citations
+        .filter((citation) => fallbackCitationIds.has(citation.citationId))
+        .map((citation) => ({
+          citationId: citation.citationId,
+          kind: citation.kind,
+          label: citation.label,
+          ...(citation.source ? { source: citation.source } : {}),
+          ...(citation.nativeId ? { nativeId: citation.nativeId } : {}),
+        })),
+      impactSummary: {
+        classification: "potential",
+        pathCount: packet.impactPaths.slice(0, protectedMinimums.paths).length,
+        impactedEntityIds: [],
+        entitiesByKind: {},
+        entitiesByApplication: {},
       },
+      relationshipFlow: packet.relationshipFlow,
     } as CopilotContextPacket;
-    if (JSON.stringify(packet).length > maxContextChars) {
+    const afterFallbackCounts = {
+      entities: packet.entities.length,
+      relationships: packet.relationships.length,
+      evidence: packet.evidence.length,
+      paths: packet.relationshipPaths.length,
+      impactPaths: packet.impactPaths.length,
+      impactChains: packet.reasoningPackage.impactChains.length,
+      reasoningNarratives: packet.reasoningPackage.relationshipNarratives.length + packet.reasoningPackage.impactNarratives.length,
+      subjectTraceabilityRelationships: packet.reasoningPackage.subjectTraceabilityRelationships.length,
+      subjectTraceabilityNarratives: packet.reasoningPackage.subjectTraceabilityNarratives.length,
+    };
+    const fallbackOmittedCounts = {
+      ...packet.omissions.omittedCounts,
+      entities: beforeBudgetCounts.entities - afterFallbackCounts.entities,
+      relationships: beforeBudgetCounts.relationships - afterFallbackCounts.relationships,
+      evidence: beforeBudgetCounts.evidence - afterFallbackCounts.evidence,
+      paths: beforeBudgetCounts.paths - afterFallbackCounts.paths,
+      impactPaths: beforeBudgetCounts.impactPaths - afterFallbackCounts.impactPaths,
+      impactChains: beforeBudgetCounts.impactChains - afterFallbackCounts.impactChains,
+      reasoningNarratives: beforeBudgetCounts.reasoningNarratives - afterFallbackCounts.reasoningNarratives,
+      subjectTraceabilityRelationships:
+        beforeBudgetCounts.subjectTraceabilityRelationships - afterFallbackCounts.subjectTraceabilityRelationships,
+      subjectTraceabilityNarratives:
+        beforeBudgetCounts.subjectTraceabilityNarratives - afterFallbackCounts.subjectTraceabilityNarratives,
+    };
     packet = {
       ...packet,
-      reasoningPackage: undefined,
-      engineeringBrief: undefined,
-      relationshipFlow: undefined,
-    } as unknown as CopilotContextPacket;
+      omissions: {
+        ...packet.omissions,
+        categories: Object.entries(fallbackOmittedCounts)
+          .filter(([, count]) => count > 0)
+          .map(([category]) => category)
+          .sort(),
+        omittedCounts: Object.fromEntries(
+          Object.entries(fallbackOmittedCounts).filter(([, count]) => count > 0),
+        ),
+        budgetTrace: {
+          ...packet.omissions.budgetTrace,
+          after: afterFallbackCounts,
+        },
+      },
+    };
+    if (m2EvidenceState) {
+      packet = {
+        ...packet,
+        engineeringBrief: projectM2EngineeringBrief(packet.engineeringBrief),
+      };
     }
+    if (JSON.stringify(packet).length > maxContextChars && !hasProtectedReasoning) {
+      packet = {
+        ...packet,
+        citations: [],
+        reasoningPackage: undefined,
+        engineeringBrief: undefined,
+        relationshipFlow: undefined,
+      } as unknown as CopilotContextPacket;
+    };
+    if (JSON.stringify(packet).length > maxContextChars) {
+      const protectedCategories: string[] = [];
+      if (protectedMinimums.entities > 0) protectedCategories.push("relationship endpoint entities");
+      if (protectedMinimums.relationships > 0) protectedCategories.push("relationships");
+      if (protectedMinimums.evidence > 0) protectedCategories.push("evidence records");
+      if (protectedMinimums.paths > 0) protectedCategories.push("impact paths");
+      if (protectedMinimums.reasoningRelationshipNarratives > 0) protectedCategories.push("relationship narratives (1)");
+      if (protectedMinimums.reasoningSubjectTraceabilityRelationships > 0) protectedCategories.push("subject-traceability relationships (1)");
+      if (protectedMinimums.reasoningSubjectTraceabilityNarratives > 0) protectedCategories.push("subject-traceability narratives (1)");
+      if (protectedMinimums.reasoningImpactNarratives > 0) protectedCategories.push("impact narratives (1)");
+      if (protectedMinimums.reasoningImpactChains > 0) protectedCategories.push("impact chains (1)");
+      const packetSize = JSON.stringify(packet).length;
+      const largestFields = Object.entries(packet)
+        .map(([field, value]) => [field, JSON.stringify(value)?.length ?? 0] as const)
+        .sort((left, right) => right[1] - left[1])
+        .map(([field, size]) => `${field}=${size}`)
+        .join(", ");
+      const largestBriefFields = packet.engineeringBrief
+        ? Object.entries(packet.engineeringBrief)
+        .map(([field, value]) => [field, JSON.stringify(value)?.length ?? 0] as const)
+        .sort((left, right) => right[1] - left[1])
+        .slice(0, 3)
+        .map(([field, size]) => `${field}=${size}`)
+        .join(", ")
+        : "none";
+      const error = new Error(
+        `Context budget exceeded: protected categories preventing fit: ${protectedCategories.join(", ") || "none"}; packet size ${packetSize} characters exceeds configured budget ${maxContextChars}. Compact participation summaries=${packet.reasoningPackage?.subjectApplicationParticipation.length ?? 0}, prompt subject edges=${packet.reasoningPackage?.subjectTraceabilityRelationships.length ?? 0}, subject narratives=${packet.reasoningPackage?.subjectTraceabilityNarratives.length ?? 0}. Largest fields: ${largestFields}. Largest brief fields: ${largestBriefFields}.`,
+      );
+      error.name = "ContextBudgetExceededError";
+      throw error;
+    }
+  }
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const contextCharactersUsed = JSON.stringify(packet).length;
+    if (packet.subjectTraceabilityDiagnostics.contextCharactersUsed === contextCharactersUsed) break;
+    packet = {
+      ...packet,
+      subjectTraceabilityDiagnostics: {
+        ...packet.subjectTraceabilityDiagnostics,
+        contextCharactersUsed,
+      },
+    };
+  }
+  if (JSON.stringify(packet).length > maxContextChars) {
+    const error = new Error(
+      `Context budget exceeded: compact subject summaries and protected content exceed configured budget ${maxContextChars}.`,
+    );
+    error.name = "ContextBudgetExceededError";
+    throw error;
   }
   return packet;
 }

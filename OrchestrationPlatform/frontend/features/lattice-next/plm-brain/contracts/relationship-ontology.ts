@@ -51,6 +51,13 @@ export interface OntologyEvidenceObservation {
   provider: string;
   observedAt: string;
   authority: string;
+  mappingId?: string;
+  mappingReference?: string;
+  mappingBasis?: string;
+  handshakeEvidenceId?: string;
+  ontologyRuleId?: string;
+  ontologyFieldPath?: string;
+  ontologyFieldValue?: string;
 }
 
 export interface OntologyResolvedRelationship {
@@ -113,6 +120,34 @@ export interface OntologyRelationshipPath {
   citationIds: string[];
 }
 
+export interface SubjectTraceabilityRelationship {
+  id: string;
+  category: "subject-traceability";
+  relationshipType: "represents-subject";
+  sourceEntityId: string;
+  targetEntityId: string;
+  sourceApplication?: string;
+  sourceNativeId?: string;
+  citationId: string;
+  citationIds: string[];
+  status: "subject-derived";
+  authority: "investigation";
+  strength: "informational";
+  impactEligible: false;
+  provenance: {
+    provider: "lattice-subject-traceability";
+    authority: "investigation";
+    observedAt: string;
+    investigationId: string;
+    subjectId: string;
+    sourceApplication?: string;
+    sourceNativeId?: string;
+    sourceProvider: string;
+    sourceAuthority: string;
+    sourceObservedAt: string;
+  };
+}
+
 export interface OntologyImpactChain {
   id: string;
   sourceEntityId: string;
@@ -154,6 +189,7 @@ export interface InvestigationKnowledgeGraph {
     evidenceCitationIds: string[];
     provenance: { provider: string; authority: string; observedAt: string };
   }>;
+  subjectTraceabilityRelationships: SubjectTraceabilityRelationship[];
   resolvedRelationships: OntologyResolvedRelationship[];
   unresolvedEvaluations: OntologyUnresolvedEvaluation[];
   relationshipPaths: OntologyRelationshipPath[];

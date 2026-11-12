@@ -76,4 +76,14 @@ Before release, require:
 
 ## Current status
 
-Offline synthetic coverage and mocked request/ledger tests are implemented. The manual live validation record is maintained in `features/lattice-next/copilot/benchmark-live-validation.md`; the current record contains failures for E1, M1, M2, T1, and T8 and is not a release pass. Shared/public deployment gates are not implemented. The configured API version needs an approved-network confirmation due the reported Zscaler block. These are release blockers, not assumed passes.
+The focused offline Sprint 1 regression gate passed on 2026-11-11: 9 test files,
+85 tests, changed-file ESLint, and `git diff --check`. No provider request was
+made, so these results do not change the manual live validation record in
+`features/lattice-next/copilot/benchmark-live-validation.md`; E1, M1, M2, T1,
+and T8 remain failed or mismatched there, and Sprint 1 is not a release pass.
+Provider availability was not revalidated in this run. Before any paid live
+check, confirm approved corporate network access and obtain explicit approval
+for the specific request and expected usage/cost. Shared/public deployment
+gates are not implemented, and the configured API version still needs
+approved-network confirmation due the reported Zscaler block. These are release
+blockers, not assumed passes.

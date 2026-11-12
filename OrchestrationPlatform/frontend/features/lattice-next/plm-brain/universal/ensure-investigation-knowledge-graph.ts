@@ -21,6 +21,7 @@ export function ensureInvestigationKnowledgeGraph(snapshot: InvestigationSnapsho
     ) &&
     existingGraph.ontology?.ontologyVersion === existingGraph.ontologyVersion &&
     Array.isArray(existingGraph.resolvedRelationships) &&
+    Array.isArray(existingGraph.subjectTraceabilityRelationships) &&
     Array.isArray(existingGraph.relationshipPaths) &&
     Array.isArray(existingGraph.impactPaths) &&
     Array.isArray(existingGraph.impactChains) &&

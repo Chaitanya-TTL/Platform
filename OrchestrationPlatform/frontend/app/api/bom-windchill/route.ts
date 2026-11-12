@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { NextRequest, NextResponse } from "next/server";
+import { findPythonExecutable } from "@/lib/extractors/python-runtime";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -19,27 +20,6 @@ async function fileExists(candidate: string) {
   } catch {
     return false;
   }
-}
-
-async function findPythonExecutable(scriptDir: string) {
-  const candidates = [
-    path.resolve(scriptDir, ".venv", "Scripts", "python.exe"),
-    path.resolve(scriptDir, ".venv", "bin", "python"),
-    "python",
-    "python3",
-  ];
-  for (const candidate of candidates) {
-    if (candidate === "python" || candidate === "python3") {
-      try {
-        await execFileAsync(candidate, ["--version"]);
-        return candidate;
-      } catch {
-        continue;
-      }
-    }
-    if (await fileExists(candidate)) return candidate;
-  }
-  return null;
 }
 
 async function findScriptDir(startDir: string) {

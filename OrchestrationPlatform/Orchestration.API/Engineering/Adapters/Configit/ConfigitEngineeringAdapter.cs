@@ -117,9 +117,9 @@ public sealed class ConfigitEngineeringAdapter : IEngineeringSourceAdapter
         catch { return Failure(jobId, request, started, capability, "configit-solve-failed", "Configit extraction failed.", true); }
     }
 
-    private static ProcessStartInfo CreateProcess(string script, string packagePath, string output, string? productId, bool resolveOnly)
+    private ProcessStartInfo CreateProcess(string script, string packagePath, string output, string? productId, bool resolveOnly)
     {
-        var info = new ProcessStartInfo { FileName = "python", WorkingDirectory = Path.GetDirectoryName(script)!, UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true };
+        var info = new ProcessStartInfo { FileName = options.ResolvePythonExecutable(), WorkingDirectory = Path.GetDirectoryName(script)!, UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true };
         info.ArgumentList.Add(script); info.ArgumentList.Add("--package-path"); info.ArgumentList.Add(packagePath);
         if (!string.IsNullOrWhiteSpace(productId)) { info.ArgumentList.Add("--product-id"); info.ArgumentList.Add(productId); }
         if (resolveOnly) info.ArgumentList.Add("--resolve-only");

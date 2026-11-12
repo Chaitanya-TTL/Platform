@@ -1,9 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { recordCopilotUsage } = vi.hoisted(() => ({ recordCopilotUsage: vi.fn().mockResolvedValue(undefined) }));
+const { recordCopilotUsage, recordCopilotTurnStage } = vi.hoisted(() => ({
+  recordCopilotUsage: vi.fn().mockResolvedValue(undefined),
+  recordCopilotTurnStage: vi.fn().mockResolvedValue(undefined),
+}));
 
 vi.mock("server-only", () => ({}));
 vi.mock("../usage-ledger", () => ({ recordCopilotUsage }));
+vi.mock("../turn-stage-journal", () => ({ recordCopilotTurnStage }));
 
 import { getCopilotConfig } from "../config";
 import { AzureOpenAIError, completeCopilotTurn } from "../azure-openai-client";
@@ -28,6 +32,7 @@ function configure(values: Partial<typeof configValues> = configValues) {
 beforeEach(() => {
   vi.stubGlobal("fetch", vi.fn());
   recordCopilotUsage.mockReset().mockResolvedValue(undefined);
+  recordCopilotTurnStage.mockReset().mockResolvedValue(undefined);
   configure();
 });
 
@@ -128,36 +133,33 @@ describe("Azure OpenAI transport", () => {
   it("redacts non-success provider responses", async () => {
     vi.mocked(fetch).mockResolvedValue(new Response("unit-test-secret-key", { status: 401 }));
 
-    await expect(completeCopilotTurn({ messages: [{ role: "user", content: "Question" }] }))
-      .rejects.toMatchObject({ code: "provider-http-error", status: 401 });
-    await expect(completeCopilotTurn({ messages: [{ role: "user", content: "Question" }] }))
-      .rejects.not.toThrow("unit-test-secret-key");
-    expect(fetch).toHaveBeenCalledTimes(2);
+    const outcome = await completeCopilotTurn({ messages: [{ role: "user", content: "Question" }] })
+      .then(() => undefined, (error: unknown) => error);
+
+    expect(outcome).toMatchObject({ code: "provider-http-error", status: 401 });
+    expect(String(outcome)).not.toContain("unit-test-secret-key");
+    expect(fetch).toHaveBeenCalledTimes(1);
   });
 
-  it("retries transient provider errors within the configured bound", async () => {
+  it("does not automatically retry transient provider errors", async () => {
     const fetchMock = vi.mocked(fetch);
     fetchMock
       .mockResolvedValueOnce(new Response("busy", { status: 503 }))
-      .mockResolvedValueOnce(new Response("busy", { status: 429 }))
       .mockResolvedValueOnce(successResponse("Recovered"));
 
     await expect(completeCopilotTurn({ messages: [{ role: "user", content: "Question" }] }))
-      .resolves.toMatchObject({ content: "Recovered" });
-    expect(fetchMock).toHaveBeenCalledTimes(3);
-    expect(recordCopilotUsage.mock.calls.map(([record]) => [record.attempt, record.outcome])).toEqual([
-      [1, "provider-http-error"],
-      [2, "provider-http-error"],
-      [3, "success"],
-    ]);
+      .rejects.toMatchObject({ code: "provider-http-error", status: 503 });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(recordCopilotUsage.mock.calls.map(([record]) => [record.attempt, record.outcome]))
+      .toEqual([[1, "provider-http-error"]]);
   });
 
-  it("stops after the bounded number of transient attempts", async () => {
+  it("records one transient provider failure", async () => {
     vi.mocked(fetch).mockResolvedValue(new Response("busy", { status: 503 }));
 
     await expect(completeCopilotTurn({ messages: [{ role: "user", content: "Question" }] }))
       .rejects.toMatchObject({ code: "provider-http-error", status: 503 });
-    expect(fetch).toHaveBeenCalledTimes(3);
+    expect(fetch).toHaveBeenCalledTimes(1);
   });
 
   it("does not retry permanent provider errors", async () => {
@@ -205,13 +207,62 @@ describe("Azure OpenAI transport", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it("does not report a model response as successful when usage persistence fails", async () => {
+  it("preserves provider success and records a non-fatal usage-ledger failure", async () => {
     vi.mocked(fetch).mockResolvedValue(successResponse());
     recordCopilotUsage.mockRejectedValue(new Error("disk unavailable"));
 
-    await expect(completeCopilotTurn({ messages: [{ role: "user", content: "Question" }] }))
-      .rejects.toMatchObject({ code: "usage-ledger-error" });
+    await expect(completeCopilotTurn({
+      requestId: "ledger-failure",
+      turnContext: { investigationId: "investigation-one", threadId: "thread-one", snapshotRevision: 7 },
+      messages: [{ role: "user", content: "Question" }],
+    })).resolves.toMatchObject({ content: "Grounded response", providerStatus: 200 });
     expect(fetch).toHaveBeenCalledTimes(1);
     expect(recordCopilotUsage).toHaveBeenCalledTimes(1);
+    expect(recordCopilotTurnStage).toHaveBeenCalledWith(expect.objectContaining({
+      requestId: "ledger-failure",
+      investigationId: "investigation-one",
+      threadId: "thread-one",
+      snapshotRevision: 7,
+      stage: "provider-response-received",
+      providerStatus: 200,
+      failureCode: "usage-ledger-error",
+    }));
+  });
+
+  it("preserves provider HTTP status when the usage ledger also fails", async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response("unauthorized", { status: 401 }));
+    recordCopilotUsage.mockRejectedValue(new Error("ledger disk unavailable"));
+
+    const outcome = await completeCopilotTurn({
+      requestId: "ledger-http-failure",
+      turnContext: { investigationId: "investigation-one", snapshotRevision: 7 },
+      messages: [{ role: "user", content: "Question" }],
+    }).then(() => undefined, (error: unknown) => error);
+
+    expect(outcome).toMatchObject({ code: "provider-http-error", status: 401 });
+    expect(recordCopilotTurnStage).toHaveBeenCalledWith(expect.objectContaining({
+      stage: "provider-response-received",
+      providerStatus: 401,
+      failureCode: "usage-ledger-error",
+    }));
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("preserves a provider network failure when the usage ledger also fails", async () => {
+    vi.mocked(fetch).mockRejectedValue(new TypeError("network disconnected"));
+    recordCopilotUsage.mockRejectedValue(new Error("ledger disk unavailable"));
+
+    const outcome = await completeCopilotTurn({
+      requestId: "ledger-network-failure",
+      turnContext: { investigationId: "investigation-one", snapshotRevision: 7 },
+      messages: [{ role: "user", content: "Question" }],
+    }).then(() => undefined, (error: unknown) => error);
+
+    expect(outcome).toMatchObject({ code: "network-error" });
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(recordCopilotTurnStage).toHaveBeenCalledWith(expect.objectContaining({
+      stage: "provider-request-started",
+      failureCode: "usage-ledger-error",
+    }));
   });
 });

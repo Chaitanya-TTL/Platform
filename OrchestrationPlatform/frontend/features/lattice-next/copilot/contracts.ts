@@ -19,7 +19,7 @@ export interface CopilotEntityCandidate {
 }
 
 export type CopilotClaimKind = "fact" | "hypothesis";
-export type CopilotCitationKind = "entity" | "relationship" | "evidence" | "finding" | "source" | "evaluation";
+export type CopilotCitationKind = "entity" | "relationship" | "evidence" | "finding" | "source" | "evaluation" | "retrieval-document";
 
 export interface CopilotCitation {
   citationId: string;
@@ -56,6 +56,7 @@ export interface CopilotEntityContext {
 export interface CopilotRelationshipContext {
   relationshipId: string;
   citationId: string;
+  category?: "canonical" | "ontology-resolved" | "subject-traceability" | "impact" | "unresolved";
   kind: string;
   family?: string;
   sourceEntityId: string;
@@ -76,6 +77,11 @@ export interface CopilotRelationshipContext {
     authority?: string;
     observedAt?: string;
     ontologyVersion?: string;
+    sourceApplication?: string;
+    sourceNativeId?: string;
+    sourceProvider?: string;
+    sourceAuthority?: string;
+    sourceObservedAt?: string;
   };
   summary?: string;
 }
@@ -112,6 +118,34 @@ export interface CopilotUnresolvedEvaluationContext {
   sourceEntityIds: readonly string[];
   targetEntityIds: readonly string[];
   evidenceCitationIds: readonly string[];
+}
+
+export interface ConsequenceEvidenceState {
+  intent: "consequence";
+  requestedRelationshipType: "operationally-represented-as";
+  sourceApplication: "windchill";
+  targetApplication: "sap";
+  sourceEntityId?: string;
+  targetEntityId?: string;
+  sameInvestigationSubject: boolean;
+  ontologyRelationshipEstablished: boolean;
+  eligibleImpactPathAvailable: boolean;
+  eligibleImpactChainAvailable: boolean;
+  unresolvedEvaluationAvailable: boolean;
+  allowedConclusion: "evidence-backed-potential-impact" | "insufficient-evidence";
+  allowedCitationIds: readonly string[];
+  sourceEntityCitationIds: readonly string[];
+  targetEntityCitationIds: readonly string[];
+  subjectTraceabilityCitationIds: readonly string[];
+  unresolvedEvaluationCitationIds: readonly string[];
+  resolvedRelationshipCitationIds: readonly string[];
+  impactPathIds: readonly string[];
+  impactChainIds: readonly string[];
+  impactPathCitationIds: readonly string[];
+  impactChainCitationIds: readonly string[];
+  specificEffectCitationIds: readonly string[];
+  specificEffectCitationIdsByCategory: Readonly<Record<string, readonly string[]>>;
+  prohibitedClaimCategories: readonly string[];
 }
 
 export interface CopilotConflictContext {
@@ -159,6 +193,75 @@ export interface ReasoningNarrative {
   citationIds: readonly string[];
 }
 
+export interface SubjectTraceabilityRelationshipArtifact {
+  relationshipId: string;
+  citationId: string;
+  sourceEntityId: string;
+  sourceCitationId: string;
+  targetEntityId: string;
+  targetCitationId: string;
+  category: "subject-traceability";
+  relationshipType: "represents-subject";
+  status: "subject-derived";
+  authority: "investigation";
+  strength: "informational";
+  impactEligible: false;
+}
+
+export interface SubjectTraceabilityNarrative {
+  id: string;
+  category: "subject-traceability";
+  text: string;
+  meaning: "informational";
+  authority: "investigation";
+  strength: "informational";
+  impactEligible: false;
+  application: string;
+  participantCount: number;
+  citationIds: readonly string[];
+}
+
+export interface SubjectApplicationParticipation {
+  subjectId: string;
+  subjectLabel: string;
+  application: string;
+  participantCount: number;
+  uniqueEntityCount: number;
+  representativeEntityIds: readonly string[];
+  representativeEntityLabels: readonly string[];
+  representativeEntityKinds: readonly string[];
+  representativeEntityStatus?: string;
+  sourceKinds: readonly string[];
+  relationshipType: "represents-subject";
+  category: "subject-traceability-summary";
+  status: "subject-derived";
+  authority: "investigation";
+  strength: "informational";
+  impactEligible: false;
+  diagnosticReason?: string;
+}
+
+export interface SubjectApplicationParticipationBrief {
+  subjectId?: string;
+  subjectLabel: string;
+  application: string;
+  participantCount: number;
+  representativeEntityIds?: readonly string[];
+  representativeEntityLabels?: readonly string[];
+  representativeEntityKinds?: readonly string[];
+  representativeEntity?: {
+    entityId: string;
+    displayLabel: string;
+    kind: string;
+    sourceApplication: string;
+    citationId: string;
+    nativeId?: string;
+    semanticRole?: string;
+    status?: string;
+  };
+  contribution: string;
+}
+
 export interface EngineeringImpactChain {
   id: string;
   sourceEntityId: string;
@@ -182,6 +285,11 @@ export interface MissingEvidence {
 }
 
 export interface InvestigationReasoningSummary {
+  applicationsPresent: readonly string[];
+  subjectParticipationSummary: string;
+  crossSystemParticipationSummary: string;
+  representativeEntitiesByApplication: Readonly<Record<string, readonly string[]>>;
+  evidenceBoundaryStatement: string;
   crossSystemSummary: string;
   relationshipCount: number;
   relationshipSummary: string;
@@ -212,13 +320,25 @@ export interface RelationshipFlowDiagnostics {
 }
 
 export interface ReasoningPackage {
+  applicationsPresent: InvestigationReasoningSummary["applicationsPresent"];
+  subjectParticipationSummary: InvestigationReasoningSummary["subjectParticipationSummary"];
+  crossSystemParticipationSummary: InvestigationReasoningSummary["crossSystemParticipationSummary"];
+  representativeEntitiesByApplication: InvestigationReasoningSummary["representativeEntitiesByApplication"];
+  evidenceBoundaryStatement: InvestigationReasoningSummary["evidenceBoundaryStatement"];
   entityImportance: Readonly<Record<string, EntityImportance>>;
-  primaryEntities: readonly (CopilotEntityContext & { importance: EntityImportance })[];
+  primaryEntities: readonly (
+    Pick<CopilotEntityContext, "entityId" | "citationId" | "displayName" | "kind" | "importanceScore" | "source" | "nativeId"> & {
+      importance: EntityImportance;
+    }
+  )[];
   keyDependencies: readonly ReasoningPath[];
   impactChains: readonly EngineeringImpactChain[];
   strongestEvidence: readonly CopilotEvidenceContext[];
   engineeringFindings: readonly EngineeringFinding[];
   relationshipNarratives: readonly ReasoningNarrative[];
+  subjectTraceabilityRelationships: readonly SubjectTraceabilityRelationshipArtifact[];
+  subjectTraceabilityNarratives: readonly SubjectTraceabilityNarrative[];
+  subjectApplicationParticipation: readonly SubjectApplicationParticipation[];
   impactNarratives: readonly ReasoningNarrative[];
   unresolvedRelationships: readonly CopilotUnresolvedEvaluationContext[];
   missingEvidence: readonly MissingEvidence[];
@@ -235,6 +355,14 @@ export interface EngineeringBrief {
   )[];
   majorRelationships: readonly CopilotRelationshipContext[];
   relationshipNarratives: ReasoningPackage["relationshipNarratives"];
+  subjectTraceabilityRelationships: ReasoningPackage["subjectTraceabilityRelationships"];
+  subjectTraceabilityNarratives: ReasoningPackage["subjectTraceabilityNarratives"];
+  subjectApplicationParticipation: readonly SubjectApplicationParticipationBrief[];
+  representativeEntitiesByApplication: InvestigationReasoningSummary["representativeEntitiesByApplication"];
+  evidenceBoundaryStatement: InvestigationReasoningSummary["evidenceBoundaryStatement"];
+  applicationsPresent: InvestigationReasoningSummary["applicationsPresent"];
+  subjectParticipationSummary: InvestigationReasoningSummary["subjectParticipationSummary"];
+  crossSystemParticipationSummary: InvestigationReasoningSummary["crossSystemParticipationSummary"];
   impactNarratives: ReasoningPackage["impactNarratives"];
   relationshipEvidence: readonly CopilotEvidenceContext[];
   engineeringInsights: readonly EngineeringFinding[];
@@ -254,7 +382,8 @@ export interface CopilotContextPacket {
   lifecycle: InvestigationLifecycle;
   subject: string;
   userMessage: string;
-  questionIntent: "summary" | "relationship" | "impact" | "dependency" | "root-cause" | "evidence" | "risk" | "change-analysis";
+  questionIntent: "summary" | "relationship" | "impact" | "dependency" | "root-cause" | "evidence" | "risk" | "change-analysis" | "document";
+  consequenceEvidenceState?: ConsequenceEvidenceState;
   entityCandidates: readonly CopilotEntityCandidate[];
   selectedEntityIds: readonly string[];
   entityConfidence: number;
@@ -309,10 +438,28 @@ export interface CopilotContextPacket {
     staleSources: readonly string[];
     unsupportedIdentifiers: readonly string[];
   };
+  subjectTraceabilityDiagnostics: {
+    graphSubjectTraceabilityEdgeCount: number;
+    applicationParticipationSummaryCount: number;
+    applicationsPresent: readonly string[];
+    representativeEntityCountByApplication: Readonly<Record<string, number>>;
+    entityLevelSubjectEdgesIncludedInPrompt: number;
+    compactSubjectNarrativeCount: number;
+    hasOntologyResolvedWindchillSapRelationship: boolean;
+    hasWindchillSapImpactPath: boolean;
+    contextCharactersUsed: number;
+    contextCharacterLimit: number;
+    omittedEntityLevelSubjectEdges: number;
+  };
   omissions: {
     categories: readonly string[];
     omittedCounts: Readonly<Record<string, number>>;
     maxContextChars: number;
+    budgetTrace: {
+      before: Readonly<Record<string, number>>;
+      after: Readonly<Record<string, number>>;
+      protectedRelationshipId?: string;
+    };
   };
 }
 

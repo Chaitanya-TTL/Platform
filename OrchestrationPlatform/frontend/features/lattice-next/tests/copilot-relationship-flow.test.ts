@@ -105,6 +105,11 @@ const impactChain: EngineeringImpactChain = {
 };
 
 const summary: InvestigationReasoningSummary = {
+  applicationsPresent: [],
+  subjectParticipationSummary: "",
+  crossSystemParticipationSummary: "",
+  representativeEntitiesByApplication: {},
+  evidenceBoundaryStatement: "",
   crossSystemSummary: "Windchill and SAP are connected by a governed relationship.",
   relationshipCount: 1,
   relationshipSummary: relationshipNarrative.text,
@@ -117,6 +122,11 @@ const summary: InvestigationReasoningSummary = {
 };
 
 const reasoningPackage: ReasoningPackage = {
+  applicationsPresent: [],
+  subjectParticipationSummary: "",
+  crossSystemParticipationSummary: "",
+  representativeEntitiesByApplication: {},
+  evidenceBoundaryStatement: "",
   entityImportance: { [entity.entityId]: entity.importance },
   primaryEntities: [entity],
   keyDependencies: [],
@@ -131,6 +141,9 @@ const reasoningPackage: ReasoningPackage = {
   }],
   engineeringFindings: [],
   relationshipNarratives: [relationshipNarrative],
+  subjectTraceabilityRelationships: [],
+  subjectTraceabilityNarratives: [],
+  subjectApplicationParticipation: [],
   impactNarratives: [impactNarrative],
   unresolvedRelationships: [],
   missingEvidence: [],
@@ -218,7 +231,25 @@ const contextPacket: CopilotContextPacket = {
   citations,
   uncertainties: [],
   grounding: { hasCanonicalEvidence: true, partialSources: [], staleSources: [], unsupportedIdentifiers: [] },
-  omissions: { categories: [], omittedCounts: {}, maxContextChars: 24_000 },
+  subjectTraceabilityDiagnostics: {
+    graphSubjectTraceabilityEdgeCount: 0,
+    applicationParticipationSummaryCount: 0,
+    applicationsPresent: [],
+    representativeEntityCountByApplication: {},
+    entityLevelSubjectEdgesIncludedInPrompt: 0,
+    compactSubjectNarrativeCount: 0,
+    hasOntologyResolvedWindchillSapRelationship: true,
+    hasWindchillSapImpactPath: true,
+    contextCharactersUsed: 0,
+    contextCharacterLimit: 24_000,
+    omittedEntityLevelSubjectEdges: 0,
+  },
+  omissions: {
+    categories: [],
+    omittedCounts: {},
+    maxContextChars: 24_000,
+    budgetTrace: { before: {}, after: {} },
+  },
 };
 
 const timestamp = "2026-10-30T00:00:00.000Z";
@@ -336,7 +367,7 @@ describe("Copilot relationship flow", () => {
     expect(packet.relationshipFlow.copilotContext.relationshipCount).toBe(2);
   });
 
-  it("materializes cross-source identity membership as traceability", () => {
+  it("does not materialize cross-source identity membership as an engineering relationship", () => {
     const crossSourceCanonical = {
       ...canonicalSummary,
       subject: {
@@ -364,7 +395,7 @@ describe("Copilot relationship flow", () => {
       item.family === "projection:domain:cross-source" &&
       item.sourceEntityId === "wc:part" &&
       item.targetEntityId === "sap:material",
-    )).toBe(true);
+    )).toBe(false);
     expect(packet.relationships.some((item) => item.sourceEntityId === "wc:part" && item.targetEntityId === "sap:material")).toBe(true);
   });
 

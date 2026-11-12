@@ -19,6 +19,14 @@ const agent = new LatticeCopilotAgent(async (input, signal) => {
       outcome.body.retryable === true,
       outcome.body.requestMayHaveBeenBilled === true,
       undefined,
+      {
+        requestId: typeof outcome.body.requestId === "string" ? outcome.body.requestId : input.idempotencyKey,
+        failureCode: code,
+        failingStage: typeof outcome.body.failingStage === "string" ? outcome.body.failingStage : "turn-started",
+        ...(typeof outcome.body.providerStatus === "number" ? { providerStatus: outcome.body.providerStatus } : {}),
+        ...(typeof outcome.body.validationCategory === "string" ? { validationCategory: outcome.body.validationCategory } : {}),
+      },
+      outcome.cause,
     );
   }
   return outcome.answer;

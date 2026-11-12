@@ -88,13 +88,21 @@ describe("Lattice CopilotKit agent", () => {
     expect(JSON.stringify(events)).not.toContain("proxy diagnostic secret");
   });
 
-  it("forwards only the safe validation failure classification", async () => {
+  it("forwards safe stage and validation metadata without raw diagnostics", async () => {
     const executeTurn = vi.fn().mockRejectedValue(new CopilotKitAgentError(
       "The response did not pass answer validation.",
-      "answer-validation-failed",
-      true,
+      "citation-validation",
       false,
-      "The response omitted a required citation.",
+      true,
+      undefined,
+      {
+        requestId: "request-1",
+        failureCode: "citation-validation",
+        failingStage: "answer-validated",
+        providerStatus: 200,
+        validationCategory: "citation-validation",
+      },
+      new Error("raw provider response"),
     ));
 
     const events = await collect(new LatticeCopilotAgent(executeTurn).run(input));
@@ -104,12 +112,18 @@ describe("Lattice CopilotKit agent", () => {
       type: EventType.RUN_ERROR,
       message: "The response did not pass answer validation.",
       metadata: {
-        retryable: true,
-        requestMayHaveBeenBilled: false,
-        validationIssue: "The response omitted a required citation.",
+        retryable: false,
+        requestMayHaveBeenBilled: true,
+        requestId: "request-1",
+        failureCode: "citation-validation",
+        failingStage: "answer-validated",
+        providerStatus: 200,
+        validationCategory: "citation-validation",
       },
     });
     expect(JSON.stringify(events)).not.toContain("raw provider response");
+    expect(runError).not.toHaveProperty("threadId");
+    expect(runError).not.toHaveProperty("runId");
   });
 
   it("reuses the existing user-message ID as the idempotency key for a second run", async () => {

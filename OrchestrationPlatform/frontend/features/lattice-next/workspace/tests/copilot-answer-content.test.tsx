@@ -50,6 +50,25 @@ describe("Copilot answer content", () => {
     expect(markup.match(/The validated answer\./g)).toHaveLength(1);
   });
 
+  it("renders the persisted balanced Primary entities section without changing its representatives", () => {
+    const section = [
+      "Primary entities",
+      "- Steering System Requirements\n  requirement; Codebeamer",
+      "- Steering part 0000003874\n  part-occurrence; Windchill",
+      "- Material MAT7893\n  operational material; SAP",
+      "- Steering, Work-item ID 305\n  product/work-item subject; Configit",
+    ].join("\n");
+    const markup = renderToStaticMarkup(
+      <CopilotAnswerContent
+        content={section}
+        onCitationSelect={vi.fn()}
+      />,
+    );
+
+    expect(markup).toContain(section);
+    expect(markup).not.toContain("Market MRKT");
+  });
+
   it("renders a readable, accessible working thought line", () => {
     const markup = renderToStaticMarkup(
       <ThoughtLine

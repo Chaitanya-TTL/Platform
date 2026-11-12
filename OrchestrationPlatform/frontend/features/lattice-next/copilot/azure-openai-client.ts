@@ -3,6 +3,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { getCopilotConfig, type CopilotConfig } from "./config";
 import { recordCopilotUsage, type CopilotUsageRecord } from "./usage-ledger";
+import { recordCopilotTurnStage } from "./turn-stage-journal";
 
 export type AzureChatRole = "system" | "user" | "assistant";
 
@@ -14,6 +15,11 @@ export interface AzureChatMessage {
 export interface AzureChatRequest {
   messages: readonly AzureChatMessage[];
   requestId?: string;
+  turnContext?: {
+    investigationId: string;
+    threadId?: string;
+    snapshotRevision: number;
+  };
   maxTokens?: number;
   temperature?: number;
   signal?: AbortSignal;
@@ -21,6 +27,7 @@ export interface AzureChatRequest {
 
 export interface AzureChatResponse {
   content: string;
+  providerStatus?: number;
   finishReason?: string;
   usage?: {
     promptTokens?: number;
@@ -42,13 +49,14 @@ export class AzureOpenAIError extends Error {
     readonly code: AzureOpenAIErrorCode,
     message: string,
     readonly status?: number,
+    options?: ErrorOptions,
   ) {
-    super(message);
+    super(message, options);
     this.name = "AzureOpenAIError";
   }
 }
 
-const MAX_ATTEMPTS = 3;
+const MAX_ATTEMPTS = 1;
 const REQUEST_TIMEOUT_MS = 30_000;
 
 function assertServerRuntime(): void {
@@ -160,20 +168,23 @@ export async function completeCopilotTurn(request: AzureChatRequest): Promise<Az
         latencyMs: Date.now() - attemptStartedAt,
         inputCostPerMillionTokensUsd: config.inputCostPerMillionTokensUsd,
         outputCostPerMillionTokensUsd: config.outputCostPerMillionTokensUsd,
-      });
+      }, request, requestId);
       if (timedOut)
-        throw new AzureOpenAIError("timeout", "Azure OpenAI request timed out.");
-      throw new AzureOpenAIError("network-error", "Azure OpenAI network request failed; the provider may have received it. Do not retry automatically.");
+        throw new AzureOpenAIError("timeout", "Azure OpenAI request timed out; the provider may have received it. Do not retry automatically.", undefined, { cause });
+      throw new AzureOpenAIError("network-error", "Azure OpenAI network request failed; the provider may have received it. Do not retry automatically.", undefined, { cause });
     }
 
     let value: unknown;
+    let responseJsonError: unknown;
     try {
       value = await response.json();
-    } catch {
+    } catch (cause) {
       value = undefined;
+      responseJsonError = cause;
     }
     const usage = providerUsage(value);
     let parsedResponse: AzureChatResponse | undefined;
+    let responseShapeError: unknown;
     let outcome: CopilotUsageRecord["outcome"];
     if (!response.ok) {
       outcome = "provider-http-error";
@@ -181,7 +192,8 @@ export async function completeCopilotTurn(request: AzureChatRequest): Promise<Az
       try {
         parsedResponse = parseResponse(value);
         outcome = "success";
-      } catch {
+      } catch (cause) {
+        responseShapeError = cause;
         outcome = "invalid-provider-response";
       }
     }
@@ -200,33 +212,51 @@ export async function completeCopilotTurn(request: AzureChatRequest): Promise<Az
       totalTokens: usage?.totalTokens,
       inputCostPerMillionTokensUsd: config.inputCostPerMillionTokensUsd,
       outputCostPerMillionTokensUsd: config.outputCostPerMillionTokensUsd,
-    });
+    }, request, requestId, response.status);
 
     if (!response.ok) {
       if (transientStatus(response.status) && attempt < MAX_ATTEMPTS) {
         await delay(100 * attempt);
         continue;
       }
-      throw new AzureOpenAIError("provider-http-error", `Azure OpenAI request failed with status ${response.status}.`, response.status);
+      throw new AzureOpenAIError("provider-http-error", `Azure OpenAI request failed with status ${response.status}.`, response.status, responseJsonError ? { cause: responseJsonError } : undefined);
     }
     if (!parsedResponse) {
       throw new AzureOpenAIError("invalid-provider-response", value === undefined
         ? "Azure OpenAI returned malformed JSON."
-        : "Azure OpenAI returned an invalid response.");
+        : "Azure OpenAI returned an invalid response.", response.status,
+      responseJsonError || responseShapeError ? { cause: responseJsonError ?? responseShapeError } : undefined);
     }
-    return parsedResponse;
+    return { ...parsedResponse, providerStatus: response.status };
   }
 
   throw new AzureOpenAIError("network-error", "Azure OpenAI request exhausted its bounded transient-response retries.");
 }
 
-async function logUsage(record: CopilotUsageRecord): Promise<void> {
+async function logUsage(
+  record: CopilotUsageRecord,
+  request: AzureChatRequest,
+  requestId: string,
+  providerStatus?: number,
+): Promise<void> {
   try {
     await recordCopilotUsage(record);
-  } catch {
-    throw new AzureOpenAIError(
-      "usage-ledger-error",
-      "The model request completed but usage could not be recorded. Do not automatically retry this request.",
-    );
+  } catch (cause) {
+    await recordCopilotTurnStage({
+      requestId,
+      investigationId: request.turnContext?.investigationId ?? "unknown",
+      threadId: request.turnContext?.threadId,
+      snapshotRevision: request.turnContext?.snapshotRevision,
+      stage: providerStatus === undefined ? "provider-request-started" : "provider-response-received",
+      providerStatus,
+      failureCode: "usage-ledger-error",
+      error: cause,
+      requestMayHaveBeenBilled: true,
+      retryable: false,
+    });
+    console.error("[copilot] usage ledger write failed after preserving provider outcome", {
+      requestId,
+      providerStatus,
+    });
   }
 }

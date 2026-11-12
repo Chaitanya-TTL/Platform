@@ -11,6 +11,7 @@ import type {
   OntologyUnresolvedEvaluation,
 } from "../contracts/relationship-ontology";
 import { COPILOT_RETRIEVAL_CONFIG } from "../../copilot/retrieval-config";
+import { adaptGovernedOntologyEvidence } from "./ontology-evidence-adapter";
 
 function citationId(kind: string, id: string): string {
   return `cite:${kind}:${encodeURIComponent(id)}`;
@@ -207,22 +208,43 @@ function resolveDefinitions(
   }
 
   for (const definition of ontology.relationshipDefinitions) {
-    const sources = entities.filter((entity) => definition.sourceApplications.includes(entity.provenance.source ?? "") && definition.sourceKinds.includes(entity.kind));
-    const targets = entities.filter((entity) => definition.targetApplications.includes(entity.provenance.source ?? "") && definition.targetKinds.includes(entity.kind));
+    const governedEvidence = adaptGovernedOntologyEvidence(canonical, definition);
+    const governedSourceIds = new Set(governedEvidence.map((item) => item.sourceEntityId));
+    const governedTargetIds = new Set(governedEvidence.map((item) => item.targetEntityId));
+    const sources = entities.filter((entity) =>
+      definition.sourceApplications.includes(entity.provenance.source ?? "") &&
+      (definition.sourceKinds.includes(entity.kind) || governedSourceIds.has(entity.id)),
+    );
+    const targets = entities.filter((entity) =>
+      definition.targetApplications.includes(entity.provenance.source ?? "") &&
+      (definition.targetKinds.includes(entity.kind) || governedTargetIds.has(entity.id)),
+    );
     let matchedForDefinition = 0;
     for (const source of sources) {
       for (const target of targets) {
         if (source.id === target.id) continue;
-        const matched = definition.evidenceRules
+        const governedMatch = governedEvidence.find((item) =>
+          item.sourceEntityId === source.id && item.targetEntityId === target.id,
+        );
+        const declaredEndpointKinds = definition.sourceKinds.includes(source.kind) && definition.targetKinds.includes(target.kind);
+        if (!declaredEndpointKinds && !governedMatch) continue;
+        const propertyMatch = definition.evidenceRules
           .map((rule) => ({ rule, values: ruleMatches(rule, source, target) }))
           .filter((entry): entry is { rule: OntologyEvidenceRule; values: { sourceValue: string; targetValue: string } } => Boolean(entry.values))
           .sort((a, b) => statusRank(a.rule.status) - statusRank(b.rule.status) || a.rule.id.localeCompare(b.rule.id))[0];
-        if (!matched) continue;
+        if (!propertyMatch && !governedMatch) continue;
+        const matchedRule = propertyMatch?.rule ?? governedMatch!.rule;
+        const matchedValues = propertyMatch?.values ?? {
+          sourceValue: governedMatch!.sourceValue,
+          targetValue: governedMatch!.targetValue,
+        };
         matchedForDefinition++;
-        const observations = evidenceFor(source, target, matched.rule, matched.values);
+        const observations = propertyMatch
+          ? evidenceFor(source, target, matchedRule, matchedValues)
+          : governedMatch!.observations;
         evidence.push(...observations);
         const edgeEvidenceIds = existingByEndpoints.get(`${source.id}\u0000${target.id}`) ?? [];
-        const relationshipId = stableId(["ontology", ontology.ontologyVersion, definition.id, matched.rule.id, source.id, target.id]);
+        const relationshipId = stableId(["ontology", ontology.ontologyVersion, definition.id, matchedRule.id, source.id, target.id]);
         const ids = [
           citationId("entity", source.id),
           citationId("entity", target.id),
@@ -232,23 +254,23 @@ function resolveDefinitions(
         resolved.push({
           id: relationshipId,
           definitionId: definition.id,
-          evidenceRuleId: matched.rule.id,
+          evidenceRuleId: matchedRule.id,
           sourceEntityId: source.id,
           targetEntityId: target.id,
           forwardType: definition.forward.type,
           forwardMeaning: definition.forward.meaning,
           inverseType: definition.inverse.type,
           inverseMeaning: definition.inverse.meaning,
-          status: matched.rule.status,
-          strength: matched.rule.strength,
-          mechanism: matched.rule.mechanism,
+          status: matchedRule.status,
+          strength: matchedRule.strength,
+          mechanism: matchedRule.mechanism,
           impactTraversal: definition.impactTraversal,
           evidence: observations,
           evidenceIds: observations.map((observation) => observation.id),
           canonicalRelationshipIds: edgeEvidenceIds,
           citationIds: [...new Set(ids)].sort(),
           provenance: {
-            authority: matched.rule.authority,
+            authority: matchedRule.authority,
             provider: "lattice-relationship-ontology",
             ontologyVersion: ontology.ontologyVersion,
             observedAt: [source.provenance.observedAt, target.provenance.observedAt].sort().at(-1) ?? canonical.temporal.assembledAt,
@@ -281,6 +303,7 @@ export function buildKnowledgeGraphSummary(graph: InvestigationKnowledgeGraph): 
     ...graph.resolvedRelationships.flatMap((relationship) =>
       relationship.canonicalRelationshipIds.length ? relationship.canonicalRelationshipIds : [relationship.id],
     ),
+    ...graph.subjectTraceabilityRelationships.map((relationship) => relationship.id),
   ]);
   const evidenceIds = new Set([
     ...graph.canonicalRelationships.flatMap((relationship) => relationship.evidenceIds),
@@ -372,9 +395,10 @@ export function enrichInvestigationWithOntology(
     : COPILOT_RETRIEVAL_CONFIG.graphTraversalDepth;
   const graphDepth = Math.max(configuredDepth, COPILOT_RETRIEVAL_CONFIG.maxTraversalDepth);
   const entityIds = new Set(canonical.entities.map((entity) => entity.id));
+  const subjectNodeId = stableId(["investigation-subject", canonical.investigationId, canonical.subject.id]);
   const evaluation = resolveDefinitions(canonical, ontology, snapshotRevision, entityIds);
-  const entities: InvestigationKnowledgeGraph["entities"] = canonical.entities
-    .map((entity) => ({
+  const entities: InvestigationKnowledgeGraph["entities"] = [
+    ...canonical.entities.map((entity) => ({
       id: entity.id,
       kind: entity.kind,
       ...(entity.provenance.source ? { application: entity.provenance.source } : {}),
@@ -387,8 +411,20 @@ export function enrichInvestigationWithOntology(
         observedAt: entity.provenance.observedAt,
         freshness: entity.temporal.freshness,
       },
-    }))
-    .sort((a, b) => a.id.localeCompare(b.id));
+    })),
+    {
+      id: subjectNodeId,
+      kind: "investigation-subject",
+      label: canonical.subject.displayName,
+      citationId: citationId("entity", subjectNodeId),
+      provenance: {
+        provider: canonical.subject.provenance.provider,
+        authority: canonical.subject.provenance.authority,
+        observedAt: canonical.subject.provenance.observedAt,
+        freshness: canonical.subject.temporal.freshness,
+      },
+    },
+  ].sort((a, b) => a.id.localeCompare(b.id));
   const canonicalRelationships: InvestigationKnowledgeGraph["canonicalRelationships"] = canonical.relationships
     .filter((relationship) => entityIds.has(relationship.sourceEntityId) && entityIds.has(relationship.targetEntityId))
     .map((relationship) => ({
@@ -406,6 +442,38 @@ export function enrichInvestigationWithOntology(
       },
     }))
     .sort((a, b) => a.id.localeCompare(b.id));
+  const subjectTraceabilityRelationships: InvestigationKnowledgeGraph["subjectTraceabilityRelationships"] = canonical.entities
+    .map((entity): InvestigationKnowledgeGraph["subjectTraceabilityRelationships"][number] => {
+      const id = stableId(["subject-traceability", canonical.investigationId, entity.id, subjectNodeId]);
+      return {
+        id,
+        category: "subject-traceability",
+        relationshipType: "represents-subject",
+        sourceEntityId: entity.id,
+        targetEntityId: subjectNodeId,
+        ...(entity.provenance.source ? { sourceApplication: entity.provenance.source } : {}),
+        ...(entity.provenance.nativeId ? { sourceNativeId: entity.provenance.nativeId } : {}),
+        citationId: citationId("relationship", id),
+        citationIds: [citationId("entity", entity.id), citationId("entity", subjectNodeId)].sort(),
+        status: "subject-derived",
+        authority: "investigation",
+        strength: "informational",
+        impactEligible: false,
+        provenance: {
+          provider: "lattice-subject-traceability",
+          authority: "investigation",
+          observedAt: canonical.temporal.assembledAt,
+          investigationId: canonical.investigationId,
+          subjectId: canonical.subject.id,
+          ...(entity.provenance.source ? { sourceApplication: entity.provenance.source } : {}),
+          ...(entity.provenance.nativeId ? { sourceNativeId: entity.provenance.nativeId } : {}),
+          sourceProvider: entity.provenance.provider,
+          sourceAuthority: entity.provenance.authority,
+          sourceObservedAt: entity.provenance.observedAt,
+        },
+      };
+    })
+    .sort((a, b) => a.id.localeCompare(b.id));
   const outgoing: Record<string, string[]> = {};
   const incoming: Record<string, string[]> = {};
   for (const edge of evaluation.resolved) {
@@ -413,6 +481,10 @@ export function enrichInvestigationWithOntology(
     incoming[edge.targetEntityId] = [...(incoming[edge.targetEntityId] ?? []), edge.id];
   }
   for (const edge of canonicalRelationships) {
+    outgoing[edge.sourceEntityId] = [...(outgoing[edge.sourceEntityId] ?? []), edge.id];
+    incoming[edge.targetEntityId] = [...(incoming[edge.targetEntityId] ?? []), edge.id];
+  }
+  for (const edge of subjectTraceabilityRelationships) {
     outgoing[edge.sourceEntityId] = [...(outgoing[edge.sourceEntityId] ?? []), edge.id];
     incoming[edge.targetEntityId] = [...(incoming[edge.targetEntityId] ?? []), edge.id];
   }
@@ -474,6 +546,7 @@ export function enrichInvestigationWithOntology(
     snapshotRevision,
     entities,
     canonicalRelationships,
+    subjectTraceabilityRelationships,
     resolvedRelationships: relationships,
     unresolvedEvaluations: evaluation.unresolved,
     relationshipPaths,
@@ -487,7 +560,7 @@ export function enrichInvestigationWithOntology(
     traversalIndexes: { outgoing, incoming },
     confidenceMetadata: {
       entityCount: entities.length,
-      relationshipCount: relationships.length + canonicalRelationships.length,
+      relationshipCount: relationships.length + canonicalRelationships.length + subjectTraceabilityRelationships.length,
       unresolvedCount: evaluation.unresolved.length,
       relationshipCoverage: ontology.relationshipDefinitions.length
         ? evaluation.resolved.length / (evaluation.resolved.length + evaluation.unresolved.length || 1)

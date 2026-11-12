@@ -4,7 +4,10 @@
 
 The five required cases were re-executed manually against the running local Copilot on 2026-11-02 after the provider parsing, investigation-scope, ranking, and duplicate-rendering changes. The provider was reachable. These results are from the current saved investigation, not the synthetic offline fixture.
 
-The benchmark document is the source of truth for the Sprint 1A release gate. No case is marked as passed unless the returned answer satisfies the expected outcome. The current live release gate remains **failed**.
+The benchmark document is the source of truth for the Sprint 1A release gate. No case is marked as passed unless the returned answer satisfies the expected outcome. The current live release gate remains **failed**. Sprint 1A.6 used the
+synthetic golden fixture for exactly the M1 and M2 provider checks. Both requests
+received HTTP 401, so there is still no provider-backed fixture answer and Sprint
+2 is not unblocked. See the final Sprint 1A.6 status table below.
 
 The Sprint 1A.2 evidence package is documented in [relationship-audit.md](./relationship-audit.md),
 [cross-system-coverage.md](./cross-system-coverage.md),
@@ -22,6 +25,15 @@ The Sprint 1A.3 materialization evidence package is documented in
 [enrichment-execution-report.md](./enrichment-execution-report.md),
 [live-investigation-expectations.md](./live-investigation-expectations.md), and
 [sprint-1a3-findings.md](./sprint-1a3-findings.md).
+
+The Sprint 1A.4 fixture-validation evidence package is documented in
+[golden-path-dataset.md](./golden-path-dataset.md),
+[ontology-evidence-matrix.md](./ontology-evidence-matrix.md),
+[materialization-proof.md](./materialization-proof.md),
+[impact-path-proof.md](./impact-path-proof.md),
+[copilot-consumption-proof.md](./copilot-consumption-proof.md),
+[failure-boundary-report.md](./failure-boundary-report.md), and
+[sprint-1a4-findings.md](./sprint-1a4-findings.md).
 
 ## Sprint 1A.1 post-hardening truth
 
@@ -99,3 +111,54 @@ Offline success does not override the live results above. Sprint 1A is not compl
 5. Record clarifications, validation errors, missing applications, unsupported claims, or uncertainty failures in Observations.
 
 Offline context tests must not be copied into the Actual Answer column.
+
+## Sprint 1A.5 isolated fixture status
+
+The Sprint 1A.5 ontology adapter, protected context-budget behavior, and
+fixture-backed ontology/impact/context/prompt tests have been executed as part
+of the offline regression gate recorded below. No provider-backed M1 or M2
+answer was captured by those tests. The isolated fixture therefore does not
+change the live benchmark results above or unblock Sprint 2.
+
+Detailed Sprint 1A.5 contract analysis and proof status are recorded in
+[`sprint-1a5/sprint-1a5-findings.md`](./sprint-1a5/sprint-1a5-findings.md).
+
+## Sprint 1A.6 final release-gate re-evaluation
+
+This re-evaluation preserves the distinction between the existing saved-live-
+investigation results above and the new synthetic golden-fixture provider run.
+Only M1 and M2 were sent to the provider; E1, T1, and T8 were not re-run.
+
+| Case | Status | Evidence |
+|---|---|---|
+| E1 | **FAIL** | The latest recorded live answer did not meet expected cross-system business-entity coverage. No new E1 provider call was made. |
+| M1 | **FAIL** | The golden-fixture request returned HTTP 401; no raw or validated answer exists. Before the provider call, the graph had 3 resolved relationships, but the prompt major-relationship list had 1. |
+| M2 | **FAIL** | The golden-fixture request returned HTTP 401; no raw or validated answer exists. |
+| T1 | **FAIL** | The latest recorded live result failed before producing a usable evidence summary. No new T1 provider call was made. |
+| T8 | **BENCHMARK-DATA-MISMATCH** | Existing live evidence confirms `CN-9001` and `MAT-200` are absent from the saved investigation. No new T8 provider call was made. |
+
+For M1 and M2, the graph, reasoning package, engineering brief, and prompt
+preserved non-zero reasoning intelligence. The provider response is the first
+failed boundary in this run: both requests received HTTP 401. The raw provider
+answer, final answer, relationship hallucination check, and answer-validation
+modification check are unavailable because no model answer was returned. Refer
+to [`sprint-1a5/sprint-1a6-findings.md`](./sprint-1a5/sprint-1a6-findings.md)
+and [`sprint-1a5/provider-answer-trace.md`](./sprint-1a5/provider-answer-trace.md)
+for the captured evidence.
+
+**Release decision:** Sprint 1A is not complete. Sprint 2 remains blocked pending
+successful M1 and M2 provider-backed answer validation against the fixture.
+
+## Sprint 1A.7 final offline regression gate
+
+The local regression gate was executed on 2026-11-11 without making a provider
+request. All 9 focused test files passed (85/85 tests), including the exact
+four-application investigation traceability checks, M2 insufficient-evidence
+repair, protected relationship context, and budget preservation. Changed-file
+ESLint and `git diff --check` also passed. The M2 packet measured 21,648
+serialized characters against the 22,500-character ceiling.
+
+These are offline results only. The prior Sprint 1A.6 provider responses
+remain HTTP 401 failures, and no new E1, M1, or M2 live answer was captured.
+The live benchmark cases therefore remain unverified/failed as recorded above;
+this regression gate does not satisfy the provider-backed release gate.
