@@ -27,7 +27,7 @@ public sealed class WindchillEngineeringAdapter : IEngineeringSourceAdapter
         var output = Path.Combine(outputDir, "search.json");
         try
         {
-            var info = new ProcessStartInfo { FileName = "python", WorkingDirectory = Path.GetDirectoryName(script)!, UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true };
+            var info = new ProcessStartInfo { FileName = options.ResolvePythonExecutable(), WorkingDirectory = Path.GetDirectoryName(script)!, UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true };
             foreach (var arg in new[] { script, "--operation", "search", "--query", query, "--output", output }) info.ArgumentList.Add(arg);
             var run = await runner.RunAsync(info, TimeSpan.FromMilliseconds(request.TimeoutPolicy.PerSourceTimeoutMs ?? request.TimeoutPolicy.TimeoutMs), _ => Task.CompletedTask, token);
             if (run.exitCode != 0 || !File.Exists(output)) return Unavailable("windchill-search-failed", "Windchill search did not return a usable result.", true);
@@ -59,7 +59,7 @@ public sealed class WindchillEngineeringAdapter : IEngineeringSourceAdapter
         {
             var script=options.ResolveWindchillPath();if(!File.Exists(script))return Failure(jobId,request,started,"windchill-runtime-unavailable","The Windchill extractor is unavailable.",false);
             var runtime=EngineeringAdapterSupport.CreateRuntimeDirectory(jobId,Source);var output=Path.Combine(runtime,"normalized-bom.json");
-            var info=new ProcessStartInfo{FileName="python",WorkingDirectory=Path.GetDirectoryName(script)!,UseShellExecute=false,RedirectStandardOutput=true,RedirectStandardError=true,CreateNoWindow=true};
+            var info=new ProcessStartInfo{FileName=options.ResolvePythonExecutable(),WorkingDirectory=Path.GetDirectoryName(script)!,UseShellExecute=false,RedirectStandardOutput=true,RedirectStandardError=true,CreateNoWindow=true};
             foreach(var arg in new[]{script,"--operation","structure","--part-id",request.Candidate.NativeId,"--output",output})info.ArgumentList.Add(arg);
             if(!string.IsNullOrWhiteSpace(request.Candidate.Version)){info.ArgumentList.Add("--version");info.ArgumentList.Add(request.Candidate.Version);}
             progress.Report(Progress(jobId,JobState.Extracting,10,"Starting Windchill structure extraction."));
