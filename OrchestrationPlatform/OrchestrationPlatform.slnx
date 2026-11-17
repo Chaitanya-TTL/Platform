@@ -1,0 +1,9 @@
+<Solution>
+  <Project Path="Orchestration.API/Orchestration.API.csproj" />
+  <Project Path="Orchestration.API.Tests/Orchestration.API.Tests.csproj" />
+  <Project Path="Lattice.AI.Runtime.Contracts/Lattice.AI.Runtime.Contracts.csproj" />
+  <Project Path="Lattice.AI.Runtime/Lattice.AI.Runtime.csproj" />
+  <Project Path="Lattice.AI.Runtime.Azure/Lattice.AI.Runtime.Azure.csproj" />
+  <Project Path="Lattice.AI.Runtime.Tests/Lattice.AI.Runtime.Tests.csproj" />
+  <Project Path="Lattice.AI.Runtime.Evaluation/Lattice.AI.Runtime.Evaluation.csproj" />
+</Solution>
