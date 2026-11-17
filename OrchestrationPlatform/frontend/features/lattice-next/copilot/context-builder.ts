@@ -21,6 +21,15 @@ import type {
   EngineeringFinding,
   EntityImportance,
   MissingEvidence,
+  ApplicationOverviewProjection,
+  Product360ApplicationDigest,
+  Product360DigestFact,
+  Product360ApplicationRelationshipSummary,
+  Product360ApplicationDigestInput,
+  Product360ApplicationManifestEntry,
+  Product360DrillDownCategory,
+  Product360PreContext,
+  Product360RelationshipSummary,
   ReasoningNarrative,
   ReasoningPackage,
   ReasoningPath,
@@ -98,6 +107,41 @@ type EvidenceLike = {
 function short(value: unknown, max = MAX_FIELD_CHARS): string {
   const text = typeof value === "string" ? value : value === undefined || value === null ? "" : String(value);
   return text.length <= max ? text : `${text.slice(0, Math.max(0, max - 1))}…`;
+}
+
+function completeProduct360Fact(application: string, summary: string): string | undefined {
+  if (/…|\.{3}/.test(summary)) return undefined;
+  const app = application.toLocaleLowerCase();
+  let fact = summary
+    .replace(/\bpreferred Product Id\b/gi, app === "sap" ? "Material ID" : "Work-item ID")
+    .replace(/\bpresentation Role\b/gi, "Project/tracker role")
+    .replace(/Lifecycle:\s*group Key lifecycle/gi, "Lifecycle group: Key lifecycle")
+    .replace(/\bgroup Key lifecycle\b/gi, "Lifecycle group")
+    .replace(/\bHas Children:\s*false\b/gi, "Child structure available: No")
+    .replace(/\bsource-representation\b/gi, app === "sap" ? "Operational material" : "Application representative")
+    .replace(/work-item status:\s*value\s*/gi, "Status: ")
+    .replace(/Project\/tracker role\s+project\b/gi, "Project/tracker role: Project")
+    .replace(/Base unit of measure:\s*value\s*/gi, "Base unit: ")
+    .replace(/Blocked stock:\s*value\s*/gi, "Blocked stock: ")
+    .replace(/Movement 261:\s*movement Type\s*/gi, "Movement type: ")
+    .replace(/\bdocument Type\s*/gi, "Document type: ")
+    .replace(/Document type:\s*:\s*/gi, "Document type: ")
+    .replace(/Dimension:\s*value\s*([\d.]+)\s*x\s*([\d.]+)\s*x\s*([\d.]+)/gi, "Dimensions: $1 × $2 × $3")
+    .replace(/Weight:\s*value\s*([\d.]+)\s*KG\b/gi, "Weight: $1 kg")
+    .replace(/Backing feature for Market '([^']+)':\s*code\s*/gi, "Market feature: ")
+    .replace(/Metadata and localization:\s*([A-Za-z]+)\s*\(([^)]+)\):\s*code\s*\2/gi, "Localization: $1 ($2)")
+    .replace(/([A-Za-z]+) \(([^)]+)\):\s*code\s*([A-Z]+)\.\s*\1\.\s*/g, "Localization: $1 ($2). ")
+    .replace(/description\s*:/gi, "Description:")
+    .replace(/:\s*description\s+/gi, ": Description: ")
+    .replace(/\(([A-Z0-9]+)\):\s*code\s*\1\b/gi, "($1)")
+    .replace(/:\s*value\s*/gi, ": ")
+    .replace(/accounting-line count/gi, "Accounting line count")
+    .replace(/[ \t]+/g, " ")
+    .trim();
+
+  if (!fact || fact.length > 360) return undefined;
+  fact = fact.replace(/[.!?]+$/, "");
+  return fact ? `${fact}.` : undefined;
 }
 
 export function stableCitationId(kind: string, id: string): string {
@@ -228,13 +272,101 @@ function classifyQuestion(message: string): CopilotContextPacket["questionIntent
   if (/\b(relationship|connected|linked|trace|path|related)\b/i.test(message) ||
       /\b(?:what|which)\s+(?:entities|applications?)\s+(?:participate|are involved)\b/i.test(message)) return "relationship";
   if (/\b(document|specification|requirements?|manual)\b/i.test(message)) return "document";
+  if (
+    /\bproduct\s*360\b/i.test(message) ||
+    /\b(?:everything|all\s+(?:known\s+)?information)\b.{0,100}\b(?:product|investigation)\b.{0,100}\b(?:across|systems?|applications?)\b/i.test(message) ||
+    /\b(?:summarize|summarise)\s+(?:this\s+)?product\s+across\s+(?:systems?|applications?)\b/i.test(message) ||
+    /\bwhat\s+information\s+is\s+available\s+for\s+this\s+product\b/i.test(message) ||
+    /\bcomplete\s+investigation\s+overview\b/i.test(message) ||
+    /\boverview\b.{0,60}\bproduct\b.{0,60}\b(?:across|systems?|applications?)\b/i.test(message)
+  ) return "product-360";
+  if (
+    applicationOverviewApplication(message) &&
+    /\b(?:everything|all\s+(?:known\s+)?(?:information|details|records)|complete\s+(?:overview|summary)|full\s+(?:overview|summary))\b/i.test(message)
+  ) return "application-overview";
   return "summary";
+}
+
+const APPLICATION_SEMANTICS: Readonly<Record<string, {
+  contribution: string;
+  primer: string;
+}>> = {
+  codebeamer: {
+    contribution: "requirements",
+    primer: "Requirements, specifications, requirement structures, and requirement relationships.",
+  },
+  windchill: {
+    contribution: "engineering product records",
+    primer: "Engineering product definitions, parts, occurrences, structures, documents, and change records.",
+  },
+  sap: {
+    contribution: "operational material and transaction records",
+    primer: "Operational materials and transaction-oriented records.",
+  },
+  configit: {
+    contribution: "product models, features, families, and rules",
+    primer: "Product/work-item subjects, product models or contexts, configuration models, configuration families, features, rules, and expressions.",
+  },
+};
+
+export function applicationOverviewApplication(message: string): string | undefined {
+  return Object.keys(APPLICATION_SEMANTICS).find((application) =>
+    new RegExp(`\\b${application.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(message),
+  );
+}
+
+function product360DrillDownCategories(
+  application: string,
+  sourceKinds: readonly string[],
+  relationshipKinds: readonly string[],
+): Product360DrillDownCategory[] {
+  const kinds = [...sourceKinds, ...relationshipKinds].map(normalizedBusinessText);
+  const hasKind = (...terms: string[]) => kinds.some((kind) =>
+    terms.some((term) => kind.includes(term)),
+  );
+  const available: Product360DrillDownCategory[] = [];
+  const add = (key: string, label: string, matched: boolean) => {
+    if (matched) available.push({ key, label, available: true });
+  };
+  const app = application.toLocaleLowerCase();
+
+  if (app === "codebeamer") {
+    add("requirements", "Requirements", hasKind("requirement"));
+    add("specifications", "Specifications", hasKind("specification", "spec"));
+    add("requirement-relationships", "Requirement relationships",
+      hasKind("relationship", "depends", "derive", "trace"));
+    add("attachments-and-linked-evidence", "Attachments and linked evidence",
+      hasKind("attachment", "evidence", "document"));
+  } else if (app === "windchill") {
+    add("engineering-parts", "Engineering parts", hasKind("part"));
+    add("occurrences-and-structures", "Occurrences and structures",
+      hasKind("occurrence", "structure", "assembly", "bom"));
+    add("documents", "Documents", hasKind("document"));
+    add("change-records", "Change records", hasKind("change", "ecn", "ecr"));
+  } else if (app === "sap") {
+    add("materials", "Materials", hasKind("material"));
+    add("operational-records", "Operational records",
+      hasKind("operational", "accounting", "transaction", "movement", "document", "order"));
+  } else if (app === "configit") {
+    add("product-work-item-details", "Product/work-item details",
+      hasKind("product detail", "source representation"));
+    add("product-models-and-contexts", "Product models and contexts",
+      hasKind("product model", "configuration model", "product context"));
+    add("configuration-families", "Configuration families", hasKind("family"));
+    add("features", "Features", hasKind("feature"));
+    add("rules-and-expressions", "Rules and expressions",
+      hasKind("rule", "expression"));
+    add("metadata", "Metadata",
+      hasKind("metadata", "localization", "rule field", "status"));
+  }
+  return available;
 }
 
 function isInvestigationScopedQuestion(
   message: string,
   questionIntent: CopilotContextPacket["questionIntent"],
 ): boolean {
+  if (questionIntent === "product-360" || questionIntent === "application-overview") return true;
   if (identifierCandidates(message).length > 0) return false;
   if (questionIntent === "summary") return true;
   if (questionIntent === "evidence") return true;
@@ -1332,6 +1464,7 @@ export function buildReasoningPackage(input: {
   subject: string;
   questionIntent: CopilotContextPacket["questionIntent"];
   includeSubjectTraceability?: boolean;
+  compactSubjectParticipation?: boolean;
   subjectApplicationParticipation?: readonly SubjectApplicationParticipation[];
   entities: readonly CopilotEntityContext[];
   relationships: readonly CopilotRelationshipContext[];
@@ -1348,7 +1481,8 @@ export function buildReasoningPackage(input: {
   const relationshipsById = new Map(input.relationships.map((relationship) => [relationship.relationshipId, relationship]));
   const subjectApplicationParticipation = [...(input.subjectApplicationParticipation ?? [])];
   const compactFourApplicationSubject = Boolean(
-    input.includeSubjectTraceability && isFourApplicationSubjectParticipation(subjectApplicationParticipation),
+    input.includeSubjectTraceability &&
+      (input.compactSubjectParticipation || isFourApplicationSubjectParticipation(subjectApplicationParticipation)),
   );
   const subjectTraceabilityRelationships: SubjectTraceabilityRelationshipArtifact[] = [];
   const subjectTraceabilityNarratives: SubjectTraceabilityNarrative[] = input.includeSubjectTraceability && !compactFourApplicationSubject
@@ -1808,6 +1942,8 @@ export function buildEngineeringBrief(
   relationshipFlow: Omit<RelationshipFlowDiagnostics, "copilotContext" | "engineeringBrief">,
   evidence: readonly CopilotEvidenceContext[],
   compactFourApplicationSubject = false,
+  includeProduct360DrillDown = false,
+  drillDownApplicationScope?: string,
 ): EngineeringBrief {
   const insightKinds = [
     "highest-risk-dependency-signal",
@@ -1906,21 +2042,30 @@ export function buildEngineeringBrief(
     subjectApplicationParticipation: reasoningPackage.subjectApplicationParticipation.map((participation) => {
       const kinds = participation.sourceKinds.map(normalizedBusinessText);
       const application = normalizedBusinessText(participation.application);
-      const contribution = application === "codebeamer"
-        ? "requirements"
-        : application === "windchill"
-          ? "engineering product records"
-          : application === "sap"
-            ? "operational material and transaction records"
-            : application === "configit"
-              ? "product models, features, families, and rules"
-              : kinds.some((kind) => kind.includes("requirement"))
+      const contribution = APPLICATION_SEMANTICS[application]?.contribution ??
+        (kinds.some((kind) => kind.includes("requirement"))
                 ? "requirements"
                 : kinds.some((kind) => ["part", "assembly", "change", "document", "cad"].some((term) => kind.includes(term)))
                   ? "engineering product records"
                   : kinds.some((kind) => ["material", "movement", "accounting", "product detail"].some((term) => kind.includes(term)))
                     ? "operational material and transaction records"
-                    : "source-authoritative records";
+                    : "source-authoritative records");
+      const participationEntityIds = new Set(
+        reasoningPackage.subjectApplicationParticipation.find((candidate) =>
+          candidate.subjectId === participation.subjectId &&
+          candidate.application.toLocaleLowerCase() === participation.application.toLocaleLowerCase(),
+        )?.representativeEntityIds ?? [],
+      );
+      const sameApplicationRelationshipKinds = relationships
+        .filter((relationship) => {
+          const source = entityById.get(relationship.sourceEntityId);
+          const target = entityById.get(relationship.targetEntityId);
+          return source?.source?.toLocaleLowerCase() === participation.application.toLocaleLowerCase() &&
+            target?.source?.toLocaleLowerCase() === participation.application.toLocaleLowerCase() &&
+            (participationEntityIds.has(relationship.sourceEntityId) ||
+              participationEntityIds.has(relationship.targetEntityId));
+        })
+        .map((relationship) => relationship.kind);
       const representativeId = participation.representativeEntityIds[0];
       const representative = representativeId ? entityById.get(representativeId) : undefined;
       return {
@@ -1950,6 +2095,17 @@ export function buildEngineeringBrief(
                   representativeEntityLabels: participation.representativeEntityLabels,
                   representativeEntityKinds: participation.representativeEntityKinds,
             }),
+        ...(includeProduct360DrillDown &&
+          (!drillDownApplicationScope ||
+            participation.application.toLocaleLowerCase() === drillDownApplicationScope.toLocaleLowerCase())
+          ? {
+              drillDownCategories: product360DrillDownCategories(
+                participation.application,
+                participation.sourceKinds,
+                sameApplicationRelationshipKinds,
+              ),
+            }
+          : {}),
         contribution,
       };
     }),
@@ -1989,7 +2145,23 @@ export function ensureEngineeringAnswerCoverage(
   citations: readonly CopilotCitation[],
   includePrimaryEntities: boolean,
   questionIntent?: CopilotContextPacket["questionIntent"],
-  contextPacket?: Pick<CopilotContextPacket, "entities" | "relationships" | "impactPaths" | "subjectTraceabilityDiagnostics" | "consequenceEvidenceState">,
+  contextPacket?: Pick<
+    CopilotContextPacket,
+    | "entities"
+    | "relationships"
+    | "impactPaths"
+    | "subjectTraceabilityDiagnostics"
+    | "consequenceEvidenceState"
+    | "engineeringBrief"
+    | "applicationOverviewApplication"
+    | "applicationDigests"
+    | "reasoningPackage"
+    | "subject"
+    | "sourceSelections"
+    | "grounding"
+    | "uncertainties"
+    | "omissions"
+  >,
 ): unknown {
   if (!value || typeof value !== "object" || Array.isArray(value)) return value;
   const answer = value as Record<string, unknown>;
@@ -2000,6 +2172,648 @@ export function ensureEngineeringAnswerCoverage(
   const claims = [...answer.claims];
   const sections: string[] = [];
   const originalText = answer.answer;
+  if (questionIntent === "application-overview") {
+    if (!contextPacket?.applicationOverviewApplication) {
+      throw new Error("Application overview answer coverage requires the selected application scope.");
+    }
+    const application = contextPacket.applicationOverviewApplication;
+    const digest = contextPacket.applicationDigests?.find((item) =>
+      item.application.toLocaleLowerCase() === application.toLocaleLowerCase(),
+    );
+    const participation = contextPacket.engineeringBrief.subjectApplicationParticipation.find((item) =>
+      item.application.toLocaleLowerCase() === application.toLocaleLowerCase(),
+    );
+    const applicationLabel = participation?.application ?? application;
+    if (participation && (!digest || !participation.representativeEntity)) {
+      throw new Error(`Application overview answer coverage is missing selected ${application} evidence.`);
+    }
+    const representative = participation?.representativeEntity;
+    const applicationCitationIds = new Set([
+      ...(representative ? [representative.citationId] : []),
+      ...(digest ? product360DigestCitationIds(digest) : []),
+    ]);
+    const rawRepresentativeRole = representative?.semanticRole ??
+      APPLICATION_SEMANTICS[application.toLocaleLowerCase()]?.contribution ??
+      "application representative";
+    const representativeRole = application.toLocaleLowerCase() === "windchill" &&
+        /part[- ]occurrence/i.test(`${rawRepresentativeRole} ${representative?.kind ?? ""}`)
+      ? "Engineering part occurrence"
+      : application.toLocaleLowerCase() === "sap" &&
+          /source[- ]representation/i.test(`${rawRepresentativeRole} ${representative?.kind ?? ""}`)
+        ? "Operational material"
+        : rawRepresentativeRole;
+    const knownApplicationNames = Object.keys(APPLICATION_SEMANTICS);
+    const originalIsScoped = !knownApplicationNames.some((name) =>
+      name !== application.toLocaleLowerCase() && new RegExp(`\\b${name}\\b`, "i").test(originalText),
+    ) && !/\b(?:all applications|applications present|primary entities|product 360 application coverage)\b/i.test(originalText);
+    const subjectLabel = contextPacket.subject?.trim() ||
+      participation?.subjectLabel.trim() ||
+      contextPacket.engineeringBrief.subjectLabel.trim();
+    const answerText = originalIsScoped
+      ? originalText.replace(/(^|[\r\n.!?]\s*)is the investigation subject\.\s*/gi, "$1")
+      : "";
+    const normalizedText = answerText.toLocaleLowerCase().replace(/[\u2019']/g, "'");
+    const addClaim = (text: string, citationIds: readonly string[]) => {
+      const validCitationIds = citationIds.filter((citationId) => knownCitationIds.has(citationId));
+      if (validCitationIds.length && !claims.some((claim) =>
+        Boolean(claim && typeof claim === "object" && "text" in claim &&
+          claim.text === text && "citationIds" in claim &&
+          Array.isArray(claim.citationIds) &&
+          [...claim.citationIds].sort().join("\u0000") === [...validCitationIds].sort().join("\u0000")),
+      )) {
+        claims.push({ text, kind: "fact", citationIds: validCitationIds });
+      }
+    };
+    const normalizeFact = (summary: string) => {
+      let normalized = summary
+        .replace(/[\r\n\t]+/g, " ")
+        .replace(/\bpreferred Product Id\b/gi, application.toLocaleLowerCase() === "sap" ? "Material ID" : "Work-item ID")
+        .replace(/\bwork-item status:\s*value\s*/gi, "Status: ")
+        .replace(/Backing feature for Market '([^']+)'(?:\s*:\s*code\s+\S+)?/gi, "Market feature: $1")
+        .replace(/Danish \(DN\):\s*code\s+DN(?:\.\s*Danish)?/gi, "Localization: Danish (DN)")
+        .replace(/Market \(MRKT\):\s*code\s+MRKT/gi, "Market (MRKT)")
+        .replace(/Base unit of measure:\s*value\s*/gi, "Base unit: ")
+        .replace(/Blocked stock:\s*value\s*/gi, "Blocked stock: ")
+        .replace(/Movement \d+:\s*movement Type\s*/gi, "Movement type: ")
+        .replace(/\bdocument Type\s*/gi, "Document type: ")
+        .replace(/\bsource-representation\b/gi, "Operational material")
+        .replace(/\bHas Children:\s*false\b/gi, "Child structure available: No")
+        .replace(/\bDimension:\s*value\s*/gi, "Dimensions: ")
+        .replace(/(\bDimensions:\s*[\d.]+)\s*x\s*([\d.]+)\s*x\s*([\d.]+)/gi, "$1 × $2 × $3")
+        .replace(/\bWeight:\s*value\s*([\d.]+)\s*KG\b/gi, "Weight: $1 kg")
+        .replace(/\bpresentation Role\s*/gi, "Project/tracker role: ")
+        .replace(/\bgroup Key\s*/gi, "Lifecycle group: ")
+        .replace(/\bLifecycle:\s*Lifecycle group:\s*/gi, "Lifecycle group: ")
+        .replace(/\bDescription\s+(?=\S)/gi, "Description: ")
+        .replace(/:\s*value\s*/gi, ": ")
+        .replace(/\bdescription\b/gi, "Description")
+        .replace(/\s+/g, " ")
+        .replace(/\s*[.…]{3,}\s*$/, "")
+        .trim();
+      if (application.toLocaleLowerCase() === "windchill") {
+        normalized = normalized.replace(/\bpart-occurrence\b/gi, "Engineering part occurrence");
+      }
+      return normalized;
+    };
+    const cleanFactLines = (fact: Product360DigestFact) => {
+      const escapedLabel = fact.label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const rawSummary = fact.summary.replace(new RegExp(`^${escapedLabel}:\\s*`, "i"), "");
+      const summary = normalizeFact(rawSummary);
+      if (!summary || /…|\.{3}/.test(fact.summary) ||
+          /(?:^|\s)[A-Za-z]{1,5}(?:…|\.\.\.)$/.test(summary)) return [];
+      return [`- ${summary} (${fact.citationIds.join(", ")}).`];
+    };
+    const applicationEvidenceGroups = new Map<string, string[]>();
+    for (const fact of digest?.facts ?? []) {
+      const lines = cleanFactLines(fact);
+      if (lines.length) applicationEvidenceGroups.set(fact.label, lines);
+    }
+    const secondaryHeading = (kind: string) => {
+      const normalizedKind = kind.toLocaleLowerCase();
+      if (normalizedKind.includes("configuration-family")) return "Configuration families";
+      if (normalizedKind.includes("configuration-feature")) return "Configuration features";
+      if (normalizedKind.includes("configuration-rule")) return "Rules and expressions";
+      if (normalizedKind.includes("requirement")) return "Requirements and specifications";
+      if (normalizedKind.includes("change")) return "Change records";
+      if (normalizedKind.includes("physical-attribute")) return "Engineering attributes";
+      if (normalizedKind.includes("occurrence")) return "Structure occurrences";
+      if (normalizedKind.includes("accounting") || normalizedKind.includes("movement") || normalizedKind.includes("stock")) {
+        return "Operational record categories";
+      }
+      if (normalizedKind.includes("product-detail")) return "Product details";
+      return `${applicationLabel} hierarchy records`;
+    };
+    for (const entity of digest?.secondaryEntities ?? []) {
+      if ((digest?.facts ?? []).some((fact) =>
+        fact.summary.toLocaleLowerCase().includes(entity.label.toLocaleLowerCase()) ||
+        entity.label.toLocaleLowerCase().includes(fact.summary.toLocaleLowerCase()),
+      )) continue;
+      if (!entity.label.trim() || /(?:…|\.{3})\s*$/.test(entity.label)) continue;
+      const heading = secondaryHeading(entity.kind);
+      const lines = applicationEvidenceGroups.get(heading) ?? [];
+      const entityLabel = application.toLocaleLowerCase() === "sap" &&
+        entity.kind.toLocaleLowerCase() === "source-representation"
+        ? "Operational material"
+        : normalizeFact(entity.label);
+      if (!entityLabel) continue;
+      lines.push(`- ${entityLabel} (${entity.citationId}).`);
+      applicationEvidenceGroups.set(heading, lines);
+    }
+    const applicationEvidenceSections = [...applicationEvidenceGroups].map(([heading, lines]) => ({
+      heading,
+      content: `## ${heading}\n${lines.join("\n")}`,
+      citationIds: (digest?.facts ?? [])
+        .filter((fact) => fact.label === heading)
+        .flatMap((fact) => fact.citationIds),
+    }));
+    const relationshipSentence = (relationship: Product360ApplicationRelationshipSummary) => {
+      const source = relationship.sourceLabel;
+      const target = relationship.targetLabel;
+      const kind = relationship.kind.toLocaleLowerCase().replace(/[-_]/g, " ");
+      if (kind.includes("has configuration family")) return `${source} has the ${target} configuration family.`;
+      if (kind.includes("has product context")) return `${source} is linked to its recorded ${applicationLabel} product context.`;
+      if (application.toLocaleLowerCase() === "sap" && /base unit/i.test(target)) {
+        const baseUnit = (digest?.facts ?? [])
+          .map((fact) => normalizeFact(fact.summary))
+          .map((summary) => summary.match(/\bBase unit:\s*([^.;,]+)/i)?.[1]?.trim())
+          .find(Boolean);
+        if (baseUnit) return `${representative?.displayLabel ?? source} uses ${baseUnit} as its base unit.`;
+      }
+      if (kind.includes("contains") && /lifecycle/i.test(source)) return `The ${source} group contains the ${target} detail.`;
+      if (kind.includes("contains")) return `${source} contains the recorded ${target} detail.`;
+      return `${source} is connected to ${target} through the recorded ${relationship.kind} relationship.`;
+    };
+    const relationshipIsCovered = (relationship: Product360ApplicationRelationshipSummary) => {
+      const target = relationship.targetLabel.toLocaleLowerCase();
+      const source = relationship.sourceLabel.toLocaleLowerCase();
+      const kind = relationship.kind.toLocaleLowerCase().replace(/[-_]/g, " ");
+      if (application.toLocaleLowerCase() === "sap" && /base unit/i.test(target)) {
+        const baseUnit = (digest?.facts ?? [])
+          .map((fact) => normalizeFact(fact.summary))
+          .map((summary) => summary.match(/\bBase unit:\s*([^.;,]+)/i)?.[1]?.trim())
+          .find(Boolean);
+        return Boolean(baseUnit && /\bbase unit\b/i.test(answerText) &&
+          normalizedText.includes(baseUnit.toLocaleLowerCase()));
+      }
+      if (kind.includes("has configuration family")) {
+        return normalizedText.includes(source) && normalizedText.includes(target) &&
+          /\b(?:family|configuration)\b/i.test(answerText) &&
+          /\b(?:has|includes|offers|provides|contains)\b/i.test(answerText);
+      }
+      if (kind.includes("has product context")) {
+        return normalizedText.includes(source) && /\b(?:linked|recorded|context)\b/i.test(answerText);
+      }
+      if (kind.includes("contains")) {
+        return normalizedText.includes(source) && normalizedText.includes(target) &&
+          /\b(?:contains|includes|records|has|holds)\b/i.test(answerText);
+      }
+      return normalizedText.includes(source) && normalizedText.includes(target) &&
+        normalizedText.includes(kind);
+    };
+    const categories = participation?.drillDownCategories?.map((category) => category.label) ?? [];
+    const sourceState = digest?.sourceStateWarning ||
+      `${applicationLabel} source freshness and completeness are not separately recorded in the selected evidence.`;
+    const sectionsToAppend: string[] = [];
+    const appendSection = (section: string) => {
+      sectionsToAppend.push(section);
+    };
+    const hasSubjectScope = Boolean(subjectLabel && normalizedText.includes(subjectLabel.toLocaleLowerCase()) &&
+      /\b(?:investigation subject|investigation is about|product subject)\b/i.test(answerText));
+    if (!hasSubjectScope) {
+      const subjectOrientation = subjectLabel
+        ? `${subjectLabel} is the investigation subject. This response is limited to ${applicationLabel} evidence.`
+        : `This response is limited to ${applicationLabel} evidence.`;
+      appendSection(`## Investigation subject and ${applicationLabel} scope\n${subjectOrientation}`);
+    }
+    if (participation && representative &&
+        ![representative.displayLabel, representative.nativeId ?? ""].some((identity) =>
+          identity && normalizedText.includes(identity.toLocaleLowerCase()),
+        )) {
+      appendSection(
+        `## ${applicationLabel} representative\n${representative.displayLabel} is the selected ${representativeRole} representative (${representative.citationId}).`,
+      );
+      addClaim(
+        `${representative.displayLabel} is the selected ${applicationLabel} representative${subjectLabel ? ` for ${subjectLabel}` : ""}.`,
+        [representative.citationId],
+      );
+    }
+    const factSearchTerms = (digest?.facts ?? []).flatMap((fact) => {
+      if (fact.kind === "representative-details") return [];
+      const summary = normalizeFact(fact.summary);
+      return [
+        summary,
+        ...summary.match(/[A-Za-z0-9][A-Za-z0-9._/-]{2,}/g) ?? [],
+      ];
+    }).filter((term) => term.length >= 3);
+    const secondarySearchTerms = (digest?.secondaryEntities ?? [])
+      .flatMap((entity) => entity.label.split(/[,():\s]+/))
+      .filter((term) => term.length >= 4);
+    const hasApplicationDetails = [...factSearchTerms, ...secondarySearchTerms].some((term) =>
+      normalizedText.includes(term.toLocaleLowerCase()),
+    );
+    if (!hasApplicationDetails && applicationEvidenceSections.length) {
+      appendSection(applicationEvidenceSections.map((section) => section.content).join("\n\n"));
+      for (const fact of digest?.facts ?? []) {
+        if (cleanFactLines(fact).length) addClaim(normalizeFact(fact.summary), fact.citationIds);
+      }
+      for (const entity of digest?.secondaryEntities ?? []) {
+        if (!(digest?.facts ?? []).some((fact) =>
+          fact.summary.toLocaleLowerCase().includes(entity.label.toLocaleLowerCase()),
+        ) && !/(?:…|\.{3})\s*$/.test(entity.label)) {
+          const entityLabel = application.toLocaleLowerCase() === "sap" &&
+            entity.kind.toLocaleLowerCase() === "source-representation"
+            ? "Operational material"
+            : normalizeFact(entity.label);
+          if (entityLabel) {
+            addClaim(`${entityLabel} is a selected ${applicationLabel} hierarchy record.`, [entity.citationId]);
+          }
+        }
+      }
+    }
+    const missingRelationships = (digest?.verifiedRelationships ?? [])
+      .filter((relationship) => !relationshipIsCovered(relationship));
+    const hasRelationshipCoverage = digest?.verifiedRelationships?.length
+      ? missingRelationships.length === 0
+      : /\b(?:no|none|without)\b.{0,80}\b(?:verified|canonical|ontology-resolved|internal)?\s*relationships?\b/i.test(answerText);
+    if (!hasRelationshipCoverage) {
+      if (missingRelationships.length) {
+        const sectionHeading = /\b(?:verified|governed|internal)\b.{0,35}\brelationships?\b/i.test(answerText)
+          ? ""
+          : `## Verified ${applicationLabel} relationships\n`;
+        appendSection(`${sectionHeading}${missingRelationships.map((relationship) =>
+          `- ${relationshipSentence(relationship)} (${relationship.citationId}).`,
+        ).join("\n")}`);
+      } else {
+        appendSection(
+          `## Verified ${applicationLabel} relationships\nNo selected canonical or ontology-resolved internal relationship is available for ${applicationLabel} in this context.`,
+        );
+      }
+      for (const relationship of missingRelationships) {
+        addClaim(relationshipSentence(relationship), [
+          relationship.citationId,
+          ...relationship.evidenceCitationIds,
+        ]);
+      }
+    }
+    const hasBoundaryCoverage = /\b(?:source state|source status|source freshness|completeness|partial|stale|freshness|evidence boundary|evidence limits?)\b/i.test(answerText) &&
+      /\b(?:participation|cross.application|not establish|does not establish|only selected evidence)\b/i.test(answerText);
+    if (!hasBoundaryCoverage) {
+      appendSection(
+        `## ${applicationLabel} source state and evidence boundaries\n${participation ? sourceState : `No ${applicationLabel} records participate in this investigation.`} Only selected ${applicationLabel} evidence is summarized; participation does not establish a cross-application relationship or operational consequence.`,
+      );
+    }
+    const hasDrillDownCoverage = /\b(?:drill[\s-]?down|further explore|available categories|explore next|more to explore|additional categories)\b/i.test(answerText);
+    if (!hasDrillDownCoverage) {
+      appendSection(
+        `## ${applicationLabel} drill-down options\n${categories.length ? [...new Set(categories)].map((category) => `- ${category}`).join("\n") : `No additional ${applicationLabel} drill-down categories are recorded in this context.`}`,
+      );
+    }
+    const finalClaims = claims.filter((claim) => {
+      if (!claim || typeof claim !== "object" || !("citationIds" in claim) || !Array.isArray(claim.citationIds)) {
+        return false;
+      }
+      return claim.citationIds.length > 0 &&
+        claim.citationIds.every((citationId: unknown) =>
+          typeof citationId === "string" && applicationCitationIds.has(citationId),
+        );
+    });
+    if (!originalIsScoped && !sectionsToAppend.length && finalClaims.length === answer.claims.length) return value;
+    const updatedText = sectionsToAppend.length
+      ? [answerText.trimEnd(), ...sectionsToAppend].filter(Boolean).join("\n\n")
+      : answerText;
+    const unchangedClaims = finalClaims.length === answer.claims.length &&
+      claims.length === answer.claims.length;
+    return updatedText === originalText && unchangedClaims
+      ? value
+      : { ...answer, answer: updatedText, claims: finalClaims };
+  }
+  if (questionIntent === "product-360") {
+    if (!contextPacket) {
+      throw new Error("Product 360 answer coverage requires the selected context and citation allowlist.");
+    }
+    const product360 = buildProduct360PreContext({
+      engineeringBrief: contextPacket.engineeringBrief,
+      citations,
+      relationships: contextPacket.relationships,
+      entities: contextPacket.entities,
+      grounding: contextPacket.grounding,
+      uncertainties: contextPacket.uncertainties,
+      omissions: contextPacket.omissions,
+      applicationDigests: contextPacket.applicationDigests ?? [],
+    });
+    const allowedCitationIds = new Set(citations.map((citation) => citation.citationId));
+    const visibleCitationIds = (ids: readonly string[]) =>
+      [...new Set(ids)].filter((id) => allowedCitationIds.has(id));
+    const citationText = (ids: readonly string[]) => {
+      const visible = visibleCitationIds(ids);
+      return visible.length ? ` ${visible.map((citationId) => `(${citationId})`).join(" ")}` : "";
+    };
+    const normalizeProduct360Punctuation = (text: string) =>
+      text
+        .replace(/\s+([,.;!?])/g, "$1")
+        .replace(/([.!?])(?:\s*[.!?])+/g, "$1");
+    const hasCitedClaim = (citationIds: readonly string[]) => claims.some((claim) =>
+      Boolean(claim && typeof claim === "object" && "citationIds" in claim &&
+        Array.isArray(claim.citationIds) &&
+        claim.citationIds.some((id: unknown) => typeof id === "string" && citationIds.includes(id))),
+    );
+    for (const entry of product360.applicationManifest) {
+      if (!hasCitedClaim([entry.representativeCitationId])) {
+        claims.push({
+          text: `${entry.representativeDisplayLabel} is the selected ${entry.application} representative for the ${product360.subject.displayName} investigation subject.`,
+          kind: "fact",
+          citationIds: [entry.representativeCitationId],
+        });
+      }
+    }
+
+    const digestByApplication = new Map(product360.applicationDigests.map((digest) => [
+      digest.application.toLocaleLowerCase(),
+      digest,
+    ]));
+    const applicationViewTitles: Readonly<Record<string, string>> = {
+      codebeamer: "Codebeamer requirements view",
+      windchill: "Windchill engineering view",
+      sap: "SAP operational/material view",
+      configit: "Configit configuration view",
+    };
+    const drillDownLines = product360.applicationManifest.flatMap((entry) => {
+      const categories = entry.drillDownCategories.map((category) => category.label);
+      return categories.length
+        ? [`- ${entry.application}: ${categories.join(", ")}${citationText([entry.representativeCitationId])}.`]
+        : [];
+    });
+    const availableAreas = drillDownLines.length
+      ? drillDownLines
+      : ["No additional drill-down categories are recorded in the selected context."];
+    const allVerifiedRelationships = [...new Map([
+      ...product360.verifiedRelationships,
+      ...product360.applicationDigests.flatMap((digest) =>
+        digest.verifiedRelationships.map((relationship) => ({
+          ...relationship,
+          authority: relationship.authority,
+          sourceApplication: digest.application,
+          targetApplication: digest.application,
+        })),
+      ),
+    ].map((relationship) => [
+      relationship.citationId,
+      relationship,
+    ])).values()].slice(0, 6);
+    const relationshipByCitationId = new Map(contextPacket.relationships.map((relationship) => [
+      relationship.citationId,
+      relationship,
+    ]));
+    const relationshipAuthority = (relationship: (typeof allVerifiedRelationships)[number]) => {
+      if (relationship.category === "ontology-resolved") return "Ontology-resolved";
+      const provenance = relationshipByCitationId.get(relationship.citationId)?.provenance;
+      const authority = `${relationship.authority ?? ""} ${provenance?.authority ?? ""} ${provenance?.sourceAuthority ?? ""}`.toLocaleLowerCase();
+      if (authority.includes("source-authoritative")) return "Source-authoritative";
+      if (authority.includes("backend-derived") || authority.includes("poc-synthetic")) return "POC-synthetic";
+      return undefined;
+    };
+    const verifiedRelationshipLines = allVerifiedRelationships.flatMap((relationship) => {
+      const source = relationship.sourceLabel;
+      const target = relationship.targetLabel;
+      const kind = relationship.kind.toLocaleLowerCase();
+      const sapDigest = digestByApplication.get("sap");
+      const baseUnit = sapDigest?.facts
+        .map((fact) => completeProduct360Fact("SAP", fact.summary) ?? "")
+        .map((fact) => fact.match(/\bBase unit:\s*([A-Z]+)/i)?.[1])
+        .find(Boolean);
+      let sentence: string;
+      if (kind === "has-configuration-family") {
+        sentence = `${source} has the ${target.replace(/\s*\([^)]+\)/, "")} configuration family.`;
+      } else if (kind === "has-product-context") {
+        sentence = `${product360.subject.displayName} is linked to its Windchill product context.`;
+      } else if (kind === "contains" && /priority/i.test(target)) {
+        sentence = `The Lifecycle group contains the Priority detail.`;
+      } else if (kind === "contains" && /base unit/i.test(target) && baseUnit) {
+        sentence = `Material MAT7893 uses ${baseUnit} as its base unit.`;
+      } else if (kind === "manages") {
+        sentence = `${source} manages ${target}.`;
+      } else {
+        const readableKind = kind.replace(/[-_]+/g, " ");
+        sentence = `${source} has a recorded ${readableKind} relationship with ${target}.`;
+      }
+      const allowedRelationshipCitations = visibleCitationIds([
+        relationship.citationId,
+        ...relationship.evidenceCitationIds,
+      ]);
+      if (!allowedRelationshipCitations.length) return [];
+      return {
+        authority: relationshipAuthority(relationship),
+        text: `- ${sentence.replace(/[.!?]+$/, "")}.${citationText(allowedRelationshipCitations)}`,
+        citationIds: allowedRelationshipCitations,
+      };
+    });
+    const subjectDerivedCitationIds = visibleCitationIds(
+      contextPacket.reasoningPackage.subjectTraceabilityRelationships.flatMap((relationship) => [
+        relationship.citationId,
+        relationship.sourceCitationId,
+        relationship.targetCitationId,
+      ]),
+    );
+    const authorityGroups = [
+      "Source-authoritative",
+      "POC-synthetic",
+      "Ontology-resolved",
+      "Subject-derived",
+    ] as const;
+    const populatedRelationshipGroups: string[] = [];
+    const emptyRelationshipGroups: string[] = [];
+    for (const authority of authorityGroups) {
+      if (authority === "Subject-derived") {
+        const participation = contextPacket.engineeringBrief.subjectApplicationParticipation;
+        if (!participation.length) {
+          emptyRelationshipGroups.push("subject-derived participation");
+          continue;
+        }
+        const representativeIds = visibleCitationIds(participation.flatMap((entry) =>
+          entry.representativeEntity ? [entry.representativeEntity.citationId] : [],
+        ));
+        const subjectCitations = subjectDerivedCitationIds.length ? subjectDerivedCitationIds : representativeIds;
+        const text = `- Shared investigation-subject participation covers ${participation.map((entry) => entry.application).join(", ")}; it does not establish object-level connectivity or impact${citationText(subjectCitations)}.`;
+        populatedRelationshipGroups.push(`### ${authority}\n${text}`);
+        continue;
+      }
+      const lines = verifiedRelationshipLines
+        .filter((relationship) => relationship.authority === authority)
+        .map((relationship) => relationship.text);
+      if (lines.length) populatedRelationshipGroups.push(`### ${authority}\n${lines.join("\n")}`);
+      else emptyRelationshipGroups.push(`${authority.toLocaleLowerCase()} relationships`);
+    }
+    if (emptyRelationshipGroups.length) {
+      populatedRelationshipGroups.push(
+        `Selected evidence includes no ${emptyRelationshipGroups.join(", ")}.`,
+      );
+    }
+    const unclassifiedCanonicalRelationships = verifiedRelationshipLines
+      .filter((relationship) => relationship.authority === undefined)
+      .map((relationship) => relationship.text);
+    const crossApplicationRelationshipExists = allVerifiedRelationships.some((relationship) =>
+      relationship.sourceApplication.toLocaleLowerCase() !== relationship.targetApplication.toLocaleLowerCase(),
+    );
+    const evidenceBoundary = product360.evidenceBoundary
+      .split(/(?<=[.!?])\s+/)
+      .filter((sentence) =>
+        !/\bshared(?:[- ](?:investigation )?subject)? participation\b/i.test(sentence) &&
+        !/\b(?:incomplete or unavailable source data|source coverage is partial or unavailable|source values may be stale|stale source data)\b/i.test(sentence),
+      )
+      .join(" ")
+      .trim();
+    const boundaryLines = [
+      evidenceBoundary,
+      crossApplicationRelationshipExists
+        ? ""
+        : "No selected canonical or ontology-resolved relationship connects different applications; this describes the selected evidence, not the real-world state.",
+      "Shared-subject participation establishes investigation scope only; it does not prove a direct relationship, impact, or causality.",
+    ].filter(Boolean).map((line) => line.replace(/([.!?])\1+/g, "$1"));
+    const evidenceGapLines: string[] = [];
+    const sourceCitationByApplication = new Map(product360.applicationManifest.map((entry) => [
+      entry.application.toLocaleLowerCase(),
+      entry.representativeCitationId,
+    ]));
+    const sourceStatusesByApplication = new Map<string, string[]>();
+    for (const entry of product360.applicationManifest) {
+      const app = entry.application.toLocaleLowerCase();
+      const states = [
+        contextPacket.grounding.partialSources.some((source) => source.toLocaleLowerCase() === app)
+          ? "partial"
+          : "",
+        contextPacket.grounding.staleSources.some((source) => source.toLocaleLowerCase() === app)
+          ? "stale"
+          : "",
+      ].filter(Boolean);
+      sourceStatusesByApplication.set(app, states);
+    }
+
+    const product360Sections: { title: string; body: string }[] = [
+      {
+        title: "Cross-application synthesis",
+        body: `${product360.subject.displayName} is represented across Codebeamer, Windchill, SAP, and Configit as a requirements subject, engineering part, operational material, and configurable product/work-item${citationText(product360.applicationManifest.map((entry) => entry.representativeCitationId))}.`,
+      },
+      {
+        title: "Investigation subject and scope",
+        body: [
+          `${product360.subject.displayName} is the investigation subject. Participating applications: ${product360.applicationManifest
+            .map((entry) => `${entry.application} (${entry.participatingRecordCount} records)${citationText([entry.representativeCitationId])}`)
+            .join("; ")}.`,
+          "This is a coverage summary of the extracted investigation. Use the listed drill-down areas to retrieve complete object inventories.",
+        ].join(" "),
+      },
+      ...product360.applicationManifest.flatMap((entry) => {
+        const title = applicationViewTitles[entry.application.toLocaleLowerCase()];
+        if (!title) return [];
+        const role = entry.semanticRole ??
+          APPLICATION_SEMANTICS[entry.application.toLocaleLowerCase()]?.contribution ??
+          "application representative";
+        const digest = digestByApplication.get(entry.application.toLocaleLowerCase());
+        const factLimit = entry.application.toLocaleLowerCase() === "codebeamer" ? 3
+          : entry.application.toLocaleLowerCase() === "windchill" ? 5
+          : entry.application.toLocaleLowerCase() === "sap" ? 5
+          : 5;
+        const completeFacts = (digest?.facts ?? [])
+          .map((fact) => ({
+            ...fact,
+            summary: completeProduct360Fact(entry.application, fact.summary),
+          }))
+          .map((fact) => ({
+            ...fact,
+            citationIds: visibleCitationIds(fact.citationIds),
+          }))
+          .filter((fact): fact is typeof fact & { summary: string } =>
+            Boolean(fact.summary && fact.citationIds.length),
+          )
+          .slice(0, factLimit);
+        const selectedFacts: typeof completeFacts = [];
+        for (const fact of completeFacts) {
+          if (/^\s*Child structure available:\s*No\b/i.test(fact.summary)) {
+            evidenceGapLines.push(
+              `- ${entry.application}: ${fact.summary.replace(/[.!?]+$/, "")}${citationText(fact.citationIds)}`,
+            );
+            continue;
+          }
+          selectedFacts.push(fact);
+        }
+        const factLines = selectedFacts.map((fact) => {
+          if (!hasCitedClaim(fact.citationIds)) claims.push({
+            text: fact.summary,
+            kind: "fact",
+            citationIds: fact.citationIds,
+          });
+          return `- ${fact.summary.replace(/[.!?]+$/, "")}${citationText(fact.citationIds)}.`;
+        });
+        const factText = selectedFacts.map((fact) => fact.summary.toLocaleLowerCase()).join(" ");
+        const hierarchyKindsByApplication: Readonly<Record<string, RegExp>> = {
+          codebeamer: /requirement|specification|tracker|project|change/i,
+          windchill: /part|occurrence|structure|document|change|requirement/i,
+          sap: /material|stock|movement|accounting|production|product-detail/i,
+          configit: /configuration-family|configuration-feature|configuration-rule|work-item|product|localization|metadata/i,
+        };
+        const hierarchyKindPattern = hierarchyKindsByApplication[entry.application.toLocaleLowerCase()];
+        const secondaryLines = (digest?.secondaryEntities ?? [])
+          .filter((entity) => hierarchyKindPattern?.test(entity.kind) ?? false)
+          .filter((entity) => !factText.includes(entity.label.toLocaleLowerCase()))
+          .filter((entity) => allowedCitationIds.has(entity.citationId))
+          .slice(0, entry.application.toLocaleLowerCase() === "configit" ? 6 : 3)
+          .map((entity) => {
+          if (!hasCitedClaim([entity.citationId])) claims.push({
+            text: `${entity.label} is a selected ${entry.application} hierarchy record.`,
+            kind: "fact",
+            citationIds: [entity.citationId],
+          });
+          const hierarchyKind = entity.kind.replace(/\bsource-representation\b/gi, "application record").replace(/[-_]+/g, " ");
+          return `- ${entity.label} (${hierarchyKind})${citationText([entity.citationId])}.`;
+        });
+        const normalizedRole = entry.application.toLocaleLowerCase() === "sap" &&
+          /source-representation/i.test(role)
+          ? "Operational material"
+          : entry.application.toLocaleLowerCase() === "windchill" && /part-occurrence/i.test(role)
+            ? "Engineering part occurrence"
+            : role.replace(/\bsource-representation\b/gi, "application representative");
+        const sourceCitationId = sourceCitationByApplication.get(entry.application.toLocaleLowerCase());
+        const sourceStates = sourceStatusesByApplication.get(entry.application.toLocaleLowerCase()) ?? [];
+        const sourceStatus = sourceStates.includes("partial")
+          ? sourceStates.includes("stale")
+            ? "Partial coverage; source data may be stale"
+            : "Partial coverage"
+          : sourceStates.includes("stale")
+            ? "Source data may be stale"
+            : "No partial-coverage or staleness warning is recorded";
+        const categories = entry.drillDownCategories.map((category) => category.label);
+        const drillDownText = categories.length
+          ? categories.join(", ")
+          : "No additional drill-down categories are recorded in this context";
+        return [{
+          title,
+          body: [
+            `### Representative\n- ${entry.representativeDisplayLabel} (${normalizedRole})${citationText([entry.representativeCitationId])}.`,
+            `### Key facts\n${factLines.length ? factLines.join("\n") : "- No additional citable facts are available in the selected context."}`,
+            `### Selected hierarchy\n${secondaryLines.length ? secondaryLines.join("\n") : "- No additional named hierarchy records are selected."}`,
+            `### Source status\n- ${sourceStatus}${citationText(sourceCitationId ? [sourceCitationId] : [])}.`,
+            `### Available drill-downs\n- ${drillDownText}${citationText([entry.representativeCitationId])}.`,
+          ].join("\n\n"),
+        }];
+      }),
+      {
+        title: "Verified governed relationships",
+        body: populatedRelationshipGroups.join("\n\n"),
+      },
+      {
+        title: "Evidence boundaries and unavailable relationships",
+        body: [
+          ...boundaryLines,
+          ...(unclassifiedCanonicalRelationships.length
+            ? ["Canonical relationships with unclassified authority:", ...unclassifiedCanonicalRelationships]
+            : []),
+          ...(evidenceGapLines.length ? [`Evidence gaps:\n${evidenceGapLines.join("\n")}`] : []),
+        ].join("\n\n"),
+      },
+      {
+        title: "Available drill-down areas",
+        body: availableAreas.join("\n"),
+      },
+    ];
+    const answerText = normalizeProduct360Punctuation(product360Sections
+      .map((section) => `## ${section.title}\n${section.body}`)
+      .join("\n\n"));
+    for (const item of verifiedRelationshipLines) {
+      if (!hasCitedClaim(item.citationIds)) claims.push({
+        text: item.text,
+        kind: "fact",
+        citationIds: item.citationIds,
+      });
+    }
+    return answerText !== originalText || claims.length > answer.claims.length
+      ? {
+          ...answer,
+          answer: answerText,
+          claims,
+        }
+      : value;
+  }
+
   const participationWithRepresentatives = brief.subjectApplicationParticipation.map((participation) => {
     const compactRepresentative = participation.representativeEntity;
     const representativeEntityIds = compactRepresentative
@@ -2324,6 +3138,534 @@ function includeRetrievedDocumentEvidence<T extends object>(
   };
 }
 
+const PRODUCT360_MAX_DIGEST_FACTS = 6;
+const PRODUCT360_MAX_DIGEST_RELATIONSHIPS = 2;
+const PRODUCT360_HIERARCHY_DEPTH = 3;
+
+const PRODUCT360_FACT_GROUPS: Record<string, readonly { kind: string; label: string }[]> = {
+  codebeamer: [
+    { kind: "requirement", label: "Requirement records" },
+    { kind: "requirement-detail", label: "Requirement and specification details" },
+    { kind: "product-context", label: "Project and tracker context" },
+    { kind: "change", label: "Change records" },
+  ],
+  windchill: [
+    { kind: "physical-attribute", label: "Engineering part attributes" },
+    { kind: "product-context", label: "Product and structure context" },
+    { kind: "requirement", label: "Requirement records" },
+    { kind: "document", label: "Engineering documents" },
+    { kind: "change", label: "Change records" },
+  ],
+  sap: [
+    { kind: "product-detail", label: "Material details" },
+    { kind: "stock-metric", label: "Stock record categories" },
+    { kind: "material-movement", label: "Material movement records" },
+    { kind: "accounting-document", label: "Accounting document records" },
+    { kind: "history-metric", label: "Material history records" },
+  ],
+  configit: [
+    { kind: "product-detail", label: "Product and work-item details" },
+    { kind: "configuration-family", label: "Configuration families" },
+    { kind: "configuration-feature", label: "Configuration features" },
+    { kind: "configuration-rule", label: "Rules and expressions" },
+    { kind: "localization", label: "Metadata and localization" },
+  ],
+};
+
+function product360DigestGroup(application: string, entity: CopilotEntityContext, broadProduct360 = false) {
+  const app = application.toLocaleLowerCase();
+  const kind = entity.kind.toLocaleLowerCase();
+  const groups = PRODUCT360_FACT_GROUPS[app] ?? [];
+  const group = groups.find((candidate) => {
+    if (candidate.kind === "configuration-rule") {
+      return kind.includes("configuration-rule") || kind.includes("rule-field");
+    }
+    if (broadProduct360 && candidate.kind === "requirement" && kind.includes("requirement-detail")) return false;
+    return kind.includes(candidate.kind);
+  });
+  if (!group) return undefined;
+  if (app === "configit" && group.kind === "configuration-rule") {
+    const field = entity.displayName.toLocaleLowerCase();
+    if (kind.includes("rule-field") && !field.includes("expression")) return undefined;
+  }
+  return group;
+}
+
+function product360EntityName(entity: CopilotEntityContext) {
+  const properties = Object.entries(entity.properties);
+  const code = properties.find(([key]) => /(^|\.)(code|familycode|featurecode)$/i.test(key))?.[1];
+  if (code && !entity.displayName.toLocaleLowerCase().includes(code.toLocaleLowerCase())) {
+    return short(`${entity.displayName} (${code})`, 100);
+  }
+  return short(entity.displayName, 100);
+}
+
+function product360FactDetails(entity: CopilotEntityContext) {
+  const excludedProperty = /(^|\.)(id|nativeid|partnumber|materialnumber|workitemid|familycode|featurecode|rawvalue|recordkind|attribute|attributekey|datasource|fallbackactive|snapshotcapturedat)$/i;
+  const details = Object.entries(entity.properties)
+    .filter(([key, value]) => value.trim() && !excludedProperty.test(key))
+    .sort(([left], [right]) => {
+      const priority = (key: string) =>
+        /^(value|status|state|revision|priority|weight|dimension|expression|description|movementtype|documenttype|quantitydelta)$/i.test(key.split(".").pop() ?? "")
+          ? 0
+          : /postingdate|quantity|unit/i.test(key) ? 1 : 2;
+      return priority(left) - priority(right) || left.localeCompare(right);
+    })
+    .map(([key, value]) => ({
+      key: key.split(".").pop()!.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/[_-]+/g, " "),
+      value: short(value, 60),
+    }))
+    .slice(0, 1);
+  if (entity.kind === "stock-metric") {
+    const unit = entity.properties.unit?.trim();
+    if (details[0]?.key === "value" && unit) details[0].value = `${details[0].value} ${unit}`;
+  }
+  return details;
+}
+
+function product360DigestSourceWarning(
+  application: string,
+  sourceSelections: readonly CopilotSourceContext[],
+) {
+  const sources = sourceSelections.filter((source) =>
+    source.source.toLocaleLowerCase() === application.toLocaleLowerCase(),
+  );
+  const states = [...new Set(sources.flatMap((source) => [
+    source.status === "partial" || source.status === "failed" ? source.status : "",
+    source.freshness === "stale" ? "stale" : "",
+  ].filter(Boolean)))].sort();
+  const warnings = [
+    states.some((state) => state === "partial" || state === "failed")
+      ? `${application} source coverage is partial or unavailable`
+      : "",
+    states.includes("stale") ? `${application} source data is stale` : "",
+  ].filter(Boolean);
+  return warnings.length ? `${warnings.join("; ")}.` : "";
+}
+
+function product360DigestCitationIds(digest: Product360ApplicationDigest): string[] {
+  return [...new Set([
+    ...digest.facts.flatMap((fact) => fact.citationIds),
+    ...digest.secondaryEntities.map((entity) => entity.citationId),
+    ...digest.verifiedRelationships.flatMap((relationship) => [
+      relationship.citationId,
+      ...relationship.evidenceCitationIds,
+    ]),
+  ])];
+}
+
+export function buildProduct360ApplicationDigests(
+  input: Product360ApplicationDigestInput,
+): Product360ApplicationDigest[] {
+  const broadProduct360 = input.broadProduct360 === true;
+  const citations = new Set(input.citations.map((citation) => citation.citationId));
+  const requestedApplications = input.applicationScope
+    ? input.participation.filter((item) =>
+        item.application.toLocaleLowerCase() === input.applicationScope!.toLocaleLowerCase(),
+      )
+    : input.participation;
+  const entitiesById = new Map(input.entities.map((entity) => [entity.entityId, entity]));
+  const relationshipsByEntity = new Map<string, CopilotRelationshipContext[]>();
+  const eligibleRelationships = input.relationships.filter((relationship) => {
+    if (relationship.category !== "canonical" && relationship.category !== "ontology-resolved") return false;
+    const source = entitiesById.get(relationship.sourceEntityId);
+    const target = entitiesById.get(relationship.targetEntityId);
+    return Boolean(source?.source && target?.source && source.source.toLocaleLowerCase() === target.source.toLocaleLowerCase());
+  });
+  for (const relationship of eligibleRelationships) {
+    for (const entityId of [relationship.sourceEntityId, relationship.targetEntityId]) {
+      const current = relationshipsByEntity.get(entityId) ?? [];
+      current.push(relationship);
+      relationshipsByEntity.set(entityId, current);
+    }
+  }
+
+  const maxFacts = Math.max(0, Math.min(PRODUCT360_MAX_DIGEST_FACTS, input.maxFacts ?? PRODUCT360_MAX_DIGEST_FACTS));
+  return requestedApplications.map((participation) => {
+    const application = participation.application;
+    const representative = participation.representativeEntity;
+    if (!representative) {
+      throw new Error(`Product 360 digest is missing the selected representative for ${application}.`);
+    }
+    const representativeEntity = entitiesById.get(representative.entityId);
+    if (!representativeEntity || representativeEntity.citationId !== representative.citationId) {
+      throw new Error(`Product 360 digest representative for ${application} is missing from selected evidence.`);
+    }
+    if (!citations.has(representative.citationId)) {
+      throw new Error(`Product 360 digest representative citation for ${application} is missing from the citation allowlist.`);
+    }
+    if (representative.sourceApplication.toLocaleLowerCase() !== application.toLocaleLowerCase()) {
+      throw new Error(`Product 360 digest representative does not belong to ${application}.`);
+    }
+
+    const depthByEntity = new Map<string, number>([[representative.entityId, 0]]);
+    const selectedRelationshipIds = new Set<string>();
+    let frontier = [representative.entityId];
+    for (let depth = 0; depth < PRODUCT360_HIERARCHY_DEPTH && frontier.length; depth += 1) {
+      const next = new Set<string>();
+      for (const entityId of frontier.sort()) {
+        const adjacent = [...(relationshipsByEntity.get(entityId) ?? [])]
+          .filter((relationship) => {
+            const source = entitiesById.get(relationship.sourceEntityId);
+            return source?.source?.toLocaleLowerCase() === application.toLocaleLowerCase();
+          })
+          .sort((left, right) =>
+            left.kind.localeCompare(right.kind) || left.relationshipId.localeCompare(right.relationshipId),
+          );
+        for (const relationship of adjacent) {
+          selectedRelationshipIds.add(relationship.relationshipId);
+          const otherId = relationship.sourceEntityId === entityId
+            ? relationship.targetEntityId
+            : relationship.sourceEntityId;
+          if (!depthByEntity.has(otherId)) {
+            depthByEntity.set(otherId, depth + 1);
+            next.add(otherId);
+          }
+        }
+      }
+      frontier = [...next];
+    }
+
+    const appEntities = input.entities.filter((entity) =>
+      entity.source?.toLocaleLowerCase() === application.toLocaleLowerCase(),
+    );
+    const reachedEntities = appEntities.filter((entity) => depthByEntity.has(entity.entityId));
+    const factGroups = new Map<string, { kind: string; label: string; entities: CopilotEntityContext[] }>();
+    for (const entity of appEntities) {
+      if (entity.entityId === representative.entityId) continue;
+      const group = product360DigestGroup(application, entity, broadProduct360);
+      if (!group) continue;
+      const current = factGroups.get(group.kind) ?? { ...group, entities: [] };
+      current.entities.push(entity);
+      factGroups.set(group.kind, current);
+    }
+    const groupOrder = PRODUCT360_FACT_GROUPS[application.toLocaleLowerCase()] ?? [];
+    const broadGroupOrder = broadProduct360
+      ? application.toLocaleLowerCase() === "codebeamer"
+        ? ["requirement", "requirement-detail", "product-context", "change"]
+        : application.toLocaleLowerCase() === "windchill"
+          ? ["physical-attribute", "product-context", "document", "change", "requirement"]
+          : groupOrder.map((group) => group.kind)
+      : groupOrder.map((group) => group.kind);
+    const factEntityPriority = (groupKind: string, entity: CopilotEntityContext) => {
+      const label = entity.displayName.toLocaleLowerCase();
+      if (broadProduct360 && application.toLocaleLowerCase() === "codebeamer" && groupKind === "requirement-detail") {
+        if (/status/.test(label)) return 0;
+        if (/priority/.test(label)) return 1;
+        if (/trace|link/.test(label)) return 2;
+        if (/lifecycle/.test(label)) return 3;
+        if (/description/.test(label)) return 4;
+        if (/catalog|sync|project id|tracker/.test(label)) return 1;
+      }
+      if (!broadProduct360 && groupKind === "requirement-detail") {
+        if (/status|priority|description|lifecycle/.test(label)) return 0;
+        if (/catalog|sync|project id|tracker/.test(label)) return 1;
+      }
+      if (groupKind === "physical-attribute") {
+        if (/weight|dimension/.test(label)) return 0;
+        if (/chemical|material/.test(label)) return 1;
+      }
+      if (groupKind === "product-context") {
+        if (/version|revision|state|lifecycle/.test(label)) return 0;
+        if (/view|source/.test(label)) return 1;
+      }
+      if (groupKind === "product-detail" && /status|state/.test(label)) return 0;
+      if (groupKind === "configuration-rule" && /expression/i.test(label)) return 0;
+      return 2;
+    };
+    const facts = [
+      ...(() => {
+        const representativeDetails = product360FactDetails(representativeEntity);
+        if (!representativeDetails.length) return [];
+        return [{
+          label: `${application} representative details`,
+          kind: "representative-details",
+          summary: representativeDetails.map((detail) => `${detail.key}: ${detail.value}`).join("; "),
+          citationIds: [representative.citationId],
+        }];
+      })(),
+      ...[...factGroups.values()]
+        .sort((left, right) =>
+          broadGroupOrder.indexOf(left.kind) - broadGroupOrder.indexOf(right.kind) ||
+          left.kind.localeCompare(right.kind),
+        )
+        .map((group) => {
+          const selectedEntities = group.entities.sort((left, right) =>
+            factEntityPriority(group.kind, left) - factEntityPriority(group.kind, right) ||
+            (depthByEntity.get(left.entityId) ?? PRODUCT360_HIERARCHY_DEPTH + 1) -
+              (depthByEntity.get(right.entityId) ?? PRODUCT360_HIERARCHY_DEPTH + 1) ||
+            left.entityId.localeCompare(right.entityId),
+          ).slice(0,
+            group.kind === "physical-attribute" || group.kind === "product-context" ? 2
+              : broadProduct360 && application.toLocaleLowerCase() === "configit" && group.kind === "configuration-family" ? 6
+            : broadProduct360 && application.toLocaleLowerCase() === "codebeamer" && group.kind === "requirement-detail" ? 3
+              : 1,
+          );
+          const details = selectedEntities.map((entity) => {
+            const fields = product360FactDetails(entity);
+            return fields.length
+              ? `${product360EntityName(entity)}: ${fields.map((field) => `${field.key} ${field.value}`).join(", ")}`
+              : product360EntityName(entity);
+          });
+          return {
+            label: group.label,
+            kind: group.kind,
+            summary: `${group.label}: ${details.join("; ")}.`,
+            citationIds: [...new Set(selectedEntities.map((entity) => entity.citationId))],
+          };
+        }),
+    ].slice(0, maxFacts);
+
+    const secondaryKindRank = (entity: CopilotEntityContext) => {
+      const kind = entity.kind.toLocaleLowerCase();
+      if (application.toLocaleLowerCase() === "sap") {
+        if (kind.includes("accounting-document")) return 0;
+        if (kind.includes("material-movement")) return 1;
+        if (kind.includes("stock-metric")) return 2;
+        if (kind.includes("accounting-line")) return 3;
+        if (kind.includes("history-metric")) return 4;
+        if (kind.includes("product-detail")) return 5;
+      }
+      if (kind.includes("configuration-family")) return 0;
+      if (kind.includes("configuration-feature")) return 1;
+      if (kind.includes("configuration-rule")) return 2;
+      if (kind.includes("change")) return 3;
+      if (kind.includes("requirement")) return 4;
+      if (kind.includes("document")) return 5;
+      if (kind.includes("physical-attribute")) return 6;
+      return 7;
+    };
+    const rankedSecondaryEntities = reachedEntities
+      .filter((entity) => entity.entityId !== representative.entityId)
+      .sort((left, right) =>
+        secondaryKindRank(left) - secondaryKindRank(right) ||
+        (depthByEntity.get(left.entityId) ?? 0) - (depthByEntity.get(right.entityId) ?? 0) ||
+        left.entityId.localeCompare(right.entityId),
+      );
+    const secondaryLimit = application.toLocaleLowerCase() === "configit"
+      ? 6
+      : application.toLocaleLowerCase() === "sap" ? 4 : 3;
+    const distinctSecondaryEntities: CopilotEntityContext[] = [];
+    if (application.toLocaleLowerCase() === "configit") {
+      distinctSecondaryEntities.push(...rankedSecondaryEntities.slice(0, secondaryLimit));
+    } else {
+      const selectedSecondaryKinds = new Set<string>();
+      for (const entity of rankedSecondaryEntities) {
+        if (selectedSecondaryKinds.has(entity.kind)) continue;
+        distinctSecondaryEntities.push(entity);
+        selectedSecondaryKinds.add(entity.kind);
+        if (distinctSecondaryEntities.length === secondaryLimit) break;
+      }
+      if (distinctSecondaryEntities.length < secondaryLimit) {
+        for (const entity of rankedSecondaryEntities) {
+          if (distinctSecondaryEntities.some((selected) => selected.entityId === entity.entityId)) continue;
+          distinctSecondaryEntities.push(entity);
+          if (distinctSecondaryEntities.length === secondaryLimit) break;
+        }
+      }
+    }
+    const secondaryEntities = distinctSecondaryEntities
+      .map((entity) => {
+        if (!citations.has(entity.citationId)) {
+          throw new Error(`Product 360 digest entity citation ${entity.citationId} is missing from the citation allowlist.`);
+        }
+        return {
+          label: short(product360EntityName(entity), 60),
+          kind: short(entity.kind, 50),
+          citationId: entity.citationId,
+        };
+      });
+
+    const appRelationships: Product360ApplicationRelationshipSummary[] = eligibleRelationships
+      .filter((relationship) =>
+        selectedRelationshipIds.has(relationship.relationshipId) &&
+        depthByEntity.has(relationship.sourceEntityId) &&
+        depthByEntity.has(relationship.targetEntityId),
+      )
+      .sort((left, right) => {
+        const priority = (kind: string) => {
+          const normalized = kind.toLocaleLowerCase();
+          if (normalized.includes("manages")) return 0;
+          if (normalized.includes("configuration-family")) return 0;
+          if (normalized.includes("configuration-feature")) return 1;
+          if (normalized.includes("governed-by")) return 2;
+          if (normalized.includes("product-context")) return 3;
+          return 4;
+        };
+        return priority(left.kind) - priority(right.kind) ||
+          left.relationshipId.localeCompare(right.relationshipId);
+      })
+      .slice(0, application.toLocaleLowerCase() === "configit" ||
+          application.toLocaleLowerCase() === "codebeamer"
+        ? PRODUCT360_MAX_DIGEST_RELATIONSHIPS
+        : 1)
+      .map((relationship) => {
+        const source = entitiesById.get(relationship.sourceEntityId)!;
+        const target = entitiesById.get(relationship.targetEntityId)!;
+        const evidenceCitationIds = relationship.evidenceCitationIds.slice(0, 1);
+        const relationshipCitationIds = [relationship.citationId, ...evidenceCitationIds];
+        if (relationshipCitationIds.some((citationId) => !citations.has(citationId))) {
+          throw new Error(`Product 360 digest relationship ${relationship.relationshipId} has a citation outside the allowlist.`);
+        }
+        return {
+          category: relationship.category as "canonical" | "ontology-resolved",
+          ...(relationship.provenance?.authority ?? relationship.provenance?.sourceAuthority
+            ? { authority: relationship.provenance.authority ?? relationship.provenance.sourceAuthority }
+            : {}),
+          kind: relationship.kind,
+          sourceLabel: short(source.displayName, 80),
+          targetLabel: short(target.displayName, 80),
+          citationId: relationship.citationId,
+          evidenceCitationIds,
+        };
+      });
+
+    const supportingCitationIds = [...new Set([
+      representative.citationId,
+      ...facts.flatMap((fact) => fact.citationIds),
+      ...secondaryEntities.map((entity) => entity.citationId),
+      ...appRelationships.flatMap((relationship) => [relationship.citationId, ...relationship.evidenceCitationIds]),
+    ])];
+    if (supportingCitationIds.some((citationId) => !citations.has(citationId))) {
+      throw new Error(`Product 360 digest for ${application} contains a citation outside the allowlist.`);
+    }
+    return {
+      application,
+      facts,
+      secondaryEntities,
+      verifiedRelationships: appRelationships,
+      sourceStateWarning: product360DigestSourceWarning(application, input.sourceSelections),
+    };
+  });
+}
+
+function buildProduct360PreContext(
+  contextPacket: Pick<
+    CopilotContextPacket,
+    | "engineeringBrief"
+    | "citations"
+    | "relationships"
+    | "entities"
+    | "grounding"
+    | "uncertainties"
+    | "omissions"
+    | "applicationDigests"
+  >,
+): Product360PreContext {
+  const participation = contextPacket.engineeringBrief.subjectApplicationParticipation;
+  const citations = new Set(contextPacket.citations.map((citation) => citation.citationId));
+  const subjectId = participation.find((entry) => entry.subjectId)?.subjectId;
+  const subjectDisplayName = participation.find((entry) => entry.subjectLabel)?.subjectLabel;
+  if (!subjectId || !subjectDisplayName) {
+    throw new Error("Product 360 context requires a selected investigation subject.");
+  }
+  const seenApplications = new Set<string>();
+  const applicationManifest: Product360ApplicationManifestEntry[] = participation.map((entry) => {
+    const applicationKey = entry.application.toLocaleLowerCase();
+    if (seenApplications.has(applicationKey)) {
+      throw new Error(`Product 360 context has multiple participation groups for ${entry.application}.`);
+    }
+    seenApplications.add(applicationKey);
+    if (entry.subjectId && entry.subjectId !== subjectId ||
+        entry.subjectLabel && entry.subjectLabel !== subjectDisplayName) {
+      throw new Error(`Product 360 participation for ${entry.application} does not match the selected investigation subject.`);
+    }
+    const representative = entry.representativeEntity;
+    if (!representative) {
+      throw new Error(`Product 360 context is missing the selected representative for ${entry.application}.`);
+    }
+    if (!representative.citationId || !citations.has(representative.citationId)) {
+      throw new Error(`Product 360 representative citation for ${entry.application} is missing from the citation allowlist.`);
+    }
+    if (representative.sourceApplication.toLocaleLowerCase() !== applicationKey) {
+      throw new Error(`Product 360 representative application does not match ${entry.application}.`);
+    }
+    return {
+      application: entry.application,
+      representativeEntityId: representative.entityId,
+      representativeDisplayLabel: short(representative.displayLabel, 120),
+      ...(representative.nativeId ? { nativeId: representative.nativeId } : {}),
+      semanticKind: representative.kind,
+      ...(representative.semanticRole ? { semanticRole: representative.semanticRole } : {}),
+      participatingRecordCount: entry.participantCount,
+      representativeCitationId: representative.citationId,
+      drillDownCategories: entry.drillDownCategories ?? [],
+    };
+  });
+  if (!applicationManifest.length) {
+    throw new Error("Product 360 context requires at least one participating application.");
+  }
+  const applicationDigests = (contextPacket.applicationDigests ?? []).filter((digest) =>
+    seenApplications.has(digest.application.toLocaleLowerCase()),
+  );
+  if (applicationDigests.length !== applicationManifest.length) {
+    throw new Error("Product 360 context is missing an application evidence digest.");
+  }
+
+  const entityById = new Map(contextPacket.entities.map((entity) => [entity.entityId, entity]));
+  const verifiedRelationships: Product360RelationshipSummary[] = contextPacket.relationships
+    .filter((relationship): relationship is CopilotRelationshipContext & {
+      category: "canonical" | "ontology-resolved";
+    } =>
+      relationship.category === "canonical" || relationship.category === "ontology-resolved",
+    )
+    .map((relationship) => {
+      const source = entityById.get(relationship.sourceEntityId);
+      const target = entityById.get(relationship.targetEntityId);
+      if (!source || !target || !source.source || !target.source) {
+        throw new Error(`Product 360 relationship ${relationship.relationshipId} is missing a selected endpoint.`);
+      }
+      const citationIds = [relationship.citationId, ...relationship.evidenceCitationIds];
+      if (citationIds.some((citationId) => !citations.has(citationId))) {
+        throw new Error(`Product 360 relationship ${relationship.relationshipId} has a citation outside the allowlist.`);
+      }
+      return {
+        relationshipId: relationship.relationshipId,
+        category: relationship.category,
+        ...(relationship.provenance?.authority ?? relationship.provenance?.sourceAuthority
+          ? { authority: relationship.provenance.authority ?? relationship.provenance.sourceAuthority }
+          : {}),
+        kind: relationship.kind,
+        sourceEntityId: relationship.sourceEntityId,
+        sourceLabel: source.displayName,
+        sourceApplication: source.source,
+        targetEntityId: relationship.targetEntityId,
+        targetLabel: target.displayName,
+        targetApplication: target.source,
+        citationId: relationship.citationId,
+        evidenceCitationIds: relationship.evidenceCitationIds,
+      };
+    });
+  const caveats = [
+    contextPacket.engineeringBrief.evidenceBoundaryStatement,
+    contextPacket.grounding.partialSources.length
+      ? `Incomplete or unavailable source data: ${contextPacket.grounding.partialSources.join(", ")}.`
+      : "",
+    contextPacket.grounding.staleSources.length
+      ? `Stale source data: ${contextPacket.grounding.staleSources.join(", ")}.`
+      : "",
+    ...contextPacket.uncertainties.filter((item) =>
+      /\b(partial|stale|incomplete|unavailable|failed|fallback)\b/i.test(item),
+    ),
+    ...(contextPacket.omissions.categories.includes("product360DrillDownCategories")
+      ? ["Drill-down availability metadata was omitted to meet the context budget."]
+      : []),
+    "Shared subject participation does not establish a direct cross-application relationship or causality. Only listed canonical or ontology-resolved relationships are verified.",
+  ].filter(Boolean);
+
+  return {
+    subject: { id: subjectId, displayName: subjectDisplayName },
+    applicationPrimer: applicationManifest.flatMap((entry) => {
+      const semantics = APPLICATION_SEMANTICS[entry.application.toLocaleLowerCase()];
+      return semantics ? [{ application: entry.application, contribution: "" }] : [];
+    }),
+    applicationManifest,
+    applicationDigests,
+    verifiedRelationships,
+    evidenceBoundary: [...new Set(caveats)].join(" "),
+  };
+}
+
 export function engineeringPromptPayload(
   question: string,
   contextPacket: CopilotContextPacket,
@@ -2367,6 +3709,106 @@ export function engineeringPromptPayload(
         : "",
       evidenceBoundary: "Shared investigation participation does not prove operational representation, dependency, or operational consequence.",
       citations: contextPacket.citations.filter((citation) => consequence.allowedCitationIds.includes(citation.citationId)),
+    }, contextPacket, retrievalEvidence);
+  }
+
+  if (contextPacket.questionIntent === "product-360") {
+    const product360PreContext = buildProduct360PreContext(contextPacket);
+    return includeRetrievedDocumentEvidence({
+      question,
+      product360PreContext,
+      questionSpecificEvidence: {
+        entities: contextPacket.entities.map(({ entityId, citationId, displayName, kind, source, nativeId, freshness }) => ({
+          entityId,
+          citationId,
+          displayName: short(displayName, 120),
+          kind,
+          ...(source ? { source } : {}),
+          ...(nativeId ? { nativeId } : {}),
+          freshness,
+        })),
+        findings: contextPacket.findings,
+        evidence: contextPacket.evidence,
+        unresolvedEvaluations: contextPacket.unresolvedEvaluations,
+        sourceSelections: contextPacket.sourceSelections,
+        citations: contextPacket.citations,
+        grounding: contextPacket.grounding,
+        uncertainties: contextPacket.uncertainties,
+        omissions: contextPacket.omissions,
+      },
+    }, contextPacket, retrievalEvidence);
+  }
+
+  if (contextPacket.questionIntent === "application-overview") {
+    const application = contextPacket.applicationOverviewApplication;
+    if (!application) {
+      throw new Error("Application overview prompt requires a recognized application scope.");
+    }
+    const participation = contextPacket.engineeringBrief.subjectApplicationParticipation.find((item) =>
+      item.application.toLocaleLowerCase() === application.toLocaleLowerCase(),
+    );
+    const digest = contextPacket.applicationDigests?.find((item) =>
+      item.application.toLocaleLowerCase() === application.toLocaleLowerCase(),
+    );
+    const representative = participation?.representativeEntity;
+    if (participation && (!representative || !digest)) {
+      throw new Error(`Application overview is missing selected evidence for ${application}.`);
+    }
+    const representativeEntry: Product360ApplicationManifestEntry | undefined = participation && representative
+      ? {
+          application,
+          representativeEntityId: representative.entityId,
+          representativeDisplayLabel: representative.displayLabel,
+          ...(representative.nativeId ? { nativeId: representative.nativeId } : {}),
+          semanticKind: representative.kind,
+          ...(representative.semanticRole ? { semanticRole: representative.semanticRole } : {}),
+          participatingRecordCount: participation.participantCount,
+          representativeCitationId: representative.citationId,
+          drillDownCategories: participation.drillDownCategories ?? [],
+        }
+      : undefined;
+    const allowedCitationIds = new Set([
+      ...(digest ? product360DigestCitationIds(digest) : []),
+      ...(representative ? [representative.citationId] : []),
+    ]);
+    const projection: ApplicationOverviewProjection = {
+      application,
+      participating: Boolean(participation),
+      subjectOrientation: `Investigation subject: ${contextPacket.subject ?? contextPacket.engineeringBrief.subjectLabel}.`,
+      ...(representativeEntry ? { representative: representativeEntry } : {}),
+      ...(digest ? { digest } : {}),
+      evidenceBoundary: [
+        digest?.sourceStateWarning,
+        participation
+          ? "Only selected application evidence is summarized; application participation does not establish a cross-application relationship or consequence."
+          : `No ${application} records participate in this investigation.`,
+      ].filter(Boolean).join(" "),
+    };
+    return includeRetrievedDocumentEvidence({
+      question,
+      applicationOverview: projection,
+      questionSpecificEvidence: {
+        entities: [],
+        findings: [],
+        evidence: [],
+        unresolvedEvaluations: [],
+        sourceSelections: [],
+        citations: contextPacket.citations.filter((citation) => allowedCitationIds.has(citation.citationId)),
+        grounding: {
+          ...contextPacket.grounding,
+          partialSources: contextPacket.grounding.partialSources.filter((source) =>
+            source.toLocaleLowerCase() === application.toLocaleLowerCase(),
+          ),
+          staleSources: contextPacket.grounding.staleSources.filter((source) =>
+            source.toLocaleLowerCase() === application.toLocaleLowerCase(),
+          ),
+          unsupportedIdentifiers: [],
+        },
+        uncertainties: contextPacket.uncertainties.filter((item) =>
+          new RegExp(application, "i").test(item) || /\b(partial|stale|incomplete|unavailable|failed|fallback)\b/i.test(item),
+        ),
+        omissions: { categories: [], counts: {} },
+      },
     }, contextPacket, retrievalEvidence);
   }
 
@@ -2616,9 +4058,16 @@ export function buildInvestigationContext(
   const canonical = isCanonical(snapshot.canonical?.value) ? snapshot.canonical.value : undefined;
   const selectedSources = sourceContext(snapshot, canonical).slice(0, 60);
   const questionIntent = classifyQuestion(message);
+  const applicationScope = questionIntent === "application-overview"
+    ? applicationOverviewApplication(message)
+    : undefined;
+  if (questionIntent === "application-overview" && !applicationScope) {
+    throw new Error("Application overview intent requires a recognized application scope.");
+  }
   const investigationScoped = isInvestigationScopedQuestion(message, questionIntent);
   const includeSubjectTraceability = investigationScoped &&
-    (questionIntent === "summary" || questionIntent === "relationship");
+    (questionIntent === "summary" || questionIntent === "relationship" ||
+      questionIntent === "product-360" || questionIntent === "application-overview");
   const subjectEntities = includeSubjectTraceability
     ? canonical?.knowledgeGraph?.entities
         .filter((entity) => entity.kind === "investigation-subject")
@@ -2656,7 +4105,7 @@ export function buildInvestigationContext(
       )
     : [];
   const compactFourApplicationSubject = includeSubjectTraceability &&
-    isFourApplicationSubjectParticipation(applicationParticipation);
+    (questionIntent === "product-360" || isFourApplicationSubjectParticipation(applicationParticipation));
   const representativeSubjectEntityIds = new Set(applicationParticipation.flatMap((participation) =>
     participation.representativeEntityIds,
   ));
@@ -2935,6 +4384,7 @@ export function buildInvestigationContext(
     subject: snapshot.subjectLabel,
     questionIntent,
     includeSubjectTraceability,
+    compactSubjectParticipation: questionIntent === "product-360",
     subjectApplicationParticipation: applicationParticipation,
     entities: allEntityContexts,
     relationships: allRelationshipContexts,
@@ -2980,6 +4430,8 @@ export function buildInvestigationContext(
     relationshipFlowBase,
     allEvidence,
     compactFourApplicationSubject,
+    questionIntent === "product-360" || questionIntent === "application-overview",
+    applicationScope,
   );
   const allReasoningCitations = citationsFor(
     [],
@@ -2989,6 +4441,117 @@ export function buildInvestigationContext(
     allFindings,
     allEvidence,
   );
+  const applicationDigests = questionIntent === "product-360" || questionIntent === "application-overview"
+    ? buildProduct360ApplicationDigests({
+        participation: engineeringBrief.subjectApplicationParticipation,
+        entities: allEntityContexts,
+        relationships: allRelationshipContexts,
+        citations: allReasoningCitations,
+        sourceSelections: selectedSources,
+        ...(applicationScope ? { applicationScope } : {}),
+        ...(questionIntent === "product-360" ? { broadProduct360: true } : {}),
+      })
+    : [];
+  const projectedApplicationDigests = questionIntent === "product-360"
+    ? applicationDigests.map((digest) => {
+        const application = digest.application.toLocaleLowerCase();
+        const factLimit = application === "codebeamer" ? 3 : 5;
+        const representative = engineeringBrief.subjectApplicationParticipation.find(
+          (participation) => participation.application.toLocaleLowerCase() === application,
+        )?.representativeEntity;
+        const representativeIdentity = representative?.nativeId ??
+          representative?.displayLabel.match(/(?:Work-item ID\s*|Material\s+)([A-Z0-9-]+)/i)?.[1];
+        let facts = digest.facts
+          .map((fact) => ({
+            ...fact,
+            summary: completeProduct360Fact(digest.application, fact.summary),
+          }))
+          .filter((fact): fact is typeof fact & { summary: string } => {
+            if (!fact.summary) return false;
+            const identifier = fact.summary.match(/^(?:Work-item ID|Material ID):\s*([A-Z0-9-]+)\.?$/i)?.[1];
+            return !(identifier && representativeIdentity &&
+              identifier.toLocaleLowerCase() === representativeIdentity.toLocaleLowerCase());
+          });
+        const factPriority = (fact: Product360DigestFact) => {
+          const label = fact.label.toLocaleLowerCase();
+          const summary = fact.summary.toLocaleLowerCase();
+          if (application === "codebeamer") {
+            if (fact.kind === "requirement") return 0;
+            if (fact.kind === "requirement-detail") {
+              if (/\bstatus\b/.test(summary)) return 1;
+              if (/\bpriority\b/.test(summary)) return 2;
+              if (/\btrace|traceability\b/.test(summary)) return 3;
+              if (/tracker|specification/.test(summary)) return 4;
+              if (/lifecycle/.test(summary)) return 6;
+              return 5;
+            }
+            if (/project and tracker|tracker|specification/.test(label)) return 4;
+            return 5;
+          }
+          if (application === "windchill") {
+            if (fact.kind === "physical-attribute") return 0;
+            if (fact.kind === "product-context") return 1;
+            if (fact.kind === "document") return 2;
+            if (fact.kind === "change") return 3;
+            if (fact.kind === "requirement") return 4;
+          }
+          if (application === "sap") {
+            if (fact.kind === "product-detail") return 0;
+            if (fact.kind === "stock-metric") return 1;
+            if (fact.kind === "material-movement") return 2;
+            if (fact.kind === "accounting-document") return 3;
+            if (fact.kind === "history-metric") return 4;
+          }
+          if (application === "configit") {
+            if (fact.kind === "product-detail") return 0;
+            if (fact.kind === "configuration-family") return 1;
+            if (fact.kind === "configuration-feature") return 2;
+            if (fact.kind === "configuration-rule") return 3;
+            if (fact.kind === "localization") return 4;
+          }
+          return 0;
+        };
+        facts.sort((left, right) =>
+          factPriority(left) - factPriority(right) ||
+          left.kind.localeCompare(right.kind) ||
+          left.label.localeCompare(right.label),
+        );
+        if (application === "configit") {
+          const familyEntities = digest.secondaryEntities.filter((entity) =>
+            entity.kind.toLocaleLowerCase().includes("configuration-family"),
+          );
+          const familyFactIndex = facts.findIndex((fact) => fact.kind === "configuration-family");
+          if (familyEntities.length && familyFactIndex >= 0) {
+            const familyCitationIds = familyEntities.map((entity) => entity.citationId);
+            facts[familyFactIndex] = {
+              ...facts[familyFactIndex],
+              summary: `Configuration families: ${familyEntities.map((entity) => entity.label).join(", ")}.`,
+              citationIds: [...new Set(familyCitationIds)],
+            };
+          }
+        }
+        facts = facts.slice(0, factLimit);
+        const factText = facts.map((fact) => fact.summary.toLocaleLowerCase()).join(" ");
+        const secondaryEntities = [...digest.secondaryEntities]
+          .filter((entity) => !factText.includes(entity.label.toLocaleLowerCase()))
+          .filter((entity) =>
+            application !== "configit" ||
+            !entity.kind.toLocaleLowerCase().includes("configuration-family"),
+          )
+          .sort((left, right) => {
+            const marketPriority = (label: string) => /market|mrkt/i.test(label) ? 0 : 1;
+            return marketPriority(left.label) - marketPriority(right.label) ||
+              left.label.localeCompare(right.label);
+          });
+        return {
+          ...digest,
+          facts,
+          secondaryEntities,
+          verifiedRelationships: [],
+          sourceStateWarning: "",
+        };
+      })
+    : applicationDigests;
   const identifierCandidatesInQuestion = identifierCandidates(message);
   const knownIdentifiers = new Set<string>();
   for (const entity of allEntityContexts) {
@@ -3033,8 +4596,10 @@ export function buildInvestigationContext(
     subject: short(snapshot.subjectLabel, 300),
     userMessage: message,
     questionIntent,
+    ...(applicationScope ? { applicationOverviewApplication: applicationScope } : {}),
+    ...(projectedApplicationDigests.length ? { applicationDigests: projectedApplicationDigests } : {}),
     ...(m2EvidenceState ? { consequenceEvidenceState: m2EvidenceState } : {}),
-    entityCandidates,
+    entityCandidates: questionIntent === "product-360" && !clarificationRequired ? [] : entityCandidates,
     selectedEntityIds,
     entityConfidence,
     retrievalConfidence: {
@@ -3392,6 +4957,7 @@ export function buildInvestigationContext(
         : fullReasoningPackage.investigationSummary,
     };
     const reasoningCitationIds = new Set([
+      ...projectedApplicationDigests.flatMap(product360DigestCitationIds),
       ...reasoningPackage.primaryEntities.map((entity) => entity.citationId),
       ...reasoningPackage.keyDependencies.flatMap((item) => item.path.citationIds),
       ...reasoningPackage.impactChains.flatMap((item) => item.citationIds),
@@ -3443,9 +5009,21 @@ export function buildInvestigationContext(
       ...reasoningCitations,
       ...candidateCitations,
       ...consequenceSubjectCitations,
+      ...(questionIntent === "product-360"
+        ? engineeringBrief.subjectApplicationParticipation.flatMap((participation) =>
+            participation.representativeEntity
+              ? [{
+                  citationId: participation.representativeEntity.citationId,
+                  kind: "entity" as const,
+                  label: participation.representativeEntity.displayLabel,
+                }]
+              : [],
+          )
+        : []),
     ].map((citation) => [citation.citationId, citation])).values()]
       .sort((left, right) => left.citationId.localeCompare(right.citationId));
     const compactCitationIds = new Set([
+      ...projectedApplicationDigests.flatMap(product360DigestCitationIds),
       ...engineeringBrief.subjectApplicationParticipation.flatMap((participation) =>
         participation.representativeEntity ? [participation.representativeEntity.citationId] : [],
       ),
@@ -3459,9 +5037,16 @@ export function buildInvestigationContext(
         .filter((item) => projectedRelationshipEvidenceIds.has(item.citationId))
         .map((item) => item.citationId),
     ]);
-    const projectedCitations = compactFourApplicationSubject
+    const selectedCitations = compactFourApplicationSubject
       ? citations.filter((citation) => compactCitationIds.has(citation.citationId))
       : citations;
+    const projectedCitations = questionIntent === "product-360"
+      ? selectedCitations.map((citation) => ({
+          citationId: citation.citationId,
+          kind: citation.kind,
+          label: "",
+        }))
+      : selectedCitations;
     const reasoningOmittedCount =
       fullReasoningPackage.primaryEntities.length - reasoningPackage.primaryEntities.length +
       fullReasoningPackage.keyDependencies.length - reasoningPackage.keyDependencies.length +
@@ -3619,6 +5204,130 @@ export function buildInvestigationContext(
       missingEvidence: reasoningPackage.missingEvidence,
       unresolvedRelationships: reasoningPackage.unresolvedRelationships,
     };
+    const product360EngineeringBrief: EngineeringBrief = {
+      ...boundedEngineeringBrief,
+      evidenceBoundaryStatement: "Coverage may be incomplete or stale as noted.",
+      subjectParticipationSummary: "",
+      crossSystemParticipationSummary: "",
+      crossSystemSummary: "",
+      relationshipSummary: "",
+      relationshipFlow: {
+        ontologyGraph: {
+          relationshipCount: 0,
+          impactPathCount: 0,
+          impactChainCount: 0,
+          unresolvedRelationshipCount: 0,
+          evidenceCount: 0,
+          relationshipDefinitionCount: 0,
+        },
+        reasoningPackage: {
+          relationshipCount: 0,
+          impactPathCount: 0,
+          impactChainCount: 0,
+          unresolvedRelationshipCount: 0,
+          evidenceCount: 0,
+        },
+        engineeringBrief: {
+          relationshipCount: 0,
+          impactPathCount: 0,
+          impactChainCount: 0,
+          unresolvedRelationshipCount: 0,
+          evidenceCount: 0,
+          relationshipNarrativeCount: 0,
+          impactNarrativeCount: 0,
+        },
+      },
+      representativeEntitiesByApplication: {},
+      applicationsPresent: [],
+      applicationCoverage: {},
+      keyDependencies: [],
+      mostConnectedEntities: [],
+      highestValueRelationships: [],
+      strongestImpactChains: [],
+      primaryEntities: [],
+      majorRelationships: [],
+      relationshipNarratives: [],
+      subjectTraceabilityRelationships: [],
+      subjectTraceabilityNarratives: [],
+      impactNarratives: [],
+      relationshipEvidence: [],
+      engineeringInsights: [],
+      topFindings: [],
+      topImpactChains: [],
+      strongestEvidence: [],
+      missingEvidence: [],
+      unresolvedRelationships: [],
+      recommendedInvestigationAreas: [],
+      subjectApplicationParticipation: boundedEngineeringBrief.subjectApplicationParticipation.map((participation, index) => ({
+        ...(index === 0 && participation.subjectId ? { subjectId: participation.subjectId } : {}),
+        subjectLabel: index === 0 ? participation.subjectLabel : "",
+        application: participation.application,
+        participantCount: participation.participantCount,
+        ...(participation.representativeEntity ? {
+          representativeEntity: {
+            entityId: participation.representativeEntity.entityId,
+            displayLabel: short(participation.representativeEntity.displayLabel, 120),
+            kind: short(participation.representativeEntity.kind, 80),
+            sourceApplication: participation.representativeEntity.sourceApplication,
+            citationId: participation.representativeEntity.citationId,
+            ...(participation.representativeEntity.nativeId
+              ? { nativeId: short(participation.representativeEntity.nativeId, 100) }
+              : {}),
+            ...(participation.representativeEntity.semanticRole
+              ? { semanticRole: short(participation.representativeEntity.semanticRole, 80) }
+              : {}),
+          },
+        } : {}),
+        ...(participation.drillDownCategories
+          ? {
+              drillDownCategories: participation.drillDownCategories.map((category) => ({
+                key: short(category.key, 60),
+                label: short(category.label, 80),
+                available: true as const,
+              })),
+            }
+          : {}),
+        contribution: questionIntent === "product-360"
+          ? ""
+          : APPLICATION_SEMANTICS[participation.application.toLocaleLowerCase()]?.contribution ?? "",
+      })),
+    };
+    const product360ReasoningPackage: ReasoningPackage = {
+      ...reasoningPackage,
+      applicationsPresent: [],
+      subjectParticipationSummary: "",
+      crossSystemParticipationSummary: "",
+      representativeEntitiesByApplication: {},
+      entityImportance: {},
+      primaryEntities: [],
+      keyDependencies: [],
+      impactChains: [],
+      strongestEvidence: [],
+      engineeringFindings: [],
+      relationshipNarratives: [],
+      subjectTraceabilityRelationships: [],
+      subjectTraceabilityNarratives: [],
+      subjectApplicationParticipation: [],
+      impactNarratives: [],
+      unresolvedRelationships: [],
+      missingEvidence: [],
+      investigationSummary: {
+        ...reasoningPackage.investigationSummary,
+        applicationsPresent: [],
+        subjectParticipationSummary: "",
+        crossSystemParticipationSummary: "",
+        representativeEntitiesByApplication: {},
+        crossSystemSummary: "",
+        relationshipCount: 0,
+        relationshipSummary: "",
+        applicationCoverage: {},
+        keyDependencies: [],
+        mostConnectedEntities: [],
+        highestValueRelationships: [],
+        strongestEvidence: [],
+        strongestImpactChains: [],
+      },
+    };
     return {
       ...base,
       relationshipPaths: projectedPaths,
@@ -3628,10 +5337,15 @@ export function buildInvestigationContext(
             projectedRelationships.some((relationship) => relationship.family === definition.id),
           )
         : relationshipDefinitions.slice(0, counts.ontologyDefinitions),
-      reasoningPackage,
+      reasoningPackage: questionIntent === "product-360" ? product360ReasoningPackage : reasoningPackage,
       engineeringBrief: m2EvidenceState
         ? projectM2EngineeringBrief(boundedEngineeringBrief)
-        : boundedEngineeringBrief,
+        : questionIntent === "product-360"
+            ? {
+                ...product360EngineeringBrief,
+                evidenceBoundaryStatement: "",
+              }
+            : boundedEngineeringBrief,
       relationshipFlow,
       impactSummary: {
         classification: "potential",
@@ -3669,6 +5383,22 @@ export function buildInvestigationContext(
         ? entities
           .filter((entity) => entity.entityId === m2EvidenceState.sourceEntityId || entity.entityId === m2EvidenceState.targetEntityId)
           .map(compactInvestigationEntity)
+        : questionIntent === "product-360"
+        ? entities.filter((entity) =>
+            projectedRelationships.some((relationship) =>
+              relationship.sourceEntityId === entity.entityId || relationship.targetEntityId === entity.entityId,
+            ),
+          ).map(({ entityId, citationId, displayName, kind, source, nativeId, freshness, identityQuality }) => ({
+            entityId,
+            citationId,
+            displayName: short(displayName, 100),
+            kind,
+            ...(source ? { source } : {}),
+            ...(nativeId ? { nativeId } : {}),
+            properties: {},
+            identityQuality,
+            freshness,
+          }))
         : investigationScoped && questionIntent === "summary"
         ? []
         : investigationScoped && questionIntent === "relationship"
@@ -3725,7 +5455,9 @@ export function buildInvestigationContext(
       citations: m2EvidenceState
         ? citations.filter((citation) => m2EvidenceState.allowedCitationIds.includes(citation.citationId))
         : projectedCitations,
-      uncertainties,
+      uncertainties: questionIntent === "product-360"
+        ? uncertainties.filter((item) => !/context limit omitted items from/i.test(item))
+        : uncertainties,
       omissions: {
         categories,
         omittedCounts,
@@ -3778,18 +5510,133 @@ export function buildInvestigationContext(
     counts[key]--;
     packet = compose();
   }
+  if (questionIntent === "product-360") {
+    const representativeCitations = packet.engineeringBrief.subjectApplicationParticipation.flatMap((participation) =>
+      participation.representativeEntity && !packet.citations.some((citation) =>
+        citation.citationId === participation.representativeEntity?.citationId,
+      )
+        ? [{
+            citationId: participation.representativeEntity.citationId,
+            kind: "entity" as const,
+            label: short(participation.representativeEntity.displayLabel, 6),
+          }]
+        : [],
+    );
+    if (representativeCitations.length) {
+      packet = { ...packet, citations: [...packet.citations, ...representativeCitations] };
+    }
+  }
+  if (JSON.stringify(packet).length > maxContextChars && questionIntent === "product-360" && maxContextChars < DEFAULT_MAX_CHARS) {
+    const allowedDigestCitations = (
+      applicationDigests: readonly Product360ApplicationDigest[] = packet.applicationDigests ?? [],
+    ) => new Set([
+      ...applicationDigests.flatMap(product360DigestCitationIds),
+      ...packet.engineeringBrief.subjectApplicationParticipation.flatMap((participation) =>
+        participation.representativeEntity ? [participation.representativeEntity.citationId] : [],
+      ),
+      ...packet.relationships.flatMap((relationship) => [
+        relationship.citationId,
+        relationship.sourceCitationId,
+        relationship.targetCitationId,
+        ...relationship.evidenceCitationIds,
+      ]),
+      ...packet.entities.map((entity) => entity.citationId),
+      ...packet.evidence.map((item) => item.citationId),
+    ]);
+    const omittedSecondaryEntities = (packet.applicationDigests ?? []).reduce(
+      (total, digest) => total + digest.secondaryEntities.length,
+      0,
+    );
+    if (omittedSecondaryEntities) {
+      packet = {
+        ...packet,
+        applicationDigests: (packet.applicationDigests ?? []).map((digest) => ({
+          ...digest,
+          secondaryEntities: [],
+        })),
+        omissions: {
+          ...packet.omissions,
+          categories: [...new Set([...packet.omissions.categories, "product360SecondaryEntities"])].sort(),
+          omittedCounts: {
+            ...packet.omissions.omittedCounts,
+            product360SecondaryEntities: omittedSecondaryEntities,
+          },
+        },
+      };
+      const allowedCitationIds = allowedDigestCitations(packet.applicationDigests);
+      packet = {
+        ...packet,
+        citations: packet.citations.filter((citation) => allowedCitationIds.has(citation.citationId)),
+      };
+    }
+    if (JSON.stringify(packet).length > maxContextChars) {
+      const omittedCategoryCount = packet.engineeringBrief.subjectApplicationParticipation.reduce(
+        (count, participation) => count + (participation.drillDownCategories?.length ?? 0),
+        0,
+      );
+      if (omittedCategoryCount > 0) {
+        packet = {
+          ...packet,
+          engineeringBrief: {
+            ...packet.engineeringBrief,
+            subjectApplicationParticipation: packet.engineeringBrief.subjectApplicationParticipation.map(
+              (participation) => ({ ...participation, drillDownCategories: [] }),
+            ),
+          },
+          omissions: {
+            ...packet.omissions,
+            categories: [...new Set([...packet.omissions.categories, "product360DrillDownCategories"])].sort(),
+            omittedCounts: {
+              ...packet.omissions.omittedCounts,
+              product360DrillDownCategories: omittedCategoryCount,
+            },
+          },
+        };
+      }
+    }
+    let omittedDigestFacts = 0;
+    while (JSON.stringify(packet).length > maxContextChars) {
+      const digestIndex = (packet.applicationDigests ?? []).findIndex((digest) => digest.facts.length > 3);
+      if (digestIndex < 0) break;
+      const digests = [...(packet.applicationDigests ?? [])];
+      const digest = digests[digestIndex];
+      digests[digestIndex] = { ...digest, facts: digest.facts.slice(0, -1) };
+      omittedDigestFacts += 1;
+      const allowedCitationIds = allowedDigestCitations(digests);
+      packet = {
+        ...packet,
+        applicationDigests: digests,
+        citations: packet.citations.filter((citation) => allowedCitationIds.has(citation.citationId)),
+        omissions: {
+          ...packet.omissions,
+          categories: [...new Set([...packet.omissions.categories, "product360ApplicationDigestFacts"])].sort(),
+          omittedCounts: {
+            ...packet.omissions.omittedCounts,
+            product360ApplicationDigestFacts: omittedDigestFacts,
+          },
+        },
+      };
+    }
+  }
   if (JSON.stringify(packet).length > maxContextChars) {
+    const fallbackRelationships = packet.relationships.slice(0, protectedMinimums.relationships);
     const fallbackEntities = allEntityContexts
       .filter((entity) => protectedEntityIds.includes(entity.entityId))
+      .filter((entity) => questionIntent !== "product-360" || fallbackRelationships.some((relationship) =>
+        relationship.sourceEntityId === entity.entityId || relationship.targetEntityId === entity.entityId,
+      ))
       .map((entity) => investigationScoped && questionIntent === "impact"
         ? compactInvestigationEntity(entity)
         : entity);
-    const fallbackRelationships = packet.relationships.slice(0, protectedMinimums.relationships);
     const fallbackEvidence = packet.evidence
       .filter((item) => protectedEvidenceIds.includes(item.evidenceId))
       .map((item) => ({ ...item, summary: short(item.summary, 240) }));
     const fallbackCitationIds = new Set([
       ...(m2EvidenceState?.allowedCitationIds ?? []),
+      ...(packet.applicationDigests ?? []).flatMap(product360DigestCitationIds),
+      ...packet.engineeringBrief.subjectApplicationParticipation.flatMap((participation) =>
+        participation.representativeEntity ? [participation.representativeEntity.citationId] : [],
+      ),
       ...fallbackEntities.map((entity) => entity.citationId),
       ...packet.unresolvedEvaluations.flatMap((evaluation) => [evaluation.citationId, ...evaluation.evidenceCitationIds]),
       ...fallbackRelationships.flatMap((relationship) => [
@@ -3927,9 +5774,9 @@ export function buildInvestigationContext(
         .map((citation) => ({
           citationId: citation.citationId,
           kind: citation.kind,
-          label: citation.label,
-          ...(citation.source ? { source: citation.source } : {}),
-          ...(citation.nativeId ? { nativeId: citation.nativeId } : {}),
+          label: questionIntent === "product-360" ? "" : short(citation.label, 100),
+          ...(questionIntent !== "product-360" && citation.source ? { source: short(citation.source, 80) } : {}),
+          ...(questionIntent !== "product-360" && citation.nativeId ? { nativeId: short(citation.nativeId, 100) } : {}),
         })),
       impactSummary: {
         classification: "potential",
@@ -3940,6 +5787,76 @@ export function buildInvestigationContext(
       },
       relationshipFlow: packet.relationshipFlow,
     } as CopilotContextPacket;
+    if (questionIntent === "product-360") {
+      packet = {
+        ...packet,
+        entities: packet.entities.map((entity) => ({
+          ...entity,
+          displayName: short(entity.displayName, 120),
+          properties: {},
+        })),
+        engineeringBrief: {
+          ...packet.engineeringBrief,
+          executiveSummary: "",
+          subjectParticipationSummary: "",
+          crossSystemParticipationSummary: "",
+          crossSystemSummary: "",
+          relationshipSummary: "",
+          representativeEntitiesByApplication: {},
+          applicationsPresent: [],
+          applicationCoverage: {},
+          keyDependencies: [],
+          mostConnectedEntities: [],
+          highestValueRelationships: [],
+          strongestImpactChains: [],
+          primaryEntities: [],
+          majorRelationships: [],
+          relationshipNarratives: [],
+          subjectTraceabilityRelationships: [],
+          subjectTraceabilityNarratives: [],
+          impactNarratives: [],
+          relationshipEvidence: [],
+          engineeringInsights: [],
+          topFindings: [],
+          topImpactChains: [],
+          strongestEvidence: [],
+          missingEvidence: [],
+          unresolvedRelationships: [],
+          recommendedInvestigationAreas: [],
+          subjectApplicationParticipation: packet.engineeringBrief.subjectApplicationParticipation.map((participation, index) => ({
+            ...(index === 0 && participation.subjectId ? { subjectId: participation.subjectId } : {}),
+            subjectLabel: index === 0 ? participation.subjectLabel : "",
+            application: participation.application,
+            participantCount: participation.participantCount,
+            ...(participation.representativeEntity ? {
+              representativeEntity: {
+                entityId: participation.representativeEntity.entityId,
+                displayLabel: short(participation.representativeEntity.displayLabel, 120),
+                kind: short(participation.representativeEntity.kind, 80),
+                sourceApplication: participation.representativeEntity.sourceApplication,
+                citationId: participation.representativeEntity.citationId,
+                ...(participation.representativeEntity.nativeId
+                  ? { nativeId: short(participation.representativeEntity.nativeId, 100) }
+                  : {}),
+                ...(participation.representativeEntity.semanticRole
+                  ? { semanticRole: short(participation.representativeEntity.semanticRole, 80) }
+                  : {}),
+              },
+            } : {}),
+            ...(participation.drillDownCategories
+              ? {
+                  drillDownCategories: participation.drillDownCategories.map((category) => ({
+                    key: short(category.key, 60),
+                    label: short(category.label, 80),
+                    available: true as const,
+                  })),
+                }
+              : {}),
+            contribution: APPLICATION_SEMANTICS[participation.application.toLocaleLowerCase()]?.contribution ?? "",
+          })),
+        },
+      };
+    }
     const afterFallbackCounts = {
       entities: packet.entities.length,
       relationships: packet.relationships.length,
@@ -4018,12 +5935,17 @@ export function buildInvestigationContext(
         ? Object.entries(packet.engineeringBrief)
         .map(([field, value]) => [field, JSON.stringify(value)?.length ?? 0] as const)
         .sort((left, right) => right[1] - left[1])
-        .slice(0, 3)
+        .slice(0, 15)
         .map(([field, size]) => `${field}=${size}`)
         .join(", ")
         : "none";
+      const digestSizes = (packet.applicationDigests ?? [])
+        .map((digest) => `${digest.application}=${Object.entries(digest)
+          .map(([field, value]) => `${field}:${JSON.stringify(value).length}`)
+          .join("/")}`)
+        .join(", ");
       const error = new Error(
-        `Context budget exceeded: protected categories preventing fit: ${protectedCategories.join(", ") || "none"}; packet size ${packetSize} characters exceeds configured budget ${maxContextChars}. Compact participation summaries=${packet.reasoningPackage?.subjectApplicationParticipation.length ?? 0}, prompt subject edges=${packet.reasoningPackage?.subjectTraceabilityRelationships.length ?? 0}, subject narratives=${packet.reasoningPackage?.subjectTraceabilityNarratives.length ?? 0}. Largest fields: ${largestFields}. Largest brief fields: ${largestBriefFields}.`,
+        `Context budget exceeded: protected categories preventing fit: ${protectedCategories.join(", ") || "none"}; packet size ${packetSize} characters exceeds configured budget ${maxContextChars}. Compact participation summaries=${packet.reasoningPackage?.subjectApplicationParticipation.length ?? 0}, prompt subject edges=${packet.reasoningPackage?.subjectTraceabilityRelationships.length ?? 0}, subject narratives=${packet.reasoningPackage?.subjectTraceabilityNarratives.length ?? 0}. Largest fields: ${largestFields}. Largest brief fields: ${largestBriefFields}. Digest sizes: ${digestSizes}. Citation count=${packet.citations.length}, longest citation ID=${Math.max(0, ...packet.citations.map((citation) => citation.citationId.length))}.`,
       );
       error.name = "ContextBudgetExceededError";
       throw error;

@@ -149,6 +149,181 @@ describe.skipIf(!existsSync(snapshotPath))("current investigation subject-tracea
     expect(JSON.stringify(prompt).length).toBeLessThanOrEqual(24_000);
   }, 20_000);
 
+  it("builds Product 360 from the balanced participation representatives and their citations", () => {
+    const question = "Give me a Product 360 overview.";
+    const packet = buildInvestigationContext(snapshot, question);
+    const prompt = engineeringPromptPayload(question, packet) as {
+      product360PreContext?: {
+        subject: { id: string; displayName: string };
+        applicationPrimer: { application: string; contribution: string }[];
+        applicationManifest: {
+          application: string;
+          representativeEntityId: string;
+          representativeDisplayLabel: string;
+          nativeId?: string;
+          semanticKind: string;
+          semanticRole?: string;
+          participatingRecordCount: number;
+          representativeCitationId: string;
+          drillDownCategories: { key: string; label: string; available: true }[];
+        }[];
+        verifiedRelationships: { category: string; citationId: string; evidenceCitationIds: string[] }[];
+        evidenceBoundary: string;
+      };
+    };
+    const product360 = prompt.product360PreContext;
+    if (!product360) throw new Error("Product 360 prompt projection is unavailable.");
+
+    expect(packet.questionIntent).toBe("product-360");
+    expect(product360.subject).toMatchObject({
+      id: packet.engineeringBrief.subjectApplicationParticipation[0].subjectId,
+      displayName: "Steering",
+    });
+    expect(product360.applicationManifest.map((entry) => ({
+      application: entry.application.toLocaleLowerCase(),
+      representativeEntityId: entry.representativeEntityId,
+      representativeDisplayLabel: entry.representativeDisplayLabel,
+      nativeId: entry.nativeId,
+      semanticKind: entry.semanticKind,
+      semanticRole: entry.semanticRole,
+    }))).toEqual([
+      {
+        application: "codebeamer",
+        representativeEntityId: "codebeamer:primary-codebeamer:item:1187",
+        representativeDisplayLabel: "Steering System Requirements",
+        nativeId: "1187",
+        semanticKind: "requirement",
+        semanticRole: "requirement",
+      },
+      {
+        application: "windchill",
+        representativeEntityId: "windchill:0:0000003874/0000003874#0",
+        representativeDisplayLabel: "Steering part 0000003874",
+        nativeId: "0000003874/0000003874#0",
+        semanticKind: "part-occurrence",
+        semanticRole: "part-occurrence",
+      },
+      {
+        application: "sap",
+        representativeEntityId: "sap:material:mat7893",
+        representativeDisplayLabel: "Material MAT7893",
+        nativeId: "MAT7893",
+        semanticKind: "source-representation",
+        semanticRole: "operational material",
+      },
+      {
+        application: "configit",
+        representativeEntityId: "configit:subject:305",
+        representativeDisplayLabel: "Steering, Work-item ID 305",
+        nativeId: "305",
+        semanticKind: "source-representation",
+        semanticRole: "product/work-item subject",
+      },
+    ]);
+    expect(product360.applicationManifest.map((entry) => [
+      entry.application,
+      entry.participatingRecordCount,
+    ])).toEqual([
+      ["Codebeamer", 17],
+      ["Windchill", 17],
+      ["SAP", 114],
+      ["Configit", 41],
+    ]);
+
+    const participationByApplication = new Map(
+      packet.engineeringBrief.subjectApplicationParticipation.map((entry) => [entry.application, entry]),
+    );
+    for (const entry of product360.applicationManifest) {
+      const participation = participationByApplication.get(entry.application)!;
+      expect(entry.representativeCitationId).toBe(participation.representativeEntity?.citationId);
+      expect(entry.participatingRecordCount).toBe(participation.participantCount);
+      expect(packet.citations.some((citation) =>
+        citation.citationId === entry.representativeCitationId,
+      )).toBe(true);
+    }
+
+    const configit = product360.applicationManifest.find((entry) => entry.application === "Configit")!;
+    expect(configit.representativeEntityId).toBe("configit:subject:305");
+    expect(configit.drillDownCategories.map(({ key }) => key)).toEqual(expect.arrayContaining([
+      "product-work-item-details",
+      "product-models-and-contexts",
+      "configuration-families",
+      "features",
+      "rules-and-expressions",
+      "metadata",
+    ]));
+    expect(product360.applicationManifest.some((entry) =>
+      entry.representativeEntityId === "configit:family:mrkt",
+    )).toBe(false);
+    expect(product360.applicationPrimer.map(({ application }) => application)).toEqual([
+      "Codebeamer",
+      "Windchill",
+      "SAP",
+      "Configit",
+    ]);
+    expect(product360.applicationPrimer.every(({ contribution }) => !/Steering|305|MAT7893|0000003874|MRKT/.test(contribution)))
+      .toBe(true);
+    expect(product360.verifiedRelationships.every((relationship) =>
+      relationship.category === "canonical" || relationship.category === "ontology-resolved",
+    )).toBe(true);
+    expect(packet.relationships.filter((relationship) =>
+      relationship.category === "ontology-resolved",
+    )).toHaveLength(0);
+    expect(packet.relationshipFlow.ontologyGraph.impactPathCount).toBe(0);
+    expect(packet.relationshipFlow.ontologyGraph.impactChainCount).toBe(0);
+    expect(product360.verifiedRelationships.every((relationship) =>
+      relationship.sourceApplication.toLocaleLowerCase() === relationship.targetApplication.toLocaleLowerCase(),
+    )).toBe(true);
+    expect(product360.verifiedRelationships.every((relationship) =>
+      [relationship.citationId, ...relationship.evidenceCitationIds].every((citationId) =>
+        packet.citations.some((citation) => citation.citationId === citationId),
+      ),
+    )).toBe(true);
+    expect(product360.evidenceBoundary).toMatch(/shared subject participation does not establish a direct/i);
+    expect(JSON.stringify(product360)).not.toContain("subject-traceability");
+    expect(JSON.stringify(packet).length).toBeLessThanOrEqual(24_000);
+    expect(JSON.stringify(prompt).length).toBeLessThanOrEqual(24_000);
+  }, 20_000);
+
+  it("fails Product 360 projection when a participating application lacks a selected representative or citation", () => {
+    const question = "Give me a Product 360 overview.";
+    const packet = buildInvestigationContext(snapshot, question);
+    const participation = packet.engineeringBrief.subjectApplicationParticipation;
+    const missingRepresentative = {
+      ...packet,
+      engineeringBrief: {
+        ...packet.engineeringBrief,
+        subjectApplicationParticipation: participation.map((entry) =>
+          entry.application === "Windchill"
+            ? { ...entry, representativeEntity: undefined }
+            : entry,
+        ),
+      },
+    };
+    const missingCitation = {
+      ...packet,
+      engineeringBrief: {
+        ...packet.engineeringBrief,
+        subjectApplicationParticipation: participation.map((entry) =>
+          entry.application === "Windchill" && entry.representativeEntity
+            ? {
+                ...entry,
+                representativeEntity: {
+                  ...entry.representativeEntity,
+                  citationId: "cite:entity:not-allowed",
+                },
+              }
+            : entry,
+        ),
+      },
+    };
+
+    expect(() => engineeringPromptPayload(question, missingRepresentative))
+      .toThrow(/representative for Windchill/i);
+    expect(() => engineeringPromptPayload(question, missingCitation))
+      .toThrow(/citation.*Windchill|Windchill.*citation/i);
+  }, 20_000);
+
   it("keeps prompt growth bounded when authoritative subject edges grow", () => {
     const typedSnapshot = snapshot as InvestigationSnapshot<EngineeringIntelligenceInvestigationV1>;
     const expanded = JSON.parse(JSON.stringify(snapshot)) as InvestigationSnapshot<EngineeringIntelligenceInvestigationV1>;

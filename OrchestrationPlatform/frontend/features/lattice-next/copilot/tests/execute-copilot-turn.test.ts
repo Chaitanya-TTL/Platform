@@ -320,8 +320,50 @@ function configureProviderResponse(): void {
       consequenceEvidenceState?: unknown;
       requestedEntities?: { displayName: string; citationId: string }[];
       unresolvedEvaluations?: { citationId: string }[];
+      product360PreContext?: {
+        subject: { displayName: string };
+        applicationPrimer: { application: string; contribution: string }[];
+        applicationManifest: {
+          application: string;
+          representativeDisplayLabel: string;
+          representativeCitationId: string;
+          semanticKind: string;
+          semanticRole?: string;
+          drillDownCategories: { label: string; key: string }[];
+        }[];
+        verifiedRelationships: {
+          sourceApplication: string;
+          sourceLabel: string;
+          targetApplication: string;
+          targetLabel: string;
+          kind: string;
+          citationId: string;
+        }[];
+        evidenceBoundary: string;
+      };
     };
     const snapshotRevision = request.turnContext.snapshotRevision;
+    if (userMessage.product360PreContext) {
+      const { subject, applicationManifest } = userMessage.product360PreContext;
+      return {
+        content: JSON.stringify({
+          answer: [
+            `Investigation subject and scope: ${subject.displayName}.`,
+            ...applicationManifest.map((entry) =>
+              `${entry.application} view: ${entry.representativeDisplayLabel} (${entry.semanticKind}).`,
+            ),
+            "Verified governed relationships are limited to the relationships selected by Lattice.",
+            "Evidence boundaries: shared subject participation is not a direct relationship.",
+            "Available drill-down areas are listed in the Product 360 context.",
+          ].join("\n\n"),
+          claims: [],
+          recommendations: [],
+          uncertainties: [],
+          followUpQuestions: [],
+          snapshotRevision,
+        }),
+      };
+    }
     if (userMessage.consequenceEvidenceState) {
       const source = userMessage.requestedEntities?.[0];
       const target = userMessage.requestedEntities?.[1];
@@ -440,6 +482,216 @@ describe("executeCopilotTurn E1 persistence", () => {
         id: "configit:family:mrkt",
         kind: "configuration-family",
       }));
+    },
+  );
+
+  it.skipIf(!existsSync(currentInvestigationSnapshotPath))(
+    "persists Product 360 application coverage with allowlisted representative citations",
+    async () => {
+      const currentSnapshot = JSON.parse(
+        readFileSync(currentInvestigationSnapshotPath, "utf8"),
+      ) as Parameters<typeof buildInvestigationContext>[0];
+      const question = "Give me a Product 360 overview.";
+      const packet = buildInvestigationContext(currentSnapshot, question);
+      mocks.loadSnapshot.mockResolvedValueOnce(currentSnapshot);
+
+      const outcome = await executeCopilotTurn({
+        investigationId: currentSnapshot.identity.investigationId,
+        expectedSnapshotRevision: currentSnapshot.identity.revision,
+        idempotencyKey: "product-360-persistence",
+        threadId: "product-360-persistence",
+        createIfMissing: true,
+        message: question,
+      });
+
+      expect(outcome.ok).toBe(true);
+      expect(mocks.completeCopilotTurn).toHaveBeenCalledTimes(1);
+      expect(mocks.persistedAnswers).toHaveLength(1);
+      const persistedAnswer = mocks.persistedAnswers[0] as {
+        answer: string;
+        claims: { citationIds: readonly string[] }[];
+      };
+      const requiredSections = [
+        "Cross-application synthesis",
+        "Investigation subject and scope",
+        "Codebeamer requirements view",
+        "Windchill engineering view",
+        "SAP operational/material view",
+        "Configit configuration view",
+        "Verified governed relationships",
+        "Evidence boundaries and unavailable relationships",
+        "Available drill-down areas",
+      ];
+      for (const section of requiredSections) {
+        expect(persistedAnswer.answer).toContain(section);
+      }
+      for (const participation of packet.engineeringBrief.subjectApplicationParticipation) {
+        const representative = participation.representativeEntity;
+        expect(representative).toBeDefined();
+        expect(persistedAnswer.answer).toContain(participation.application);
+        expect(persistedAnswer.answer).toContain(representative!.displayLabel);
+        expect(persistedAnswer.claims.flatMap((claim) => claim.citationIds))
+          .toContain(representative!.citationId);
+        expect(persistedAnswer.answer).toContain(representative!.citationId);
+      }
+      for (const applicationView of [
+        "Codebeamer requirements view",
+        "Windchill engineering view",
+        "SAP operational/material view",
+        "Configit configuration view",
+      ]) {
+        expect(persistedAnswer.answer).toContain(applicationView);
+      }
+      expect(persistedAnswer.answer).toContain(
+        "This is a coverage summary of the extracted investigation. Use the listed drill-down areas to retrieve complete object inventories.",
+      );
+      expect(persistedAnswer.answer).toContain(
+        "Steering is represented across Codebeamer, Windchill, SAP, and Configit as a requirements subject, engineering part, operational material, and configurable product/work-item",
+      );
+      for (const applicationView of [
+        "Codebeamer requirements view",
+        "Windchill engineering view",
+        "SAP operational/material view",
+        "Configit configuration view",
+      ]) {
+        const view = persistedAnswer.answer.split(`## ${applicationView}`)[1]?.split("\n## ")[0] ?? "";
+        for (const subsection of [
+          "Representative",
+          "Key facts",
+          "Selected hierarchy",
+          "Source status",
+          "Available drill-downs",
+        ]) {
+          expect(view.match(new RegExp(`### ${subsection}`, "g"))).toHaveLength(1);
+        }
+        for (const subsection of ["Key facts", "Selected hierarchy"]) {
+          const block = view.split(`### ${subsection}`)[1]?.split("\n### ")[0] ?? "";
+          for (const factLine of block.split("\n").filter((line) => line.startsWith("- "))) {
+            expect(factLine).toMatch(/\(cite:[^)]+\)/);
+          }
+        }
+      }
+      expect(persistedAnswer.answer).toMatch(/## Verified governed relationships[\s\S]*### Source-authoritative/);
+      expect(persistedAnswer.answer).toContain("### Subject-derived");
+      expect(persistedAnswer.answer).toContain(
+        "Selected evidence includes no poc-synthetic relationships, ontology-resolved relationships.",
+      );
+      expect(persistedAnswer.answer).not.toContain("### POC-synthetic");
+      expect(persistedAnswer.answer).not.toContain("### Ontology-resolved");
+      expect(persistedAnswer.answer).not.toContain("### Canonical authority not recorded");
+      expect(persistedAnswer.answer.toLocaleLowerCase()).toContain("configuration families");
+      expect(persistedAnswer.answer).toContain("features");
+      expect(persistedAnswer.answer.toLocaleLowerCase()).toContain("rules and expressions");
+      expect(persistedAnswer.answer.toLocaleLowerCase()).toContain("product/work-item details");
+      expect(persistedAnswer.answer.toLocaleLowerCase()).toContain("metadata");
+      expect(persistedAnswer.answer).toContain("- Partial coverage; source data may be stale");
+      expect(persistedAnswer.answer).not.toContain("Source coverage is partial or unavailable");
+      expect(persistedAnswer.answer).not.toContain("Source values may be stale");
+      expect(persistedAnswer.answer.match(/Shared-subject participation establishes investigation scope only/g))
+        .toHaveLength(1);
+      expect(persistedAnswer.answer.match(
+        /Customer Requirement Specifications manages Steering System Requirements\./g,
+      )).toHaveLength(1);
+      expect(persistedAnswer.answer).not.toContain("source-representation");
+      expect(persistedAnswer.answer).toContain("Market (MRKT)");
+      expect(persistedAnswer.answer).toContain("Drive Orientation");
+      expect(persistedAnswer.answer).toContain("Steering Type");
+      expect(persistedAnswer.answer).toContain("Evidence gaps");
+      const windchillView = persistedAnswer.answer.split("## Windchill engineering view")[1]?.split("\n## ")[0] ?? "";
+      expect(windchillView.split("### Key facts")[1]?.split("\n### ")[0])
+        .not.toContain("Child structure available: No");
+      expect(persistedAnswer.answer.split("## Evidence boundaries and unavailable relationships")[1])
+        .toContain("Child structure available: No");
+      expect(persistedAnswer.answer).not.toContain("configit:family:mrkt");
+      expect(persistedAnswer.answer).not.toContain("configit:detail:");
+      expect(persistedAnswer.answer).not.toContain("configit:feature:");
+      expect(persistedAnswer.answer).not.toMatch(/\b(?:Steer|Lifec|Engin|Backi)…/);
+      expect(persistedAnswer.answer).not.toMatch(/preferred Product Id|presentation Role|group Key lifecycle|Has Children: false|source-representation/);
+      const answerWithoutCitations = persistedAnswer.answer.replace(/\(cite:[^)]+\)/g, "");
+      expect(answerWithoutCitations).not.toMatch(/has-product-context|has-configuration-family|— manages →|— contains →/i);
+      expect(persistedAnswer.answer).not.toMatch(/\.\./);
+      expect(persistedAnswer.answer).not.toMatch(/\.\s+\./);
+      expect(persistedAnswer.answer).not.toMatch(/\s+[.,;!?]/);
+      expect(persistedAnswer.answer).not.toMatch(/<ul|<li|class=|style=/i);
+      expect(persistedAnswer.answer).not.toMatch(/\b(manages|contains|has the [\w ]+ configuration family)\b.*\b\1\b/i);
+      const applicationFactLimits: Record<string, number> = {
+        "Codebeamer requirements view": 3,
+        "Windchill engineering view": 5,
+        "SAP operational/material view": 5,
+        "Configit configuration view": 5,
+      };
+      for (const [heading, maxFacts] of Object.entries(applicationFactLimits)) {
+        const view = persistedAnswer.answer.split(`## ${heading}`)[1]?.split("\n## ")[0] ?? "";
+        const keyFacts = view.split("### Key facts")[1]?.split("\n### ")[0] ?? "";
+        const facts = keyFacts.match(/^- /gm) ?? [];
+        expect(facts.length).toBeLessThanOrEqual(maxFacts);
+      }
+    },
+  );
+
+  it.skipIf(!existsSync(currentInvestigationSnapshotPath))(
+    "persists a Configit-focused digest without global E1 application coverage",
+    async () => {
+      const currentSnapshot = JSON.parse(
+        readFileSync(currentInvestigationSnapshotPath, "utf8"),
+      ) as Parameters<typeof buildInvestigationContext>[0];
+      const question = "Tell me everything coming from Configit for this product.";
+      const packet = buildInvestigationContext(currentSnapshot, question);
+      mocks.loadSnapshot.mockResolvedValueOnce(currentSnapshot);
+
+      const outcome = await executeCopilotTurn({
+        investigationId: currentSnapshot.identity.investigationId,
+        expectedSnapshotRevision: currentSnapshot.identity.revision,
+        idempotencyKey: "configit-application-overview-persistence",
+        threadId: "configit-application-overview-persistence",
+        createIfMissing: true,
+        message: question,
+      });
+
+      expect(outcome.ok).toBe(true);
+      expect(mocks.completeCopilotTurn).toHaveBeenCalledTimes(1);
+      const providerRequest = mocks.completeCopilotTurn.mock.calls[0][0] as AzureChatRequest;
+      const providerPayload = JSON.parse(providerRequest.messages.at(-1)!.content) as {
+        applicationOverview?: {
+          application: string;
+          digest?: { facts: { summary: string }[]; secondaryEntities: { label: string }[] };
+        };
+        questionSpecificEvidence: { entities: unknown[]; citations: { citationId: string }[] };
+        product360PreContext?: unknown;
+      };
+      expect(providerPayload.applicationOverview?.application).toBe("configit");
+      expect(providerPayload).not.toHaveProperty("product360PreContext");
+      expect(providerPayload.questionSpecificEvidence.entities).toEqual([]);
+      expect(providerPayload.applicationOverview?.digest?.secondaryEntities.map((entity) => entity.label).join(" "))
+        .toMatch(/Market|MRKT/);
+
+      expect(mocks.persistedAnswers).toHaveLength(1);
+      const persistedAnswer = mocks.persistedAnswers[0] as {
+        answer: string;
+        claims: { citationIds: readonly string[] }[];
+      };
+      expect(persistedAnswer.answer).toContain("## Configit representative");
+      expect(persistedAnswer.answer.match(/^## Configit representative$/gm)).toHaveLength(1);
+      expect(persistedAnswer.answer).toContain("Status: InProgress");
+      expect(persistedAnswer.answer).not.toContain("Work-item status: value InProgress");
+      expect(persistedAnswer.answer).toContain("## Configuration families");
+      expect(persistedAnswer.answer.match(/## Configuration families/g)).toHaveLength(1);
+      expect(persistedAnswer.answer).toMatch(/Market \(MRKT\).*Drive Orientation.*Steering Type/s);
+      expect(persistedAnswer.answer).toMatch(/DEN.*IND.*USA/s);
+      expect(persistedAnswer.answer).toContain("## Rules and expressions");
+      expect(persistedAnswer.answer).toContain("## Configit drill-down options");
+      expect(persistedAnswer.answer).not.toMatch(/Primary entities|Applications Present|Codebeamer|Windchill|SAP/);
+
+      const configitParticipation = packet.engineeringBrief.subjectApplicationParticipation.find(
+        (participation) => participation.application.toLowerCase() === "configit",
+      );
+      expect(configitParticipation?.representativeEntity).toBeDefined();
+      expect(persistedAnswer.claims.flatMap((claim) => claim.citationIds))
+        .toContain(configitParticipation!.representativeEntity!.citationId);
+      expect(persistedAnswer.claims.flatMap((claim) => claim.citationIds))
+        .not.toContain(packet.engineeringBrief.subjectApplicationParticipation.find(
+          (participation) => participation.application.toLowerCase() === "codebeamer",
+        )?.representativeEntity?.citationId);
     },
   );
 });

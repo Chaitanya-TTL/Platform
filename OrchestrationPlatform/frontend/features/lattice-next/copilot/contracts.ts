@@ -259,7 +259,106 @@ export interface SubjectApplicationParticipationBrief {
     semanticRole?: string;
     status?: string;
   };
+  drillDownCategories?: readonly Product360DrillDownCategory[];
   contribution: string;
+}
+
+export interface Product360ApplicationPrimer {
+  application: string;
+  contribution: string;
+}
+
+export interface Product360DrillDownCategory {
+  key: string;
+  label: string;
+  available: true;
+}
+
+export interface Product360ApplicationManifestEntry {
+  application: string;
+  representativeEntityId: string;
+  representativeDisplayLabel: string;
+  nativeId?: string;
+  semanticKind: string;
+  semanticRole?: string;
+  participatingRecordCount: number;
+  representativeCitationId: string;
+  drillDownCategories: readonly Product360DrillDownCategory[];
+}
+
+export interface Product360RelationshipSummary {
+  relationshipId: string;
+  category: "canonical" | "ontology-resolved";
+  authority?: string;
+  kind: string;
+  sourceEntityId: string;
+  sourceLabel: string;
+  sourceApplication: string;
+  targetEntityId: string;
+  targetLabel: string;
+  targetApplication: string;
+  citationId: string;
+  evidenceCitationIds: readonly string[];
+}
+
+export interface Product360DigestFact {
+  label: string;
+  kind: string;
+  summary: string;
+  citationIds: readonly string[];
+}
+
+export interface Product360DigestEntity {
+  label: string;
+  kind: string;
+  citationId: string;
+}
+
+export interface Product360ApplicationRelationshipSummary {
+  category: "canonical" | "ontology-resolved";
+  authority?: string;
+  kind: string;
+  sourceLabel: string;
+  targetLabel: string;
+  citationId: string;
+  evidenceCitationIds: readonly string[];
+}
+
+export interface Product360ApplicationDigest {
+  application: string;
+  facts: readonly Product360DigestFact[];
+  secondaryEntities: readonly Product360DigestEntity[];
+  verifiedRelationships: readonly Product360ApplicationRelationshipSummary[];
+  sourceStateWarning: string;
+}
+
+export interface Product360ApplicationDigestInput {
+  participation: readonly SubjectApplicationParticipationBrief[];
+  entities: readonly CopilotEntityContext[];
+  relationships: readonly CopilotRelationshipContext[];
+  citations: readonly CopilotCitation[];
+  sourceSelections: readonly CopilotSourceContext[];
+  applicationScope?: string;
+  broadProduct360?: boolean;
+  maxFacts?: number;
+}
+
+export interface Product360PreContext {
+  subject: { id: string; displayName: string };
+  applicationPrimer: readonly Product360ApplicationPrimer[];
+  applicationManifest: readonly Product360ApplicationManifestEntry[];
+  applicationDigests: readonly Product360ApplicationDigest[];
+  verifiedRelationships: readonly Product360RelationshipSummary[];
+  evidenceBoundary: string;
+}
+
+export interface ApplicationOverviewProjection {
+  application: string;
+  participating: boolean;
+  subjectOrientation: string;
+  representative?: Product360ApplicationManifestEntry;
+  digest?: Product360ApplicationDigest;
+  evidenceBoundary: string;
 }
 
 export interface EngineeringImpactChain {
@@ -382,7 +481,9 @@ export interface CopilotContextPacket {
   lifecycle: InvestigationLifecycle;
   subject: string;
   userMessage: string;
-  questionIntent: "summary" | "relationship" | "impact" | "dependency" | "root-cause" | "evidence" | "risk" | "change-analysis" | "document";
+  questionIntent: "summary" | "product-360" | "application-overview" | "relationship" | "impact" | "dependency" | "root-cause" | "evidence" | "risk" | "change-analysis" | "document";
+  applicationOverviewApplication?: string;
+  applicationDigests?: readonly Product360ApplicationDigest[];
   consequenceEvidenceState?: ConsequenceEvidenceState;
   entityCandidates: readonly CopilotEntityCandidate[];
   selectedEntityIds: readonly string[];

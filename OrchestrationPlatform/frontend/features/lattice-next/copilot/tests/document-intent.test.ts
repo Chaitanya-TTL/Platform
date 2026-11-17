@@ -126,6 +126,71 @@ describe("document intent and prompt projection", () => {
     }
   });
 
+  it("classifies explicit cross-system Product 360 prompts without hijacking focused questions", () => {
+    const broadQuestions = [
+      "Tell me everything known about this product across all participating applications.",
+      "Give me a Product 360 overview.",
+      "Summarize this product across systems.",
+      "What information is available for this product?",
+      "Show me the complete investigation overview.",
+    ];
+    for (const question of broadQuestions) {
+      expect(buildInvestigationContext(m1.snapshot, question).questionIntent).toBe("product-360");
+    }
+
+    const focusedQuestions = [
+      [m1Question, "relationship"],
+      [m2Question, "impact"],
+      [e1Question, "summary"],
+      ["What are the primary entities involved in this investigation?", "summary"],
+      ["What is the SAP material?", "summary"],
+      ["Which Configit families are available?", "summary"],
+      ["Which requirements are available?", "document"],
+      ["Which requirements are linked to the Windchill part?", "relationship"],
+      ["What document explains this configuration?", "document"],
+      ["What changed in the latest revision?", "change-analysis"],
+      ["What risk is present?", "risk"],
+      ["What is the root cause of this defect?", "root-cause"],
+      ["Summarize this investigation only.", "summary"],
+    ] as const;
+    for (const [question, intent] of focusedQuestions) {
+      expect(buildInvestigationContext(m1.snapshot, question).questionIntent).toBe(intent);
+    }
+  });
+
+  it("scopes broad application overviews to a recognized application after focused-intent checks", () => {
+    const applicationQuestions = [
+      ["Tell me everything coming from Codebeamer for this product.", "codebeamer"],
+      ["Tell me everything coming from Windchill for this product.", "windchill"],
+      ["Tell me everything coming from SAP for this product.", "sap"],
+      ["Tell me everything coming from Configit for this product.", "configit"],
+    ] as const;
+
+    for (const [question, application] of applicationQuestions) {
+      const packet = buildInvestigationContext(m1.snapshot, question);
+      expect(packet.questionIntent).toBe("application-overview");
+      expect(packet.applicationOverviewApplication).toBe(application);
+    }
+
+    const focusedQuestions = [
+      ["Which requirements are available in Codebeamer?", "document"],
+      ["What is the SAP material?", "summary"],
+      ["Which Configit families are available?", "summary"],
+      ["Which Windchill document describes this part?", "document"],
+      ["Which applications are involved in this investigation and how are they connected?", "relationship"],
+      ["What operational consequence follows from this Windchill part being represented as a SAP material?", "impact"],
+      ["What risk is present for this part?", "risk"],
+      ["What changed in the latest revision?", "change-analysis"],
+      ["What is the root cause of this defect?", "root-cause"],
+      ["Give me a Product 360 overview.", "product-360"],
+      ["Tell me everything from MRKT for this product.", "summary"],
+    ] as const;
+
+    for (const [question, intent] of focusedQuestions) {
+      expect(buildInvestigationContext(m1.snapshot, question).questionIntent).toBe(intent);
+    }
+  });
+
   it("keeps M1, M2, and E1 packets and graph-only payload shapes unchanged without evidence", () => {
     const cases = [
       { question: m1Question, packet: buildM1Packet(), payloadKeys: m1PayloadKeys, intent: "relationship" },
