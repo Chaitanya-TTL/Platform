@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 using Lattice.AI.Runtime.Contracts.Context;
 using Lattice.AI.Runtime.Contracts.Generation;
 using Lattice.AI.Runtime.Contracts.Requests;
+using Lattice.AI.Runtime.Generation;
 
 namespace Lattice.AI.Runtime.Prompts;
 
@@ -92,16 +93,22 @@ public sealed class PromptAssembler : IPromptAssembler
             },
             ContextJsonOptions);
 
+        IReadOnlyList<ModelMessage> messages =
+        [
+            new ModelMessage("system", instructions),
+            new ModelMessage("user", structuredContext)
+        ];
+
         return new ModelRequest(
             context.RequestContext,
             prompt.Id,
             prompt.Version,
             context.PackageId,
             configuration.Id,
-            [
-                new ModelMessage("system", instructions),
-                new ModelMessage("user", structuredContext)
-            ],
-            prompt.OutputSchemaVersion);
+            messages,
+            prompt.OutputSchemaVersion)
+        {
+            EstimatedInputTokens = ModelInputTokenBudget.EstimateInputTokens(messages)
+        };
     }
 }

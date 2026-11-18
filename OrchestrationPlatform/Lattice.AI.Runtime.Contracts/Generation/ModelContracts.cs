@@ -19,7 +19,10 @@ public sealed record ModelRequest(
     string ContextPackageId,
     string ModelConfigurationId,
     IReadOnlyList<ModelMessage> Messages,
-    string OutputSchemaVersion);
+    string OutputSchemaVersion)
+{
+    public int EstimatedInputTokens { get; init; }
+}
 
 public sealed record ModelResponse(
     RuntimeRequestContext RequestContext,
