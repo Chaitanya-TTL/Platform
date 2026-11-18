@@ -1,7 +1,9 @@
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
+using System.Text.RegularExpressions;
 using Lattice.AI.Runtime.Contracts.Requests;
 using Lattice.AI.Runtime.Telemetry;
+using Microsoft.Extensions.Options;
 
 namespace Orchestration.API.AI.Telemetry;
 
@@ -19,6 +21,7 @@ public sealed class AiRuntimeTelemetry : IAiRuntimeTelemetry
         "plm-retrieval",
         "context-compilation",
         "prompt",
+        "prompt-assembly",
         "model-generation",
         "validation"
     ];
@@ -46,6 +49,9 @@ public sealed class AiRuntimeTelemetry : IAiRuntimeTelemetry
     ];
 
     private static readonly ActivitySource ActivitySource = new(ActivitySourceName);
+    private static readonly Regex PascalCaseBoundary = new(
+        @"(?<=[a-z0-9])(?=[A-Z])",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
     private static readonly Meter Meter = new(MeterName);
     private static readonly Counter<long> RequestOutcomes =
         Meter.CreateCounter<long>("lattice.ai.runtime.request.outcomes");
@@ -58,6 +64,13 @@ public sealed class AiRuntimeTelemetry : IAiRuntimeTelemetry
     private static readonly Counter<long> Failures =
         Meter.CreateCounter<long>("lattice.ai.runtime.failures");
 
+    private readonly AiRuntimeTelemetryOptions _options;
+
+    public AiRuntimeTelemetry(IOptions<AiRuntimeTelemetryOptions>? options = null)
+    {
+        _options = options?.Value ?? new AiRuntimeTelemetryOptions();
+    }
+
     public IRuntimeTelemetryStage StartStage(
         string stage,
         RuntimeRequestContext requestContext,
@@ -68,12 +81,12 @@ public sealed class AiRuntimeTelemetry : IAiRuntimeTelemetry
         var activity = ActivitySource.StartActivity(stageName, ActivityKind.Internal);
         activity?.SetTag("lattice.request.id", requestContext.RequestId);
         activity?.SetTag("lattice.trace.id", requestContext.TraceId);
-        if (!string.IsNullOrWhiteSpace(investigationId))
+        if (_options.IncludeInvestigationIdentifier && !string.IsNullOrWhiteSpace(investigationId))
         {
             activity?.SetTag("lattice.investigation.id", investigationId);
         }
 
-        return new RuntimeTelemetryStage(stageName, activity);
+        return new RuntimeTelemetryStage(stageName, activity, _options);
     }
 
     public void RecordRequestOutcome(string disposition) =>
@@ -119,7 +132,10 @@ public sealed class AiRuntimeTelemetry : IAiRuntimeTelemetry
 
     private static string NormalizeDisposition(string disposition)
     {
-        var normalized = disposition.ToLowerInvariant().Replace('_', '-');
+        var normalized = PascalCaseBoundary
+            .Replace(disposition, "-")
+            .ToLowerInvariant()
+            .Replace('_', '-');
         return Dispositions.Contains(normalized) ? normalized : "other";
     }
 
@@ -137,6 +153,8 @@ public sealed class AiRuntimeTelemetry : IAiRuntimeTelemetry
                 "model-provider-timeout" or
                 "model-provider-failed" or
                 "invalid-model-output" or
+                "model-input-budget-exceeded" or
+                "model-input-budget-not-configured" or
                 "correlation-mismatch" => category,
             _ => "other"
         };
@@ -149,7 +167,10 @@ public sealed class AiRuntimeTelemetry : IAiRuntimeTelemetry
             _ => "other"
         };
 
-    private sealed class RuntimeTelemetryStage(string stage, Activity? activity) : IRuntimeTelemetryStage
+    private sealed class RuntimeTelemetryStage(
+        string stage,
+        Activity? activity,
+        AiRuntimeTelemetryOptions options) : IRuntimeTelemetryStage
     {
         private readonly long _startedAt = Stopwatch.GetTimestamp();
         private string _disposition = "completed";
@@ -177,7 +198,9 @@ public sealed class AiRuntimeTelemetry : IAiRuntimeTelemetry
 
         public void SetTag(string name, object? value)
         {
-            if (activity is not null && value is not null)
+            if (activity is not null &&
+                value is not null &&
+                !AiRuntimeTelemetryPrivacyProcessor.ShouldRemoveTag(name, options))
             {
                 activity.SetTag(name, value);
             }
@@ -197,14 +220,6 @@ public sealed class AiRuntimeTelemetry : IAiRuntimeTelemetry
                 new KeyValuePair<string, object?>("stage", stage),
                 new KeyValuePair<string, object?>("disposition", _disposition),
                 new KeyValuePair<string, object?>("failure.category", _failureCategory ?? "none"));
-            activity?.AddEvent(new ActivityEvent(
-                _failureCategory is null ? "stage.completed" : "stage.failed",
-                tags: new ActivityTagsCollection
-                {
-                    { "stage", stage },
-                    { "disposition", _disposition },
-                    { "failure.category", _failureCategory ?? "none" }
-                }));
             activity?.Dispose();
         }
     }

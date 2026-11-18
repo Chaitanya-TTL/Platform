@@ -46,7 +46,8 @@ public sealed class AiRuntimeTelemetryTests
             var result = await fixture.Service.AnswerAsync(
                 new ImpactAnswerRequest(
                     "investigation-1",
-                    "What impacts if REQ-123 changes? PROMPT_PRIVATE_MARKER",
+                    "What impacts if REQ-123 changes? QUESTION_PRIVATE_MARKER PROMPT_PRIVATE_MARKER " +
+                    "https://plm.example/investigations/INVESTIGATION_PRIVATE_MARKER?deepLink=DEEP_LINK_PRIVATE_MARKER",
                     "conversation-telemetry-1"),
                 Authorization(),
                 requestContext,
@@ -66,6 +67,7 @@ public sealed class AiRuntimeTelemetryTests
             "plm-retrieval",
             "context-compilation",
             "prompt",
+            "prompt-assembly",
             "model-generation",
             "validation"
         };
@@ -82,9 +84,20 @@ public sealed class AiRuntimeTelemetryTests
         Assert.Equal("v1", promptStage.GetTagItem("prompt.version"));
         var compilationStage = Assert.Single(stages, stage => stage.OperationName == "context-compilation");
         Assert.Equal("compiler-v1", compilationStage.GetTagItem("context.compiler.version"));
-        Assert.StartsWith(
-            "context-",
-            Assert.IsType<string>(compilationStage.GetTagItem("context.package.id")));
+        Assert.Null(compilationStage.GetTagItem("context.package.id"));
+        Assert.Null(Assert.Single(stages, stage => stage.OperationName == "entity-resolution").GetTagItem("entity.id"));
+        var excludedIdentifierTags = new[]
+        {
+            "lattice.investigation.id",
+            "entity.id",
+            "tenant.id",
+            "subject.id",
+            "authorization.decision.id",
+            "context.package.id"
+        };
+        Assert.DoesNotContain(
+            stages.SelectMany(stage => stage.Tags),
+            tag => excludedIdentifierTags.Contains(tag.Key, StringComparer.Ordinal));
         var modelStage = Assert.Single(stages, stage => stage.OperationName == "model-generation");
         Assert.Equal("model-config-telemetry-1", modelStage.GetTagItem("model.configuration_id"));
         Assert.Contains(
@@ -100,8 +113,7 @@ public sealed class AiRuntimeTelemetryTests
         Assert.Contains(capture.Measurements, measurement =>
             measurement.Name == "lattice.ai.runtime.model.tokens" &&
             Equals(measurement.Value, 11L));
-        Assert.Contains(stages.SelectMany(stage => stage.Events), activityEvent =>
-            activityEvent.Name == "stage.completed");
+        Assert.All(stages, stage => Assert.Empty(stage.Events));
 
         var telemetryText = string.Join(
             '\n',
@@ -113,12 +125,205 @@ public sealed class AiRuntimeTelemetryTests
                 .Concat(stages.SelectMany(activity => activity.Events)
                     .SelectMany(activityEvent => activityEvent.Tags.Select(tag => tag.Value?.ToString())))
                 .Concat(capture.Measurements.SelectMany(measurement => measurement.Tags.Select(tag => tag.Value?.ToString()))));
+        Assert.DoesNotContain("investigation-1", telemetryText, StringComparison.Ordinal);
+        Assert.DoesNotContain("REQ-123", telemetryText, StringComparison.Ordinal);
+        Assert.DoesNotContain("tenant-telemetry-1", telemetryText, StringComparison.Ordinal);
+        Assert.DoesNotContain("subject-telemetry-1", telemetryText, StringComparison.Ordinal);
+        Assert.DoesNotContain("decision-telemetry-1", telemetryText, StringComparison.Ordinal);
+        Assert.DoesNotContain("INVESTIGATION_PRIVATE_MARKER", telemetryText, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            stages.SelectMany(stage => stage.Tags).Select(tag => tag.Value?.ToString()),
+            value => value?.StartsWith("context-", StringComparison.Ordinal) == true);
+        Assert.DoesNotContain("QUESTION_PRIVATE_MARKER", telemetryText, StringComparison.Ordinal);
         Assert.DoesNotContain("PROMPT_PRIVATE_MARKER", telemetryText, StringComparison.Ordinal);
         Assert.DoesNotContain("ANSWER_PRIVATE_MARKER", telemetryText, StringComparison.Ordinal);
         Assert.DoesNotContain("EVIDENCE_PRIVATE_MARKER", telemetryText, StringComparison.Ordinal);
         Assert.DoesNotContain("BEARER_PRIVATE_MARKER", telemetryText, StringComparison.Ordinal);
         Assert.DoesNotContain("SIGNED_TOKEN_PRIVATE_MARKER", telemetryText, StringComparison.Ordinal);
         Assert.DoesNotContain("CLAIM_PRIVATE_MARKER", telemetryText, StringComparison.Ordinal);
+        Assert.DoesNotContain("DEEP_LINK_PRIVATE_MARKER", telemetryText, StringComparison.Ordinal);
+
+        var metricDimensions = capture.Measurements.SelectMany(measurement => measurement.Tags).ToArray();
+        Assert.DoesNotContain(
+            metricDimensions,
+            tag => excludedIdentifierTags.Contains(tag.Key, StringComparer.Ordinal));
+        Assert.DoesNotContain(
+            metricDimensions,
+            tag => new[]
+            {
+                "investigation-1",
+                "REQ-123",
+                "tenant-telemetry-1",
+                "subject-telemetry-1",
+                "decision-telemetry-1",
+                requestContext.RequestId,
+                requestContext.TraceId
+            }.Contains(tag.Value?.ToString(), StringComparer.Ordinal));
+    }
+
+    [Theory]
+    [InlineData("investigation")]
+    [InlineData("entity")]
+    [InlineData("tenant")]
+    [InlineData("context-package")]
+    public void ExplicitOptInIncludesOnlyConfiguredIdentifier(string identifier)
+    {
+        using var capture = new TelemetryCapture();
+        var options = new AiRuntimeTelemetryOptions();
+        var expectedTag = identifier switch
+        {
+            "investigation" => "lattice.investigation.id",
+            "entity" => "entity.id",
+            "tenant" => "tenant.id",
+            "context-package" => "context.package.id",
+            _ => throw new ArgumentOutOfRangeException(nameof(identifier))
+        };
+        switch (identifier)
+        {
+            case "investigation":
+                options.IncludeInvestigationIdentifier = true;
+                break;
+            case "entity":
+                options.IncludeEntityIdentifier = true;
+                break;
+            case "tenant":
+                options.IncludeTenantIdentifier = true;
+                break;
+            case "context-package":
+                options.IncludeContextPackageIdentifier = true;
+                break;
+        }
+
+        var telemetry = new AiRuntimeTelemetry(Microsoft.Extensions.Options.Options.Create(options));
+        var requestContext = new RuntimeRequestContext("request-opt-in", new string('a', 32), null, null);
+        using (var stage = telemetry.StartStage(
+                   "answer.request",
+                   requestContext,
+                   "INVESTIGATION_IDENTIFIER"))
+        {
+            stage.SetTag("entity.id", "ENTITY_IDENTIFIER");
+            stage.SetTag("tenant.id", "TENANT_IDENTIFIER");
+            stage.SetTag("context.package.id", "CONTEXT_PACKAGE_IDENTIFIER");
+            stage.SetTag("subject.id", "SUBJECT_IDENTIFIER");
+            stage.SetTag("authorization.decision.id", "DECISION_IDENTIFIER");
+        }
+
+        var activity = Assert.Single(capture.Activities);
+        var expectedValue = identifier switch
+        {
+            "investigation" => "INVESTIGATION_IDENTIFIER",
+            "entity" => "ENTITY_IDENTIFIER",
+            "tenant" => "TENANT_IDENTIFIER",
+            "context-package" => "CONTEXT_PACKAGE_IDENTIFIER",
+            _ => throw new ArgumentOutOfRangeException(nameof(identifier))
+        };
+        Assert.Equal(expectedValue, activity.GetTagItem(expectedTag));
+        foreach (var tagName in new[]
+                 {
+                     "lattice.investigation.id",
+                     "entity.id",
+                     "tenant.id",
+                     "context.package.id"
+                 }.Where(tagName => tagName != expectedTag))
+        {
+            Assert.Null(activity.GetTagItem(tagName));
+        }
+        Assert.Null(activity.GetTagItem("subject.id"));
+        Assert.Null(activity.GetTagItem("authorization.decision.id"));
+    }
+
+    [Fact]
+    public void PrivacyProcessorRedactsUrlsAndCredentialHeadersFromActivityAndEvents()
+    {
+        var activity = new Activity("HTTP GET")
+        {
+            DisplayName = "GET https://plm.example/api/tenants/TENANT_PRIVATE_MARKER/entities/ENTITY_PRIVATE_MARKER/entity/ENTITY_PRIVATE_MARKER/investigations/INVESTIGATION_PRIVATE_MARKER/evidence?question=QUESTION_PRIVATE_MARKER#fragment"
+        };
+        activity.Start();
+        activity.SetTag(
+            "url.full",
+            "https://user:URL_PASSWORD_PRIVATE_MARKER@plm.example/api/tenants/TENANT_PRIVATE_MARKER/entities/ENTITY_PRIVATE_MARKER/entity/ENTITY_PRIVATE_MARKER/investigations/INVESTIGATION_PRIVATE_MARKER/evidence?token=TOKEN_PRIVATE_MARKER#fragment");
+        activity.SetTag(
+            "http.url",
+            "https://plm.example/api/tenants/TENANT_PRIVATE_MARKER/entities/ENTITY_PRIVATE_MARKER/entity/ENTITY_PRIVATE_MARKER/investigations/INVESTIGATION_PRIVATE_MARKER/evidence?query=QUERY_PRIVATE_MARKER");
+        activity.SetTag(
+            "url.path",
+            "/api/tenants/TENANT_PRIVATE_MARKER/entities/ENTITY_PRIVATE_MARKER/entity/ENTITY_PRIVATE_MARKER/investigations/INVESTIGATION_PRIVATE_MARKER/evidence?query=PATH_PRIVATE_MARKER#fragment");
+        activity.SetTag(
+            "http.target",
+            "/api/tenants/TENANT_PRIVATE_MARKER/entities/ENTITY_PRIVATE_MARKER/entity/ENTITY_PRIVATE_MARKER/investigations/INVESTIGATION_PRIVATE_MARKER/evidence?query=TARGET_PRIVATE_MARKER");
+        activity.SetTag("url.query", "query=URL_QUERY_PRIVATE_MARKER");
+        activity.SetTag("http.request.header.authorization", "Bearer BEARER_PRIVATE_MARKER");
+        activity.SetTag("http.request.header.x-lattice-authorization-decision", "DECISION_PRIVATE_MARKER");
+        activity.SetTag("http.request.header.x-service-ticket", "TICKET_PRIVATE_MARKER");
+        activity.SetTag("http.request.header.x-access-token", "TOKEN_PRIVATE_MARKER");
+        activity.SetTag("http.request.header.cookie", "COOKIE_PRIVATE_MARKER");
+        activity.SetTag("http.request.header.x-api-key", "API_KEY_PRIVATE_MARKER");
+        activity.SetTag("http.request.header.accept", "application/json");
+        activity.SetTag("safe.route", "engineering-impact");
+        activity.SetTag("lattice.investigation.id", "INVESTIGATION_PRIVATE_MARKER");
+        activity.SetTag("entity.id", "ENTITY_PRIVATE_MARKER");
+        activity.SetTag("tenant.id", "TENANT_PRIVATE_MARKER");
+        activity.SetTag("context.package.id", "CONTEXT_PACKAGE_PRIVATE_MARKER");
+        activity.SetTag("subject.id", "SUBJECT_PRIVATE_MARKER");
+        activity.SetTag("authorization.decision.id", "DECISION_PRIVATE_MARKER");
+        activity.Stop();
+        var processor = new AiRuntimeTelemetryPrivacyProcessor(new AiRuntimeTelemetryOptions());
+        processor.OnEnd(activity);
+
+        Assert.Equal(
+            "GET https://plm.example/api/tenants/%7Bidentifier%7D/entities/%7Bidentifier%7D/entity/%7Bidentifier%7D/investigations/%7Bidentifier%7D/evidence",
+            activity.DisplayName);
+        Assert.Equal(
+            "https://plm.example/api/tenants/%7Bidentifier%7D/entities/%7Bidentifier%7D/entity/%7Bidentifier%7D/investigations/%7Bidentifier%7D/evidence",
+            activity.GetTagItem("url.full"));
+        Assert.Equal(
+            "https://plm.example/api/tenants/%7Bidentifier%7D/entities/%7Bidentifier%7D/entity/%7Bidentifier%7D/investigations/%7Bidentifier%7D/evidence",
+            activity.GetTagItem("http.url"));
+        Assert.Equal(
+            "/api/tenants/{identifier}/entities/{identifier}/entity/{identifier}/investigations/{identifier}/evidence",
+            activity.GetTagItem("url.path"));
+        Assert.Equal(
+            "/api/tenants/{identifier}/entities/{identifier}/entity/{identifier}/investigations/{identifier}/evidence",
+            activity.GetTagItem("http.target"));
+        Assert.Null(activity.GetTagItem("url.query"));
+        Assert.Null(activity.GetTagItem("http.request.header.authorization"));
+        Assert.Null(activity.GetTagItem("http.request.header.x-lattice-authorization-decision"));
+        Assert.Null(activity.GetTagItem("http.request.header.x-service-ticket"));
+        Assert.Null(activity.GetTagItem("http.request.header.x-access-token"));
+        Assert.Null(activity.GetTagItem("http.request.header.cookie"));
+        Assert.Null(activity.GetTagItem("http.request.header.x-api-key"));
+        Assert.DoesNotContain(activity.TagObjects, tag => tag.Key == "http.request.header.authorization");
+        Assert.DoesNotContain(activity.TagObjects, tag => tag.Key == "http.request.header.x-lattice-authorization-decision");
+        Assert.DoesNotContain(activity.TagObjects, tag => tag.Key == "http.request.header.x-service-ticket");
+        Assert.DoesNotContain(activity.TagObjects, tag => tag.Key == "http.request.header.x-access-token");
+        Assert.DoesNotContain(activity.TagObjects, tag => tag.Key == "http.request.header.cookie");
+        Assert.DoesNotContain(activity.TagObjects, tag => tag.Key == "http.request.header.x-api-key");
+        Assert.Equal("application/json", activity.GetTagItem("http.request.header.accept"));
+        Assert.Equal("engineering-impact", activity.GetTagItem("safe.route"));
+        Assert.Null(activity.GetTagItem("lattice.investigation.id"));
+        Assert.Null(activity.GetTagItem("entity.id"));
+        Assert.Null(activity.GetTagItem("tenant.id"));
+        Assert.Null(activity.GetTagItem("context.package.id"));
+        Assert.Null(activity.GetTagItem("subject.id"));
+        Assert.Null(activity.GetTagItem("authorization.decision.id"));
+        Assert.Empty(activity.Events);
+        var exportedText = string.Join(
+            '\n',
+            new[] { activity.DisplayName }
+                .Concat(activity.Tags.Select(tag => tag.Value?.ToString())));
+        Assert.DoesNotContain("PRIVATE_MARKER", exportedText, StringComparison.Ordinal);
+        Assert.DoesNotContain("URL_PASSWORD_PRIVATE_MARKER", exportedText, StringComparison.Ordinal);
+        Assert.Equal("HTTP GET", activity.OperationName);
+
+        var urlDisplayNameActivity = new Activity("HTTP GET")
+        {
+            DisplayName = "GET https://plm.example/api/health?query=DISPLAY_QUERY_PRIVATE_MARKER#fragment"
+        };
+        urlDisplayNameActivity.Start();
+        urlDisplayNameActivity.Stop();
+        processor.OnEnd(urlDisplayNameActivity);
+        Assert.Equal("GET https://plm.example/api/health", urlDisplayNameActivity.DisplayName);
     }
 
     [Fact]
@@ -173,6 +378,32 @@ public sealed class AiRuntimeTelemetryTests
                 .Concat(capture.Measurements.SelectMany(measurement =>
                     measurement.Tags.Select(tag => tag.Value?.ToString()))));
         Assert.DoesNotContain("ERROR_PRIVATE_MARKER", telemetryText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void PascalCaseDispositionsAndBudgetFailureCategoriesRemainSpecific()
+    {
+        using var capture = new TelemetryCapture();
+        var telemetry = new AiRuntimeTelemetry();
+        var requestContext = new RuntimeRequestContext("request-normalization", new string('b', 32), null, null);
+
+        using (var stage = telemetry.StartStage("context-compilation", requestContext))
+        {
+            stage.SetDisposition("InsufficientEvidence");
+        }
+
+        using (var stage = telemetry.StartStage("prompt-assembly", requestContext))
+        {
+            stage.SetFailure("model-input-budget-exceeded");
+        }
+
+        var compilation = Assert.Single(capture.Activities, activity =>
+            activity.OperationName == "context-compilation");
+        Assert.Equal("insufficient-evidence", compilation.GetTagItem("lattice.stage.disposition"));
+
+        var prompt = Assert.Single(capture.Activities, activity =>
+            activity.OperationName == "prompt-assembly");
+        Assert.Equal("model-input-budget-exceeded", prompt.GetTagItem("error.type"));
     }
 
     [Fact]

@@ -18,6 +18,7 @@ using Lattice.AI.Runtime.Validation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
@@ -38,6 +39,7 @@ public static class AiRuntimeServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(environment);
 
         services.Configure<PlmBrainServiceOptions>(configuration.GetSection("AiRuntime:PlmBrain"));
+        services.Configure<AiRuntimeTelemetryOptions>(configuration.GetSection("AiRuntime:Telemetry"));
         services.TryAddSingleton<TimeProvider>(TimeProvider.System);
         services.AddSingleton<IAiRuntimeTelemetry, AiRuntimeTelemetry>();
         services.TryAddSingleton<IResourceAuthorizationDecisionProvider, UnavailableResourceAuthorizationDecisionProvider>();
@@ -120,8 +122,10 @@ public static class AiRuntimeServiceCollectionExtensions
                 ]))
             .WithTracing(tracing => tracing
                 .AddSource(AiRuntimeTelemetry.ActivitySourceName)
-                .AddAspNetCoreInstrumentation()
-                .AddHttpClientInstrumentation())
+                .AddProcessor(provider => new AiRuntimeTelemetryPrivacyProcessor(
+                    provider.GetRequiredService<IOptions<AiRuntimeTelemetryOptions>>().Value))
+                .AddAspNetCoreInstrumentation(options => options.RecordException = false)
+                .AddHttpClientInstrumentation(options => options.RecordException = false))
             .WithMetrics(metrics => metrics
                 .AddMeter(AiRuntimeTelemetry.MeterName)
                 .AddAspNetCoreInstrumentation()

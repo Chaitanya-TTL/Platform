@@ -72,6 +72,8 @@ $env:AiRuntime__Authentication__Audience = "<platform-provided-api-audience>"
 
 The input allowance is the configured maximum model input/context window for the selected deployment. The runtime reserves `MaxOutputTokens`, a 15% input safety margin, and an estimate of the fixed prompt/question before allocating an estimated context-token budget. After assembly it estimates the complete system and user message payload and abstains before model invocation if the input plus output reservation and margin do not fit. Both estimates use UTF-8 bytes divided by four; this is a conservative heuristic, not tokenizer output or a guarantee of provider token accounting. The deployment-specific allowance is mandatory; the runtime does not infer a provider/model limit.
 
+Telemetry keeps request/trace correlation, stage/outcome data, bounded quality counts, model configuration/version, and token counts. Investigation, canonical entity, tenant, and Context Package identifiers are excluded by default. The `AiRuntime__Telemetry__IncludeInvestigationIdentifier`, `IncludeEntityIdentifier`, `IncludeTenantIdentifier`, and `IncludeContextPackageIdentifier` settings are opt-in and should only be enabled with explicit security approval. Subject IDs, authorization decision IDs, credential headers, URL query values, and raw question/prompt/answer/evidence content remain excluded.
+
 PLM Brain settings are nested under `AiRuntime:PlmBrain` (use double underscores in environment-variable names):
 
 | Environment variable | Purpose |
