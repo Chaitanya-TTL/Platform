@@ -31,6 +31,7 @@ public sealed class ImpactAnswerServiceTests
         Assert.False(string.IsNullOrWhiteSpace(result.ContextPackageId));
         Assert.Single(result.Impacts);
         Assert.Single(result.Sources);
+        Assert.Equal(1, fixture.ScopePlanner.CallCount);
         Assert.Same(fixture.Resolver.Authorization, fixture.EvidenceSource.Authorization);
         Assert.Equal(1, fixture.Gateway.CallCount);
     }
@@ -49,6 +50,7 @@ public sealed class ImpactAnswerServiceTests
         Assert.Equal(AnswerDisposition.Clarify, result.Disposition);
         Assert.Equal(0, fixture.EvidenceSource.CallCount);
         Assert.Equal(0, fixture.Gateway.CallCount);
+        Assert.Equal(0, fixture.ScopePlanner.CallCount);
     }
 
     [Fact]
@@ -136,6 +138,7 @@ public sealed class ImpactAnswerServiceTests
 
         Assert.Equal(AnswerDisposition.Deny, result.Disposition);
         Assert.Equal(0, fixture.Resolver.CallCount);
+        Assert.Equal(0, fixture.ScopePlanner.CallCount);
         Assert.Equal(0, fixture.EvidenceSource.CallCount);
     }
 
@@ -181,12 +184,13 @@ public sealed class ImpactAnswerServiceTests
             Exception? modelFailure = null)
         {
             Resolver = new StubEntityResolver(resolution);
+            ScopePlanner = new TrackingScopePlanner();
             EvidenceSource = new StubEvidenceSource(evidence ?? Evidence());
             Gateway = new StubModelGateway(modelContent ?? ValidModelContent, modelFailure);
             Service = new ImpactAnswerService(
                 new QuestionInterpreter(),
                 Resolver,
-                new ScopePlanner(),
+                ScopePlanner,
                 EvidenceSource,
                 new ContextCompiler(),
                 new SourceControlledPromptCatalog(),
@@ -198,9 +202,27 @@ public sealed class ImpactAnswerServiceTests
         }
 
         public StubEntityResolver Resolver { get; }
+        public TrackingScopePlanner ScopePlanner { get; }
         public StubEvidenceSource EvidenceSource { get; }
         public StubModelGateway Gateway { get; }
         public ImpactAnswerService Service { get; }
+    }
+
+    private sealed class TrackingScopePlanner : IScopePlanner
+    {
+        private readonly ScopePlanner _inner = new();
+
+        public int CallCount { get; private set; }
+
+        public ScopePlanningResult Plan(
+            QuestionInterpretation interpretation,
+            ResolvedEntity subject,
+            AuthorizationScope authorization,
+            RuntimeRequestContext requestContext)
+        {
+            CallCount++;
+            return _inner.Plan(interpretation, subject, authorization, requestContext);
+        }
     }
 
     private const string ValidModelContent =
