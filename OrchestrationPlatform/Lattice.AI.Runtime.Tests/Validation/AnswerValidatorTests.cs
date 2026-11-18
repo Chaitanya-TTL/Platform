@@ -13,7 +13,7 @@ public sealed class AnswerValidatorTests
     [Fact]
     public void Validate_AcceptsClaimsAndSourcesPresentInAuthorizedContext()
     {
-        var result = new AnswerValidator().Validate(
+        var result = Validate(
             Candidate("claim-1", ["evidence-1"], ["citation-1"]),
             Context(),
             Authorization(),
@@ -26,7 +26,7 @@ public sealed class AnswerValidatorTests
     [Fact]
     public void Validate_RejectsUnknownClaimIds()
     {
-        var result = new AnswerValidator().Validate(
+        var result = Validate(
             Candidate("unknown-claim", ["evidence-1"], ["citation-1"]),
             Context(),
             Authorization(),
@@ -39,7 +39,7 @@ public sealed class AnswerValidatorTests
     [Fact]
     public void Validate_RejectsEvidenceNotAttachedToClaim()
     {
-        var result = new AnswerValidator().Validate(
+        var result = Validate(
             Candidate("claim-1", ["unknown-evidence"], ["citation-1"]),
             Context(),
             Authorization(),
@@ -52,7 +52,7 @@ public sealed class AnswerValidatorTests
     [Fact]
     public void Validate_RejectsSourceIdsNotAttachedToCitedEvidence()
     {
-        var result = new AnswerValidator().Validate(
+        var result = Validate(
             Candidate("claim-1", ["evidence-1"], ["unknown-source"]),
             Context(),
             Authorization(),
@@ -75,7 +75,7 @@ public sealed class AnswerValidatorTests
             Sources = [Source("evidence-1"), Source("evidence-2", "citation-2")]
         };
 
-        var result = new AnswerValidator().Validate(
+        var result = Validate(
             Candidate("claim-1", ["evidence-2"], ["citation-2"]),
             context,
             Authorization(),
@@ -99,7 +99,7 @@ public sealed class AnswerValidatorTests
             Sources = [Source("evidence-1"), Source("evidence-2", "citation-2")]
         };
 
-        var result = new AnswerValidator().Validate(
+        var result = Validate(
             Candidate("claim-1", ["evidence-1"], ["citation-2"]),
             context,
             Authorization(),
@@ -113,7 +113,7 @@ public sealed class AnswerValidatorTests
     [Fact]
     public void Validate_RejectsEmptyExplanation()
     {
-        var result = new AnswerValidator().Validate(
+        var result = Validate(
             new AnswerCandidate(
                 "The item affects a downstream part.",
                 [new AnswerImpact("claim-1", " ", ["evidence-1"], ["citation-1"])],
@@ -132,7 +132,7 @@ public sealed class AnswerValidatorTests
     [InlineData("The path uses REL-999.")]
     public void Validate_RejectsIdentifiersNotPresentInReferencedClaim(string explanation)
     {
-        var result = new AnswerValidator().Validate(
+        var result = Validate(
             new AnswerCandidate(
                 "The item affects a downstream part.",
                 [new AnswerImpact("claim-1", explanation, ["evidence-1"], ["citation-1"])],
@@ -149,7 +149,7 @@ public sealed class AnswerValidatorTests
     [Fact]
     public void Validate_RejectsIdentifiersNotPresentInContextSummary()
     {
-        var result = new AnswerValidator().Validate(
+        var result = Validate(
             new AnswerCandidate(
                 "REQ-999 is affected.",
                 [new AnswerImpact("claim-1", "Supported impact.", ["evidence-1"], ["citation-1"])],
@@ -187,7 +187,7 @@ public sealed class AnswerValidatorTests
             Sources = [Source("evidence-1"), Source("evidence-2", "citation-2")]
         };
 
-        var result = new AnswerValidator().Validate(
+        var result = Validate(
             new AnswerCandidate(
                 "The item affects a downstream part.",
                 [new AnswerImpact("claim-1", "COMPONENT-999 is affected.", ["evidence-1"], ["citation-1"])],
@@ -204,7 +204,7 @@ public sealed class AnswerValidatorTests
     [Fact]
     public void Validate_AcceptsIdentifiersPresentInSummaryPackageAndReferencedClaim()
     {
-        var result = new AnswerValidator().Validate(
+        var result = Validate(
             new AnswerCandidate(
                 "R-123 affects P-1.",
                 [new AnswerImpact(
@@ -224,7 +224,7 @@ public sealed class AnswerValidatorTests
     [Fact]
     public void Validate_DoesNotTreatOrdinaryWordsOrNumbersAsIdentifiers()
     {
-        var result = new AnswerValidator().Validate(
+        var result = Validate(
             new AnswerCandidate(
                 "The change affects 2 parts.",
                 [new AnswerImpact(
@@ -244,7 +244,7 @@ public sealed class AnswerValidatorTests
     [Fact]
     public void Validate_RejectsModelProvidedWarnings()
     {
-        var result = new AnswerValidator().Validate(
+        var result = Validate(
             new AnswerCandidate(
                 "The item affects a downstream part.",
                 [new AnswerImpact("claim-1", "Supported impact.", ["evidence-1"], ["citation-1"])],
@@ -265,7 +265,7 @@ public sealed class AnswerValidatorTests
             Omissions = [new ContextOmission("claim-2", "Claim omitted because the maximum claim count was reached.")]
         };
 
-        var result = new AnswerValidator().Validate(
+        var result = Validate(
             Candidate("claim-2", ["evidence-1"], ["citation-1"]),
             context,
             Authorization(),
@@ -277,6 +277,20 @@ public sealed class AnswerValidatorTests
     }
 
     [Fact]
+    public void Validate_RejectsMismatchedInvestigationId()
+    {
+        var result = Validate(
+            Candidate("claim-1", ["evidence-1"], ["citation-1"]),
+            Context(),
+            Authorization(),
+            RequestContext(),
+            "investigation-2");
+
+        Assert.Equal(ValidationDisposition.Reject, result.Disposition);
+        Assert.Contains(result.Issues, issue => issue.Code == "investigation-mismatch");
+    }
+
+    [Fact]
     public void Validate_RejectsEvidenceBoundToAnotherAuthorizationDecision()
     {
         var context = Context() with
@@ -284,7 +298,7 @@ public sealed class AnswerValidatorTests
             Sources = [Source("evidence-1") with { AuthorizationDecisionId = "decision-other" }]
         };
 
-        var result = new AnswerValidator().Validate(
+        var result = Validate(
             Candidate("claim-1", ["evidence-1"], ["citation-1"]),
             context,
             Authorization(),
@@ -307,7 +321,7 @@ public sealed class AnswerValidatorTests
                 null)
         };
 
-        var result = new AnswerValidator().Validate(
+        var result = Validate(
             Candidate("claim-1", ["evidence-1"], ["citation-1"]),
             context,
             Authorization(),
@@ -320,7 +334,7 @@ public sealed class AnswerValidatorTests
     [Fact]
     public void Validate_AbstainsWhenThereAreNoEvidenceBackedImpacts()
     {
-        var result = new AnswerValidator().Validate(
+        var result = Validate(
             new AnswerCandidate("No supported impacts.", [], []),
             Context(),
             Authorization(),
@@ -337,6 +351,14 @@ public sealed class AnswerValidatorTests
             "The item affects a downstream part.",
             [new AnswerImpact(claimId, "Supported impact.", evidenceIds, sourceIds)],
             []);
+
+    private static ValidationResult Validate(
+        AnswerCandidate answer,
+        ContextPackage context,
+        AuthorizationScope authorization,
+        RuntimeRequestContext requestContext,
+        string investigationId = "investigation-1") =>
+        new AnswerValidator().Validate(answer, context, authorization, requestContext, investigationId);
 
     private static ContextPackage Context() =>
         new(

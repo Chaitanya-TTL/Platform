@@ -408,7 +408,12 @@ public sealed class ImpactAnswerService(
                     [new ValidationIssue("invalid-model-output", "The model response did not match the required answer schema.")]);
             }
 
-            validation = answerValidator.Validate(candidate, context, authorization.Scope, requestContext);
+            validation = answerValidator.Validate(
+                candidate,
+                context,
+                authorization.Scope,
+                requestContext,
+                request.InvestigationId);
             validationStage.SetDisposition(validation.Disposition.ToString());
             validationStage.SetTag("validation.issue_count", validation.Issues.Count);
             Telemetry.RecordValidationDisposition(validation.Disposition.ToString());

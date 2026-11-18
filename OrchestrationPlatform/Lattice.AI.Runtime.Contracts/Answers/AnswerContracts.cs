@@ -42,4 +42,7 @@ public sealed record ImpactAnswerResult(
     IReadOnlyList<AnswerImpact> Impacts,
     IReadOnlyList<EvidenceSourceReference> Sources,
     IReadOnlyList<ValidationIssue> Issues,
-    string? ContextPackageId);
+    string? ContextPackageId)
+{
+    public string SemanticSupportStatus { get; init; } = "not-evaluated";
+}

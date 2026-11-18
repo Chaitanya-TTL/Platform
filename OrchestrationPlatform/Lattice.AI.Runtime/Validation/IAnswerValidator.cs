@@ -11,5 +11,6 @@ public interface IAnswerValidator
         AnswerCandidate answer,
         ContextPackage context,
         AuthorizationScope authorization,
-        RuntimeRequestContext requestContext);
+        RuntimeRequestContext requestContext,
+        string investigationId);
 }

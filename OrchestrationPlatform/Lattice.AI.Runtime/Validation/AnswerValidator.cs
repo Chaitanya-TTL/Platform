@@ -13,7 +13,8 @@ public sealed class AnswerValidator(TimeProvider? timeProvider = null) : IAnswer
         AnswerCandidate answer,
         ContextPackage context,
         AuthorizationScope authorization,
-        RuntimeRequestContext requestContext)
+        RuntimeRequestContext requestContext,
+        string investigationId)
     {
         ArgumentNullException.ThrowIfNull(answer);
         ArgumentNullException.ThrowIfNull(context);
@@ -21,6 +22,14 @@ public sealed class AnswerValidator(TimeProvider? timeProvider = null) : IAnswer
         ArgumentNullException.ThrowIfNull(requestContext);
 
         var issues = new List<ValidationIssue>();
+        if (string.IsNullOrWhiteSpace(investigationId) ||
+            !string.Equals(context.InvestigationId, investigationId, StringComparison.Ordinal))
+        {
+            issues.Add(new ValidationIssue(
+                "investigation-mismatch",
+                "The Context Package does not belong to the requested investigation."));
+        }
+
         if (string.IsNullOrWhiteSpace(answer.Summary))
         {
             issues.Add(new ValidationIssue("empty-summary", "The answer summary is empty."));

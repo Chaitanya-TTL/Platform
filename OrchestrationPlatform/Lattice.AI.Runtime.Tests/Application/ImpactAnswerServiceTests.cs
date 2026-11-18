@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Lattice.AI.Runtime.Application;
 using Lattice.AI.Runtime.ContextCompilation;
 using Lattice.AI.Runtime.Contracts.Answers;
@@ -26,6 +27,7 @@ public sealed class ImpactAnswerServiceTests
         var result = await fixture.Service.AnswerAsync(Request(), Authorization(), RequestContext(), CancellationToken.None);
 
         Assert.Equal(AnswerDisposition.Answer, result.Disposition);
+        Assert.Equal("not-evaluated", result.SemanticSupportStatus);
         Assert.Equal("investigation-1", result.InvestigationId);
         Assert.Equal("request-1", result.RequestContext.RequestId);
         Assert.False(string.IsNullOrWhiteSpace(result.ContextPackageId));
@@ -48,6 +50,7 @@ public sealed class ImpactAnswerServiceTests
         var result = await fixture.Service.AnswerAsync(Request(), Authorization(), RequestContext(), CancellationToken.None);
 
         Assert.Equal(AnswerDisposition.Clarify, result.Disposition);
+        Assert.Equal("not-evaluated", result.SemanticSupportStatus);
         Assert.Equal(0, fixture.EvidenceSource.CallCount);
         Assert.Equal(0, fixture.Gateway.CallCount);
         Assert.Equal(0, fixture.ScopePlanner.CallCount);
@@ -95,6 +98,7 @@ public sealed class ImpactAnswerServiceTests
         var result = await fixture.Service.AnswerAsync(Request(), Authorization(), RequestContext(), CancellationToken.None);
 
         Assert.Equal(AnswerDisposition.Abstain, result.Disposition);
+        Assert.Equal("not-evaluated", result.SemanticSupportStatus);
         Assert.NotEmpty(result.Issues);
         Assert.Equal(0, fixture.Gateway.CallCount);
     }
@@ -107,6 +111,7 @@ public sealed class ImpactAnswerServiceTests
         var result = await fixture.Service.AnswerAsync(Request(), Authorization(), RequestContext(), CancellationToken.None);
 
         Assert.Equal(AnswerDisposition.Failed, result.Disposition);
+        Assert.Equal("not-evaluated", result.SemanticSupportStatus);
         Assert.Contains(result.Issues, issue => issue.Code == "invalid-model-output");
     }
 
@@ -118,6 +123,7 @@ public sealed class ImpactAnswerServiceTests
         var result = await fixture.Service.AnswerAsync(Request(), Authorization(), RequestContext(), CancellationToken.None);
 
         Assert.Equal(AnswerDisposition.Failed, result.Disposition);
+        Assert.Equal("not-evaluated", result.SemanticSupportStatus);
         Assert.Contains(result.Issues, issue => issue.Code == "model-provider-failed");
     }
 
@@ -137,6 +143,7 @@ public sealed class ImpactAnswerServiceTests
             CancellationToken.None);
 
         Assert.Equal(AnswerDisposition.Deny, result.Disposition);
+        Assert.Equal("not-evaluated", result.SemanticSupportStatus);
         Assert.Equal(0, fixture.Resolver.CallCount);
         Assert.Equal(0, fixture.ScopePlanner.CallCount);
         Assert.Equal(0, fixture.EvidenceSource.CallCount);
@@ -144,6 +151,33 @@ public sealed class ImpactAnswerServiceTests
 
     private static ImpactAnswerRequest Request() =>
         new("investigation-1", "What impacts if REQ-123 changes?", "conversation-1");
+
+    [Theory]
+    [InlineData(AnswerDisposition.Answer)]
+    [InlineData(AnswerDisposition.Clarify)]
+    [InlineData(AnswerDisposition.Abstain)]
+    [InlineData(AnswerDisposition.Deny)]
+    [InlineData(AnswerDisposition.Failed)]
+    public void ImpactAnswerResult_SerializesSemanticSupportAsNotEvaluated(AnswerDisposition disposition)
+    {
+        var result = new ImpactAnswerResult(
+            "investigation-1",
+            RequestContext(),
+            disposition,
+            null,
+            [],
+            [],
+            [],
+            null);
+
+        using var document = JsonDocument.Parse(JsonSerializer.Serialize(
+            result,
+            new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+
+        Assert.Equal(
+            "not-evaluated",
+            document.RootElement.GetProperty("semanticSupportStatus").GetString());
+    }
 
     private static RuntimeRequestContext RequestContext() =>
         new("request-1", "trace-1", null, "conversation-1");
