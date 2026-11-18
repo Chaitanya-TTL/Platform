@@ -51,7 +51,25 @@ public sealed class AzureOpenAiModelGateway : IModelGateway
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(_options.TimeoutSeconds));
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeout.Token);
         var stopwatch = Stopwatch.StartNew();
-        var response = await _chatClient.GetResponseAsync(messages, chatOptions, linked.Token).ConfigureAwait(false);
+        ChatResponse response;
+        try
+        {
+            response = await _chatClient.GetResponseAsync(messages, chatOptions, linked.Token).ConfigureAwait(false);
+        }
+        catch (global::Azure.RequestFailedException exception)
+        {
+            throw new HttpRequestException(
+                HttpRequestError.Unknown,
+                "Azure OpenAI returned a provider error.",
+                exception);
+        }
+        catch (AuthenticationFailedException exception)
+        {
+            throw new HttpRequestException(
+                HttpRequestError.Unknown,
+                "Azure OpenAI authentication failed.",
+                exception);
+        }
         stopwatch.Stop();
         if (string.IsNullOrWhiteSpace(response.Text))
         {

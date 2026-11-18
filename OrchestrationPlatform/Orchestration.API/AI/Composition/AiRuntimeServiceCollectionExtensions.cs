@@ -1,5 +1,6 @@
 using Azure.Core;
 using Azure.Identity;
+using Azure.Monitor.OpenTelemetry.AspNetCore;
 using Lattice.AI.Runtime.Application;
 using Lattice.AI.Runtime.Authorization;
 using Lattice.AI.Runtime.Azure.Models;
@@ -12,12 +13,17 @@ using Lattice.AI.Runtime.Generation;
 using Lattice.AI.Runtime.Prompts;
 using Lattice.AI.Runtime.QuestionUnderstanding;
 using Lattice.AI.Runtime.ScopePlanning;
+using Lattice.AI.Runtime.Telemetry;
 using Lattice.AI.Runtime.Validation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.IdentityModel.Tokens;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 using Orchestration.API.AI.Adapters;
+using Orchestration.API.AI.Telemetry;
 
 namespace Orchestration.API.AI.Composition;
 
@@ -25,10 +31,15 @@ public static class AiRuntimeServiceCollectionExtensions
 {
     public static IServiceCollection AddAiRuntime(
         this IServiceCollection services,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        IHostEnvironment environment)
     {
+        ArgumentNullException.ThrowIfNull(configuration);
+        ArgumentNullException.ThrowIfNull(environment);
+
         services.Configure<PlmBrainServiceOptions>(configuration.GetSection("AiRuntime:PlmBrain"));
         services.TryAddSingleton<TimeProvider>(TimeProvider.System);
+        services.AddSingleton<IAiRuntimeTelemetry, AiRuntimeTelemetry>();
         services.TryAddSingleton<IResourceAuthorizationDecisionProvider, UnavailableResourceAuthorizationDecisionProvider>();
         services.AddSingleton<TokenCredential, DefaultAzureCredential>();
         services.Configure<AiRuntimeOptions>(configuration.GetSection("AiRuntime"));
@@ -98,6 +109,38 @@ public static class AiRuntimeServiceCollectionExtensions
         {
             options.AddPolicy("AiRuntime", policy => policy.RequireAuthenticatedUser());
         });
+
+        var openTelemetry = services.AddOpenTelemetry()
+            .ConfigureResource(resource => resource
+                .AddService("Orchestration.API")
+                .AddAttributes(
+                [
+                    new KeyValuePair<string, object>("deployment.environment", environment.EnvironmentName)
+                ]))
+            .WithTracing(tracing => tracing
+                .AddSource(AiRuntimeTelemetry.ActivitySourceName)
+                .AddAspNetCoreInstrumentation()
+                .AddHttpClientInstrumentation())
+            .WithMetrics(metrics => metrics
+                .AddMeter(AiRuntimeTelemetry.MeterName)
+                .AddAspNetCoreInstrumentation()
+                .AddHttpClientInstrumentation());
+
+        if (configuration.GetValue<bool>("AzureMonitor:Enabled"))
+        {
+            var connectionString = configuration["AzureMonitor:ConnectionString"];
+            if (string.IsNullOrWhiteSpace(connectionString))
+            {
+                connectionString = configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"];
+            }
+            if (string.IsNullOrWhiteSpace(connectionString))
+            {
+                throw new InvalidOperationException(
+                    "Azure Monitor is enabled but no connection string is configured.");
+            }
+
+            openTelemetry.UseAzureMonitor(options => options.ConnectionString = connectionString);
+        }
 
         return services;
     }

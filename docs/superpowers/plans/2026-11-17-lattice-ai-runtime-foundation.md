@@ -49,6 +49,7 @@
 - Task 4 Context Compiler implementation is committed as `55624ef`; all 28 runtime tests and the API build passed. Its isolated pre-implementation red run could not be performed because permission to create a temporary worktree was unavailable.
 - Task 5 prompt governance and Azure Model Gateway implementation is committed as `d4a5c72`; all 48 runtime tests and the API build passed. Its isolated pre-implementation red run was not verified.
 - Task 6 answer validation and impact-answer API implementation is complete; focused tests passed (20/20), the full runtime suite passed (68/68), and the API build succeeded. The existing API test project still has baseline missing-type compilation errors and was not changed. Tasks 1–5 are committed and must not be repeated or amended.
+- Task 7 OpenTelemetry and Azure Monitor configuration is implemented; telemetry/gateway tests passed (14/14), all runtime tests passed (74/74), and the API build succeeded. Solution-wide `dotnet test OrchestrationPlatform.slnx --no-restore` remains blocked by pre-existing missing `Governance`, `AvailabilityState`, and `CompletenessState` symbols in `Orchestration.API.Tests`. The pre-implementation red run was not verified.
 
 ---
 
@@ -585,12 +586,17 @@ git commit -m "feat: validate and serve engineering impact answers"
 ### Task 7: Add OpenTelemetry and Azure Monitor configuration
 
 **Files:**
+- Create: `Lattice.AI.Runtime/Telemetry/IAiRuntimeTelemetry.cs`
 - Modify: `Orchestration.API/AI/Composition/AiRuntimeServiceCollectionExtensions.cs`
 - Create: `Orchestration.API/AI/Telemetry/AiRuntimeTelemetry.cs`
+- Modify: `Lattice.AI.Runtime/Application/ImpactAnswerService.cs`
+- Modify: `Lattice.AI.Runtime.Azure/Models/AzureOpenAiModelGateway.cs`
+- Modify: `Orchestration.API/AI/Api/EngineeringImpactController.cs`
 - Modify: `Orchestration.API/Program.cs`
 - Modify: `Orchestration.API/appsettings.json`
 - Modify: `Orchestration.API/appsettings.Development.json`
 - Create: `Lattice.AI.Runtime.Tests/Telemetry/AiRuntimeTelemetryTests.cs`
+- Modify: `Lattice.AI.Runtime.Tests/Generation/ModelGatewayTests.cs`
 
 **Interfaces:**
 - Create `RuntimeRequestContext` at API ingress from a generated request ID plus the active W3C `Activity.TraceId`; if the HTTP server activity is absent, create a W3C activity before deriving the trace ID. Pass the same value to interpretation, resolution, authorization, scope planning, retrieval, context compiler, gateway, result, and telemetry. Test that the request and trace IDs remain identical end to end.
@@ -598,7 +604,7 @@ git commit -m "feat: validate and serve engineering impact answers"
 - Add an activity source named `Lattice.AI.Runtime` and meter named `Lattice.AI.Runtime`.
 - Emit stage spans and bounded-cardinality metrics for request outcome, stage duration, validation disposition, model usage, and failures.
 
-- [ ] **Step 1: Write telemetry tests**
+- [x] **Step 1: Write telemetry tests**
 
 Use an in-memory OTel listener/exporter test to assert one request emits correlated spans for authorization, both PLM operations, context compilation, model generation, and validation using the same trace ID and request ID from `RuntimeRequestContext`, with prompt/model/compiler versions and no raw prompt, evidence, bearer token, signed decision token, or decision-ticket claims.
 
@@ -607,20 +613,22 @@ Use an in-memory OTel listener/exporter test to assert one request emits correla
 Run: `dotnet test Lattice.AI.Runtime.Tests/Lattice.AI.Runtime.Tests.csproj --filter FullyQualifiedName~AiRuntimeTelemetryTests`
 Expected: FAIL because the runtime instrumentation is not registered.
 
-- [ ] **Step 3: Implement trace and metric instrumentation**
+The pre-implementation red run was not verified; telemetry tests were present when Task 7 review began.
+
+- [x] **Step 3: Implement trace and metric instrumentation**
 
 Add spans around each named stage; add counters/histograms with low-cardinality labels. Include safe IDs/version fields only. Do not log full question, prompt, evidence, or answer content by default.
 
-- [ ] **Step 4: Configure Azure Monitor exporter and DI**
+- [x] **Step 4: Configure Azure Monitor exporter and DI**
 
 Register `Azure.Monitor.OpenTelemetry.AspNetCore` in the API host, preserving standard `ILogger` integration. Add `AddAiRuntime` and remove new AI registrations from `Program.cs` except the composition call.
 
-- [ ] **Step 5: Verify telemetry and existing tests**
+- [x] **Step 5: Verify telemetry and existing tests**
 
 Run: `dotnet test OrchestrationPlatform.slnx`
-Expected: all tests pass; in-memory telemetry assertions pass; no sensitive payload appears in captured telemetry.
+Expected: all tests pass; in-memory telemetry assertions pass; no sensitive payload appears in captured telemetry. The focused telemetry/gateway tests passed (14/14), runtime suite passed (74/74), and API build succeeded. The solution-wide run failed only in the pre-existing `Orchestration.API.Tests` project because `Governance`, `AvailabilityState`, and `CompletenessState` are missing.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add OrchestrationPlatform/Orchestration.API/AI/Composition OrchestrationPlatform/Orchestration.API/AI/Telemetry OrchestrationPlatform/Orchestration.API/Program.cs OrchestrationPlatform/Orchestration.API/appsettings.json OrchestrationPlatform/Orchestration.API/appsettings.Development.json OrchestrationPlatform/Lattice.AI.Runtime.Tests/Telemetry

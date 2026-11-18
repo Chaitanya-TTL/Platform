@@ -61,6 +61,26 @@ public sealed class ModelGatewayTests
         Assert.Same(providerError, actual);
     }
 
+    [Theory]
+    [MemberData(nameof(AzureProviderFailures))]
+    public async Task GenerateAsync_WrapsAzureProviderFailuresWithoutExposingProviderMessage(Exception providerFailure)
+    {
+        var chatClient = new FakeChatClient((_, _, _) => Task.FromException<ChatResponse>(providerFailure));
+        var gateway = new AzureOpenAiModelGateway(chatClient, Options.Create(CreateOptions()));
+
+        var actual = await Assert.ThrowsAsync<HttpRequestException>(() =>
+            gateway.GenerateAsync(Request(), CancellationToken.None));
+
+        Assert.Same(providerFailure, actual.InnerException);
+        Assert.DoesNotContain("AZURE_PRIVATE_MARKER", actual.Message, StringComparison.Ordinal);
+    }
+
+    public static IEnumerable<object[]> AzureProviderFailures()
+    {
+        yield return [new global::Azure.RequestFailedException(500, "AZURE_PRIVATE_MARKER")];
+        yield return [new global::Azure.Identity.AuthenticationFailedException("AZURE_PRIVATE_MARKER")];
+    }
+
     [Fact]
     public async Task GenerateAsync_RejectsEmptyProviderResponse()
     {

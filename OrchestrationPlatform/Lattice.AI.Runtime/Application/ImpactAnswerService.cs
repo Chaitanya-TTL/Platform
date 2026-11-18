@@ -13,6 +13,7 @@ using Lattice.AI.Runtime.Generation;
 using Lattice.AI.Runtime.Prompts;
 using Lattice.AI.Runtime.QuestionUnderstanding;
 using Lattice.AI.Runtime.ScopePlanning;
+using Lattice.AI.Runtime.Telemetry;
 using Lattice.AI.Runtime.Validation;
 
 namespace Lattice.AI.Runtime.Application;
@@ -29,13 +30,15 @@ public sealed class ImpactAnswerService(
     IAnswerCandidateParser answerCandidateParser,
     IAnswerValidator answerValidator,
     ModelConfiguration modelConfiguration,
-    TimeProvider? timeProvider = null) : IImpactAnswerService
+    TimeProvider? timeProvider = null,
+    IAiRuntimeTelemetry? telemetry = null) : IImpactAnswerService
 {
     private const string ResolveEntityGrant = "investigation:resolve-entity";
     private const string ReadImpactEvidenceGrant = "investigation:read-impact-evidence";
     private const string PromptId = "engineering-impact";
     private const string PromptVersion = "v1";
     private static readonly ContextBudget Budget = new(25, 50, 12_000);
+    private IAiRuntimeTelemetry Telemetry { get; } = telemetry ?? NullAiRuntimeTelemetry.Instance;
 
     public async Task<ImpactAnswerResult> AnswerAsync(
         ImpactAnswerRequest request,
@@ -71,34 +74,50 @@ public sealed class ImpactAnswerService(
         }
 
         EntityResolutionResult resolution;
-        try
+        using (var resolutionStage = Telemetry.StartStage(
+            "entity-resolution",
+            requestContext,
+            request.InvestigationId))
         {
-            resolution = await entityResolver.ResolveAsync(
-                request.InvestigationId,
-                interpretation,
-                authorization,
-                requestContext,
-                cancellationToken).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (OperationCanceledException)
-        {
-            return CreateResult(
-                request.InvestigationId,
-                requestContext,
-                AnswerDisposition.Failed,
-                issues: [new ValidationIssue("entity-resolution-timeout", "Engineering subject resolution timed out.")]);
-        }
-        catch (Exception exception) when (exception is HttpRequestException or TimeoutException or InvalidOperationException)
-        {
-            return CreateResult(
-                request.InvestigationId,
-                requestContext,
-                AnswerDisposition.Failed,
-                issues: [new ValidationIssue("entity-resolution-failed", "The engineering subject could not be resolved.")]);
+            try
+            {
+                resolution = await entityResolver.ResolveAsync(
+                    request.InvestigationId,
+                    interpretation,
+                    authorization,
+                    requestContext,
+                    cancellationToken).ConfigureAwait(false);
+                resolutionStage.SetDisposition(resolution.Disposition.ToString());
+                if (resolution.Entity is not null)
+                {
+                    resolutionStage.SetTag("entity.id", resolution.Entity.CanonicalId);
+                }
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                resolutionStage.SetFailure("other");
+                resolutionStage.SetDisposition("cancelled");
+                throw;
+            }
+            catch (OperationCanceledException)
+            {
+                resolutionStage.SetFailure("entity-resolution-timeout");
+                return CreateResult(
+                    request.InvestigationId,
+                    requestContext,
+                    AnswerDisposition.Failed,
+                    issues: [new ValidationIssue("entity-resolution-timeout", "Engineering subject resolution timed out.")]);
+            }
+            catch (Exception exception) when (
+                exception is HttpRequestException or TimeoutException or InvalidOperationException)
+            {
+                resolutionStage.SetFailure("entity-resolution-failed");
+                return CreateResult(
+                    request.InvestigationId,
+                    requestContext,
+                    AnswerDisposition.Failed,
+                    issues: [new ValidationIssue("entity-resolution-failed", "The engineering subject could not be resolved.")]);
+            }
         }
 
         if (resolution.Disposition == EntityResolutionDisposition.Denied)
@@ -123,11 +142,19 @@ public sealed class ImpactAnswerService(
                 issues: ToIssues("subject-clarification-required", reasons));
         }
 
-        var plannedScope = scopePlanner.Plan(
-            interpretation,
-            resolution.Entity,
-            authorization.Scope,
-            requestContext);
+        ScopePlanningResult plannedScope;
+        using (var scopeStage = Telemetry.StartStage(
+            "scope-planning",
+            requestContext,
+            request.InvestigationId))
+        {
+            plannedScope = scopePlanner.Plan(
+                interpretation,
+                resolution.Entity,
+                authorization.Scope,
+                requestContext);
+            scopeStage.SetDisposition(plannedScope.Disposition.ToString());
+        }
         if (plannedScope.Disposition != ScopePlanningDisposition.Ready || plannedScope.Scope is null)
         {
             var disposition = plannedScope.Disposition switch
@@ -144,47 +171,83 @@ public sealed class ImpactAnswerService(
         }
 
         EvidenceRetrievalResult evidence;
-        try
+        using (var retrievalStage = Telemetry.StartStage(
+            "plm-retrieval",
+            requestContext,
+            request.InvestigationId))
         {
-            evidence = await evidenceSource.RetrieveImpactAsync(
-                new ImpactEvidenceQuery(
+            try
+            {
+                evidence = await evidenceSource.RetrieveImpactAsync(
+                    new ImpactEvidenceQuery(
+                        request.InvestigationId,
+                        resolution.Entity,
+                        plannedScope.Scope,
+                        authorization,
+                        requestContext),
+                    cancellationToken).ConfigureAwait(false);
+                retrievalStage.SetDisposition("completed");
+                retrievalStage.SetTag("evidence.relationship_count", evidence.Relationships.Count);
+                retrievalStage.SetTag("evidence.path_count", evidence.Paths.Count);
+                retrievalStage.SetTag("evidence.chain_count", evidence.Chains.Count);
+                retrievalStage.SetTag("evidence.source_count", evidence.Sources.Count);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                retrievalStage.SetFailure("other");
+                retrievalStage.SetDisposition("cancelled");
+                throw;
+            }
+            catch (OperationCanceledException)
+            {
+                retrievalStage.SetFailure("plm-retrieval-timeout");
+                return CreateResult(
+                    request.InvestigationId,
+                    requestContext,
+                    AnswerDisposition.Failed,
+                    issues: [new ValidationIssue("evidence-retrieval-timeout", "PLM evidence retrieval timed out.")]);
+            }
+            catch (Exception exception) when (
+                exception is HttpRequestException or TimeoutException or InvalidOperationException)
+            {
+                retrievalStage.SetFailure("plm-retrieval-failed");
+                return CreateResult(
+                    request.InvestigationId,
+                    requestContext,
+                    AnswerDisposition.Failed,
+                    issues: [new ValidationIssue("evidence-retrieval-failed", "PLM evidence could not be retrieved.")]);
+            }
+        }
+
+        ContextCompilationResult compilation;
+        using (var compilationStage = Telemetry.StartStage(
+            "context-compilation",
+            requestContext,
+            request.InvestigationId))
+        {
+            compilation = contextCompiler.Compile(
+                new ContextCompilationInput(
+                    requestContext,
                     request.InvestigationId,
                     resolution.Entity,
                     plannedScope.Scope,
-                    authorization,
-                    requestContext),
-                cancellationToken).ConfigureAwait(false);
+                    authorization.Scope,
+                    evidence,
+                    Budget));
+            compilationStage.SetDisposition(compilation.Disposition.ToString());
+            if (compilation.Package is not null)
+            {
+                compilationStage.SetTag("context.compiler.version", compilation.Package.CompilerVersion);
+                compilationStage.SetTag("context.package.id", compilation.Package.PackageId);
+                compilationStage.SetTag("context.claim_count", compilation.Package.Claims.Count);
+                compilationStage.SetTag("context.source_count", compilation.Package.Sources.Count);
+            }
+            if (compilation.Disposition == CompilationDisposition.Denied)
+            {
+                compilationStage.SetFailure("context-compilation-denied");
+                compilationStage.SetDisposition("denied");
+            }
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (OperationCanceledException)
-        {
-            return CreateResult(
-                request.InvestigationId,
-                requestContext,
-                AnswerDisposition.Failed,
-                issues: [new ValidationIssue("evidence-retrieval-timeout", "PLM evidence retrieval timed out.")]);
-        }
-        catch (Exception exception) when (exception is HttpRequestException or TimeoutException or InvalidOperationException)
-        {
-            return CreateResult(
-                request.InvestigationId,
-                requestContext,
-                AnswerDisposition.Failed,
-                issues: [new ValidationIssue("evidence-retrieval-failed", "PLM evidence could not be retrieved.")]);
-        }
-
-        var compilation = contextCompiler.Compile(
-            new ContextCompilationInput(
-                requestContext,
-                request.InvestigationId,
-                resolution.Entity,
-                plannedScope.Scope,
-                authorization.Scope,
-                evidence,
-                Budget));
         if (compilation.Disposition == CompilationDisposition.Denied)
         {
             return CreateResult(
@@ -219,75 +282,138 @@ public sealed class ImpactAnswerService(
         }
 
         PromptBundle prompt;
-        try
+        ModelRequest modelRequest;
+        using (var promptStage = Telemetry.StartStage(
+            "prompt",
+            requestContext,
+            request.InvestigationId))
         {
-            prompt = promptCatalog.GetRequired(PromptId, PromptVersion);
-        }
-        catch (Exception exception) when (exception is KeyNotFoundException or InvalidDataException)
-        {
-            return CreateResult(
-                request.InvestigationId,
-                requestContext,
-                AnswerDisposition.Failed,
-                context.PackageId,
-                [new ValidationIssue("prompt-unavailable", "The approved answer prompt is unavailable.")]);
+            try
+            {
+                prompt = promptCatalog.GetRequired(PromptId, PromptVersion);
+                modelRequest = promptAssembler.Assemble(request, context, prompt, modelConfiguration);
+                promptStage.SetDisposition("ready");
+                promptStage.SetTag("prompt.id", prompt.Id);
+                promptStage.SetTag("prompt.version", prompt.Version);
+                promptStage.SetTag("model.configuration_id", modelConfiguration.Id);
+            }
+            catch (Exception exception) when (exception is KeyNotFoundException or InvalidDataException)
+            {
+                promptStage.SetFailure("prompt-unavailable");
+                return CreateResult(
+                    request.InvestigationId,
+                    requestContext,
+                    AnswerDisposition.Failed,
+                    context.PackageId,
+                    [new ValidationIssue("prompt-unavailable", "The approved answer prompt is unavailable.")]);
+            }
         }
 
-        var modelRequest = promptAssembler.Assemble(request, context, prompt, modelConfiguration);
         ModelResponse modelResponse;
-        try
+        using (var modelStage = Telemetry.StartStage(
+            "model-generation",
+            requestContext,
+            request.InvestigationId))
         {
-            modelResponse = await modelGateway.GenerateAsync(modelRequest, cancellationToken).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (OperationCanceledException)
-        {
-            return CreateResult(
-                request.InvestigationId,
-                requestContext,
-                AnswerDisposition.Failed,
-                context.PackageId,
-                [new ValidationIssue("model-provider-timeout", "The answer model request timed out.")]);
-        }
-        catch (Exception exception) when (exception is HttpRequestException or TimeoutException or InvalidOperationException)
-        {
-            return CreateResult(
-                request.InvestigationId,
-                requestContext,
-                AnswerDisposition.Failed,
-                context.PackageId,
-                [new ValidationIssue("model-provider-failed", "The answer model could not complete the request.")]);
-        }
+            modelStage.SetTag("prompt.id", prompt.Id);
+            modelStage.SetTag("prompt.version", prompt.Version);
+            modelStage.SetTag("model.configuration_id", modelConfiguration.Id);
+            try
+            {
+                modelResponse = await modelGateway.GenerateAsync(modelRequest, cancellationToken).ConfigureAwait(false);
+                modelStage.SetDisposition("completed");
+                modelStage.SetTag("model.provider", modelConfiguration.Provider);
+                if (modelResponse.ModelVersion is not null)
+                {
+                    modelStage.SetTag("model.version", modelResponse.ModelVersion);
+                }
+                if (modelResponse.InputTokens is not null)
+                {
+                    modelStage.SetTag("model.input_tokens", modelResponse.InputTokens.Value);
+                }
+                if (modelResponse.OutputTokens is not null)
+                {
+                    modelStage.SetTag("model.output_tokens", modelResponse.OutputTokens.Value);
+                }
+                Telemetry.RecordModelUsage(
+                    modelConfiguration.Provider,
+                    modelConfiguration.Id,
+                    modelResponse.InputTokens,
+                    modelResponse.OutputTokens);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                modelStage.SetFailure("other");
+                modelStage.SetDisposition("cancelled");
+                throw;
+            }
+            catch (OperationCanceledException)
+            {
+                modelStage.SetFailure("model-provider-timeout");
+                modelStage.SetDisposition("failed");
+                return CreateResult(
+                    request.InvestigationId,
+                    requestContext,
+                    AnswerDisposition.Failed,
+                    context.PackageId,
+                    [new ValidationIssue("model-provider-timeout", "The answer model request timed out.")]);
+            }
+            catch (Exception exception) when (
+                exception is HttpRequestException or TimeoutException or InvalidOperationException)
+            {
+                modelStage.SetFailure("model-provider-failed");
+                modelStage.SetDisposition("failed");
+                return CreateResult(
+                    request.InvestigationId,
+                    requestContext,
+                    AnswerDisposition.Failed,
+                    context.PackageId,
+                    [new ValidationIssue("model-provider-failed", "The answer model could not complete the request.")]);
+            }
 
-        if (!SameRequestContext(modelResponse.RequestContext, requestContext))
-        {
-            return CreateResult(
-                request.InvestigationId,
-                requestContext,
-                AnswerDisposition.Failed,
-                context.PackageId,
-                [new ValidationIssue("model-response-correlation-mismatch", "The model response belongs to another request.")]);
+            if (!SameRequestContext(modelResponse.RequestContext, requestContext))
+            {
+                modelStage.SetFailure("correlation-mismatch");
+                modelStage.SetDisposition("failed");
+                return CreateResult(
+                    request.InvestigationId,
+                    requestContext,
+                    AnswerDisposition.Failed,
+                    context.PackageId,
+                    [new ValidationIssue("model-response-correlation-mismatch", "The model response belongs to another request.")]);
+            }
         }
 
         AnswerCandidate candidate;
-        try
+        ValidationResult validation;
+        using (var validationStage = Telemetry.StartStage(
+            "validation",
+            requestContext,
+            request.InvestigationId))
         {
-            candidate = answerCandidateParser.Parse(modelResponse.Content);
-        }
-        catch (JsonException)
-        {
-            return CreateResult(
-                request.InvestigationId,
-                requestContext,
-                AnswerDisposition.Failed,
-                context.PackageId,
-                [new ValidationIssue("invalid-model-output", "The model response did not match the required answer schema.")]);
+            try
+            {
+                candidate = answerCandidateParser.Parse(modelResponse.Content);
+            }
+            catch (JsonException)
+            {
+                validationStage.SetFailure("invalid-model-output");
+                validationStage.SetDisposition("failed");
+                Telemetry.RecordValidationDisposition("failed");
+                return CreateResult(
+                    request.InvestigationId,
+                    requestContext,
+                    AnswerDisposition.Failed,
+                    context.PackageId,
+                    [new ValidationIssue("invalid-model-output", "The model response did not match the required answer schema.")]);
+            }
+
+            validation = answerValidator.Validate(candidate, context, authorization.Scope, requestContext);
+            validationStage.SetDisposition(validation.Disposition.ToString());
+            validationStage.SetTag("validation.issue_count", validation.Issues.Count);
+            Telemetry.RecordValidationDisposition(validation.Disposition.ToString());
         }
 
-        var validation = answerValidator.Validate(candidate, context, authorization.Scope, requestContext);
         return validation.Disposition switch
         {
             ValidationDisposition.Accept => CreateAcceptedResult(
