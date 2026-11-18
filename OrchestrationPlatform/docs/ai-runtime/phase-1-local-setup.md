@@ -74,6 +74,8 @@ The input allowance is the configured maximum model input/context window for the
 
 Telemetry keeps request/trace correlation, stage/outcome data, bounded quality counts, model configuration/version, and token counts. Investigation, canonical entity, tenant, and Context Package identifiers are excluded by default. The `AiRuntime__Telemetry__IncludeInvestigationIdentifier`, `IncludeEntityIdentifier`, `IncludeTenantIdentifier`, and `IncludeContextPackageIdentifier` settings are opt-in and should only be enabled with explicit security approval. Subject IDs, authorization decision IDs, credential headers, URL query values, and raw question/prompt/answer/evidence content remain excluded.
 
+Quality metrics are aggregate only: request outcomes include disposition counts; `lattice.ai.runtime.answer.grounded` counts validator-accepted answers; unsupported assertion rejections count distinct rejected claim/code keys; context metrics count omissions and input-budget exhaustion; citation coverage is the ratio of cited evidence IDs with a matching cited source; and source-claim confidence is emitted as a distribution. These metrics have no case, entity, source, claim, or request identifiers. Source-confidence distributions are not by themselves a calibration score; calibration is measured against labeled synthetic expectations in the offline evaluation.
+
 PLM Brain settings are nested under `AiRuntime:PlmBrain` (use double underscores in environment-variable names):
 
 | Environment variable | Purpose |

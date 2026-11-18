@@ -39,6 +39,21 @@ public sealed class ImpactAnswerService(
     private const string PromptVersion = "v1";
     private const int MaxClaims = 25;
     private const int MaxEvidenceItems = 50;
+    private const string EstimatedContextTokenBudgetOmissionReason =
+        "Claim omitted because the estimated context-token budget would be exceeded.";
+    private static readonly HashSet<string> UnsupportedAssertionIssueCodes =
+    [
+        "unknown-claim",
+        "unknown-evidence",
+        "unknown-source",
+        "unsupported-identifier",
+        "unsupported-warning",
+        "unauthorized-evidence",
+        "unauthorized-source",
+        "duplicate-answer-claim",
+        "missing-provenance-reference",
+        "invalid-source-id"
+    ];
     private IAiRuntimeTelemetry Telemetry { get; } = telemetry ?? NullAiRuntimeTelemetry.Instance;
 
     public async Task<ImpactAnswerResult> AnswerAsync(
@@ -121,6 +136,7 @@ public sealed class ImpactAnswerService(
 
             if (contextTokenAllowance == 0)
             {
+                Telemetry.RecordContextQuality(0, budgetExhausted: true);
                 promptStage.SetFailure("model-input-budget-exceeded");
                 promptStage.SetDisposition("abstained");
                 return CreateResult(
@@ -294,6 +310,13 @@ public sealed class ImpactAnswerService(
                     authorization.Scope,
                     evidence,
                     new ContextBudget(MaxClaims, MaxEvidenceItems, contextTokenAllowance)));
+            var omissions = compilation.Package?.Omissions ?? Array.Empty<ContextOmission>();
+            Telemetry.RecordContextQuality(
+                omissions.Count,
+                omissions.Any(omission => string.Equals(
+                    omission.Reason,
+                    EstimatedContextTokenBudgetOmissionReason,
+                    StringComparison.Ordinal)));
             compilationStage.SetDisposition(compilation.Disposition.ToString());
             if (compilation.Package is not null)
             {
@@ -373,6 +396,7 @@ public sealed class ImpactAnswerService(
                     modelConfiguration.MaxInputTokens,
                     modelConfiguration.MaxOutputTokens))
             {
+                Telemetry.RecordContextQuality(0, budgetExhausted: true);
                 promptStage.SetFailure("model-input-budget-exceeded");
                 promptStage.SetDisposition("abstained");
                 return CreateResult(
@@ -494,6 +518,7 @@ public sealed class ImpactAnswerService(
             validationStage.SetDisposition(validation.Disposition.ToString());
             validationStage.SetTag("validation.issue_count", validation.Issues.Count);
             Telemetry.RecordValidationDisposition(validation.Disposition.ToString());
+            Telemetry.RecordAnswerQuality(CreateAnswerQualitySummary(candidate, context, validation));
         }
 
         return validation.Disposition switch
@@ -562,6 +587,59 @@ public sealed class ImpactAnswerService(
             sources,
             issues,
             context.PackageId);
+    }
+
+    private static AnswerQualitySummary CreateAnswerQualitySummary(
+        AnswerCandidate candidate,
+        ContextPackage context,
+        ValidationResult validation)
+    {
+        var citedSourceIdsByEvidence = candidate.Impacts
+            .SelectMany(impact => impact.EvidenceIds
+                .Distinct(StringComparer.Ordinal)
+                .Select(evidenceId => (EvidenceId: evidenceId, SourceIds: impact.SourceIds)))
+            .GroupBy(citation => citation.EvidenceId, StringComparer.Ordinal)
+            .ToDictionary(
+                group => group.Key,
+                group => group.Select(citation => citation.SourceIds).ToArray(),
+                StringComparer.Ordinal);
+
+        double? citationCoverage = candidate.Impacts.Count == 0 ? null : 0;
+        if (citedSourceIdsByEvidence.Count > 0)
+        {
+            var matchingCitations = citedSourceIdsByEvidence.Count(citation =>
+                context.Sources
+                    .Where(source => string.Equals(
+                        source.EvidenceId,
+                        citation.Key,
+                        StringComparison.Ordinal))
+                    .Any(source => citation.Value.Any(sourceIds =>
+                        GetSourceIds(source).Any(sourceIds.Contains))));
+            citationCoverage = Math.Clamp(
+                matchingCitations / (double)citedSourceIdsByEvidence.Count,
+                0,
+                1);
+        }
+
+        var referencedClaimIds = candidate.Impacts
+            .Select(impact => impact.ClaimId)
+            .ToHashSet(StringComparer.Ordinal);
+        var confidenceValues = context.Claims
+            .Where(claim => referencedClaimIds.Contains(claim.ClaimId))
+            .DistinctBy(claim => claim.ClaimId, StringComparer.Ordinal)
+            .Where(claim => claim.Confidence is { } confidence && double.IsFinite(confidence))
+            .Select(claim => claim.Confidence!.Value)
+            .ToArray();
+
+        return new AnswerQualitySummary(
+            validation.Disposition == ValidationDisposition.Accept,
+            validation.Issues
+                .Where(issue => UnsupportedAssertionIssueCodes.Contains(issue.Code))
+                .Select(issue => issue.ClaimId ?? issue.Code)
+                .Distinct(StringComparer.Ordinal)
+                .Count(),
+            citationCoverage,
+            confidenceValues);
     }
 
     private static IEnumerable<string> GetSourceIds(EvidenceSourceReference source)

@@ -14,6 +14,7 @@ using Lattice.AI.Runtime.Generation;
 using Lattice.AI.Runtime.Prompts;
 using Lattice.AI.Runtime.QuestionUnderstanding;
 using Lattice.AI.Runtime.ScopePlanning;
+using Lattice.AI.Runtime.Telemetry;
 using Lattice.AI.Runtime.Validation;
 
 namespace Lattice.AI.Runtime.Tests.Application;
@@ -37,6 +38,103 @@ public sealed class ImpactAnswerServiceTests
         Assert.Equal(1, fixture.ScopePlanner.CallCount);
         Assert.Same(fixture.Resolver.Authorization, fixture.EvidenceSource.Authorization);
         Assert.Equal(1, fixture.Gateway.CallCount);
+    }
+
+    [Fact]
+    public async Task AnswerAsync_RecordsGroundedQualityCoverageAndReferencedClaimConfidence()
+    {
+        const string modelContent =
+            """{"schemaVersion":"answer-v1","summary":"REQ-123 impacts P-1.","impacts":[{"claimId":"chain-1","explanation":"REQ-123 impacts P-1.","evidenceIds":["evidence-1"],"sourceIds":["citation-1"]}],"warnings":[]}""";
+        var evidence = Evidence() with
+        {
+            Chains =
+            [
+                new ImpactChainEvidence(
+                    "chain-1",
+                    "REQ-123",
+                    "P-1",
+                    ["relationship-1"],
+                    [],
+                    ["evidence-1"],
+                    ["citation-1"],
+                    "REQ-123 impacts P-1.",
+                    0.875,
+                    "validated impact",
+                    "active",
+                    "strong"),
+                new ImpactChainEvidence(
+                    "chain-2",
+                    "REQ-123",
+                    "P-2",
+                    ["relationship-1"],
+                    [],
+                    ["evidence-1"],
+                    ["citation-1"],
+                    "REQ-123 impacts P-2.",
+                    0.125,
+                    "unreferenced impact",
+                    "active",
+                    "strong")
+            ]
+        };
+        var telemetry = new RecordingTelemetry();
+        var fixture = new Fixture(
+            evidence: evidence,
+            modelContent: modelContent,
+            telemetry: telemetry);
+
+        var result = await fixture.Service.AnswerAsync(
+            Request(), Authorization(), RequestContext(), CancellationToken.None);
+
+        Assert.Equal(AnswerDisposition.Answer, result.Disposition);
+        var summary = Assert.Single(telemetry.AnswerQualitySummaries);
+        Assert.True(summary.Grounded);
+        Assert.Equal(0, summary.UnsupportedAssertionRejectionCount);
+        Assert.Equal(1.0, summary.EvidenceCitationCoverageRatio);
+        Assert.Equal([0.875], summary.SourceClaimConfidenceValues);
+    }
+
+    [Fact]
+    public async Task AnswerAsync_RecordsUnsupportedAssertionsForRejectedAnswer()
+    {
+        const string modelContent =
+            """{"schemaVersion":"answer-v1","summary":"REQ-999 is affected.","impacts":[{"claimId":"relationship:relationship-1","explanation":"REQ-123 affects P-1.","evidenceIds":["missing-evidence"],"sourceIds":["missing-source"]}],"warnings":["unsupported"]}""";
+        var telemetry = new RecordingTelemetry();
+        var fixture = new Fixture(modelContent: modelContent, telemetry: telemetry);
+
+        var result = await fixture.Service.AnswerAsync(
+            Request(), Authorization(), RequestContext(), CancellationToken.None);
+
+        Assert.Equal(AnswerDisposition.Failed, result.Disposition);
+        Assert.Equal(
+            4,
+            result.Issues.Count(issue => issue.Code is
+                "unsupported-identifier" or
+                "unsupported-warning" or
+                "unknown-evidence" or
+                "unknown-source"));
+        var summary = Assert.Single(telemetry.AnswerQualitySummaries);
+        Assert.False(summary.Grounded);
+        Assert.Equal(3, summary.UnsupportedAssertionRejectionCount);
+        Assert.Equal(0.0, summary.EvidenceCitationCoverageRatio);
+        Assert.Empty(summary.SourceClaimConfidenceValues);
+    }
+
+    [Fact]
+    public async Task AnswerAsync_RecordsContextOmissionsAndEstimatedTokenBudgetExhaustion()
+    {
+        var telemetry = new RecordingTelemetry();
+        var fixture = new Fixture(
+            contextCompiler: new OmittingContextCompiler(
+                "Claim omitted because the estimated context-token budget would be exceeded.",
+                "Claim omitted because the maximum claim count was reached."),
+            telemetry: telemetry);
+
+        var result = await fixture.Service.AnswerAsync(
+            Request(), Authorization(), RequestContext(), CancellationToken.None);
+
+        Assert.Equal(AnswerDisposition.Answer, result.Disposition);
+        Assert.Equal((2, true), Assert.Single(telemetry.ContextQuality));
     }
 
     [Theory]
@@ -92,7 +190,8 @@ public sealed class ImpactAnswerServiceTests
         var fixture = new Fixture(
             modelConfiguration: new ModelConfiguration(
                 "model-1", "test", "test-model", "test-deployment", 1, maxInputTokens),
-            contextCompiler: contextCompiler);
+            contextCompiler: contextCompiler,
+            telemetry: new RecordingTelemetry());
 
         var result = await fixture.Service.AnswerAsync(
             request, Authorization(), RequestContext(), CancellationToken.None);
@@ -103,12 +202,16 @@ public sealed class ImpactAnswerServiceTests
         Assert.Equal(0, fixture.Resolver.CallCount);
         Assert.Equal(0, fixture.EvidenceSource.CallCount);
         Assert.Equal(0, contextCompiler.CallCount);
+        Assert.Equal((0, true), Assert.Single(((RecordingTelemetry)fixture.Telemetry).ContextQuality));
     }
 
     [Fact]
     public async Task AnswerAsync_AbstainsWhenAssembledEstimateExceedsAllowanceWithoutCallingModel()
     {
-        var fixture = new Fixture(promptAssembler: new OverestimatingPromptAssembler());
+        var telemetry = new RecordingTelemetry();
+        var fixture = new Fixture(
+            promptAssembler: new OverestimatingPromptAssembler(),
+            telemetry: telemetry);
 
         var result = await fixture.Service.AnswerAsync(
             Request(), Authorization(), RequestContext(), CancellationToken.None);
@@ -118,6 +221,7 @@ public sealed class ImpactAnswerServiceTests
             issue.Code == "model-input-budget-exceeded" &&
             issue.Message == "The answer prompt exceeds the configured model input budget.");
         Assert.Equal(0, fixture.Gateway.CallCount);
+        Assert.Contains((0, true), telemetry.ContextQuality);
     }
 
     [Fact]
@@ -321,13 +425,15 @@ public sealed class ImpactAnswerServiceTests
             ModelConfiguration? modelConfiguration = null,
             IPromptCatalog? promptCatalog = null,
             IPromptAssembler? promptAssembler = null,
-            IContextCompiler? contextCompiler = null)
+            IContextCompiler? contextCompiler = null,
+            RecordingTelemetry? telemetry = null)
         {
             Resolver = new StubEntityResolver(resolution);
             ScopePlanner = new TrackingScopePlanner();
             EvidenceSource = new StubEvidenceSource(evidence ?? Evidence());
             Gateway = new StubModelGateway(modelContent ?? ValidModelContent, modelFailure);
             ContextCompiler = contextCompiler ?? new TrackingContextCompiler();
+            Telemetry = telemetry ?? new RecordingTelemetry();
             Service = new ImpactAnswerService(
                 new QuestionInterpreter(),
                 Resolver,
@@ -340,7 +446,8 @@ public sealed class ImpactAnswerServiceTests
                 new AnswerCandidateParser(),
                 new AnswerValidator(),
                 modelConfiguration ?? new ModelConfiguration(
-                    "model-1", "test", "test-model", "test-deployment", 256, 8192));
+                    "model-1", "test", "test-model", "test-deployment", 256, 8192),
+                telemetry: Telemetry);
         }
 
         public StubEntityResolver Resolver { get; }
@@ -348,7 +455,63 @@ public sealed class ImpactAnswerServiceTests
         public StubEvidenceSource EvidenceSource { get; }
         public StubModelGateway Gateway { get; }
         public IContextCompiler ContextCompiler { get; }
+        public RecordingTelemetry Telemetry { get; }
         public ImpactAnswerService Service { get; }
+    }
+
+    private sealed class OmittingContextCompiler(params string[] reasons) : IContextCompiler
+    {
+        private readonly ContextCompiler _inner = new();
+
+        public ContextCompilationResult Compile(ContextCompilationInput input)
+        {
+            var result = _inner.Compile(input);
+            return result.Package is null
+                ? result
+                : result with
+                {
+                    Package = result.Package with
+                    {
+                        Omissions = reasons
+                            .Select((reason, index) => new ContextOmission($"private-claim-{index}", reason))
+                            .ToArray()
+                    }
+                };
+        }
+    }
+
+    private sealed class RecordingTelemetry : IAiRuntimeTelemetry
+    {
+        public List<(int OmissionCount, bool BudgetExhausted)> ContextQuality { get; } = [];
+        public List<AnswerQualitySummary> AnswerQualitySummaries { get; } = [];
+
+        public IRuntimeTelemetryStage StartStage(
+            string stage,
+            RuntimeRequestContext requestContext,
+            string? investigationId = null) =>
+            NullAiRuntimeTelemetry.Instance.StartStage(stage, requestContext, investigationId);
+
+        public void RecordRequestOutcome(string disposition)
+        {
+        }
+
+        public void RecordValidationDisposition(string disposition)
+        {
+        }
+
+        public void RecordModelUsage(
+            string provider,
+            string modelConfigurationId,
+            int? inputTokens,
+            int? outputTokens)
+        {
+        }
+
+        public void RecordContextQuality(int omissionCount, bool budgetExhausted) =>
+            ContextQuality.Add((omissionCount, budgetExhausted));
+
+        public void RecordAnswerQuality(AnswerQualitySummary summary) =>
+            AnswerQualitySummaries.Add(summary);
     }
 
     private static void AssertSanitizedPromptFailure(ImpactAnswerResult result)

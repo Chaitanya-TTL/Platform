@@ -3,6 +3,12 @@ using Lattice.AI.Runtime.Contracts.Requests;
 
 namespace Lattice.AI.Runtime.Telemetry;
 
+public sealed record AnswerQualitySummary(
+    bool Grounded,
+    int UnsupportedAssertionRejectionCount,
+    double? EvidenceCitationCoverageRatio,
+    IReadOnlyList<double> SourceClaimConfidenceValues);
+
 public interface IAiRuntimeTelemetry
 {
     IRuntimeTelemetryStage StartStage(
@@ -19,6 +25,10 @@ public interface IAiRuntimeTelemetry
         string modelConfigurationId,
         int? inputTokens,
         int? outputTokens);
+
+    void RecordContextQuality(int omissionCount, bool budgetExhausted);
+
+    void RecordAnswerQuality(AnswerQualitySummary summary);
 }
 
 public interface IRuntimeTelemetryStage : IDisposable
@@ -57,6 +67,14 @@ public sealed class NullAiRuntimeTelemetry : IAiRuntimeTelemetry
         string modelConfigurationId,
         int? inputTokens,
         int? outputTokens)
+    {
+    }
+
+    public void RecordContextQuality(int omissionCount, bool budgetExhausted)
+    {
+    }
+
+    public void RecordAnswerQuality(AnswerQualitySummary summary)
     {
     }
 

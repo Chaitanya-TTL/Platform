@@ -28,6 +28,60 @@ namespace Lattice.AI.Runtime.Tests.Telemetry;
 public sealed class AiRuntimeTelemetryTests
 {
     [Fact]
+    public void AnswerQualityMetricsRecordExactValuesWithoutSensitiveDimensions()
+    {
+        using var capture = new TelemetryCapture();
+        var telemetry = new AiRuntimeTelemetry();
+
+        telemetry.RecordContextQuality(3, budgetExhausted: true);
+        telemetry.RecordAnswerQuality(new AnswerQualitySummary(
+            Grounded: true,
+            UnsupportedAssertionRejectionCount: 2,
+            EvidenceCitationCoverageRatio: 0.5,
+            SourceClaimConfidenceValues: [0.25, 0.75]));
+        telemetry.RecordAnswerQuality(new AnswerQualitySummary(
+            Grounded: false,
+            UnsupportedAssertionRejectionCount: 1,
+            EvidenceCitationCoverageRatio: null,
+            SourceClaimConfidenceValues: [double.NaN, double.PositiveInfinity]));
+
+        AssertMetric(capture, "lattice.ai.runtime.context.omissions", 3L);
+        AssertMetric(capture, "lattice.ai.runtime.context.budget_exhaustions", 1L);
+        AssertMetric(capture, "lattice.ai.runtime.answer.grounded", 1L);
+        AssertMetric(capture, "lattice.ai.runtime.answer.unsupported_assertion_rejections", 1L, 2L);
+        AssertMetric(capture, "lattice.ai.runtime.answer.evidence_citation_coverage", 0.5d);
+        AssertMetric(capture, "lattice.ai.runtime.answer.source_claim_confidence", 0.25d, 0.75d);
+        Assert.All(capture.Measurements, measurement =>
+        {
+            Assert.Empty(measurement.Tags);
+            Assert.DoesNotContain(
+                measurement.Tags.Select(tag => tag.Value?.ToString()),
+                value => value?.Contains("PRIVATE", StringComparison.Ordinal) == true);
+        });
+    }
+
+    [Fact]
+    public void AnswerQualityMetricsRejectInvalidCountsAndRatios()
+    {
+        var telemetry = new AiRuntimeTelemetry();
+
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            telemetry.RecordContextQuality(-1, budgetExhausted: false));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            telemetry.RecordAnswerQuality(new AnswerQualitySummary(
+                Grounded: false,
+                UnsupportedAssertionRejectionCount: -1,
+                EvidenceCitationCoverageRatio: null,
+                SourceClaimConfidenceValues: [])));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            telemetry.RecordAnswerQuality(new AnswerQualitySummary(
+                Grounded: false,
+                UnsupportedAssertionRejectionCount: 0,
+                EvidenceCitationCoverageRatio: 1.1,
+                SourceClaimConfidenceValues: [])));
+    }
+
+    [Fact]
     public async Task AnswerStagesShareRequestCorrelationAndExcludeSensitivePayloads()
     {
         using var capture = new TelemetryCapture();
@@ -518,6 +572,18 @@ public sealed class AiRuntimeTelemetryTests
             scope,
             "BEARER_PRIVATE_MARKER SIGNED_TOKEN_PRIVATE_MARKER CLAIM_PRIVATE_MARKER",
             scope.DecisionExpiresAt);
+    }
+
+    private static void AssertMetric(
+        TelemetryCapture capture,
+        string name,
+        params object[] expectedValues)
+    {
+        var measurements = capture.Measurements
+            .Where(measurement => measurement.Name == name)
+            .Select(measurement => measurement.Value)
+            .ToArray();
+        Assert.Equal(expectedValues.OrderBy(value => value), measurements.OrderBy(value => value));
     }
 
     private const string ValidModelContent =

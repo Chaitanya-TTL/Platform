@@ -59,6 +59,18 @@ public sealed class AiRuntimeTelemetry : IAiRuntimeTelemetry
         Meter.CreateHistogram<double>("lattice.ai.runtime.stage.duration", "ms");
     private static readonly Counter<long> ValidationDispositions =
         Meter.CreateCounter<long>("lattice.ai.runtime.validation.dispositions");
+    private static readonly Counter<long> ContextOmissions =
+        Meter.CreateCounter<long>("lattice.ai.runtime.context.omissions", "omissions");
+    private static readonly Counter<long> ContextBudgetExhaustions =
+        Meter.CreateCounter<long>("lattice.ai.runtime.context.budget_exhaustions");
+    private static readonly Counter<long> GroundedAnswers =
+        Meter.CreateCounter<long>("lattice.ai.runtime.answer.grounded");
+    private static readonly Counter<long> UnsupportedAssertionRejections =
+        Meter.CreateCounter<long>("lattice.ai.runtime.answer.unsupported_assertion_rejections");
+    private static readonly Histogram<double> EvidenceCitationCoverage =
+        Meter.CreateHistogram<double>("lattice.ai.runtime.answer.evidence_citation_coverage", "ratio");
+    private static readonly Histogram<double> SourceClaimConfidence =
+        Meter.CreateHistogram<double>("lattice.ai.runtime.answer.source_claim_confidence", "score");
     private static readonly Counter<long> ModelTokens =
         Meter.CreateCounter<long>("lattice.ai.runtime.model.tokens", "tokens");
     private static readonly Counter<long> Failures =
@@ -124,6 +136,65 @@ public sealed class AiRuntimeTelemetry : IAiRuntimeTelemetry
                 { "model.usage_type", "output" }
             };
             ModelTokens.Add(outputTokens.Value, outputTags);
+        }
+    }
+
+    public void RecordContextQuality(int omissionCount, bool budgetExhausted)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(omissionCount);
+
+        if (omissionCount > 0)
+        {
+            ContextOmissions.Add(omissionCount);
+        }
+
+        if (budgetExhausted)
+        {
+            ContextBudgetExhaustions.Add(1);
+        }
+    }
+
+    public void RecordAnswerQuality(AnswerQualitySummary summary)
+    {
+        ArgumentNullException.ThrowIfNull(summary);
+        ArgumentOutOfRangeException.ThrowIfNegative(summary.UnsupportedAssertionRejectionCount);
+        ArgumentNullException.ThrowIfNull(summary.SourceClaimConfidenceValues);
+
+        if (summary.Grounded)
+        {
+            GroundedAnswers.Add(1);
+        }
+
+        if (summary.UnsupportedAssertionRejectionCount > 0)
+        {
+            UnsupportedAssertionRejections.Add(summary.UnsupportedAssertionRejectionCount);
+        }
+
+        if (summary.EvidenceCitationCoverageRatio is { } coverage && double.IsFinite(coverage))
+        {
+            if (coverage is < 0 or > 1)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(summary),
+                    "Evidence citation coverage must be between zero and one.");
+            }
+
+            EvidenceCitationCoverage.Record(coverage);
+        }
+
+        foreach (var confidence in summary.SourceClaimConfidenceValues)
+        {
+            if (double.IsFinite(confidence))
+            {
+                if (confidence is < 0 or > 1)
+                {
+                    throw new ArgumentOutOfRangeException(
+                        nameof(summary),
+                        "Source claim confidence values must be between zero and one.");
+                }
+
+                SourceClaimConfidence.Record(confidence);
+            }
         }
     }
 
