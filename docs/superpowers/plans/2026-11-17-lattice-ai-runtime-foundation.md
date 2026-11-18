@@ -50,6 +50,8 @@
 - Task 5 prompt governance and Azure Model Gateway implementation is committed as `d4a5c72`; all 48 runtime tests and the API build passed. Its isolated pre-implementation red run was not verified.
 - Task 6 answer validation and impact-answer API implementation is complete; focused tests passed (20/20), the full runtime suite passed (68/68), and the API build succeeded. The existing API test project still has baseline missing-type compilation errors and was not changed. Tasks 1–5 are committed and must not be repeated or amended.
 - Task 7 OpenTelemetry and Azure Monitor configuration is committed as `0364dce`; telemetry/gateway tests passed (14/14), all runtime tests passed (74/74), and the API build succeeded. Solution-wide `dotnet test OrchestrationPlatform.slnx --no-restore` remains blocked by pre-existing missing `Governance`, `AvailabilityState`, and `CompletenessState` symbols in `Orchestration.API.Tests`. The pre-implementation red run was not verified.
+- Task 8 golden evaluation and CI gate implementation is committed as `1b3fafc`; focused evaluation tests passed (6/6), all runtime tests passed (80/80), and all 12 offline cases passed with 100% path/link coverage. A deliberately broken required expectation returned exit code 1. Solution-wide tests remain blocked by the same pre-existing API test compile errors. The pre-implementation red run was not verified.
+- Task 9 setup documentation is complete; Markdown fences, whitespace, and local links were checked. It documents the current fail-closed authorization and test-signing limitations; no Markdown linter is configured. No secrets or resource values were added.
 - Task 8 golden evaluation and CI gate implementation is complete; focused evaluation tests passed (6/6), all runtime tests passed (80/80), and all 12 offline cases passed with 100% path/link coverage. A deliberately broken required expectation returned exit code 1. Solution-wide tests remain blocked by the same pre-existing API test compile errors. The pre-implementation red run was not verified.
 
 ---
@@ -709,19 +711,19 @@ git commit -m "test: add engineering impact evaluation gates"
 - API identity and PLM trust settings are derived server-side; do not accept caller-supplied tenant, subject, grants, decision, policy version, or authorization ticket.
 - Azure production uses managed identity and Azure Monitor connection configuration; local use relies on the supported Entra developer sign-in flow.
 
-- [ ] **Step 1: Document local setup**
+- [x] **Step 1: Document local setup**
 
 Describe SDK requirement, restore/build/test commands, developer identity login, local configuration, ephemeral test keys versus production signing keys, short-lived decision-ticket behavior, fake-model default tests, and how to opt into credentialed model integration tests. State that local configuration without an authorization decision provider must fail closed.
 
-- [ ] **Step 2: Document Azure provisioning**
+- [x] **Step 2: Document Azure provisioning**
 
 List the approved Azure AI Foundry/Azure OpenAI deployment, Entra API issuer/audience and application role, API managed identity for PLM service calls, Key Vault asymmetric decision-signing key and public JWK distribution/rotation, the production server-side authorization-decision provider, optional revocation checker configuration, Azure Monitor/Application Insights configuration, and private network ingress for the internal PLM routes. Document the one-minute default authorization-ticket TTL and fail-closed expiry/revocation behavior. State that data-handling, region, identity, authorization-provider, network, and model deployment approval are prerequisites to sending client data.
 
-- [ ] **Step 3: Review secrets and configuration**
+- [x] **Step 3: Review secrets and configuration**
 
 Verify no API key or secret is committed; verify endpoint/deployment names are configuration and not treated as credentials.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add OrchestrationPlatform/docs/ai-runtime/phase-1-local-setup.md OrchestrationPlatform/docs/ai-runtime/phase-1-azure-resources.md OrchestrationPlatform/Orchestration.API/appsettings.json OrchestrationPlatform/Orchestration.API/appsettings.Development.json

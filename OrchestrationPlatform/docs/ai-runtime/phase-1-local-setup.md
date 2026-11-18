@@ -1,0 +1,107 @@
+# AI Runtime Phase 1: Local setup
+
+This guide covers the .NET AI Runtime's local build, offline tests, and the settings needed to connect a developer instance to platform resources. It does not provision Azure resources or provide a local authorization policy. Do not send client data through the runtime until the approval and deployment prerequisites in [Phase 1 Azure resources](phase-1-azure-resources.md) are met.
+
+## Requirements
+
+- .NET 10 SDK (`net10.0`); run commands from `OrchestrationPlatform`.
+- An Entra developer identity with access to the Azure resources you intend to use.
+- Platform-provided, non-secret endpoint, deployment, identity, and private PLM service values for any connected run.
+
+Check the installed SDK and restore/build the solution:
+
+```powershell
+dotnet --version
+dotnet restore .\OrchestrationPlatform.slnx
+dotnet build .\OrchestrationPlatform.slnx --no-restore
+```
+
+Run the AI Runtime tests and offline evaluation:
+
+```powershell
+dotnet test .\Lattice.AI.Runtime.Tests\Lattice.AI.Runtime.Tests.csproj
+dotnet run --project .\Lattice.AI.Runtime.Evaluation\Lattice.AI.Runtime.Evaluation.csproj -- --dataset .\evals\engineering-impact\v1
+```
+
+The evaluation runner uses checked-in fixtures and a deterministic fake model gateway; it does not call Azure OpenAI. To run the broader solution test suite, use:
+
+```powershell
+dotnet test .\OrchestrationPlatform.slnx
+```
+
+The default test suite uses test doubles for model and signing dependencies and does not require Azure credentials. There is no credentialed/live model integration-test target in this phase; do not add Azure credentials to make the default tests contact a model. Keep any future live-model smoke test explicitly separate, opt-in, and covered by the platform's data-handling approval.
+
+## Entra developer sign-in
+
+The Azure OpenAI gateway, Key Vault signing adapter, and PLM workload-token provider use `DefaultAzureCredential`. For a local developer session, sign in with an approved Entra account using the Azure CLI:
+
+```powershell
+az login --tenant <platform-provided-tenant-id>
+az account show
+```
+
+The selected identity must be granted the necessary resource permissions by the platform. This sign-in supplies credentials to Azure SDK clients; it does **not** by itself authenticate a request to the API or provide an authorization decision. API requests also need a bearer token accepted by the configured API issuer and audience, and an available server-side authorization-decision provider.
+
+## Local configuration
+
+Use environment variables or an untracked user-secrets store for local values. Do not commit access tokens, client secrets, API keys, signing material, or production connection strings. Endpoint and deployment names are configuration, not credentials.
+
+The model options are bound from `AiRuntime`:
+
+| Setting | Meaning and validation |
+| --- | --- |
+| `AiRuntime__Endpoint` | HTTPS Azure OpenAI endpoint. |
+| `AiRuntime__DeploymentName` | Required deployment name at that endpoint. |
+| `AiRuntime__TimeoutSeconds` | Request timeout; default `45`, valid range `1`–`120`. |
+| `AiRuntime__MaxOutputTokens` | Maximum output tokens; default `1024`, valid range `1`–`8192`. |
+
+For example, set only platform-supplied values in the current PowerShell session:
+
+```powershell
+$env:AiRuntime__Endpoint = "<platform-provided-https-endpoint>"
+$env:AiRuntime__DeploymentName = "<platform-provided-deployment-name>"
+$env:AiRuntime__TimeoutSeconds = "45"
+$env:AiRuntime__MaxOutputTokens = "1024"
+$env:AiRuntime__Authentication__Authority = "<platform-provided-entra-authority>"
+$env:AiRuntime__Authentication__Audience = "<platform-provided-api-audience>"
+```
+
+`AiRuntime:Authentication:Authority` and `AiRuntime:Authentication:Audience` configure JWT bearer validation at API ingress. The API validates issuer, audience, signature, and lifetime with no clock skew. The Phase 1 model provider is fixed to Azure OpenAI, and the prompt is the source-controlled `engineering-impact/v1`; neither is selected by configuration.
+
+PLM Brain settings are nested under `AiRuntime:PlmBrain` (use double underscores in environment-variable names):
+
+| Environment variable | Purpose |
+| --- | --- |
+| `AiRuntime__PlmBrain__BaseAddress` | Platform-provided private PLM service base address. |
+| `AiRuntime__PlmBrain__WorkloadScope` | Entra scope requested for the API workload token. |
+| `AiRuntime__PlmBrain__TenantClaimType` | Tenant claim read from the validated API identity; default `tid`. |
+| `AiRuntime__PlmBrain__SubjectClaimType` | Subject claim read from the validated API identity; default `sub`. |
+| `AiRuntime__PlmBrain__TicketIssuer` | Issuer placed in the signed authorization decision ticket. |
+| `AiRuntime__PlmBrain__TicketAudience` | Audience placed in the signed authorization decision ticket. |
+| `AiRuntime__PlmBrain__SigningKeyVaultUri` | Platform-provided Key Vault URI used by the signing adapter. |
+| `AiRuntime__PlmBrain__SigningKeyName` | Key Vault key name used to sign decision tickets. |
+| `AiRuntime__PlmBrain__MaximumAuthorizationTicketLifetimeSeconds` | Ticket lifetime cap; default `60`, valid range `1`–`60` seconds. |
+
+These are platform configuration values, not substitutes for policy. The API derives identity and authorization server-side; callers must not supply tenant, subject, grants, policy decision, or a signed ticket. `AddAiRuntime` registers `UnavailableResourceAuthorizationDecisionProvider` unless the host supplies a real provider. That default returns no decision, so requests are denied (fail closed); configuring model settings or signing-key settings alone does not enable authorization.
+
+`AzureMonitor:Enabled` defaults to `false`. When enabled, configure `AzureMonitor:ConnectionString` or `APPLICATIONINSIGHTS_CONNECTION_STRING`; enabling the exporter without either value causes startup to fail. Do not put an environment-specific connection string in tracked files.
+
+## PLM service environment
+
+The TypeScript PLM service requires the following environment variables for protected internal routes:
+
+| Variable | Requirement |
+| --- | --- |
+| `LATTICE_PLM_SERVICE_ISSUER` | Expected issuer for the API workload token. |
+| `LATTICE_PLM_SERVICE_AUDIENCE` | Expected audience for the API workload token. |
+| `LATTICE_PLM_SERVICE_JWKS_URL` | URL from which the service verifies workload-token public keys. |
+| `LATTICE_PLM_SERVICE_ROLE` | Required role or scope on the workload token. |
+| `LATTICE_DECISION_ISSUER` | Expected issuer of the signed authorization decision ticket. |
+| `LATTICE_DECISION_AUDIENCE` | Expected audience of the signed authorization decision ticket. |
+| `LATTICE_DECISION_TRUSTED_JWKS` | JSON JWK set containing trusted public decision-signing keys. |
+| `LATTICE_DECISION_MAX_LIFETIME_SECONDS` | Optional ticket-lifetime cap; default `60`, valid range `1`–`60`. |
+| `LATTICE_DECISION_REVOCATION_CHECK_REQUIRED` | Optional; set to the literal `true` to require a configured revocation checker. |
+
+The service verifies RS256 signatures and issuer/audience, requires the ticket to be unexpired and bound to the active investigation, operation, request, and required grant, and rejects an expired ticket. If revocation checking is required but unavailable—or a configured check cannot determine status—the request is denied. When a checker is configured, it runs and rejects a revoked decision; with no checker, revocation checking is not performed unless the required flag is set, in which case the request is denied.
+
+Authorization tests use a test-only fake signer; they do not generate an ephemeral RSA key, call Key Vault, or produce a cryptographically verifiable ticket. Production signing uses the configured Key Vault key. Do not copy test signing output or use a production private key in local tests. The production signing and public-key distribution boundary is described in the [Azure resource guide](phase-1-azure-resources.md).
