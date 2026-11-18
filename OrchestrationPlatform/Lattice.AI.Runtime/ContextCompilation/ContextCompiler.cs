@@ -28,7 +28,7 @@ public sealed class ContextCompiler : IContextCompiler
 
         if (input.Budget.MaxClaims < 0 ||
             input.Budget.MaxEvidenceItems < 0 ||
-            input.Budget.MaxEstimatedTokens < 0 ||
+            input.Budget.MaxEstimatedContextTokens < 0 ||
             input.Scope.MaxHops is < 0)
         {
             throw new ArgumentOutOfRangeException(nameof(input), "Context budgets and maximum hops cannot be negative.");
@@ -248,9 +248,9 @@ public sealed class ContextCompiler : IContextCompiler
 
             var claimTokenCost = EstimateClaim(claim) +
                                  additionalEvidenceIds.Sum(id => EstimateSource(usableSources[id]));
-            if (estimatedTokens + claimTokenCost > input.Budget.MaxEstimatedTokens)
+            if (estimatedTokens + claimTokenCost > input.Budget.MaxEstimatedContextTokens)
             {
-                omittedClaims[claimId] = "Claim omitted because the estimated-token budget would be exceeded.";
+                omittedClaims[claimId] = "Claim omitted because the estimated context-token budget would be exceeded.";
                 continue;
             }
 
@@ -437,6 +437,7 @@ public sealed class ContextCompiler : IContextCompiler
             source.Provider,
             source.ObservedAt?.ToString("O", CultureInfo.InvariantCulture)));
 
+    // UTF-8 bytes divided by four is a heuristic estimate, not tokenizer output.
     private static int EstimateTokens(string value) =>
         Math.Max(1, (Encoding.UTF8.GetByteCount(value) + 3) / 4);
 

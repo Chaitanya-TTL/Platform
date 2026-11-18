@@ -103,15 +103,23 @@ public sealed class ContextCompilerTests
         var compiler = new ContextCompiler();
         var claimBudget = compiler.Compile(Input(evidence, new ContextBudget(0, 10, 10_000)));
         var evidenceBudget = compiler.Compile(Input(evidence, new ContextBudget(10, 0, 10_000)));
-        var tokenBudget = compiler.Compile(Input(evidence, new ContextBudget(10, 10, 1)));
+        var contextBudget = new ContextBudget(
+            MaxClaims: 10,
+            MaxEvidenceItems: 10,
+            MaxEstimatedContextTokens: 1);
+        var tokenBudget = compiler.Compile(Input(evidence, contextBudget));
 
         Assert.Empty(Assert.IsType<ContextPackage>(claimBudget.Package).Claims);
         Assert.Contains(Assert.IsType<ContextPackage>(claimBudget.Package).Omissions,
             omission => omission.Reason.Contains("claim count", StringComparison.Ordinal));
         Assert.Contains(Assert.IsType<ContextPackage>(evidenceBudget.Package).Omissions,
             omission => omission.Reason.Contains("evidence-item count", StringComparison.Ordinal));
-        Assert.Contains(Assert.IsType<ContextPackage>(tokenBudget.Package).Omissions,
-            omission => omission.Reason.Contains("estimated-token budget", StringComparison.Ordinal));
+        Assert.Equal(1, contextBudget.MaxEstimatedContextTokens);
+        Assert.Equal(
+            "Claim omitted because the estimated context-token budget would be exceeded.",
+            Assert.IsType<ContextPackage>(tokenBudget.Package).Omissions
+                .Single(omission => omission.ClaimId == "chain-1")
+                .Reason);
 
         foreach (var package in new[]
                  {
