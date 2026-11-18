@@ -14,11 +14,11 @@ public sealed class QuestionPlanningTests
     public void Interpret_ExtractsOnlyAnExplicitEntityIdentifier()
     {
         var result = _interpreter.Interpret(
-            new ImpactAnswerRequest("investigation-1", "What changes if ABC-123 is revised?"),
+            new ImpactAnswerRequest("investigation-1", "What is impacted if Requirement R-123 changes?"),
             RequestContext());
 
         Assert.Equal(ImpactQuestionType.EngineeringImpact, result.Type);
-        Assert.Equal("ABC-123", result.CandidateEntityId);
+        Assert.Equal("R-123", result.CandidateEntityId);
         Assert.Empty(result.ClarificationReasons);
     }
 
@@ -38,7 +38,7 @@ public sealed class QuestionPlanningTests
     public void Interpret_ClarifiesWhenQuestionContainsMultiplePossibleSubjects()
     {
         var result = _interpreter.Interpret(
-            new ImpactAnswerRequest("investigation-1", "Does ABC-123 affect XYZ-987?"),
+            new ImpactAnswerRequest("investigation-1", "What impacts R-123 or REQ-987?"),
             RequestContext());
 
         Assert.Null(result.CandidateEntityId);

@@ -23,6 +23,19 @@ public sealed class QuestionInterpreterTests
         Assert.Empty(result.ClarificationReasons);
     }
 
+    [Fact]
+    public void Interpret_AcceptsAnExplicitReqIdentifier()
+    {
+        const string question = "What is impacted if Requirement REQ-123 changes?";
+
+        var result = Interpret(question);
+
+        Assert.Equal(ImpactQuestionType.EngineeringImpact, result.Type);
+        Assert.Equal("REQ-123", result.CandidateEntityId);
+        Assert.Equal(question, result.OriginalQuestion);
+        Assert.Empty(result.ClarificationReasons);
+    }
+
     [Theory]
     [InlineData("What changes?", ImpactQuestionType.Unsupported, null)]
     [InlineData("What is impacted?", ImpactQuestionType.EngineeringImpact, "explicit requirement")]
@@ -45,6 +58,11 @@ public sealed class QuestionInterpreterTests
             Assert.Contains(
                 result.ClarificationReasons,
                 reason => reason.Contains(expectedReason, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (expectedType == ImpactQuestionType.Unsupported)
+        {
+            Assert.Null(result.CandidateEntityId);
         }
 
         if (question is "What is impacted?"
