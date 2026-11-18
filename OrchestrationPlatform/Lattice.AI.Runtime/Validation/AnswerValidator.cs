@@ -25,6 +25,19 @@ public sealed class AnswerValidator(TimeProvider? timeProvider = null) : IAnswer
         {
             issues.Add(new ValidationIssue("empty-summary", "The answer summary is empty."));
         }
+        else if (ContainsUnsupportedIdentifier(answer.Summary, GetIdentifiers(context.Claims)))
+        {
+            issues.Add(new ValidationIssue(
+                "unsupported-identifier",
+                "The answer summary contains an identifier that is not present in the Context Package."));
+        }
+
+        if (answer.Warnings.Count > 0)
+        {
+            issues.Add(new ValidationIssue(
+                "unsupported-warning",
+                "Model-provided warnings are not accepted."));
+        }
 
         if (!SameRequestContext(context.RequestContext, requestContext))
         {
@@ -135,6 +148,15 @@ public sealed class AnswerValidator(TimeProvider? timeProvider = null) : IAnswer
             }
 
             var claim = matchingClaims[0];
+            if (!string.IsNullOrWhiteSpace(impact.Explanation) &&
+                ContainsUnsupportedIdentifier(impact.Explanation, GetIdentifiers([claim])))
+            {
+                issues.Add(new ValidationIssue(
+                    "unsupported-identifier",
+                    "The impact explanation contains an identifier that is not present in its referenced claim.",
+                    impact.ClaimId));
+            }
+
             var citedSources = new List<(string EvidenceId, Lattice.AI.Runtime.Contracts.Evidence.EvidenceSourceReference Source)>();
             foreach (var evidenceId in impact.EvidenceIds.Distinct(StringComparer.Ordinal))
             {
@@ -195,6 +217,91 @@ public sealed class AnswerValidator(TimeProvider? timeProvider = null) : IAnswer
             ? new ValidationResult(ValidationDisposition.Accept, Array.Empty<ValidationIssue>())
             : new ValidationResult(ValidationDisposition.Reject, issues);
     }
+
+    private static HashSet<string> GetIdentifiers(IEnumerable<ImpactClaim> claims)
+    {
+        var identifiers = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var claim in claims)
+        {
+            AddIdentifier(identifiers, claim.ClaimId);
+            foreach (var entityId in claim.EntityIds)
+            {
+                AddIdentifier(identifiers, entityId);
+            }
+
+            foreach (var relationshipId in claim.RelationshipIds)
+            {
+                AddIdentifier(identifiers, relationshipId);
+            }
+        }
+
+        return identifiers;
+    }
+
+    private static void AddIdentifier(HashSet<string> identifiers, string identifier)
+    {
+        if (!string.IsNullOrWhiteSpace(identifier))
+        {
+            identifiers.Add(identifier);
+        }
+    }
+
+    private static bool ContainsUnsupportedIdentifier(string text, HashSet<string> supportedIdentifiers)
+    {
+        var tokenStart = -1;
+        for (var index = 0; index <= text.Length; index++)
+        {
+            if (index < text.Length && IsIdentifierCharacter(text[index]))
+            {
+                if (tokenStart < 0)
+                {
+                    tokenStart = index;
+                }
+
+                continue;
+            }
+
+            if (tokenStart < 0)
+            {
+                continue;
+            }
+
+            var token = text.AsSpan(tokenStart, index - tokenStart);
+            if (IsEngineeringIdentifier(token) && !supportedIdentifiers.Contains(token.ToString()))
+            {
+                return true;
+            }
+
+            tokenStart = -1;
+        }
+
+        return false;
+    }
+
+    private static bool IsIdentifierCharacter(char value) =>
+        IsAsciiLetter(value) || char.IsAsciiDigit(value) || value is '-' or '_';
+
+    private static bool IsEngineeringIdentifier(ReadOnlySpan<char> token)
+    {
+        if (token.Length < 3 || !IsAsciiLetter(token[0]))
+        {
+            return false;
+        }
+
+        var hasDigit = false;
+        var hasSeparator = false;
+        foreach (var character in token)
+        {
+            hasDigit |= char.IsAsciiDigit(character);
+            hasSeparator |= character is '-' or '_';
+        }
+
+        // Avoid treating ordinary words or standalone numbers as engineering identifiers.
+        return hasDigit && hasSeparator;
+    }
+
+    private static bool IsAsciiLetter(char value) =>
+        value is >= 'A' and <= 'Z' or >= 'a' and <= 'z';
 
     private static bool SameRequestContext(RuntimeRequestContext left, RuntimeRequestContext right) =>
         string.Equals(left.RequestId, right.RequestId, StringComparison.Ordinal) &&

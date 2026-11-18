@@ -127,6 +127,136 @@ public sealed class AnswerValidatorTests
             issue.Code == "empty-explanation" && issue.ClaimId == "claim-1");
     }
 
+    [Theory]
+    [InlineData("COMPONENT-999 is affected.")]
+    [InlineData("The path uses REL-999.")]
+    public void Validate_RejectsIdentifiersNotPresentInReferencedClaim(string explanation)
+    {
+        var result = new AnswerValidator().Validate(
+            new AnswerCandidate(
+                "The item affects a downstream part.",
+                [new AnswerImpact("claim-1", explanation, ["evidence-1"], ["citation-1"])],
+                []),
+            Context(),
+            Authorization(),
+            RequestContext());
+
+        Assert.Equal(ValidationDisposition.Reject, result.Disposition);
+        Assert.Contains(result.Issues, issue =>
+            issue.Code == "unsupported-identifier" && issue.ClaimId == "claim-1");
+    }
+
+    [Fact]
+    public void Validate_RejectsIdentifiersNotPresentInContextSummary()
+    {
+        var result = new AnswerValidator().Validate(
+            new AnswerCandidate(
+                "REQ-999 is affected.",
+                [new AnswerImpact("claim-1", "Supported impact.", ["evidence-1"], ["citation-1"])],
+                []),
+            Context(),
+            Authorization(),
+            RequestContext());
+
+        Assert.Equal(ValidationDisposition.Reject, result.Disposition);
+        Assert.Contains(result.Issues, issue => issue.Code == "unsupported-identifier");
+    }
+
+    [Fact]
+    public void Validate_RejectsIdentifierAvailableOnlyOnAnotherClaim()
+    {
+        var context = Context() with
+        {
+            Claims =
+            [
+                new ImpactClaim(
+                    "claim-1",
+                    "R-123 affects P-1.",
+                    ["R-123", "P-1"],
+                    ["relationship-1"],
+                    ["evidence-1"],
+                    null),
+                new ImpactClaim(
+                    "claim-2",
+                    "COMPONENT-999 is downstream.",
+                    ["COMPONENT-999"],
+                    ["REL-999"],
+                    ["evidence-2"],
+                    null)
+            ],
+            Sources = [Source("evidence-1"), Source("evidence-2", "citation-2")]
+        };
+
+        var result = new AnswerValidator().Validate(
+            new AnswerCandidate(
+                "The item affects a downstream part.",
+                [new AnswerImpact("claim-1", "COMPONENT-999 is affected.", ["evidence-1"], ["citation-1"])],
+                []),
+            context,
+            Authorization(),
+            RequestContext());
+
+        Assert.Equal(ValidationDisposition.Reject, result.Disposition);
+        Assert.Contains(result.Issues, issue =>
+            issue.Code == "unsupported-identifier" && issue.ClaimId == "claim-1");
+    }
+
+    [Fact]
+    public void Validate_AcceptsIdentifiersPresentInSummaryPackageAndReferencedClaim()
+    {
+        var result = new AnswerValidator().Validate(
+            new AnswerCandidate(
+                "R-123 affects P-1.",
+                [new AnswerImpact(
+                    "claim-1",
+                    "P-1 is affected through relationship-1.",
+                    ["evidence-1"],
+                    ["citation-1"])],
+                []),
+            Context(),
+            Authorization(),
+            RequestContext());
+
+        Assert.Equal(ValidationDisposition.Accept, result.Disposition);
+        Assert.Empty(result.Issues);
+    }
+
+    [Fact]
+    public void Validate_DoesNotTreatOrdinaryWordsOrNumbersAsIdentifiers()
+    {
+        var result = new AnswerValidator().Validate(
+            new AnswerCandidate(
+                "The change affects 2 parts.",
+                [new AnswerImpact(
+                    "claim-1",
+                    "The first part has 3 downstream connections.",
+                    ["evidence-1"],
+                    ["citation-1"])],
+                []),
+            Context(),
+            Authorization(),
+            RequestContext());
+
+        Assert.Equal(ValidationDisposition.Accept, result.Disposition);
+        Assert.Empty(result.Issues);
+    }
+
+    [Fact]
+    public void Validate_RejectsModelProvidedWarnings()
+    {
+        var result = new AnswerValidator().Validate(
+            new AnswerCandidate(
+                "The item affects a downstream part.",
+                [new AnswerImpact("claim-1", "Supported impact.", ["evidence-1"], ["citation-1"])],
+                ["Unverified assertion about a missing component."]),
+            Context(),
+            Authorization(),
+            RequestContext());
+
+        Assert.Equal(ValidationDisposition.Reject, result.Disposition);
+        Assert.Contains(result.Issues, issue => issue.Code == "unsupported-warning");
+    }
+
     [Fact]
     public void Validate_RejectsClaimOmittedByContextBudget()
     {
