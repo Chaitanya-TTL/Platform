@@ -46,7 +46,8 @@
 - Task 1 project foundation is committed as `4845280b1877633d6ca45bcc67f0066ddf5f2f14`; new runtime/evaluation projects built. The existing API test project setup test was blocked by pre-existing missing-type compile errors.
 - Task 2 shared contracts are committed as `141f6c1520310b99deb6a81a0224f8656820de04`; focused contract serialization tests passed.
 - Task 3 trust-boundary implementation is committed as `80dabfc`; focused runtime and frontend tests passed, and the API build succeeded.
-- Task 4 Context Compiler implementation is complete; all 28 runtime tests and the API build passed. Its isolated pre-implementation red run could not be performed because permission to create a temporary worktree was unavailable. Tasks 1–3 are committed and must not be repeated or amended.
+- Task 4 Context Compiler implementation is committed as `55624ef`; all 28 runtime tests and the API build passed. Its isolated pre-implementation red run could not be performed because permission to create a temporary worktree was unavailable.
+- Task 5 prompt governance and Azure Model Gateway implementation is complete; all 48 runtime tests and the API build passed. Its isolated pre-implementation red run was not verified. Tasks 1–4 are committed and must not be repeated or amended.
 
 ---
 
@@ -489,7 +490,7 @@ git commit -m "feat: compile traceable impact context"
 - Both `ModelRequest` and `ModelResponse` carry the exact `RuntimeRequestContext` created at API ingress; adapters must not create replacement request or trace identifiers. Context Package records the authorization decision ID, never raw grants.
 - The Azure adapter uses `IChatClient` and `Azure.Identity`; no Azure-specific type appears in Runtime.Contracts.
 
-- [ ] **Step 1: Write prompt and gateway tests**
+- [x] **Step 1: Write prompt and gateway tests**
 
 Assert source-controlled prompt versions load by exact ID/version, include required policy/domain/task sections, preserve investigation and Context Package IDs and output schema version, mark the Context Package as untrusted evidence, and never contain the signed authorization decision token. Test gateway mapping with a fake `IChatClient`, including cancellation and provider failure. Test the parser with valid output, malformed JSON, missing required claims, and unsupported schema version.
 
@@ -498,20 +499,22 @@ Assert source-controlled prompt versions load by exact ID/version, include requi
 Run: `dotnet test Lattice.AI.Runtime.Tests/Lattice.AI.Runtime.Tests.csproj --filter "FullyQualifiedName~PromptGovernanceTests|FullyQualifiedName~ModelGatewayTests"`
 Expected: FAIL because catalogs, assembler, and gateway are not implemented.
 
-- [ ] **Step 3: Add immutable prompt bundle and assembler**
+The pre-implementation red run was not recorded; the tests were already present when validation began. Focused post-implementation prompt/gateway tests passed (20/20).
+
+- [x] **Step 3: Add immutable prompt bundle and assembler**
 
 Add the `engineering-impact/v1` bundle as embedded resources or build output. Assemble instructions and the structured Context Package as separate message content; record prompt bundle ID/version and output schema version.
 
-- [ ] **Step 4: Implement the Azure gateway**
+- [x] **Step 4: Implement the Azure gateway**
 
 Add validated `AiRuntimeOptions` for endpoint, deployment, timeout, and token limit. Use `DefaultAzureCredential` and one configured deployment. Set explicit timeout and cancellation behavior; do not add fallback routing.
 
-- [ ] **Step 5: Verify tests**
+- [x] **Step 5: Verify tests**
 
 Run: `dotnet test Lattice.AI.Runtime.Tests/Lattice.AI.Runtime.Tests.csproj --filter "FullyQualifiedName~PromptGovernanceTests|FullyQualifiedName~ModelGatewayTests"`
 Expected: PASS; cancellation and errors are surfaced, and bundle version is retained.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add OrchestrationPlatform/Lattice.AI.Runtime/Prompts OrchestrationPlatform/Lattice.AI.Runtime/Generation OrchestrationPlatform/Lattice.AI.Runtime.Azure/Models OrchestrationPlatform/Lattice.AI.Runtime.Tests/Prompts OrchestrationPlatform/Lattice.AI.Runtime.Tests/Generation
