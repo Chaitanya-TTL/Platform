@@ -64,7 +64,7 @@ public sealed class RuntimeContractTests
             new[]
             {
                 new ImpactClaim("claim-1", "Housing affects Frame.", ["part-17", "part-18"],
-                    ["relationship-3"], ["evidence-1"], null)
+                    ["relationship-3"], ["evidence-1"], null, 0.85)
             },
             new[]
             {
@@ -85,6 +85,7 @@ public sealed class RuntimeContractTests
         Assert.NotNull(deserialized.Claims[0].EntityIds);
         Assert.NotNull(deserialized.Claims[0].RelationshipIds);
         Assert.NotNull(deserialized.Claims[0].EvidenceIds);
+        Assert.Equal(0.85, deserialized.Claims[0].Confidence);
     }
 
     [Fact]

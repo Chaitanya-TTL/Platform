@@ -45,7 +45,8 @@
 
 - Task 1 project foundation is committed as `4845280b1877633d6ca45bcc67f0066ddf5f2f14`; new runtime/evaluation projects built. The existing API test project setup test was blocked by pre-existing missing-type compile errors.
 - Task 2 shared contracts are committed as `141f6c1520310b99deb6a81a0224f8656820de04`; focused contract serialization tests passed.
-- Resume implementation at revised Task 3. Task 3 must extend the committed contracts with investigation scope and the authorization context described below; do not repeat or amend prior commits.
+- Task 3 trust-boundary implementation is committed as `80dabfc`; focused runtime and frontend tests passed, and the API build succeeded.
+- Task 4 Context Compiler implementation is complete; all 28 runtime tests and the API build passed. Its isolated pre-implementation red run could not be performed because permission to create a temporary worktree was unavailable. Tasks 1–3 are committed and must not be repeated or amended.
 
 ---
 
@@ -427,9 +428,10 @@ git commit -m "feat: add authorized PLM Brain evidence boundary"
 - `ContextCompilationInput` is `(RuntimeRequestContext RequestContext, string InvestigationId, ResolvedEntity Subject, ImpactScope Scope, AuthorizationScope Authorization, EvidenceRetrievalResult Evidence, ContextBudget Budget)`.
 - `ContextBudget` is `(int MaxClaims, int MaxEvidenceItems, int MaxEstimatedTokens)`.
 - `ContextCompilationResult` and `ContextOmission` are defined in the runtime contracts project in Task 2; `ContextPackage.InvestigationId` must match the input and retrieval result. No model-specific types are allowed in this project.
+- `ImpactClaim.Confidence` carries PLM Brain chain confidence separately so its engineering explanation remains unchanged.
 - The compiler only selects, filters, deduplicates, and budgets impact paths/chains and narratives already returned by PLM Brain. It does not derive new engineering relationships, traverse paths, or create new impact reasoning.
 
-- [ ] **Step 1: Write compiler tests**
+- [x] **Step 1: Write compiler tests**
 
 Cover stable claim/evidence/path/chain references, duplicate evidence removal, partial provenance, conflicting evidence, investigation-ID mismatch, and context-budget omission reporting. Assert that every claim evidence ID exists in package sources, PLM Brain chain IDs/narratives/rationales are preserved without recomputation, the package and evidence investigation IDs match the input, and omitted claims are not emitted.
 
@@ -438,16 +440,18 @@ Cover stable claim/evidence/path/chain references, duplicate evidence removal, p
 Run: `dotnet test Lattice.AI.Runtime.Tests/Lattice.AI.Runtime.Tests.csproj --filter FullyQualifiedName~ContextCompilerTests`
 Expected: FAIL because the compiler does not exist.
 
-- [ ] **Step 3: Implement deterministic compilation**
+The pre-implementation red run was not verified: the implementation and tests were already present when this session resumed, and permission to create an isolated baseline worktree was unavailable. The post-implementation focused and full runtime test runs passed.
+
+- [x] **Step 3: Implement deterministic compilation**
 
 Implement selection and deduplication using stable IDs; preserve all source/provenance fields; calculate a bounded package; record each omission and its reason. Map PLM Brain-provided impact paths/chains and narratives into `ImpactClaim`; do not infer new paths, relationships, confidence values, explanations, or links.
 
-- [ ] **Step 4: Verify compiler tests**
+- [x] **Step 4: Verify compiler tests**
 
 Run: `dotnet test Lattice.AI.Runtime.Tests/Lattice.AI.Runtime.Tests.csproj --filter FullyQualifiedName~ContextCompilerTests`
 Expected: PASS, including the budget-pressure and missing-provenance cases in Review Focus.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add OrchestrationPlatform/Lattice.AI.Runtime/ContextCompilation OrchestrationPlatform/Lattice.AI.Runtime.Tests/ContextCompilation

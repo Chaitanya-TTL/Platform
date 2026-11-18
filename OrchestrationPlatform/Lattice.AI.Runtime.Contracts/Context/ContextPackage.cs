@@ -38,4 +38,5 @@ public sealed record ImpactClaim(
     IReadOnlyList<string> EntityIds,
     IReadOnlyList<string> RelationshipIds,
     IReadOnlyList<string> EvidenceIds,
-    string? Rationale);
+    string? Rationale,
+    double? Confidence = null);
