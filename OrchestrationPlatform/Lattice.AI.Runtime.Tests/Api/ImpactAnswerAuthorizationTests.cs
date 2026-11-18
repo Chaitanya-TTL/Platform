@@ -162,6 +162,10 @@ public sealed class ImpactAnswerAuthorizationTests
         var response = await PostAsync(client, requestWithOverrides);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(1, factory.DecisionProvider.CallCount);
+        Assert.Equal(1, factory.TokenIssuer.CallCount);
+        Assert.Equal(1, factory.EntityResolver.CallCount);
+        Assert.Equal(1, factory.EvidenceSource.CallCount);
         Assert.Equal("tenant-from-authentication", factory.DecisionProvider.LastTenantId);
         Assert.Equal("subject-from-authentication", factory.DecisionProvider.LastSubjectId);
         Assert.Equal("investigation-1", factory.DecisionProvider.LastInvestigationId);

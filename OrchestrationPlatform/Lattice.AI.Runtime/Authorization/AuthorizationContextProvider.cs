@@ -1,5 +1,4 @@
 using System.Security.Claims;
-using System.Collections.Concurrent;
 using Lattice.AI.Runtime.Contracts.Authorization;
 using Lattice.AI.Runtime.Contracts.Requests;
 
@@ -12,7 +11,6 @@ public sealed class AuthorizationContextProvider(
     string subjectClaimType = "sub",
     TimeProvider? timeProvider = null) : IAuthorizationContextProvider
 {
-    private readonly ConcurrentDictionary<AuthorizationRequestKey, Lazy<Task<AuthorizationContextResult>>> _decisions = new();
     private static readonly string[] RequiredGrants =
     [
         "investigation:resolve-entity",
@@ -41,23 +39,13 @@ public sealed class AuthorizationContextProvider(
                 new AuthorizationContextResult.Denied(AuthorizationDenialCode.MissingIdentity));
         }
 
-        var key = new AuthorizationRequestKey(
-            requestContext.RequestId,
-            requestContext.TraceId,
+        return CreateAuthorizedContextAsync(
+            principal,
             investigationId,
+            requestContext,
             tenantId,
-            subjectId);
-        return _decisions.GetOrAdd(
-            key,
-            _ => new Lazy<Task<AuthorizationContextResult>>(
-                () => CreateAuthorizedContextAsync(
-                    principal,
-                    investigationId,
-                    requestContext,
-                    tenantId,
-                    subjectId,
-                    cancellationToken),
-                LazyThreadSafetyMode.ExecutionAndPublication)).Value;
+            subjectId,
+            cancellationToken);
     }
 
     private async Task<AuthorizationContextResult> CreateAuthorizedContextAsync(
@@ -97,11 +85,4 @@ public sealed class AuthorizationContextProvider(
             cancellationToken);
         return new AuthorizationContextResult.Authorized(authorization);
     }
-
-    private sealed record AuthorizationRequestKey(
-        string RequestId,
-        string TraceId,
-        string InvestigationId,
-        string TenantId,
-        string SubjectId);
 }
