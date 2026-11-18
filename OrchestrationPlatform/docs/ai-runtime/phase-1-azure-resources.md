@@ -35,6 +35,7 @@ AiRuntime__Endpoint
 AiRuntime__DeploymentName
 AiRuntime__TimeoutSeconds
 AiRuntime__MaxOutputTokens
+AiRuntime__MaxInputTokens
 AiRuntime__Authentication__Authority
 AiRuntime__Authentication__Audience
 AiRuntime__PlmBrain__BaseAddress
@@ -51,7 +52,7 @@ AzureMonitor__ConnectionString
 APPLICATIONINSIGHTS_CONNECTION_STRING
 ```
 
-`AiRuntime:TimeoutSeconds` defaults to `45` and must be `1`–`120`; `AiRuntime:MaxOutputTokens` defaults to `1024` and must be `1`–`8192`. `AiRuntime:Endpoint` must be an absolute HTTPS URI, and `DeploymentName` is required. These endpoint/deployment values are configuration, not credentials.
+`AiRuntime:TimeoutSeconds` defaults to `45` and must be `1`–`120`; `AiRuntime:MaxOutputTokens` defaults to `1024` and must be `1`–`8192`. `AiRuntime:MaxInputTokens` is required, must be greater than zero, and must exceed `MaxOutputTokens`; select it for the actual deployment context window, without assuming provider support or imposing a generic model-specific ceiling. Prompt assembly and input-budget enforcement are not part of this configuration change. `AiRuntime:Endpoint` must be an absolute HTTPS URI, and `DeploymentName` is required. These endpoint/deployment values are configuration, not credentials.
 
 The TypeScript service environment variables are `LATTICE_PLM_SERVICE_ISSUER`, `LATTICE_PLM_SERVICE_AUDIENCE`, `LATTICE_PLM_SERVICE_JWKS_URL`, `LATTICE_PLM_SERVICE_ROLE`, `LATTICE_DECISION_ISSUER`, `LATTICE_DECISION_AUDIENCE`, and `LATTICE_DECISION_TRUSTED_JWKS`. `LATTICE_DECISION_MAX_LIFETIME_SECONDS` and `LATTICE_DECISION_REVOCATION_CHECK_REQUIRED` are optional; their behavior is described above.
 

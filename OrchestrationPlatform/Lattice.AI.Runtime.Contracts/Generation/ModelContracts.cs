@@ -7,7 +7,8 @@ public sealed record ModelConfiguration(
     string Provider,
     string ModelName,
     string DeploymentName,
-    int MaxOutputTokens);
+    int MaxOutputTokens,
+    int MaxInputTokens);
 
 public sealed record ModelMessage(string Role, string Content);
 

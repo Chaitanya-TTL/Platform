@@ -312,7 +312,8 @@ public sealed class AiRuntimeTelemetryTests
                     "test",
                     "test-model",
                     "test-deployment",
-                    256),
+                    256,
+                    4096),
                 telemetry: telemetry);
         }
 

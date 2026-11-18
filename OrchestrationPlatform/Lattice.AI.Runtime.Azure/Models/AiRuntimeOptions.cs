@@ -10,6 +10,8 @@ public sealed class AiRuntimeOptions
 
     public int MaxOutputTokens { get; set; } = 1024;
 
+    public int MaxInputTokens { get; set; }
+
     public void Validate()
     {
         if (!Uri.TryCreate(Endpoint, UriKind.Absolute, out var endpoint) ||
@@ -31,6 +33,16 @@ public sealed class AiRuntimeOptions
         if (MaxOutputTokens is < 1 or > 8192)
         {
             throw new InvalidOperationException("AiRuntime:MaxOutputTokens must be between 1 and 8192.");
+        }
+
+        if (MaxInputTokens < 1)
+        {
+            throw new InvalidOperationException("AiRuntime:MaxInputTokens must be greater than zero.");
+        }
+
+        if (MaxOutputTokens >= MaxInputTokens)
+        {
+            throw new InvalidOperationException("AiRuntime:MaxOutputTokens must be less than AiRuntime:MaxInputTokens.");
         }
     }
 }

@@ -201,7 +201,7 @@ public sealed class EngineeringImpactEvaluationRunner : IEngineeringImpactEvalua
             modelGateway,
             new AnswerCandidateParser(),
             new AnswerValidator(timeProvider),
-            new ModelConfiguration("evaluation-model", "offline-fixture", "deterministic-fake", "offline-fixture", 256),
+            new ModelConfiguration("evaluation-model", "offline-fixture", "deterministic-fake", "offline-fixture", 256, 4096),
             timeProvider);
 
         ImpactAnswerResult result;

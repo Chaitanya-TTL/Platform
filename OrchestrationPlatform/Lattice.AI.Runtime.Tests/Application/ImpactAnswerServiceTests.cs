@@ -232,7 +232,7 @@ public sealed class ImpactAnswerServiceTests
                 Gateway,
                 new AnswerCandidateParser(),
                 new AnswerValidator(),
-                new ModelConfiguration("model-1", "test", "test-model", "test-deployment", 256));
+                new ModelConfiguration("model-1", "test", "test-model", "test-deployment", 256, 4096));
         }
 
         public StubEntityResolver Resolver { get; }

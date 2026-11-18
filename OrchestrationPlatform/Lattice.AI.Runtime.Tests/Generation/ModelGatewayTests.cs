@@ -106,6 +106,48 @@ public sealed class ModelGatewayTests
             new AzureOpenAiModelGateway(new FakeChatClient((_, _, _) => Task.FromResult(new ChatResponse())), Options.Create(options)));
     }
 
+    [Theory]
+    [InlineData(-1, 256)]
+    [InlineData(256, 256)]
+    [InlineData(255, 256)]
+    public void Constructor_RejectsMissingOrInvalidInputTokenAllowance(int maxInputTokens, int maxOutputTokens)
+    {
+        var options = CreateOptions();
+        options.MaxInputTokens = maxInputTokens;
+        options.MaxOutputTokens = maxOutputTokens;
+
+        Assert.Throws<InvalidOperationException>(() =>
+            new AzureOpenAiModelGateway(new FakeChatClient((_, _, _) => Task.FromResult(new ChatResponse())), Options.Create(options)));
+    }
+
+    [Fact]
+    public void Constructor_RejectsUnconfiguredDefaultInputTokenAllowance()
+    {
+        var options = CreateOptions();
+        options.MaxInputTokens = default;
+
+        Assert.Equal(0, options.MaxInputTokens);
+        Assert.Throws<InvalidOperationException>(() =>
+            new AzureOpenAiModelGateway(new FakeChatClient((_, _, _) => Task.FromResult(new ChatResponse())), Options.Create(options)));
+    }
+
+    [Theory]
+    [InlineData(257, 256)]
+    [InlineData(131072, 8192)]
+    [InlineData(int.MaxValue, 8192)]
+    public void Constructor_AcceptsValidInputTokenAllowance(int maxInputTokens, int maxOutputTokens)
+    {
+        var options = CreateOptions();
+        options.MaxInputTokens = maxInputTokens;
+        options.MaxOutputTokens = maxOutputTokens;
+
+        var gateway = new AzureOpenAiModelGateway(
+            new FakeChatClient((_, _, _) => Task.FromResult(new ChatResponse())),
+            Options.Create(options));
+
+        Assert.NotNull(gateway);
+    }
+
     private static ModelRequest Request() => new(
         new RuntimeRequestContext("request-1", "trace-1", "parent-1", "conversation-1"),
         "engineering-impact",
@@ -123,7 +165,8 @@ public sealed class ModelGatewayTests
         Endpoint = "https://example.openai.azure.com",
         DeploymentName = "deployment-v1",
         TimeoutSeconds = 30,
-        MaxOutputTokens = 256
+        MaxOutputTokens = 256,
+        MaxInputTokens = 4096
     };
 
     private sealed class FakeChatClient(

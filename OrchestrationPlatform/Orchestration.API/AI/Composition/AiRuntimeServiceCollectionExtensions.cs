@@ -51,7 +51,8 @@ public static class AiRuntimeServiceCollectionExtensions
                 "azure-openai",
                 string.IsNullOrWhiteSpace(options.DeploymentName) ? "unconfigured" : options.DeploymentName,
                 options.DeploymentName,
-                options.MaxOutputTokens);
+                options.MaxOutputTokens,
+                options.MaxInputTokens);
         });
         services.AddTransient<AzureOpenAiModelGateway>();
         services.AddTransient<IModelGateway>(provider =>

@@ -40,7 +40,7 @@ public sealed class PromptGovernanceTests
         var context = ContextPackage(signedAuthorizationToken);
         var request = new ImpactAnswerRequest("investigation-1", "What is impacted?");
         var prompt = new SourceControlledPromptCatalog().GetRequired("engineering-impact", "v1");
-        var configuration = new ModelConfiguration("model-config", "azure-openai", "gpt", "deployment", 512);
+        var configuration = new ModelConfiguration("model-config", "azure-openai", "gpt", "deployment", 512, 4096);
 
         var modelRequest = new PromptAssembler().Assemble(request, context, prompt, configuration);
         var systemMessage = Assert.Single(modelRequest.Messages, message => message.Role == "system");
@@ -78,7 +78,7 @@ public sealed class PromptGovernanceTests
     {
         var request = new ImpactAnswerRequest("investigation-other", "What is impacted?");
         var prompt = new SourceControlledPromptCatalog().GetRequired("engineering-impact", "v1");
-        var configuration = new ModelConfiguration("model-config", "azure-openai", "gpt", "deployment", 512);
+        var configuration = new ModelConfiguration("model-config", "azure-openai", "gpt", "deployment", 512, 4096);
 
         Assert.Throws<ArgumentException>(() =>
             new PromptAssembler().Assemble(request, ContextPackage("decision-id"), prompt, configuration));

@@ -54,6 +54,7 @@ The model options are bound from `AiRuntime`:
 | `AiRuntime__DeploymentName` | Required deployment name at that endpoint. |
 | `AiRuntime__TimeoutSeconds` | Request timeout; default `45`, valid range `1`–`120`. |
 | `AiRuntime__MaxOutputTokens` | Maximum output tokens; default `1024`, valid range `1`–`8192`. |
+| `AiRuntime__MaxInputTokens` | Required input-token allowance; must be greater than zero and greater than `MaxOutputTokens`. Select it for the actual deployment context window; it has no inferred default or generic model-specific ceiling. |
 
 For example, set only platform-supplied values in the current PowerShell session:
 
@@ -62,11 +63,14 @@ $env:AiRuntime__Endpoint = "<platform-provided-https-endpoint>"
 $env:AiRuntime__DeploymentName = "<platform-provided-deployment-name>"
 $env:AiRuntime__TimeoutSeconds = "45"
 $env:AiRuntime__MaxOutputTokens = "1024"
+$env:AiRuntime__MaxInputTokens = "<deployment-context-window-input-token-limit>"
 $env:AiRuntime__Authentication__Authority = "<platform-provided-entra-authority>"
 $env:AiRuntime__Authentication__Audience = "<platform-provided-api-audience>"
 ```
 
 `AiRuntime:Authentication:Authority` and `AiRuntime:Authentication:Audience` configure JWT bearer validation at API ingress. The API validates issuer, audience, signature, and lifetime with no clock skew. The Phase 1 model provider is fixed to Azure OpenAI, and the prompt is the source-controlled `engineering-impact/v1`; neither is selected by configuration.
+
+The input allowance is a required configuration value and must be chosen for the actual deployment context window. Do not assume a provider or deployment supports a particular value. Prompt assembly and input-budget enforcement are not part of this configuration change.
 
 PLM Brain settings are nested under `AiRuntime:PlmBrain` (use double underscores in environment-variable names):
 
