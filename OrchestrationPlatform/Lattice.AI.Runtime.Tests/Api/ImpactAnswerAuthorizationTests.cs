@@ -41,7 +41,7 @@ public sealed class ImpactAnswerAuthorizationTests
     }
 
     [Fact]
-    public async Task PostImpactAnswer_ReturnsForbiddenBeforeCallingPlmWhenDecisionIsDenied()
+    public async Task PostImpactAnswer_PolicyDenialRemainsForbidden()
     {
         using var factory = new ImpactAnswerFactory(denyDecision: true);
         using var client = CreateClient(factory, authenticate: true);
@@ -53,10 +53,27 @@ public sealed class ImpactAnswerAuthorizationTests
         Assert.Equal(0, factory.TokenIssuer.CallCount);
         Assert.Equal(0, factory.EntityResolver.CallCount);
         Assert.Equal(0, factory.EvidenceSource.CallCount);
+        Assert.Equal(0, factory.ModelGateway.CallCount);
     }
 
     [Fact]
-    public async Task PostImpactAnswer_ReportsAuthorizationProviderFailureAsUnavailable()
+    public async Task PostImpactAnswer_ReturnsUnavailableWhenAuthorizationProviderIsNotConfigured()
+    {
+        using var factory = new ImpactAnswerFactory(useDefaultDecisionProvider: true);
+        using var client = CreateClient(factory, authenticate: true);
+
+        var response = await PostAsync(client, ValidRequest);
+
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+        await AssertProblemCodeAsync(response, "AI_RUNTIME_AUTHORIZATION_PROVIDER_NOT_CONFIGURED");
+        Assert.Equal(0, factory.DecisionProvider.CallCount);
+        Assert.Equal(0, factory.EntityResolver.CallCount);
+        Assert.Equal(0, factory.EvidenceSource.CallCount);
+        Assert.Equal(0, factory.ModelGateway.CallCount);
+    }
+
+    [Fact]
+    public async Task PostImpactAnswer_ReturnsUnavailableWhenAuthorizationProviderThrows()
     {
         using var factory = new ImpactAnswerFactory(failDecision: true);
         using var client = CreateClient(factory, authenticate: true);
@@ -64,8 +81,10 @@ public sealed class ImpactAnswerAuthorizationTests
         var response = await PostAsync(client, ValidRequest);
 
         Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+        await AssertProblemCodeAsync(response, "AI_RUNTIME_AUTHORIZATION_PROVIDER_UNAVAILABLE");
         Assert.Equal(0, factory.EntityResolver.CallCount);
         Assert.Equal(0, factory.EvidenceSource.CallCount);
+        Assert.Equal(0, factory.ModelGateway.CallCount);
     }
 
     [Fact]
@@ -134,17 +153,28 @@ public sealed class ImpactAnswerAuthorizationTests
             "/api/engineering/impact-answer",
             new StringContent(body, Encoding.UTF8, "application/json"));
 
+    private static async Task AssertProblemCodeAsync(HttpResponseMessage response, string expectedCode)
+    {
+        using var responseJson = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal(expectedCode, responseJson.RootElement.GetProperty("code").GetString());
+        Assert.Equal(
+            "The authorization decision could not be completed.",
+            responseJson.RootElement.GetProperty("detail").GetString());
+    }
+
     private const string ValidRequest =
         """{"investigationId":"investigation-1","question":"What impacts if REQ-123 changes?","conversationId":"conversation-1"}""";
 
     private sealed class ImpactAnswerFactory(
         bool denyDecision = false,
-        bool failDecision = false) : WebApplicationFactory<Program>
+        bool failDecision = false,
+        bool useDefaultDecisionProvider = false) : WebApplicationFactory<Program>
     {
         public RecordingDecisionProvider DecisionProvider { get; } = new(denyDecision, failDecision);
         public RecordingTokenIssuer TokenIssuer { get; } = new();
         public RecordingEntityResolver EntityResolver { get; } = new();
         public RecordingEvidenceSource EvidenceSource { get; } = new();
+        public RecordingModelGateway ModelGateway { get; } = new();
 
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
@@ -161,8 +191,12 @@ public sealed class ImpactAnswerAuthorizationTests
                         TestAuthenticationHandler.TestSchemeName,
                         _ => { });
 
-                services.RemoveAll<IResourceAuthorizationDecisionProvider>();
-                services.AddSingleton<IResourceAuthorizationDecisionProvider>(DecisionProvider);
+                if (!useDefaultDecisionProvider)
+                {
+                    services.RemoveAll<IResourceAuthorizationDecisionProvider>();
+                    services.AddSingleton<IResourceAuthorizationDecisionProvider>(DecisionProvider);
+                }
+
                 services.RemoveAll<IAuthorizationDecisionTokenIssuer>();
                 services.AddSingleton<IAuthorizationDecisionTokenIssuer>(TokenIssuer);
                 services.RemoveAll<IEngineeringEntityResolver>();
@@ -170,7 +204,7 @@ public sealed class ImpactAnswerAuthorizationTests
                 services.RemoveAll<IEngineeringEvidenceSource>();
                 services.AddSingleton<IEngineeringEvidenceSource>(EvidenceSource);
                 services.RemoveAll<IModelGateway>();
-                services.AddSingleton<IModelGateway, TestModelGateway>();
+                services.AddSingleton<IModelGateway>(ModelGateway);
             });
         }
     }
@@ -328,13 +362,17 @@ public sealed class ImpactAnswerAuthorizationTests
         }
     }
 
-    private sealed class TestModelGateway : IModelGateway
+    private sealed class RecordingModelGateway : IModelGateway
     {
         private const string Content =
             """{"schemaVersion":"answer-v1","summary":"REQ-123 affects P-1.","impacts":[{"claimId":"relationship:relationship-1","explanation":"REQ-123 affects P-1.","evidenceIds":["evidence-1"],"sourceIds":["citation-1"]}],"warnings":[]}""";
 
-        public Task<ModelResponse> GenerateAsync(ModelRequest request, CancellationToken cancellationToken) =>
-            Task.FromResult(new ModelResponse(
+        public int CallCount { get; private set; }
+
+        public Task<ModelResponse> GenerateAsync(ModelRequest request, CancellationToken cancellationToken)
+        {
+            CallCount++;
+            return Task.FromResult(new ModelResponse(
                 request.RequestContext,
                 Content,
                 "test",
@@ -343,5 +381,6 @@ public sealed class ImpactAnswerAuthorizationTests
                 10,
                 10,
                 TimeSpan.FromMilliseconds(1)));
+        }
     }
 }

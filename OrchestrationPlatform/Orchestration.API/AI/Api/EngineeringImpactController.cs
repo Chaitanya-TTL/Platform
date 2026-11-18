@@ -64,7 +64,15 @@ public sealed class EngineeringImpactController(
                     requestContext,
                     cancellationToken);
                 authorizationStage.SetDisposition(
-                    authorizationResult is AuthorizationContextResult.Authorized ? "authorized" : "deny");
+                    authorizationResult switch
+                    {
+                        AuthorizationContextResult.Authorized => "authorized",
+                        AuthorizationContextResult.Denied
+                        {
+                            Code: AuthorizationDenialCode.MissingProviderConfiguration
+                        } => "authorization-unavailable",
+                        _ => "deny"
+                    });
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -86,11 +94,19 @@ public sealed class EngineeringImpactController(
                 authorizationStage.SetFailure("authorization-unavailable");
                 requestStage.SetFailure("authorization-unavailable");
                 telemetry.RecordRequestOutcome("failed");
-                return Problem(
-                    statusCode: StatusCodes.Status503ServiceUnavailable,
-                    title: "Authorization service unavailable",
-                    detail: "The authorization decision could not be completed.");
+                return AuthorizationUnavailable("AI_RUNTIME_AUTHORIZATION_PROVIDER_UNAVAILABLE");
             }
+        }
+
+        if (authorizationResult is AuthorizationContextResult.Denied
+            {
+                Code: AuthorizationDenialCode.MissingProviderConfiguration
+            })
+        {
+            requestStage.SetFailure("authorization-unavailable");
+            requestStage.SetDisposition("failed");
+            telemetry.RecordRequestOutcome("failed");
+            return AuthorizationUnavailable("AI_RUNTIME_AUTHORIZATION_PROVIDER_NOT_CONFIGURED");
         }
 
         if (authorizationResult is not AuthorizationContextResult.Authorized authorized)
@@ -134,5 +150,17 @@ public sealed class EngineeringImpactController(
                 telemetry.RecordRequestOutcome(disposition);
             }
         }
+    }
+
+    private ObjectResult AuthorizationUnavailable(string code)
+    {
+        var problem = new ProblemDetails
+        {
+            Status = StatusCodes.Status503ServiceUnavailable,
+            Title = "Authorization service unavailable",
+            Detail = "The authorization decision could not be completed."
+        };
+        problem.Extensions["code"] = code;
+        return StatusCode(StatusCodes.Status503ServiceUnavailable, problem);
     }
 }
