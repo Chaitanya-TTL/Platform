@@ -47,7 +47,8 @@
 - Task 2 shared contracts are committed as `141f6c1520310b99deb6a81a0224f8656820de04`; focused contract serialization tests passed.
 - Task 3 trust-boundary implementation is committed as `80dabfc`; focused runtime and frontend tests passed, and the API build succeeded.
 - Task 4 Context Compiler implementation is committed as `55624ef`; all 28 runtime tests and the API build passed. Its isolated pre-implementation red run could not be performed because permission to create a temporary worktree was unavailable.
-- Task 5 prompt governance and Azure Model Gateway implementation is complete; all 48 runtime tests and the API build passed. Its isolated pre-implementation red run was not verified. Tasks 1–4 are committed and must not be repeated or amended.
+- Task 5 prompt governance and Azure Model Gateway implementation is committed as `d4a5c72`; all 48 runtime tests and the API build passed. Its isolated pre-implementation red run was not verified.
+- Task 6 answer validation and impact-answer API implementation is complete; focused tests passed (20/20), the full runtime suite passed (68/68), and the API build succeeded. The existing API test project still has baseline missing-type compilation errors and was not changed. Tasks 1–5 are committed and must not be repeated or amended.
 
 ---
 
@@ -535,6 +536,7 @@ git commit -m "feat: add governed prompts and model gateway"
 - Create: `Lattice.AI.Runtime.Tests/Application/ImpactAnswerServiceTests.cs`
 - Modify: `Lattice.AI.Runtime.Tests/Lattice.AI.Runtime.Tests.csproj` to add the API integration-test reference and `Microsoft.AspNetCore.Mvc.Testing`
 - Modify: `Directory.Packages.props` to centrally pin the compatible `Microsoft.AspNetCore.Mvc.Testing` version
+- Modify: `Directory.Packages.props` to update Swashbuckle to the .NET 10-compatible version required for `WebApplicationFactory` startup
 - Modify: `Orchestration.API/Program.cs` with a public partial `Program` declaration for `WebApplicationFactory`
 - Create: `Lattice.AI.Runtime.Tests/Api/ImpactAnswerAuthorizationTests.cs`
 
@@ -547,7 +549,7 @@ git commit -m "feat: add governed prompts and model gateway"
 - `ImpactAnswerRequest` requires the caller's active `InvestigationId`; `ImpactAnswerResult` returns that investigation ID, request context, disposition, summary/impacts, source references, validation issues, and Context Package ID.
 - API integration tests use `WebApplicationFactory<Program>` with test authentication and a fake policy provider to assert unauthenticated requests return 401, denied scope returns 403 without PLM calls, and authorized requests cannot override tenant/grants in the body.
 
-- [ ] **Step 1: Write validator and service tests**
+- [x] **Step 1: Write validator and service tests**
 
 Test valid evidence references are accepted; unknown claims/evidence/source IDs are rejected; unauthorized sources are denied; unresolved subjects produce clarification; missing investigation ID is rejected; empty or insufficient evidence produces abstention; malformed model JSON is rejected; and model failures propagate as explicit failures.
 
@@ -556,22 +558,24 @@ Test valid evidence references are accepted; unknown claims/evidence/source IDs 
 Run: `dotnet test Lattice.AI.Runtime.Tests/Lattice.AI.Runtime.Tests.csproj --filter "FullyQualifiedName~AnswerValidatorTests|FullyQualifiedName~ImpactAnswerServiceTests|FullyQualifiedName~ImpactAnswerAuthorizationTests"`
 Expected: FAIL because validation and application services are absent.
 
-- [ ] **Step 3: Implement deterministic answer validator**
+The pre-implementation red run was not verified because these tests and implementation were present when validation began. The focused post-implementation run passed (20/20).
+
+- [x] **Step 3: Implement deterministic answer validator**
 
 Validate all claim IDs, entity IDs, relationship IDs, evidence IDs, and source links against the Context Package and current authorization. Return `Accept`, `Clarify`, `Abstain`, or `Reject` with structured issues; do not rely on an LLM judge for acceptance.
 
-- [ ] **Step 4: Implement the application service**
+- [x] **Step 4: Implement the application service**
 
 Orchestrate the defined services with cancellation and explicit disposition mapping. Never call the model after authorization denial or failed context compilation.
 
-- [ ] **Step 5: Add API endpoint and verify**
+- [x] **Step 5: Add API endpoint and verify**
 
 Expose `[Authorize] POST api/engineering/impact-answer`; require the active investigation ID in the request, derive `AuthorizationContextResult` from the authenticated principal and server-side policy provider, and return 403 without PLM calls for a `Denied` result. Only pass `Authorized(AuthorizationContext)` to `AnswerAsync`. The current `Program.cs` does not register an authentication scheme; use the Task 3 OIDC/JWT bearer configuration and fail closed if identity or policy configuration is missing. Never accept caller-supplied tenant, subject, grant, decision, or policy-version fields. Map clarify/abstain/failure outcomes to documented response codes and response bodies; map signer or policy-service outages explicitly rather than treating them as authorization denials. Use `WebApplicationFactory` integration tests in the runtime test project rather than the existing API test project, whose baseline compile errors currently prevent execution.
 
 Run: `dotnet test Lattice.AI.Runtime.Tests/Lattice.AI.Runtime.Tests.csproj --filter "FullyQualifiedName~AnswerValidatorTests|FullyQualifiedName~ImpactAnswerServiceTests|FullyQualifiedName~ImpactAnswerAuthorizationTests"`
-Expected: PASS, including unsupported-claim, unauthorized-evidence, missing-investigation, and invalid-model-output cases in Review Focus.
+Expected: PASS, including unsupported-claim, unauthorized-evidence, missing-investigation, and invalid-model-output cases in Review Focus. The runtime suite passed (68/68); the API host build succeeded. The separate pre-existing `Orchestration.API.Tests` project compile errors remain out of scope.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add OrchestrationPlatform/Directory.Packages.props OrchestrationPlatform/Lattice.AI.Runtime/Validation OrchestrationPlatform/Lattice.AI.Runtime/Application OrchestrationPlatform/Orchestration.API/AI/Api OrchestrationPlatform/Orchestration.API/Program.cs OrchestrationPlatform/Lattice.AI.Runtime.Tests/Validation OrchestrationPlatform/Lattice.AI.Runtime.Tests/Application OrchestrationPlatform/Lattice.AI.Runtime.Tests/Api OrchestrationPlatform/Lattice.AI.Runtime.Tests/Lattice.AI.Runtime.Tests.csproj

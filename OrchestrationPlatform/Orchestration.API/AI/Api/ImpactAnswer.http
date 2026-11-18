@@ -1,0 +1,13 @@
+@baseUrl = https://localhost:7199
+@accessToken = {{$dotenv AI_RUNTIME_ACCESS_TOKEN}}
+
+### Answer an impact question within the active investigation
+POST {{baseUrl}}/api/engineering/impact-answer
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "investigationId": "investigation-1",
+  "question": "What impacts if REQ-123 changes?",
+  "conversationId": "impact-review-1"
+}

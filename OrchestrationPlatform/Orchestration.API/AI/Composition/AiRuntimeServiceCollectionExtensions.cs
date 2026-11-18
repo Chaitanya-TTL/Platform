@@ -1,11 +1,18 @@
 using Azure.Core;
 using Azure.Identity;
+using Lattice.AI.Runtime.Application;
 using Lattice.AI.Runtime.Authorization;
+using Lattice.AI.Runtime.Azure.Models;
+using Lattice.AI.Runtime.ContextCompilation;
 using Lattice.AI.Runtime.Contracts.Authorization;
+using Lattice.AI.Runtime.Contracts.Generation;
 using Lattice.AI.Runtime.EntityResolution;
 using Lattice.AI.Runtime.Evidence;
+using Lattice.AI.Runtime.Generation;
+using Lattice.AI.Runtime.Prompts;
 using Lattice.AI.Runtime.QuestionUnderstanding;
 using Lattice.AI.Runtime.ScopePlanning;
+using Lattice.AI.Runtime.Validation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -24,6 +31,26 @@ public static class AiRuntimeServiceCollectionExtensions
         services.TryAddSingleton<TimeProvider>(TimeProvider.System);
         services.TryAddSingleton<IResourceAuthorizationDecisionProvider, UnavailableResourceAuthorizationDecisionProvider>();
         services.AddSingleton<TokenCredential, DefaultAzureCredential>();
+        services.Configure<AiRuntimeOptions>(configuration.GetSection("AiRuntime"));
+        services.AddSingleton<ModelConfiguration>(provider =>
+        {
+            var options = provider.GetRequiredService<Microsoft.Extensions.Options.IOptions<AiRuntimeOptions>>().Value;
+            return new ModelConfiguration(
+                "azure-openai",
+                "azure-openai",
+                string.IsNullOrWhiteSpace(options.DeploymentName) ? "unconfigured" : options.DeploymentName,
+                options.DeploymentName,
+                options.MaxOutputTokens);
+        });
+        services.AddTransient<AzureOpenAiModelGateway>();
+        services.AddTransient<IModelGateway>(provider =>
+            new DeferredModelGateway(provider.GetRequiredService<AzureOpenAiModelGateway>));
+        services.TryAddSingleton<IContextCompiler, ContextCompiler>();
+        services.TryAddSingleton<IPromptCatalog, SourceControlledPromptCatalog>();
+        services.TryAddSingleton<IPromptAssembler, PromptAssembler>();
+        services.TryAddSingleton<IAnswerCandidateParser, AnswerCandidateParser>();
+        services.TryAddSingleton<IAnswerValidator, AnswerValidator>();
+        services.AddScoped<IImpactAnswerService, ImpactAnswerService>();
         services.AddSingleton<PlmBrainWorkloadTokenProvider>();
         services.AddSingleton<IAuthorizationDecisionTokenSigner, KeyVaultAuthorizationDecisionTokenIssuer>();
         services.AddSingleton<IAuthorizationDecisionTokenIssuer>(provider =>
@@ -73,5 +100,13 @@ public static class AiRuntimeServiceCollectionExtensions
         });
 
         return services;
+    }
+
+    private sealed class DeferredModelGateway(Func<AzureOpenAiModelGateway> createGateway) : IModelGateway
+    {
+        public Task<Lattice.AI.Runtime.Contracts.Generation.ModelResponse> GenerateAsync(
+            ModelRequest request,
+            CancellationToken cancellationToken) =>
+            createGateway().GenerateAsync(request, cancellationToken);
     }
 }
