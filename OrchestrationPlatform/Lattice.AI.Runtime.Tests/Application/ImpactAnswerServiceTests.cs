@@ -3,6 +3,7 @@ using Lattice.AI.Runtime.Application;
 using Lattice.AI.Runtime.ContextCompilation;
 using Lattice.AI.Runtime.Contracts.Answers;
 using Lattice.AI.Runtime.Contracts.Authorization;
+using Lattice.AI.Runtime.Contracts.Context;
 using Lattice.AI.Runtime.Contracts.Evidence;
 using Lattice.AI.Runtime.Contracts.Generation;
 using Lattice.AI.Runtime.Contracts.Requests;
@@ -36,6 +37,107 @@ public sealed class ImpactAnswerServiceTests
         Assert.Equal(1, fixture.ScopePlanner.CallCount);
         Assert.Same(fixture.Resolver.Authorization, fixture.EvidenceSource.Authorization);
         Assert.Equal(1, fixture.Gateway.CallCount);
+    }
+
+    [Theory]
+    [InlineData(0, 4096)]
+    [InlineData(4096, 0)]
+    [InlineData(4096, 4096)]
+    public async Task AnswerAsync_RejectsInvalidModelAllowanceBeforeCallingPlm(
+        int maxInputTokens,
+        int maxOutputTokens)
+    {
+        var fixture = new Fixture(modelConfiguration: new ModelConfiguration(
+            "model-1", "test", "test-model", "test-deployment", maxOutputTokens, maxInputTokens));
+
+        var result = await fixture.Service.AnswerAsync(
+            Request(), Authorization(), RequestContext(), CancellationToken.None);
+
+        Assert.Equal(AnswerDisposition.Failed, result.Disposition);
+        Assert.Contains(result.Issues, issue =>
+            issue.Code == "model-input-budget-not-configured" &&
+            issue.Message == "The answer model input budget is not configured.");
+        Assert.Equal(0, fixture.Resolver.CallCount);
+        Assert.Equal(0, fixture.EvidenceSource.CallCount);
+        Assert.Equal(0, fixture.Gateway.CallCount);
+    }
+
+    [Fact]
+    public async Task AnswerAsync_RejectsMissingInputAllowanceBeforeCallingPlm()
+    {
+        var fixture = new Fixture(modelConfiguration: new ModelConfiguration(
+            "model-1", "test", "test-model", "test-deployment", 256, 0));
+
+        var result = await fixture.Service.AnswerAsync(
+            Request(), Authorization(), RequestContext(), CancellationToken.None);
+
+        Assert.Equal(AnswerDisposition.Failed, result.Disposition);
+        Assert.Contains(result.Issues, issue => issue.Code == "model-input-budget-not-configured");
+        Assert.Equal(0, fixture.Resolver.CallCount);
+        Assert.Equal(0, fixture.EvidenceSource.CallCount);
+        Assert.Equal(0, fixture.Gateway.CallCount);
+    }
+
+    [Fact]
+    public async Task AnswerAsync_AbstainsBeforePlmWhenFixedPromptLeavesNoContextBudget()
+    {
+        var request = Request();
+        var prompt = new SourceControlledPromptCatalog().GetRequired("engineering-impact", "v1");
+        var promptAssembler = new PromptAssembler();
+        var fixedPromptTokens = promptAssembler.EstimateFixedPromptTokens(request, prompt);
+        var maxInputTokens = Enumerable.Range(fixedPromptTokens + 1, fixedPromptTokens)
+            .First(maxInput => ModelInputTokenBudget.CalculateContextAllowance(
+                maxInput, 1, fixedPromptTokens) == 0);
+        var contextCompiler = new TrackingContextCompiler();
+        var fixture = new Fixture(
+            modelConfiguration: new ModelConfiguration(
+                "model-1", "test", "test-model", "test-deployment", 1, maxInputTokens),
+            contextCompiler: contextCompiler);
+
+        var result = await fixture.Service.AnswerAsync(
+            request, Authorization(), RequestContext(), CancellationToken.None);
+
+        Assert.Equal(AnswerDisposition.Abstain, result.Disposition);
+        Assert.Equal(0, fixture.Gateway.CallCount);
+        Assert.Contains(result.Issues, issue => issue.Code == "model-input-budget-exceeded");
+        Assert.Equal(0, fixture.Resolver.CallCount);
+        Assert.Equal(0, fixture.EvidenceSource.CallCount);
+        Assert.Equal(0, contextCompiler.CallCount);
+    }
+
+    [Fact]
+    public async Task AnswerAsync_AbstainsWhenAssembledEstimateExceedsAllowanceWithoutCallingModel()
+    {
+        var fixture = new Fixture(promptAssembler: new OverestimatingPromptAssembler());
+
+        var result = await fixture.Service.AnswerAsync(
+            Request(), Authorization(), RequestContext(), CancellationToken.None);
+
+        Assert.Equal(AnswerDisposition.Abstain, result.Disposition);
+        Assert.Contains(result.Issues, issue =>
+            issue.Code == "model-input-budget-exceeded" &&
+            issue.Message == "The answer prompt exceeds the configured model input budget.");
+        Assert.Equal(0, fixture.Gateway.CallCount);
+    }
+
+    [Fact]
+    public async Task AnswerAsync_SanitizesPromptCatalogAndAssemblerErrors()
+    {
+        var catalogFailure = new Fixture(promptCatalog: new StubPromptCatalog(
+            (_, _) => throw new InvalidDataException("private catalog detail")));
+        var catalogResult = await catalogFailure.Service.AnswerAsync(
+            Request(), Authorization(), RequestContext(), CancellationToken.None);
+
+        AssertSanitizedPromptFailure(catalogResult);
+        Assert.Equal(0, Assert.IsType<TrackingContextCompiler>(catalogFailure.ContextCompiler).CallCount);
+        Assert.Equal(0, catalogFailure.Gateway.CallCount);
+
+        var assemblerFailure = new Fixture(promptAssembler: new ThrowingPromptAssembler());
+        var assemblerResult = await assemblerFailure.Service.AnswerAsync(
+            Request(), Authorization(), RequestContext(), CancellationToken.None);
+
+        AssertSanitizedPromptFailure(assemblerResult);
+        Assert.Equal(0, assemblerFailure.Gateway.CallCount);
     }
 
     [Fact]
@@ -215,31 +317,100 @@ public sealed class ImpactAnswerServiceTests
             EntityResolutionResult? resolution = null,
             EvidenceRetrievalResult? evidence = null,
             string? modelContent = null,
-            Exception? modelFailure = null)
+            Exception? modelFailure = null,
+            ModelConfiguration? modelConfiguration = null,
+            IPromptCatalog? promptCatalog = null,
+            IPromptAssembler? promptAssembler = null,
+            IContextCompiler? contextCompiler = null)
         {
             Resolver = new StubEntityResolver(resolution);
             ScopePlanner = new TrackingScopePlanner();
             EvidenceSource = new StubEvidenceSource(evidence ?? Evidence());
             Gateway = new StubModelGateway(modelContent ?? ValidModelContent, modelFailure);
+            ContextCompiler = contextCompiler ?? new TrackingContextCompiler();
             Service = new ImpactAnswerService(
                 new QuestionInterpreter(),
                 Resolver,
                 ScopePlanner,
                 EvidenceSource,
-                new ContextCompiler(),
-                new SourceControlledPromptCatalog(),
-                new PromptAssembler(),
+                ContextCompiler,
+                promptCatalog ?? new SourceControlledPromptCatalog(),
+                promptAssembler ?? new PromptAssembler(),
                 Gateway,
                 new AnswerCandidateParser(),
                 new AnswerValidator(),
-                new ModelConfiguration("model-1", "test", "test-model", "test-deployment", 256, 4096));
+                modelConfiguration ?? new ModelConfiguration(
+                    "model-1", "test", "test-model", "test-deployment", 256, 8192));
         }
 
         public StubEntityResolver Resolver { get; }
         public TrackingScopePlanner ScopePlanner { get; }
         public StubEvidenceSource EvidenceSource { get; }
         public StubModelGateway Gateway { get; }
+        public IContextCompiler ContextCompiler { get; }
         public ImpactAnswerService Service { get; }
+    }
+
+    private static void AssertSanitizedPromptFailure(ImpactAnswerResult result)
+    {
+        Assert.Equal(AnswerDisposition.Failed, result.Disposition);
+        var issue = Assert.Single(result.Issues);
+        Assert.Equal("prompt-unavailable", issue.Code);
+        Assert.Equal("The approved answer prompt is unavailable.", issue.Message);
+        Assert.DoesNotContain("private", issue.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private sealed class TrackingContextCompiler : IContextCompiler
+    {
+        private readonly ContextCompiler _inner = new();
+
+        public int CallCount { get; private set; }
+        public ContextCompilationInput? LastInput { get; private set; }
+        public ContextCompilationResult? LastResult { get; private set; }
+
+        public ContextCompilationResult Compile(ContextCompilationInput input)
+        {
+            CallCount++;
+            LastInput = input;
+            LastResult = _inner.Compile(input);
+            return LastResult;
+        }
+    }
+
+    private sealed class StubPromptCatalog(
+        Func<string, string, PromptBundle> getRequired) : IPromptCatalog
+    {
+        public PromptBundle GetRequired(string id, string version) => getRequired(id, version);
+    }
+
+    private sealed class ThrowingPromptAssembler : IPromptAssembler
+    {
+        public int EstimateFixedPromptTokens(ImpactAnswerRequest request, PromptBundle prompt) => 0;
+
+        public ModelRequest Assemble(
+            ImpactAnswerRequest request,
+            ContextPackage context,
+            PromptBundle prompt,
+            ModelConfiguration configuration) =>
+            throw new ArgumentException("private assembler detail");
+    }
+
+    private sealed class OverestimatingPromptAssembler : IPromptAssembler
+    {
+        private readonly PromptAssembler _inner = new();
+
+        public int EstimateFixedPromptTokens(ImpactAnswerRequest request, PromptBundle prompt) =>
+            _inner.EstimateFixedPromptTokens(request, prompt);
+
+        public ModelRequest Assemble(
+            ImpactAnswerRequest request,
+            ContextPackage context,
+            PromptBundle prompt,
+            ModelConfiguration configuration) =>
+            _inner.Assemble(request, context, prompt, configuration) with
+            {
+                EstimatedInputTokens = int.MaxValue
+            };
     }
 
     private sealed class TrackingScopePlanner : IScopePlanner

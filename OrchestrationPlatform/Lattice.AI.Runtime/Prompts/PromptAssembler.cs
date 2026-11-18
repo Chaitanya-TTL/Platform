@@ -37,27 +37,14 @@ public sealed class PromptAssembler : IPromptAssembler
             throw new ArgumentException("The request and Context Package investigations must match.", nameof(context));
         }
 
-        if (!string.Equals(prompt.Id, "engineering-impact", StringComparison.Ordinal) ||
-            string.IsNullOrWhiteSpace(prompt.Version) ||
-            string.IsNullOrWhiteSpace(prompt.OutputSchemaVersion) ||
-            string.IsNullOrWhiteSpace(prompt.SystemPolicy) ||
-            string.IsNullOrWhiteSpace(prompt.DomainGuidance) ||
-            string.IsNullOrWhiteSpace(prompt.ImpactTask))
-        {
-            throw new ArgumentException("The prompt bundle must have an identity, output schema, and all required sections.", nameof(prompt));
-        }
+        ValidatePrompt(prompt);
 
         if (string.IsNullOrWhiteSpace(configuration.Id))
         {
             throw new ArgumentException("The model configuration ID is required.", nameof(configuration));
         }
 
-        var instructions = string.Join(
-            Environment.NewLine + Environment.NewLine,
-            $"## System policy{Environment.NewLine}{prompt.SystemPolicy}",
-            $"## Domain guidance{Environment.NewLine}{prompt.DomainGuidance}",
-            $"## Impact task{Environment.NewLine}{prompt.ImpactTask}",
-            $"## Output schema{Environment.NewLine}Use schema version '{prompt.OutputSchemaVersion}'. Return exactly the fields schemaVersion, summary, impacts, and warnings. Each impact must contain exactly claimId, explanation, evidenceIds, and sourceIds.");
+        var instructions = BuildInstructions(prompt);
 
         var structuredContext = JsonSerializer.Serialize(
             new
@@ -110,5 +97,49 @@ public sealed class PromptAssembler : IPromptAssembler
         {
             EstimatedInputTokens = ModelInputTokenBudget.EstimateInputTokens(messages)
         };
+    }
+
+    public int EstimateFixedPromptTokens(ImpactAnswerRequest request, PromptBundle prompt)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(prompt);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.Question);
+        ValidatePrompt(prompt);
+
+        var fixedUserEnvelope = JsonSerializer.Serialize(
+            new
+            {
+                trustNotice = UntrustedContextNotice,
+                question = request.Question,
+                outputSchemaVersion = prompt.OutputSchemaVersion
+            },
+            ContextJsonOptions);
+        IReadOnlyList<ModelMessage> fixedMessages =
+        [
+            new ModelMessage("system", BuildInstructions(prompt)),
+            new ModelMessage("user", fixedUserEnvelope)
+        ];
+        return ModelInputTokenBudget.EstimateInputTokens(fixedMessages);
+    }
+
+    private static string BuildInstructions(PromptBundle prompt) =>
+        string.Join(
+            Environment.NewLine + Environment.NewLine,
+            $"## System policy{Environment.NewLine}{prompt.SystemPolicy}",
+            $"## Domain guidance{Environment.NewLine}{prompt.DomainGuidance}",
+            $"## Impact task{Environment.NewLine}{prompt.ImpactTask}",
+            $"## Output schema{Environment.NewLine}Use schema version '{prompt.OutputSchemaVersion}'. Return exactly the fields schemaVersion, summary, impacts, and warnings. Each impact must contain exactly claimId, explanation, evidenceIds, and sourceIds.");
+
+    private static void ValidatePrompt(PromptBundle prompt)
+    {
+        if (!string.Equals(prompt.Id, "engineering-impact", StringComparison.Ordinal) ||
+            string.IsNullOrWhiteSpace(prompt.Version) ||
+            string.IsNullOrWhiteSpace(prompt.OutputSchemaVersion) ||
+            string.IsNullOrWhiteSpace(prompt.SystemPolicy) ||
+            string.IsNullOrWhiteSpace(prompt.DomainGuidance) ||
+            string.IsNullOrWhiteSpace(prompt.ImpactTask))
+        {
+            throw new ArgumentException("The prompt bundle must have an identity, output schema, and all required sections.", nameof(prompt));
+        }
     }
 }

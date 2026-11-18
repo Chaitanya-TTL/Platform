@@ -6,6 +6,8 @@ namespace Lattice.AI.Runtime.Prompts;
 
 public interface IPromptAssembler
 {
+    int EstimateFixedPromptTokens(ImpactAnswerRequest request, PromptBundle prompt);
+
     ModelRequest Assemble(
         ImpactAnswerRequest request,
         ContextPackage context,

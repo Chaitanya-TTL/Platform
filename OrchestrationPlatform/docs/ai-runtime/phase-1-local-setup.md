@@ -70,7 +70,7 @@ $env:AiRuntime__Authentication__Audience = "<platform-provided-api-audience>"
 
 `AiRuntime:Authentication:Authority` and `AiRuntime:Authentication:Audience` configure JWT bearer validation at API ingress. The API validates issuer, audience, signature, and lifetime with no clock skew. The Phase 1 model provider is fixed to Azure OpenAI, and the prompt is the source-controlled `engineering-impact/v1`; neither is selected by configuration.
 
-The input allowance is a required configuration value and must be chosen for the actual deployment context window. Do not assume a provider or deployment supports a particular value. Prompt assembly and input-budget enforcement are not part of this configuration change.
+The input allowance is the configured maximum model input/context window for the selected deployment. The runtime reserves `MaxOutputTokens`, a 15% input safety margin, and an estimate of the fixed prompt/question before allocating an estimated context-token budget. After assembly it estimates the complete system and user message payload and abstains before model invocation if the input plus output reservation and margin do not fit. Both estimates use UTF-8 bytes divided by four; this is a conservative heuristic, not tokenizer output or a guarantee of provider token accounting. The deployment-specific allowance is mandatory; the runtime does not infer a provider/model limit.
 
 PLM Brain settings are nested under `AiRuntime:PlmBrain` (use double underscores in environment-variable names):
 

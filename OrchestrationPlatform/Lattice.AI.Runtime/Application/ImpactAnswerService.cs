@@ -37,7 +37,8 @@ public sealed class ImpactAnswerService(
     private const string ReadImpactEvidenceGrant = "investigation:read-impact-evidence";
     private const string PromptId = "engineering-impact";
     private const string PromptVersion = "v1";
-    private static readonly ContextBudget Budget = new(25, 50, 12_000);
+    private const int MaxClaims = 25;
+    private const int MaxEvidenceItems = 50;
     private IAiRuntimeTelemetry Telemetry { get; } = telemetry ?? NullAiRuntimeTelemetry.Instance;
 
     public async Task<ImpactAnswerResult> AnswerAsync(
@@ -62,6 +63,19 @@ public sealed class ImpactAnswerService(
                 issues: [new ValidationIssue("authorization-unavailable", "The current authorization does not permit impact answering.")]);
         }
 
+        if (modelConfiguration.MaxInputTokens <= 0 ||
+            modelConfiguration.MaxOutputTokens <= 0 ||
+            modelConfiguration.MaxOutputTokens >= modelConfiguration.MaxInputTokens)
+        {
+            return CreateResult(
+                request.InvestigationId,
+                requestContext,
+                AnswerDisposition.Failed,
+                issues: [new ValidationIssue(
+                    "model-input-budget-not-configured",
+                    "The answer model input budget is not configured.")]);
+        }
+
         var interpretation = questionInterpreter.Interpret(request, requestContext);
         if (interpretation.Type != ImpactQuestionType.EngineeringImpact ||
             interpretation.ClarificationReasons.Count > 0)
@@ -71,6 +85,52 @@ public sealed class ImpactAnswerService(
                 requestContext,
                 AnswerDisposition.Clarify,
                 issues: ToIssues("question-clarification-required", interpretation.ClarificationReasons));
+        }
+
+        PromptBundle prompt;
+        int contextTokenAllowance;
+        using (var promptStage = Telemetry.StartStage(
+            "prompt",
+            requestContext,
+            request.InvestigationId))
+        {
+            try
+            {
+                prompt = promptCatalog.GetRequired(PromptId, PromptVersion);
+                var fixedPromptTokens = promptAssembler.EstimateFixedPromptTokens(request, prompt);
+                contextTokenAllowance = ModelInputTokenBudget.CalculateContextAllowance(
+                    modelConfiguration.MaxInputTokens,
+                    modelConfiguration.MaxOutputTokens,
+                    fixedPromptTokens);
+                promptStage.SetDisposition("ready");
+                promptStage.SetTag("prompt.id", prompt.Id);
+                promptStage.SetTag("prompt.version", prompt.Version);
+                promptStage.SetTag("model.configuration_id", modelConfiguration.Id);
+            }
+            catch (Exception exception) when (
+                exception is KeyNotFoundException or InvalidDataException or ArgumentException or
+                    JsonException or IOException or InvalidOperationException)
+            {
+                promptStage.SetFailure("prompt-unavailable");
+                return CreateResult(
+                    request.InvestigationId,
+                    requestContext,
+                    AnswerDisposition.Failed,
+                    issues: [new ValidationIssue("prompt-unavailable", "The approved answer prompt is unavailable.")]);
+            }
+
+            if (contextTokenAllowance == 0)
+            {
+                promptStage.SetFailure("model-input-budget-exceeded");
+                promptStage.SetDisposition("abstained");
+                return CreateResult(
+                    request.InvestigationId,
+                    requestContext,
+                    AnswerDisposition.Abstain,
+                    issues: [new ValidationIssue(
+                        "model-input-budget-exceeded",
+                        "The configured model input budget cannot fit the fixed prompt and output reservation.")]);
+            }
         }
 
         EntityResolutionResult resolution;
@@ -233,7 +293,7 @@ public sealed class ImpactAnswerService(
                     plannedScope.Scope,
                     authorization.Scope,
                     evidence,
-                    Budget));
+                    new ContextBudget(MaxClaims, MaxEvidenceItems, contextTokenAllowance)));
             compilationStage.SetDisposition(compilation.Disposition.ToString());
             if (compilation.Package is not null)
             {
@@ -281,23 +341,23 @@ public sealed class ImpactAnswerService(
                     compilation.Diagnostics));
         }
 
-        PromptBundle prompt;
         ModelRequest modelRequest;
         using (var promptStage = Telemetry.StartStage(
-            "prompt",
+            "prompt-assembly",
             requestContext,
             request.InvestigationId))
         {
             try
             {
-                prompt = promptCatalog.GetRequired(PromptId, PromptVersion);
                 modelRequest = promptAssembler.Assemble(request, context, prompt, modelConfiguration);
                 promptStage.SetDisposition("ready");
                 promptStage.SetTag("prompt.id", prompt.Id);
                 promptStage.SetTag("prompt.version", prompt.Version);
                 promptStage.SetTag("model.configuration_id", modelConfiguration.Id);
             }
-            catch (Exception exception) when (exception is KeyNotFoundException or InvalidDataException)
+            catch (Exception exception) when (
+                exception is KeyNotFoundException or InvalidDataException or ArgumentException or
+                    JsonException or IOException or InvalidOperationException)
             {
                 promptStage.SetFailure("prompt-unavailable");
                 return CreateResult(
@@ -306,6 +366,23 @@ public sealed class ImpactAnswerService(
                     AnswerDisposition.Failed,
                     context.PackageId,
                     [new ValidationIssue("prompt-unavailable", "The approved answer prompt is unavailable.")]);
+            }
+
+            if (!ModelInputTokenBudget.Fits(
+                    modelRequest.EstimatedInputTokens,
+                    modelConfiguration.MaxInputTokens,
+                    modelConfiguration.MaxOutputTokens))
+            {
+                promptStage.SetFailure("model-input-budget-exceeded");
+                promptStage.SetDisposition("abstained");
+                return CreateResult(
+                    request.InvestigationId,
+                    requestContext,
+                    AnswerDisposition.Abstain,
+                    context.PackageId,
+                    [new ValidationIssue(
+                        "model-input-budget-exceeded",
+                        "The answer prompt exceeds the configured model input budget.")]);
             }
         }
 

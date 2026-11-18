@@ -247,6 +247,14 @@ public sealed class ImpactAnswerAuthorizationTests
                 services.AddSingleton<IEngineeringEntityResolver>(EntityResolver);
                 services.RemoveAll<IEngineeringEvidenceSource>();
                 services.AddSingleton<IEngineeringEvidenceSource>(EvidenceSource);
+                services.RemoveAll<ModelConfiguration>();
+                services.AddSingleton(new ModelConfiguration(
+                    "test-model-config",
+                    "test",
+                    "test-model",
+                    "test-deployment",
+                    256,
+                    4096));
                 services.RemoveAll<IModelGateway>();
                 services.AddSingleton<IModelGateway>(ModelGateway);
             });

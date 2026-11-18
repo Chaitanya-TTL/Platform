@@ -134,6 +134,32 @@ public sealed class ContextCompilerTests
     }
 
     [Fact]
+    public void Compile_SelectsOneClaimUnderTokenPressureWithoutAttachingOmittedEvidence()
+    {
+        var compiler = new ContextCompiler();
+        ContextPackage? selectedPackage = null;
+
+        for (var tokenBudget = 1; tokenBudget <= 1_000; tokenBudget++)
+        {
+            var result = compiler.Compile(Input(Evidence(), new ContextBudget(10, 10, tokenBudget)));
+            var package = Assert.IsType<ContextPackage>(result.Package);
+            if (package.Claims.Count == 1)
+            {
+                selectedPackage = package;
+                break;
+            }
+        }
+
+        Assert.NotNull(selectedPackage);
+        Assert.NotEmpty(selectedPackage.Omissions);
+        Assert.All(selectedPackage.Claims, claim =>
+            Assert.All(claim.EvidenceIds, evidenceId =>
+                Assert.Contains(selectedPackage.Sources, source => source.EvidenceId == evidenceId)));
+        Assert.All(selectedPackage.Omissions, omission =>
+            Assert.DoesNotContain(selectedPackage.Claims, claim => claim.ClaimId == omission.ClaimId));
+    }
+
+    [Fact]
     public void Compile_PreservesRequestCorrelationAndCreatesStablePackageId()
     {
         var input = Input(Evidence());
