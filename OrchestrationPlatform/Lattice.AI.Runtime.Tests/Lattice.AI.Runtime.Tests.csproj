@@ -21,6 +21,7 @@
     <ProjectReference Include="..\Lattice.AI.Runtime\Lattice.AI.Runtime.csproj" />
     <ProjectReference Include="..\Lattice.AI.Runtime.Azure\Lattice.AI.Runtime.Azure.csproj" />
     <ProjectReference Include="..\Lattice.AI.Runtime.Contracts\Lattice.AI.Runtime.Contracts.csproj" />
+    <ProjectReference Include="..\Lattice.AI.Runtime.Evaluation\Lattice.AI.Runtime.Evaluation.csproj" />
     <ProjectReference Include="..\Orchestration.API\Orchestration.API.csproj" />
   </ItemGroup>
 </Project>

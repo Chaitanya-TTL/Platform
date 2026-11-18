@@ -35,6 +35,7 @@ public enum ValidationDisposition
 }
 
 public sealed record ImpactAnswerResult(
+    string InvestigationId,
     RuntimeRequestContext RequestContext,
     AnswerDisposition Disposition,
     string? Summary,
