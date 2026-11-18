@@ -1,6 +1,7 @@
 using Orchestration.API.Models;
 using Orchestration.API.Services;
 using Orchestration.API.AI.Composition;
+using Lattice.AI.Runtime.Authorization;
 using System.Text.Json.Serialization;
 var builder=WebApplication.CreateBuilder(args);
 builder.Services.AddControllers().AddJsonOptions(options=>
@@ -55,6 +56,17 @@ app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+app.MapGet("/health/ready", (IResourceAuthorizationDecisionProvider authorizationProvider) =>
+{
+    if (authorizationProvider is UnavailableResourceAuthorizationDecisionProvider)
+    {
+        return Results.Json(
+            new { status = "not-ready", code = "AI_RUNTIME_AUTHORIZATION_PROVIDER_NOT_CONFIGURED" },
+            statusCode: StatusCodes.Status503ServiceUnavailable);
+    }
+
+    return Results.Json(new { status = "ready" });
+}).AllowAnonymous();
 app.Run();
 
 public partial class Program

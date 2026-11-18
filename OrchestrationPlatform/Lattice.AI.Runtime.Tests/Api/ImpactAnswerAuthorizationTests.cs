@@ -27,6 +27,46 @@ namespace Lattice.AI.Runtime.Tests.Api;
 public sealed class ImpactAnswerAuthorizationTests
 {
     [Fact]
+    public async Task GetHealthReady_ReturnsNotReadyWhenProductionAuthorizationProviderIsUnavailable()
+    {
+        using var factory = new ImpactAnswerFactory(useDefaultDecisionProvider: true);
+        using var client = CreateClient(factory);
+
+        Assert.IsType<UnavailableResourceAuthorizationDecisionProvider>(
+            factory.Services.GetRequiredService<IResourceAuthorizationDecisionProvider>());
+
+        var response = await client.GetAsync("/health/ready");
+
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+        using var responseJson = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal(2, responseJson.RootElement.EnumerateObject().Count());
+        Assert.Equal("not-ready", responseJson.RootElement.GetProperty("status").GetString());
+        Assert.Equal(
+            "AI_RUNTIME_AUTHORIZATION_PROVIDER_NOT_CONFIGURED",
+            responseJson.RootElement.GetProperty("code").GetString());
+        Assert.Equal(0, factory.DecisionProvider.CallCount);
+    }
+
+    [Fact]
+    public async Task GetHealthReady_ReturnsReadyWhenAuthorizationProviderIsConfigured()
+    {
+        using var factory = new ImpactAnswerFactory();
+        using var client = CreateClient(factory);
+
+        Assert.Same(
+            factory.DecisionProvider,
+            factory.Services.GetRequiredService<IResourceAuthorizationDecisionProvider>());
+
+        var response = await client.GetAsync("/health/ready");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var responseJson = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Single(responseJson.RootElement.EnumerateObject());
+        Assert.Equal("ready", responseJson.RootElement.GetProperty("status").GetString());
+        Assert.Equal(0, factory.DecisionProvider.CallCount);
+    }
+
+    [Fact]
     public async Task PostImpactAnswer_RequiresAuthentication()
     {
         using var factory = new ImpactAnswerFactory();
