@@ -6,6 +6,7 @@ namespace Lattice.AI.Runtime.Contracts.Context;
 
 public sealed record ContextPackage(
     RuntimeRequestContext RequestContext,
+    string InvestigationId,
     string PackageId,
     string SchemaVersion,
     string CompilerVersion,

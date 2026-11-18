@@ -37,7 +37,10 @@ public sealed class RuntimeContractTests
     [Fact]
     public void ImpactAnswerRequest_RoundTripsWithCamelCaseJson()
     {
-        var original = new ImpactAnswerRequest("What changes if this component is revised?", "conversation-42");
+        var original = new ImpactAnswerRequest(
+            "investigation-1",
+            "What changes if component ABC-123 is revised?",
+            "conversation-42");
 
         var json = JsonSerializer.Serialize(original, ApiJsonOptions);
         var deserialized = Deserialize<ImpactAnswerRequest>(json);
@@ -51,6 +54,7 @@ public sealed class RuntimeContractTests
     {
         var original = new ContextPackage(
             CreateRequestContext(),
+            "investigation-1",
             "package-12",
             "context-v3",
             "compiler-v5",
@@ -174,7 +178,8 @@ public sealed class RuntimeContractTests
             "subject-4",
             "policy-v2",
             "decision-9",
-            new HashSet<string> { "read:part", "read:relationship" });
+            new HashSet<string> { "read:part", "read:relationship" },
+            DateTimeOffset.Parse("2026-11-17T10:00:00Z"));
 
         var json = JsonSerializer.Serialize(original, ApiJsonOptions);
         var deserialized = Deserialize<AuthorizationScope>(json);

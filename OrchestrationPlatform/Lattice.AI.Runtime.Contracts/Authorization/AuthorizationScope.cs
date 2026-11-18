@@ -9,4 +9,5 @@ public sealed record AuthorizationScope(
     string PolicyVersion,
     string DecisionId,
     [property: JsonConverter(typeof(ReadOnlyStringSetJsonConverter))]
-    IReadOnlySet<string> Grants);
+    IReadOnlySet<string> Grants,
+    DateTimeOffset DecisionExpiresAt);

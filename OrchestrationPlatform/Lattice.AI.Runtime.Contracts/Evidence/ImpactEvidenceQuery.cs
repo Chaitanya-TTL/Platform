@@ -5,7 +5,8 @@ using Lattice.AI.Runtime.Contracts.Scope;
 namespace Lattice.AI.Runtime.Contracts.Evidence;
 
 public sealed record ImpactEvidenceQuery(
+    string InvestigationId,
     ResolvedEntity Subject,
     ImpactScope Scope,
-    AuthorizationScope Authorization,
+    AuthorizationContext Authorization,
     RuntimeRequestContext RequestContext);
