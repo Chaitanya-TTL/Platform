@@ -100,9 +100,15 @@ public sealed class AnswerCandidateParser : IAnswerCandidateParser
 
     private static string[] ReadStringArray(JsonElement element, string propertyName)
     {
-        return element.EnumerateArray()
+        var values = element.EnumerateArray()
             .Select(value => ReadArrayString(value, propertyName))
             .ToArray();
+        if (values.Distinct(StringComparer.Ordinal).Count() != values.Length)
+        {
+            throw new JsonException($"Array '{propertyName}' cannot contain duplicate IDs.");
+        }
+
+        return values;
     }
 
     private static void EnsureObject(JsonElement element, string message)

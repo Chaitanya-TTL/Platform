@@ -108,6 +108,14 @@ public sealed class AnswerValidator(TimeProvider? timeProvider = null) : IAnswer
         var seenClaimIds = new HashSet<string>(StringComparer.Ordinal);
         foreach (var impact in answer.Impacts)
         {
+            if (string.IsNullOrWhiteSpace(impact.Explanation))
+            {
+                issues.Add(new ValidationIssue(
+                    "empty-explanation",
+                    "Every impact must include a non-empty explanation.",
+                    impact.ClaimId));
+            }
+
             if (!seenClaimIds.Add(impact.ClaimId))
             {
                 issues.Add(new ValidationIssue(

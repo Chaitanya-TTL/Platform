@@ -63,6 +63,90 @@ public sealed class AnswerValidatorTests
     }
 
     [Fact]
+    public void Validate_RejectsEvidenceAttachedToAnotherClaim()
+    {
+        var context = Context() with
+        {
+            Claims =
+            [
+                new ImpactClaim("claim-1", "Claim one.", [], [], ["evidence-1"], null),
+                new ImpactClaim("claim-2", "Claim two.", [], [], ["evidence-2"], null)
+            ],
+            Sources = [Source("evidence-1"), Source("evidence-2", "citation-2")]
+        };
+
+        var result = new AnswerValidator().Validate(
+            Candidate("claim-1", ["evidence-2"], ["citation-2"]),
+            context,
+            Authorization(),
+            RequestContext());
+
+        Assert.Equal(ValidationDisposition.Reject, result.Disposition);
+        Assert.Contains(result.Issues, issue =>
+            issue.Code == "unknown-evidence" && issue.ClaimId == "claim-1");
+    }
+
+    [Fact]
+    public void Validate_RejectsValidSourceFromUncitedEvidence()
+    {
+        var context = Context() with
+        {
+            Claims =
+            [
+                new ImpactClaim("claim-1", "Claim one.", [], [], ["evidence-1"], null),
+                new ImpactClaim("claim-2", "Claim two.", [], [], ["evidence-2"], null)
+            ],
+            Sources = [Source("evidence-1"), Source("evidence-2", "citation-2")]
+        };
+
+        var result = new AnswerValidator().Validate(
+            Candidate("claim-1", ["evidence-1"], ["citation-2"]),
+            context,
+            Authorization(),
+            RequestContext());
+
+        Assert.Equal(ValidationDisposition.Reject, result.Disposition);
+        Assert.Contains(result.Issues, issue =>
+            issue.Code == "unknown-source" && issue.ClaimId == "claim-1");
+    }
+
+    [Fact]
+    public void Validate_RejectsEmptyExplanation()
+    {
+        var result = new AnswerValidator().Validate(
+            new AnswerCandidate(
+                "The item affects a downstream part.",
+                [new AnswerImpact("claim-1", " ", ["evidence-1"], ["citation-1"])],
+                []),
+            Context(),
+            Authorization(),
+            RequestContext());
+
+        Assert.Equal(ValidationDisposition.Reject, result.Disposition);
+        Assert.Contains(result.Issues, issue =>
+            issue.Code == "empty-explanation" && issue.ClaimId == "claim-1");
+    }
+
+    [Fact]
+    public void Validate_RejectsClaimOmittedByContextBudget()
+    {
+        var context = Context() with
+        {
+            Omissions = [new ContextOmission("claim-2", "Claim omitted because the maximum claim count was reached.")]
+        };
+
+        var result = new AnswerValidator().Validate(
+            Candidate("claim-2", ["evidence-1"], ["citation-1"]),
+            context,
+            Authorization(),
+            RequestContext());
+
+        Assert.Equal(ValidationDisposition.Reject, result.Disposition);
+        Assert.Contains(result.Issues, issue =>
+            issue.Code == "unknown-claim" && issue.ClaimId == "claim-2");
+    }
+
+    [Fact]
     public void Validate_RejectsEvidenceBoundToAnotherAuthorizationDecision()
     {
         var context = Context() with
@@ -150,7 +234,7 @@ public sealed class AnswerValidatorTests
             [Source("evidence-1")],
             []);
 
-    private static EvidenceSourceReference Source(string evidenceId) =>
+    private static EvidenceSourceReference Source(string evidenceId, string citationId = "citation-1") =>
         new(
             evidenceId,
             "relationship",
@@ -161,7 +245,7 @@ public sealed class AnswerValidatorTests
             null,
             "provenance-1",
             "decision-1",
-            CitationId: "citation-1",
+            CitationId: citationId,
             Authority: "source-authoritative",
             Provider: "plm");
 
