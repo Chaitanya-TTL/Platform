@@ -1,0 +1,65 @@
+using Lattice.AI.Runtime.Contracts.Answers;
+
+namespace Lattice.AI.Runtime.Evaluation;
+
+public sealed record EngineeringImpactEvaluationReport(
+    string SchemaVersion,
+    string DatasetId,
+    bool Passed,
+    int CaseCount,
+    int PassedCaseCount,
+    int FailedCaseCount,
+    EngineeringImpactEvaluationMetrics Metrics,
+    IReadOnlyList<EngineeringImpactEvaluationCaseResult> Cases);
+
+public sealed record EngineeringImpactEvaluationMetrics(
+    int UnsupportedClaimCount,
+    int EvaluatedModelClaimCount,
+    double UnsupportedClaimRate,
+    int ExpectedPathCount,
+    int CoveredPathCount,
+    double PathCoverage,
+    int ExpectedLinkCount,
+    int CoveredLinkCount,
+    double LinkCoverage,
+    IReadOnlyDictionary<string, int> DispositionCounts);
+
+public sealed record EngineeringImpactEvaluationCaseResult(
+    string CaseId,
+    string Scenario,
+    bool Required,
+    bool Passed,
+    string? FailureReason,
+    string InvestigationId,
+    string? RequestInvestigationId,
+    AnswerDisposition ExpectedDisposition,
+    AnswerDisposition ActualDisposition,
+    string ExpectedAuthorizationScenario,
+    string ActualAuthorizationScenario,
+    string? ExpectedSubjectId,
+    string? ActualSubjectId,
+    IReadOnlyList<string> RequiredEntityIds,
+    IReadOnlyList<string> ActualEntityIds,
+    IReadOnlyList<string> ForbiddenEntityIds,
+    IReadOnlyList<string> RequiredRelationshipIds,
+    IReadOnlyList<string> ActualRelationshipIds,
+    IReadOnlyList<string> ForbiddenRelationshipIds,
+    IReadOnlyList<string> RequiredEvidenceIds,
+    IReadOnlyList<string> ActualEvidenceIds,
+    IReadOnlyList<string> ForbiddenEvidenceIds,
+    IReadOnlyList<string> RequiredSourceIds,
+    IReadOnlyList<string> ActualSourceIds,
+    IReadOnlyList<string> ForbiddenSourceIds,
+    IReadOnlyList<string> RequiredSourceRefIds,
+    IReadOnlyList<string> ActualSourceRefIds,
+    IReadOnlyList<string> ForbiddenSourceRefIds,
+    IReadOnlyList<string> RequiredLinkIds,
+    IReadOnlyList<string> ActualLinkIds,
+    IReadOnlyList<string> ForbiddenLinkIds,
+    IReadOnlyList<string> RequiredPathIds,
+    IReadOnlyList<string> CoveredPathIds,
+    int EvidenceRetrievalCalls,
+    int ModelCalls,
+    int EvaluatedModelClaimCount,
+    int UnsupportedClaimCount,
+    IReadOnlyList<string> Issues);

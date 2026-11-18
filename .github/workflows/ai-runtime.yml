@@ -1,0 +1,52 @@
+name: AI Runtime offline evaluation
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/ai-runtime.yml"
+      - "OrchestrationPlatform/OrchestrationPlatform.slnx"
+      - "OrchestrationPlatform/Directory.Packages.props"
+      - "OrchestrationPlatform/Lattice.AI.Runtime/**"
+      - "OrchestrationPlatform/Lattice.AI.Runtime.Azure/**"
+      - "OrchestrationPlatform/Lattice.AI.Runtime.Contracts/**"
+      - "OrchestrationPlatform/Lattice.AI.Runtime.Evaluation/**"
+      - "OrchestrationPlatform/Lattice.AI.Runtime.Tests/**"
+      - "OrchestrationPlatform/Orchestration.API/**"
+      - "OrchestrationPlatform/evals/engineering-impact/**"
+  push:
+    paths:
+      - ".github/workflows/ai-runtime.yml"
+      - "OrchestrationPlatform/OrchestrationPlatform.slnx"
+      - "OrchestrationPlatform/Directory.Packages.props"
+      - "OrchestrationPlatform/Lattice.AI.Runtime/**"
+      - "OrchestrationPlatform/Lattice.AI.Runtime.Azure/**"
+      - "OrchestrationPlatform/Lattice.AI.Runtime.Contracts/**"
+      - "OrchestrationPlatform/Lattice.AI.Runtime.Evaluation/**"
+      - "OrchestrationPlatform/Lattice.AI.Runtime.Tests/**"
+      - "OrchestrationPlatform/Orchestration.API/**"
+      - "OrchestrationPlatform/evals/engineering-impact/**"
+
+jobs:
+  offline-evaluation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - name: Run runtime test suite
+        run: dotnet test Lattice.AI.Runtime.Tests/Lattice.AI.Runtime.Tests.csproj
+        working-directory: OrchestrationPlatform
+      - name: Run golden evaluation tests
+        run: dotnet test Lattice.AI.Runtime.Tests/Lattice.AI.Runtime.Tests.csproj --filter FullyQualifiedName~GoldenEvaluationTests
+        working-directory: OrchestrationPlatform
+      - name: Run offline evaluation gate
+        run: dotnet run --project Lattice.AI.Runtime.Evaluation/Lattice.AI.Runtime.Evaluation.csproj -- --dataset evals/engineering-impact/v1 --report evals/engineering-impact/v1/report.json
+        working-directory: OrchestrationPlatform
+      - name: Upload evaluation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: engineering-impact-evaluation-report
+          path: OrchestrationPlatform/evals/engineering-impact/v1/report.json
+          if-no-files-found: warn
