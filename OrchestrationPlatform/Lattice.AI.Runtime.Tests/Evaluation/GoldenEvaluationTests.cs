@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using Lattice.AI.Runtime.Evaluation;
 
 namespace Lattice.AI.Runtime.Tests.Evaluation;
@@ -16,15 +17,39 @@ public sealed class GoldenEvaluationTests
         Assert.True(report.Passed, string.Join(
             Environment.NewLine,
             report.Cases.Where(result => !result.Passed).Select(result => $"{result.CaseId}: {result.FailureReason}")));
-        Assert.Equal(33, report.CaseCount);
+        Assert.Equal(34, report.CaseCount);
         Assert.Equal(report.CaseCount, report.PassedCaseCount);
         Assert.Equal(0, report.FailedCaseCount);
-        Assert.Equal(0, report.Metrics.UnsupportedClaimCount);
-        Assert.Equal(0, report.Metrics.UnsupportedClaimRate);
+        Assert.Equal(
+            report.Cases.Sum(result => result.UnsupportedClaimCount),
+            report.Metrics.UnsupportedClaimCount);
+        Assert.Equal(
+            report.Cases.Sum(result => result.EvaluatedModelClaimCount),
+            report.Metrics.EvaluatedModelClaimCount);
+        Assert.Equal(
+            (double)report.Metrics.UnsupportedClaimCount / report.Metrics.EvaluatedModelClaimCount,
+            report.Metrics.UnsupportedClaimRate.Rate);
+        Assert.True(report.ReferenceIntegrityEvaluated);
+        Assert.False(report.SemanticSupportEvaluated);
+        Assert.False(report.LiveModelQualityEvaluated);
         Assert.Equal(14, report.Metrics.ExpectedLinkCount);
         Assert.Equal(14, report.Metrics.CoveredLinkCount);
-        Assert.Equal(1, report.Metrics.PathCoverage);
-        Assert.Equal(1, report.Metrics.LinkCoverage);
+        Assert.Equal(1, report.Metrics.PathCoverage.Rate);
+        Assert.Equal(1, report.Metrics.LinkCoverage.Rate);
+        Assert.Equal(1, report.Metrics.IntentDetectionAccuracy.Rate);
+        Assert.Equal(1, report.Metrics.SubjectExtractionAccuracy.Rate);
+        Assert.Equal(1, report.Metrics.ClarificationAccuracy.Rate);
+        Assert.Equal(1, report.Metrics.ScopePolicyAccuracy.Rate);
+        Assert.Equal(1, report.Metrics.DispositionAccuracy.Rate);
+        Assert.Equal(1, report.Metrics.RelationshipCoverage.Rate);
+        Assert.Null(report.Metrics.ChainCoverage.Rate);
+        Assert.Equal(1, report.Metrics.EvidenceCoverage.Rate);
+        Assert.Equal(1, report.Metrics.SourceCoverage.Rate);
+        Assert.Equal(0, report.Metrics.AuthorizationLeakageCount);
+        Assert.Equal(11, report.Metrics.ModelJsonParseSuccessCount);
+        Assert.Equal(3, report.Metrics.ModelJsonParseFailureCount);
+        Assert.Equal(1, report.Metrics.UnsupportedReferenceRejectionRate.Rate);
+        Assert.Equal(1, report.Metrics.OmissionBehaviorAccuracy.Rate);
         Assert.Equal(10, report.Metrics.DispositionCounts["Answer"]);
 
         var multiHop = Assert.Single(report.Cases.Where(result => result.CaseId == "multi-hop-impact"));
@@ -93,7 +118,7 @@ public sealed class GoldenEvaluationTests
             report.Metrics.EvaluatedModelClaimCount);
         Assert.Equal(
             (double)report.Metrics.UnsupportedClaimCount / report.Metrics.EvaluatedModelClaimCount,
-            report.Metrics.UnsupportedClaimRate);
+            report.Metrics.UnsupportedClaimRate.Rate);
         var direct = Assert.Single(report.Cases.Where(result => result.CaseId == "direct-impact"));
         Assert.False(direct.Passed);
         Assert.Equal(1, direct.UnsupportedClaimCount);
@@ -124,6 +149,66 @@ public sealed class GoldenEvaluationTests
             "\"caseId\":\"direct-impact\",\"caseId\":\"duplicate\"",
             StringComparison.Ordinal);
         File.WriteAllLines(casesPath, cases, new UTF8Encoding(false));
+
+        await Assert.ThrowsAsync<InvalidDataException>(() =>
+            new EngineeringImpactEvaluationRunner().RunAsync(dataset.Path, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task RunAsync_ReportsEvaluationLimitsAndMetricDenominators()
+    {
+        var report = await new EngineeringImpactEvaluationRunner()
+            .RunAsync(GetDatasetDirectory(), CancellationToken.None);
+        var json = JsonSerializer.Serialize(report, new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            DefaultIgnoreCondition = JsonIgnoreCondition.Never
+        });
+        using var document = JsonDocument.Parse(json);
+        var root = document.RootElement;
+        var metrics = root.GetProperty("metrics");
+
+        Assert.True(root.GetProperty("referenceIntegrityEvaluated").GetBoolean());
+        Assert.False(root.GetProperty("semanticSupportEvaluated").GetBoolean());
+        Assert.False(root.GetProperty("liveModelQualityEvaluated").GetBoolean());
+        foreach (var metric in new[]
+                 {
+                     "intentDetectionAccuracy", "subjectExtractionAccuracy", "clarificationAccuracy",
+                     "scopePolicyAccuracy", "dispositionAccuracy", "relationshipCoverage", "pathCoverage",
+                     "chainCoverage", "evidenceCoverage", "sourceCoverage", "unsupportedReferenceRejectionRate",
+                     "omissionBehaviorAccuracy"
+                 })
+        {
+            Assert.True(metrics.GetProperty(metric).TryGetProperty("numerator", out _), metric);
+            Assert.True(metrics.GetProperty(metric).TryGetProperty("denominator", out _), metric);
+            Assert.True(metrics.GetProperty(metric).TryGetProperty("rate", out _), metric);
+        }
+
+        Assert.True(metrics.GetProperty("chainCoverage").GetProperty("rate").ValueKind == JsonValueKind.Null);
+        Assert.Contains("deterministic", root.GetProperty("evaluationScope").GetString(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task RunAsync_RejectsCasesMissingRequiredEvaluationAnnotations()
+    {
+        using var dataset = CopyDataset();
+        var casesPath = Path.Combine(dataset.Path, "cases.jsonl");
+        var cases = File.ReadAllLines(casesPath).Select(line => JsonNode.Parse(line)).ToArray();
+        cases[0]!["expect"]!.AsObject().Remove("questionIntent");
+        File.WriteAllLines(casesPath, cases.Select(item => item!.ToJsonString()), new UTF8Encoding(false));
+
+        await Assert.ThrowsAsync<InvalidDataException>(() =>
+            new EngineeringImpactEvaluationRunner().RunAsync(dataset.Path, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task RunAsync_RejectsAnyExpectationThatAllowsAuthorizationLeakage()
+    {
+        using var dataset = CopyDataset();
+        var casesPath = Path.Combine(dataset.Path, "cases.jsonl");
+        var cases = File.ReadAllLines(casesPath).Select(line => JsonNode.Parse(line)).ToArray();
+        cases[0]!["expect"]!["authorizationLeakageAllowed"] = true;
+        File.WriteAllLines(casesPath, cases.Select(item => item!.ToJsonString()), new UTF8Encoding(false));
 
         await Assert.ThrowsAsync<InvalidDataException>(() =>
             new EngineeringImpactEvaluationRunner().RunAsync(dataset.Path, CancellationToken.None));
@@ -190,7 +275,10 @@ public sealed class GoldenEvaluationTests
                 Assert.False(expectation.GetProperty("authorizationLeakageAllowed").GetBoolean());
                 Assert.Contains(expectation.GetProperty("questionIntent").GetString(),
                     new[] { "engineering-impact", "unsupported" });
+                Assert.True(expectation.TryGetProperty("extractedSubjectId", out _));
                 Assert.True(expectation.TryGetProperty("subjectId", out _));
+                Assert.True(expectation.TryGetProperty("requiredChainIds", out _));
+                Assert.True(expectation.TryGetProperty("expectedOmittedClaimIds", out _));
                 Assert.Empty(expectation.GetProperty("scopeRelationshipTypes").EnumerateArray());
                 Assert.Empty(expectation.GetProperty("scopeSourceSystems").EnumerateArray());
                 Assert.True(expectation.GetProperty("clarificationRequired").ValueKind is JsonValueKind.True or JsonValueKind.False);

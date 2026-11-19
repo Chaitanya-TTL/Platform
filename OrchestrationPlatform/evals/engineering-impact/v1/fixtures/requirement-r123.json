@@ -124,6 +124,7 @@
     "budget-pressure": "{\"schemaVersion\":\"answer-v1\",\"summary\":\"Synthetic budget claim.\",\"impacts\":[{\"claimId\":\"relationship:REL-BUDGET-001\",\"explanation\":\"Synthetic budget claim.\",\"evidenceIds\":[\"EVIDENCE-BUDGET-001\"],\"sourceIds\":[\"PROV-BUDGET-001\"]}],\"warnings\":[]}",
     "malformed-json": "{not-json",
     "unsupported-schema": "{\"schemaVersion\":\"answer-v999\",\"summary\":\"Unsupported synthetic schema.\",\"impacts\":[],\"warnings\":[]}",
-    "extra-field": "{\"schemaVersion\":\"answer-v1\",\"summary\":\"Unsupported synthetic field.\",\"impacts\":[],\"warnings\":[],\"unexpected\":true}"
+    "extra-field": "{\"schemaVersion\":\"answer-v1\",\"summary\":\"Unsupported synthetic field.\",\"impacts\":[],\"warnings\":[],\"unexpected\":true}",
+    "unsupported-reference": "{\"schemaVersion\":\"answer-v1\",\"summary\":\"REQ-123 directly affects COMPONENT-ALPHA.\",\"impacts\":[{\"claimId\":\"relationship:REL-DIRECT-001\",\"explanation\":\"REQ-123 directly constrains COMPONENT-ALPHA.\",\"evidenceIds\":[\"EVIDENCE-NOT-IN-CONTEXT\"],\"sourceIds\":[\"PROV-DIRECT-001\"]}],\"warnings\":[]}"
   }
 }
