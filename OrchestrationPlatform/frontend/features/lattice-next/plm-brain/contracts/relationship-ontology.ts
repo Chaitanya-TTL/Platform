@@ -51,6 +51,13 @@ export interface OntologyEvidenceObservation {
   provider: string;
   observedAt: string;
   authority: string;
+  mappingId?: string;
+  mappingReference?: string;
+  mappingBasis?: string;
+  handshakeEvidenceId?: string;
+  ontologyRuleId?: string;
+  ontologyFieldPath?: string;
+  ontologyFieldValue?: string;
 }
 
 export interface OntologyResolvedRelationship {

@@ -16,6 +16,10 @@ import {
 import { ensureInvestigationKnowledgeGraph } from "../plm-brain/universal/ensure-investigation-knowledge-graph";
 import { completeCopilotTurn, type AzureChatRequest } from "./azure-openai-client";
 import { COPILOT_POLICY_VERSION, COPILOT_SYSTEM_POLICY } from "./policy";
+import {
+  readEngineeringImpactRuntimeRoutingConfiguration,
+  routeEngineeringImpactAnswer,
+} from "./engineering-impact-runtime-routing";
 
 const MAX_HISTORY_MESSAGES = 12;
 const MAX_THREAD_LIST = 50;
@@ -174,6 +178,23 @@ export async function executeCopilotTurn(command: CopilotTurnCommand): Promise<C
   } = command;
   if (!message.trim() || message.length > 2_000 || !/^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/.test(idempotencyKey))
     return failure(400, "Copilot message or request identifier is invalid.");
+
+  const impactRoute = routeEngineeringImpactAnswer(
+    { question: message, investigationId },
+    readEngineeringImpactRuntimeRoutingConfiguration(),
+  );
+  if (impactRoute.route === "blocked") {
+    return failure(503, impactRoute.message, {
+      failureCode: impactRoute.failureCode,
+      retryable: false,
+    });
+  }
+  if (impactRoute.route === "runtime") {
+    return failure(503, "The engineering impact runtime is not available on this product route.", {
+      failureCode: "ai-runtime-invocation-unavailable",
+      retryable: false,
+    });
+  }
 
   const snapshot = await loadSnapshot(investigationId);
   if (!snapshot) return failure(404, "Investigation was not found.");

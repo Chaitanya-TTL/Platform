@@ -8,6 +8,7 @@ public sealed class ExtractorOptions
     public string ConfigitExtractorPath { get; set; } = "";
     public string TeamcenterPipelinePath { get; set; } = "";
     public string WindchillExtractorPath { get; set; } = "";
+    public string PythonExecutable { get; set; } = "";
     public string SapCatalogRoot { get; set; } = "";
     public int SapCatalogStaleMinutes { get; set; } = 1440;
     public string ConfigitProductIndexPath { get; set; } = "";
@@ -31,6 +32,35 @@ public sealed class ExtractorOptions
         ? Path.Combine(ResolveSapPath(), "runtime", "catalog") : Path.GetFullPath(SapCatalogRoot);
     public string ResolveConfigitProductIndexPath() => string.IsNullOrWhiteSpace(ConfigitProductIndexPath)
         ? Path.Combine(ResolveWorkspaceRoot(), "configit_extractor", "product-index.json") : Path.GetFullPath(ConfigitProductIndexPath);
+    public string ResolvePythonExecutable()
+    {
+        if (!string.IsNullOrWhiteSpace(PythonExecutable)) return Path.GetFullPath(PythonExecutable);
+
+        var executableName = OperatingSystem.IsWindows() ? "python.exe" : "python3";
+        var fromPath = Environment.GetEnvironmentVariable("PATH")?
+            .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries)
+            .Select(directory => Path.Combine(directory, executableName))
+            .FirstOrDefault(File.Exists);
+        if (fromPath is not null) return fromPath;
+
+        if (OperatingSystem.IsWindows())
+        {
+            var installRoot = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "Programs",
+                "Python");
+            if (Directory.Exists(installRoot))
+            {
+                var installed = Directory.GetDirectories(installRoot, "Python*", SearchOption.TopDirectoryOnly)
+                    .OrderByDescending(directory => Path.GetFileName(directory), StringComparer.OrdinalIgnoreCase)
+                    .Select(directory => Path.Combine(directory, "python.exe"))
+                    .FirstOrDefault(File.Exists);
+                if (installed is not null) return installed;
+            }
+        }
+
+        return "python";
+    }
     public string ResolveTeamcenterPath() => string.IsNullOrWhiteSpace(TeamcenterPipelinePath)
         ? Path.Combine(ResolveWorkspaceRoot(), "TeamCenter-to-Configit-soa_client", "backend", "samples", "run-teamcenter.bat")
         : Path.GetFullPath(TeamcenterPipelinePath);

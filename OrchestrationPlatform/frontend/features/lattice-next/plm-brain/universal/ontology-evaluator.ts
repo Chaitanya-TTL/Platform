@@ -11,6 +11,7 @@ import type {
   OntologyUnresolvedEvaluation,
 } from "../contracts/relationship-ontology";
 import { COPILOT_RETRIEVAL_CONFIG } from "../../copilot/retrieval-config";
+import { adaptGovernedOntologyEvidence } from "./ontology-evidence-adapter";
 
 function citationId(kind: string, id: string): string {
   return `cite:${kind}:${encodeURIComponent(id)}`;
@@ -207,22 +208,43 @@ function resolveDefinitions(
   }
 
   for (const definition of ontology.relationshipDefinitions) {
-    const sources = entities.filter((entity) => definition.sourceApplications.includes(entity.provenance.source ?? "") && definition.sourceKinds.includes(entity.kind));
-    const targets = entities.filter((entity) => definition.targetApplications.includes(entity.provenance.source ?? "") && definition.targetKinds.includes(entity.kind));
+    const governedEvidence = adaptGovernedOntologyEvidence(canonical, definition);
+    const governedSourceIds = new Set(governedEvidence.map((item) => item.sourceEntityId));
+    const governedTargetIds = new Set(governedEvidence.map((item) => item.targetEntityId));
+    const sources = entities.filter((entity) =>
+      definition.sourceApplications.includes(entity.provenance.source ?? "") &&
+      (definition.sourceKinds.includes(entity.kind) || governedSourceIds.has(entity.id)),
+    );
+    const targets = entities.filter((entity) =>
+      definition.targetApplications.includes(entity.provenance.source ?? "") &&
+      (definition.targetKinds.includes(entity.kind) || governedTargetIds.has(entity.id)),
+    );
     let matchedForDefinition = 0;
     for (const source of sources) {
       for (const target of targets) {
         if (source.id === target.id) continue;
-        const matched = definition.evidenceRules
+        const governedMatch = governedEvidence.find((item) =>
+          item.sourceEntityId === source.id && item.targetEntityId === target.id,
+        );
+        const declaredEndpointKinds = definition.sourceKinds.includes(source.kind) && definition.targetKinds.includes(target.kind);
+        if (!declaredEndpointKinds && !governedMatch) continue;
+        const propertyMatch = definition.evidenceRules
           .map((rule) => ({ rule, values: ruleMatches(rule, source, target) }))
           .filter((entry): entry is { rule: OntologyEvidenceRule; values: { sourceValue: string; targetValue: string } } => Boolean(entry.values))
           .sort((a, b) => statusRank(a.rule.status) - statusRank(b.rule.status) || a.rule.id.localeCompare(b.rule.id))[0];
-        if (!matched) continue;
+        if (!propertyMatch && !governedMatch) continue;
+        const matchedRule = propertyMatch?.rule ?? governedMatch!.rule;
+        const matchedValues = propertyMatch?.values ?? {
+          sourceValue: governedMatch!.sourceValue,
+          targetValue: governedMatch!.targetValue,
+        };
         matchedForDefinition++;
-        const observations = evidenceFor(source, target, matched.rule, matched.values);
+        const observations = propertyMatch
+          ? evidenceFor(source, target, matchedRule, matchedValues)
+          : governedMatch!.observations;
         evidence.push(...observations);
         const edgeEvidenceIds = existingByEndpoints.get(`${source.id}\u0000${target.id}`) ?? [];
-        const relationshipId = stableId(["ontology", ontology.ontologyVersion, definition.id, matched.rule.id, source.id, target.id]);
+        const relationshipId = stableId(["ontology", ontology.ontologyVersion, definition.id, matchedRule.id, source.id, target.id]);
         const ids = [
           citationId("entity", source.id),
           citationId("entity", target.id),
@@ -232,23 +254,23 @@ function resolveDefinitions(
         resolved.push({
           id: relationshipId,
           definitionId: definition.id,
-          evidenceRuleId: matched.rule.id,
+          evidenceRuleId: matchedRule.id,
           sourceEntityId: source.id,
           targetEntityId: target.id,
           forwardType: definition.forward.type,
           forwardMeaning: definition.forward.meaning,
           inverseType: definition.inverse.type,
           inverseMeaning: definition.inverse.meaning,
-          status: matched.rule.status,
-          strength: matched.rule.strength,
-          mechanism: matched.rule.mechanism,
+          status: matchedRule.status,
+          strength: matchedRule.strength,
+          mechanism: matchedRule.mechanism,
           impactTraversal: definition.impactTraversal,
           evidence: observations,
           evidenceIds: observations.map((observation) => observation.id),
           canonicalRelationshipIds: edgeEvidenceIds,
           citationIds: [...new Set(ids)].sort(),
           provenance: {
-            authority: matched.rule.authority,
+            authority: matchedRule.authority,
             provider: "lattice-relationship-ontology",
             ontologyVersion: ontology.ontologyVersion,
             observedAt: [source.provenance.observedAt, target.provenance.observedAt].sort().at(-1) ?? canonical.temporal.assembledAt,

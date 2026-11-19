@@ -1,0 +1,130 @@
+{
+  "schemaVersion": "engineering-impact-fixture/v1",
+  "investigationId": "INV-EVAL-001",
+  "subjectId": "REQ-123",
+  "sourceVersion": "synthetic-plm-fixture-v1",
+  "ontologyVersion": "synthetic-ontology-v1",
+  "relationships": [
+    {
+      "relationshipId": "REL-DIRECT-001",
+      "sourceEntityId": "REQ-123",
+      "targetEntityId": "COMPONENT-ALPHA",
+      "relationshipType": "depends-on",
+      "explanation": "Requirement REQ-123 directly constrains COMPONENT-ALPHA.",
+      "evidenceIds": [
+        "EVIDENCE-DIRECT-001"
+      ]
+    },
+    {
+      "relationshipId": "REL-HOP-001",
+      "sourceEntityId": "REQ-123",
+      "targetEntityId": "MODULE-BETA",
+      "relationshipType": "depends-on",
+      "explanation": "Requirement REQ-123 affects MODULE-BETA.",
+      "evidenceIds": [
+        "EVIDENCE-HOP-001"
+      ]
+    },
+    {
+      "relationshipId": "REL-HOP-002",
+      "sourceEntityId": "MODULE-BETA",
+      "targetEntityId": "PRODUCT-GAMMA",
+      "relationshipType": "included-in",
+      "explanation": "MODULE-BETA is included in PRODUCT-GAMMA.",
+      "evidenceIds": [
+        "EVIDENCE-HOP-002"
+      ]
+    },
+    {
+      "relationshipId": "REL-UNRELATED-001",
+      "sourceEntityId": "REQ-OTHER",
+      "targetEntityId": "COMPONENT-UNRELATED",
+      "relationshipType": "depends-on",
+      "explanation": "An unrelated synthetic relationship used for forbidden-ID checks.",
+      "evidenceIds": [
+        "EVIDENCE-UNRELATED-001"
+      ]
+    }
+  ],
+  "paths": [
+    {
+      "pathId": "PATH-HOP-001",
+      "entityIds": [
+        "REQ-123",
+        "MODULE-BETA",
+        "PRODUCT-GAMMA"
+      ],
+      "relationshipIds": [
+        "REL-HOP-001",
+        "REL-HOP-002"
+      ],
+      "meanings": [
+        "REQ-123 affects MODULE-BETA.",
+        "MODULE-BETA is included in PRODUCT-GAMMA."
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "evidenceId": "EVIDENCE-DIRECT-001",
+      "sourceType": "relationship",
+      "sourceSystem": "synthetic-plm",
+      "recordId": "RECORD-DIRECT-001",
+      "revision": "fixture-rev-1",
+      "deepLink": "https://plm.example.test/records/RECORD-DIRECT-001",
+      "provenanceId": "PROV-DIRECT-001",
+      "authorizationDecisionId": "fixture-decision",
+      "citationId": "CITATION-DIRECT-001",
+      "authority": "synthetic-authority",
+      "provider": "synthetic-plm"
+    },
+    {
+      "evidenceId": "EVIDENCE-HOP-001",
+      "sourceType": "relationship",
+      "sourceSystem": "synthetic-plm",
+      "recordId": "RECORD-HOP-001",
+      "revision": "fixture-rev-1",
+      "deepLink": "https://plm.example.test/records/RECORD-HOP-001",
+      "provenanceId": "PROV-HOP-001",
+      "authorizationDecisionId": "fixture-decision",
+      "citationId": "CITATION-HOP-001",
+      "authority": "synthetic-authority",
+      "provider": "synthetic-plm"
+    },
+    {
+      "evidenceId": "EVIDENCE-HOP-002",
+      "sourceType": "relationship",
+      "sourceSystem": "synthetic-plm",
+      "recordId": "RECORD-HOP-002",
+      "revision": "fixture-rev-1",
+      "deepLink": "https://plm.example.test/records/RECORD-HOP-002",
+      "provenanceId": "PROV-HOP-002",
+      "authorizationDecisionId": "fixture-decision",
+      "citationId": "CITATION-HOP-002",
+      "authority": "synthetic-authority",
+      "provider": "synthetic-plm"
+    },
+    {
+      "evidenceId": "EVIDENCE-UNRELATED-001",
+      "sourceType": "relationship",
+      "sourceSystem": "synthetic-plm",
+      "recordId": "RECORD-UNRELATED-001",
+      "revision": "fixture-rev-1",
+      "deepLink": "https://plm.example.test/records/RECORD-UNRELATED-001",
+      "provenanceId": "PROV-UNRELATED-001",
+      "authorizationDecisionId": "fixture-decision",
+      "citationId": "CITATION-UNRELATED-001",
+      "authority": "synthetic-authority",
+      "provider": "synthetic-plm"
+    }
+  ],
+  "modelResponses": {
+    "direct": "{\"schemaVersion\":\"answer-v1\",\"summary\":\"REQ-123 directly affects COMPONENT-ALPHA.\",\"impacts\":[{\"claimId\":\"relationship:REL-DIRECT-001\",\"explanation\":\"REQ-123 directly constrains COMPONENT-ALPHA.\",\"evidenceIds\":[\"EVIDENCE-DIRECT-001\"],\"sourceIds\":[\"PROV-DIRECT-001\"]}],\"warnings\":[]}",
+    "multi-hop": "{\"schemaVersion\":\"answer-v1\",\"summary\":\"REQ-123 impacts PRODUCT-GAMMA through MODULE-BETA.\",\"impacts\":[{\"claimId\":\"path:PATH-HOP-001\",\"explanation\":\"REQ-123 affects MODULE-BETA, which is included in PRODUCT-GAMMA.\",\"evidenceIds\":[\"EVIDENCE-HOP-001\",\"EVIDENCE-HOP-002\"],\"sourceIds\":[\"PROV-HOP-001\",\"PROV-HOP-002\"]}],\"warnings\":[]}",
+    "budget-pressure": "{\"schemaVersion\":\"answer-v1\",\"summary\":\"Synthetic budget claim.\",\"impacts\":[{\"claimId\":\"relationship:REL-BUDGET-001\",\"explanation\":\"Synthetic budget claim.\",\"evidenceIds\":[\"EVIDENCE-BUDGET-001\"],\"sourceIds\":[\"PROV-BUDGET-001\"]}],\"warnings\":[]}",
+    "malformed-json": "{not-json",
+    "unsupported-schema": "{\"schemaVersion\":\"answer-v999\",\"summary\":\"Unsupported synthetic schema.\",\"impacts\":[],\"warnings\":[]}",
+    "extra-field": "{\"schemaVersion\":\"answer-v1\",\"summary\":\"Unsupported synthetic field.\",\"impacts\":[],\"warnings\":[],\"unexpected\":true}",
+    "unsupported-reference": "{\"schemaVersion\":\"answer-v1\",\"summary\":\"REQ-123 directly affects COMPONENT-ALPHA.\",\"impacts\":[{\"claimId\":\"relationship:REL-DIRECT-001\",\"explanation\":\"REQ-123 directly constrains COMPONENT-ALPHA.\",\"evidenceIds\":[\"EVIDENCE-NOT-IN-CONTEXT\"],\"sourceIds\":[\"PROV-DIRECT-001\"]}],\"warnings\":[]}"
+  }
+}

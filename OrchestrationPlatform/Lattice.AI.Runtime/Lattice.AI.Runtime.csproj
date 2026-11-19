@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Lattice.AI.Runtime.Contracts\Lattice.AI.Runtime.Contracts.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Prompts\engineering-impact\v1\manifest.json"
+                      LogicalName="Lattice.AI.Runtime.Prompts.engineering-impact.v1.manifest.json" />
+    <EmbeddedResource Include="Prompts\engineering-impact\v1\system-policy.md"
+                      LogicalName="Lattice.AI.Runtime.Prompts.engineering-impact.v1.system-policy.md" />
+    <EmbeddedResource Include="Prompts\engineering-impact\v1\domain-guidance.md"
+                      LogicalName="Lattice.AI.Runtime.Prompts.engineering-impact.v1.domain-guidance.md" />
+    <EmbeddedResource Include="Prompts\engineering-impact\v1\impact-task.md"
+                      LogicalName="Lattice.AI.Runtime.Prompts.engineering-impact.v1.impact-task.md" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "engineering-impact-evals/v1",
+  "datasetId": "lattice-engineering-impact-synthetic-v1",
+  "casesFile": "cases.jsonl",
+  "fixtureFiles": [
+    "fixtures/requirement-r123.json"
+  ],
+  "caseCount": 34,
+  "minimumPathCoverage": 1.0,
+  "minimumLinkCoverage": 1.0
+}

@@ -147,7 +147,7 @@ describe("investigation copilot context", () => {
     const packet = buildInvestigationContext(
       snapshot(canonical([windchillPart, sapMaterial], [relation])),
       "Trace the allocation from Windchill to SAP",
-      { relationshipDocument, maxContextChars: 2_048, maxItemsPerCategory: 2 },
+      { relationshipDocument, maxContextChars: 4_000, maxItemsPerCategory: 2 },
     );
 
     const retained = packet.relationships.find((item) => item.relationshipId === relation.id);
@@ -164,7 +164,7 @@ describe("investigation copilot context", () => {
       expect(packet.omissions.omittedCounts.relationships).toBeGreaterThan(0);
       expect(packet.uncertainties.join(" ")).toMatch(/omitted \d+ relationship path/i);
     }
-    expect(JSON.stringify(packet).length).toBeLessThanOrEqual(2_048);
+    expect(JSON.stringify(packet).length).toBeLessThanOrEqual(4_000);
   });
 
   it("does not create a relationship from a name-only match", () => {
@@ -391,10 +391,10 @@ describe("investigation copilot context", () => {
     const packet = buildInvestigationContext(
       snapshot(canonical([windchillPart, sapMaterial], manyRelationships)),
       "Trace OR:wt.part.WTPart:1001",
-      { maxContextChars: 2_048, maxItemsPerCategory: 1 },
+      { maxContextChars: 4_500, maxItemsPerCategory: 1 },
     );
 
-    expect(JSON.stringify(packet).length).toBeLessThanOrEqual(2_048);
+    expect(JSON.stringify(packet).length).toBeLessThanOrEqual(4_500);
     expect(packet.omissions.omittedCounts.relationships).toBeGreaterThan(0);
   });
 
