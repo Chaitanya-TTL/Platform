@@ -398,8 +398,8 @@ git commit -m "feat: expose answer semantic support status"
 - Modify: `OrchestrationPlatform/Lattice.AI.Runtime.Evaluation/EngineeringImpactEvaluationRunner.cs`
 
 **Interfaces:**
-- Produces: `ContextBudget.MaxEstimatedTokens`; required `AiRuntime:MaxInputTokens` in `AiRuntimeOptions` and a sixth required positional `MaxInputTokens` in `ModelConfiguration`; prompt assembly reports estimated total input from system/domain/task/output-schema overhead plus serialized context and user question; model request reserves configured `MaxOutputTokens` and a 15% input safety margin (rounded up) before context may be accepted.
-- The existing UTF-8 bytes / 4 calculation remains labeled an estimate. No tokenizer package is added in this task.
+- Produces: `ContextBudget.MaxEstimatedContextTokens`; required `AiRuntime:MaxInputTokens` in `AiRuntimeOptions` and a sixth required positional `MaxInputTokens` in `ModelConfiguration`; prompt assembly reports estimated total input from system/domain/task/output-schema overhead plus serialized context and user question; model request reserves configured `MaxOutputTokens` and a 15% input safety margin (rounded up) before context may be accepted.
+- UTF-8 byte count divided by four is only a heuristic estimate, not tokenizer output. No tokenizer package is added in this task.
 
 - [ ] **Step 1: Add failing budget boundary tests**
 

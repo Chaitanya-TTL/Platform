@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import type { AzureChatRequest } from "../azure-openai-client";
@@ -146,6 +146,55 @@ beforeEach(() => {
   mocks.loadSnapshot.mockReset().mockResolvedValue(providerTestSnapshot);
   mocks.completeCopilotTurn.mockReset();
   configureProviderResponse();
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
+describe("executeCopilotTurn engineering impact routing", () => {
+  it("uses the existing Copilot path when the server-side feature flag is disabled", async () => {
+    vi.stubEnv("LATTICE_AI_RUNTIME_ENGINEERING_IMPACT_ANSWERS_ENABLED", "false");
+
+    const outcome = await executeCopilotTurn({
+      investigationId: supportedCase.snapshot.identity.investigationId,
+      expectedSnapshotRevision: supportedCase.snapshot.identity.revision,
+      idempotencyKey: "impact-runtime-disabled",
+      threadId: "impact-runtime-disabled-thread",
+      createIfMissing: true,
+      message: "What is impacted if R-123 changes?",
+    });
+
+    expect(mocks.loadSnapshot).toHaveBeenCalledOnce();
+    expect(outcome).not.toMatchObject({
+      ok: false,
+      body: { failureCode: "ai-runtime-rollout-blocked" },
+    });
+  });
+
+  it("blocks enabled impact routing before any legacy snapshot or model work", async () => {
+    vi.stubEnv("LATTICE_AI_RUNTIME_ENGINEERING_IMPACT_ANSWERS_ENABLED", "true");
+
+    const outcome = await executeCopilotTurn({
+      investigationId: supportedCase.snapshot.identity.investigationId,
+      expectedSnapshotRevision: supportedCase.snapshot.identity.revision,
+      idempotencyKey: "impact-runtime-blocked",
+      threadId: "impact-runtime-blocked-thread",
+      createIfMissing: true,
+      message: "What is impacted if Requirement R-123 changes?",
+    });
+
+    expect(outcome).toMatchObject({
+      ok: false,
+      status: 503,
+      body: {
+        failureCode: "ai-runtime-rollout-blocked",
+        retryable: false,
+      },
+    });
+    expect(mocks.loadSnapshot).not.toHaveBeenCalled();
+    expect(mocks.completeCopilotTurn).not.toHaveBeenCalled();
+  });
 });
 
 describe("executeCopilotTurn relationship guidance", () => {

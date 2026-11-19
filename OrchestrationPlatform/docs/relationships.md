@@ -101,13 +101,21 @@ An evidence rule may create a relationship only when the declared properties
 are present on the selected source and target entities and satisfy the stated
 operator. `exact-scalar` compares normalized scalar values exactly.
 `exact-list-reference` requires the source scalar to equal one element of the
-target list. Missing evidence produces an unresolved evaluation, never a
-relationship based only on names or co-occurrence.
+target list. The `governed-mapping` mechanism is evaluated only by the
+provenance-preserving PLM Brain evidence adapter: it requires a confirmed,
+strong handshake relationship, a supported verification basis, mapping
+reference and verifier metadata, matching endpoints and relationship type,
+and exact rereading of both original source attributes. The adapter reports
+the original values and paths together with mapping ID, mapping reference,
+verification basis, and handshake evidence ID; it does not accept a
+relationship independently of these checks. Missing evidence produces an
+unresolved evaluation, never a relationship based only on names or
+co-occurrence.
 
 ```lattice-relationship-ontology
 {
   "schemaVersion": "1.0",
-  "ontologyVersion": "1.1.0",
+  "ontologyVersion": "1.2.0",
   "applications": ["windchill", "sap", "configit", "codebeamer", "teamcenter"],
   "relationshipDefinitions": [
     {
@@ -155,6 +163,16 @@ relationship based only on names or co-occurrence.
           "status": "CONFIRMED",
           "strength": "STRONG",
           "authority": "source-authoritative"
+        },
+        {
+          "id": "validated-governed-mapping",
+          "sourcePath": "plmBrain.mappingId",
+          "targetPath": "plmBrain.mappingId",
+          "operator": "exact-scalar",
+          "mechanism": "governed-mapping",
+          "status": "CONFIRMED",
+          "strength": "STRONG",
+          "authority": "domain-owner-confirmed"
         }
       ]
     },
@@ -193,6 +211,16 @@ relationship based only on names or co-occurrence.
           "status": "CONFIRMED",
           "strength": "STRONG",
           "authority": "source-authoritative"
+        },
+        {
+          "id": "validated-governed-mapping",
+          "sourcePath": "plmBrain.mappingId",
+          "targetPath": "plmBrain.mappingId",
+          "operator": "exact-scalar",
+          "mechanism": "governed-mapping",
+          "status": "CONFIRMED",
+          "strength": "STRONG",
+          "authority": "domain-owner-confirmed"
         }
       ]
     },
@@ -231,6 +259,16 @@ relationship based only on names or co-occurrence.
           "status": "SOURCE_EXPLICIT",
           "strength": "STRONG",
           "authority": "source-authoritative"
+        },
+        {
+          "id": "validated-governed-mapping",
+          "sourcePath": "plmBrain.mappingId",
+          "targetPath": "plmBrain.mappingId",
+          "operator": "exact-scalar",
+          "mechanism": "governed-mapping",
+          "status": "CONFIRMED",
+          "strength": "STRONG",
+          "authority": "domain-owner-confirmed"
         }
       ]
     },
@@ -269,6 +307,16 @@ relationship based only on names or co-occurrence.
           "status": "SOURCE_EXPLICIT",
           "strength": "STRONG",
           "authority": "source-authoritative"
+        },
+        {
+          "id": "validated-governed-mapping",
+          "sourcePath": "plmBrain.mappingId",
+          "targetPath": "plmBrain.mappingId",
+          "operator": "exact-scalar",
+          "mechanism": "governed-mapping",
+          "status": "CONFIRMED",
+          "strength": "STRONG",
+          "authority": "domain-owner-confirmed"
         }
       ]
     },
@@ -307,6 +355,16 @@ relationship based only on names or co-occurrence.
           "status": "CONFIRMED",
           "strength": "STRONG",
           "authority": "source-authoritative"
+        },
+        {
+          "id": "validated-governed-mapping",
+          "sourcePath": "plmBrain.mappingId",
+          "targetPath": "plmBrain.mappingId",
+          "operator": "exact-scalar",
+          "mechanism": "governed-mapping",
+          "status": "CONFIRMED",
+          "strength": "STRONG",
+          "authority": "domain-owner-confirmed"
         }
       ]
     }

@@ -432,7 +432,7 @@ git commit -m "feat: add authorized PLM Brain evidence boundary"
 **Interfaces:**
 - `ContextCompilationResult IContextCompiler.Compile(ContextCompilationInput input)`
 - `ContextCompilationInput` is `(RuntimeRequestContext RequestContext, string InvestigationId, ResolvedEntity Subject, ImpactScope Scope, AuthorizationScope Authorization, EvidenceRetrievalResult Evidence, ContextBudget Budget)`.
-- `ContextBudget` is `(int MaxClaims, int MaxEvidenceItems, int MaxEstimatedTokens)`.
+- `ContextBudget` is `(int MaxClaims, int MaxEvidenceItems, int MaxEstimatedContextTokens)`; its UTF-8-bytes-divided-by-four token estimate is heuristic, not tokenizer output.
 - `ContextCompilationResult` and `ContextOmission` are defined in the runtime contracts project in Task 2; `ContextPackage.InvestigationId` must match the input and retrieval result. No model-specific types are allowed in this project.
 - `ImpactClaim.Confidence` carries PLM Brain chain confidence separately so its engineering explanation remains unchanged.
 - The compiler only selects, filters, deduplicates, and budgets impact paths/chains and narratives already returned by PLM Brain. It does not derive new engineering relationships, traverse paths, or create new impact reasoning.

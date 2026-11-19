@@ -313,6 +313,11 @@ export interface CopilotContextPacket {
     categories: readonly string[];
     omittedCounts: Readonly<Record<string, number>>;
     maxContextChars: number;
+    budgetTrace: {
+      before: Readonly<Record<string, number>>;
+      after: Readonly<Record<string, number>>;
+      protectedRelationshipId?: string;
+    };
   };
 }
 
