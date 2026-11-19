@@ -19,7 +19,9 @@ public sealed class SourceEvidenceCorpusProfilerTests
         Assert.Equal(7, profile.RecordCount);
         Assert.Equal(5, profile.EligibleSourceTextRecordCount);
         Assert.Equal(1, profile.EmptyTextRecordCount);
+        Assert.Equal(1d / 7, profile.EmptyTextRate);
         Assert.Equal(1, profile.IdentifierOnlyTextRecordCount);
+        Assert.Equal(1d / 7, profile.IdentifierOnlyTextRate);
         Assert.Equal(1, profile.ExactDuplicateRecordCount);
         Assert.Equal(0.2, profile.ExactDuplicateRate);
         Assert.Equal(2, profile.NormalizedDuplicateRecordCount);
@@ -84,6 +86,8 @@ public sealed class SourceEvidenceCorpusProfilerTests
 
         Assert.Equal(4, profile.RecordCount);
         Assert.Equal(0, profile.EligibleSourceTextRecordCount);
+        Assert.Equal(1, profile.EmptyTextRate);
+        Assert.Equal(0, profile.IdentifierOnlyTextRate);
         Assert.Equal("synthetic-fixture-only", profile.CorpusClassification);
         Assert.Null(profile.MeanTextLength);
         Assert.Null(profile.MedianTextLength);
@@ -104,7 +108,9 @@ public sealed class SourceEvidenceCorpusProfilerTests
 
         Assert.Equal(0, profile.EligibleSourceTextRecordCount);
         Assert.Equal(1, profile.EmptyTextRecordCount);
+        Assert.Equal(0.5, profile.EmptyTextRate);
         Assert.Equal(1, profile.IdentifierOnlyTextRecordCount);
+        Assert.Equal(0.5, profile.IdentifierOnlyTextRate);
         Assert.Empty(profile.TextLengthDistribution);
         Assert.Null(profile.RevisionCoverageRate);
         Assert.Null(profile.ProvenanceCoverageRate);
