@@ -115,3 +115,9 @@ The TypeScript PLM service requires the following environment variables for prot
 The service verifies RS256 signatures and issuer/audience, requires the ticket to be unexpired and bound to the active investigation, operation, request, and required grant, and rejects an expired ticket. If revocation checking is required but unavailable—or a configured check cannot determine status—the request is denied. When a checker is configured, it runs and rejects a revoked decision; with no checker, revocation checking is not performed unless the required flag is set, in which case the request is denied.
 
 Authorization tests use a test-only fake signer; they do not generate an ephemeral RSA key, call Key Vault, or produce a cryptographically verifiable ticket. Production signing uses the configured Key Vault key. Do not copy test signing output or use a production private key in local tests. The production signing and public-key distribution boundary is described in the [Azure resource guide](phase-1-azure-resources.md).
+
+## Copilot engineering-impact routing
+
+The frontend Copilot server-side flag `LATTICE_AI_RUNTIME_ENGINEERING_IMPACT_ANSWERS_ENABLED` defaults to `false`; it is read only by server code and must not be set from client input. With the flag disabled, or for questions outside the supported engineering-impact intent, Copilot keeps using its existing answer path.
+
+When enabled, only a supported impact question with one explicit requirement identifier and an investigation ID is routed away from the legacy answer path. This product route does not yet propagate the authenticated user identity or have an available authorization-decision provider, so the request returns a sanitized unavailable response before legacy snapshot/model work. It does not call the runtime API without authorization and does not fall back to a legacy answer. Do not enable this flag for live use until the approved identity and authorization integration is available.
