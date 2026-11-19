@@ -4,4 +4,7 @@ public sealed record RuntimeRequestContext(
     string RequestId,
     string TraceId,
     string? ParentRequestId,
-    string? ConversationId);
+    string? ConversationId)
+{
+    public string? TurnId { get; init; }
+}

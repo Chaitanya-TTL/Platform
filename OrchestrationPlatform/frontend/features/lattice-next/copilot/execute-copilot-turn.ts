@@ -17,6 +17,11 @@ import { ensureInvestigationKnowledgeGraph } from "../plm-brain/universal/ensure
 import { completeCopilotTurn, type AzureChatRequest } from "./azure-openai-client";
 import { COPILOT_POLICY_VERSION, COPILOT_SYSTEM_POLICY } from "./policy";
 import {
+  engineeringImpactRuntimeClient,
+  type EngineeringImpactRuntimeClient,
+} from "./engineering-impact-runtime-client";
+import {
+  mapEngineeringImpactRuntimeCall,
   readEngineeringImpactRuntimeRoutingConfiguration,
   routeEngineeringImpactAnswer,
 } from "./engineering-impact-runtime-routing";
@@ -38,6 +43,10 @@ export interface CopilotTurnCommand {
   expectedThreadRevision?: number;
   createIfMissing?: boolean;
   signal?: AbortSignal;
+}
+
+export interface CopilotTurnDependencies {
+  engineeringImpactRuntimeClient?: Pick<EngineeringImpactRuntimeClient, "readiness" | "answer">;
 }
 
 export interface CopilotTurnSuccess {
@@ -168,7 +177,10 @@ async function loadThreads(investigationId: InvestigationId) {
   return store.listThreads(investigationId, MAX_THREAD_LIST);
 }
 
-export async function executeCopilotTurn(command: CopilotTurnCommand): Promise<CopilotTurnOutcome> {
+export async function executeCopilotTurn(
+  command: CopilotTurnCommand,
+  dependencies: CopilotTurnDependencies = {},
+): Promise<CopilotTurnOutcome> {
   const {
     investigationId,
     expectedSnapshotRevision,
@@ -179,35 +191,17 @@ export async function executeCopilotTurn(command: CopilotTurnCommand): Promise<C
   if (!message.trim() || message.length > 2_000 || !/^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/.test(idempotencyKey))
     return failure(400, "Copilot message or request identifier is invalid.");
 
+  const runtimeClient = dependencies.engineeringImpactRuntimeClient ?? engineeringImpactRuntimeClient;
   const impactRoute = routeEngineeringImpactAnswer(
     { question: message, investigationId },
-    readEngineeringImpactRuntimeRoutingConfiguration(),
+    readEngineeringImpactRuntimeRoutingConfiguration(runtimeClient.readiness()),
   );
-  if (impactRoute.route === "blocked") {
-    return failure(503, impactRoute.message, {
-      failureCode: impactRoute.failureCode,
-      retryable: false,
-    });
-  }
-  if (impactRoute.route === "runtime") {
-    return failure(503, "The engineering impact runtime is not available on this product route.", {
-      failureCode: "ai-runtime-invocation-unavailable",
-      retryable: false,
-    });
-  }
 
   const snapshot = await loadSnapshot(investigationId);
   if (!snapshot) return failure(404, "Investigation was not found.");
   if (snapshot.archivedAt) return failure(409, "Restore the investigation before adding copilot messages.");
   if (snapshot.identity.revision !== expectedSnapshotRevision)
     return failure(409, "The investigation changed before the message could be saved.", { revision: snapshot.identity.revision });
-
-  let contextSnapshot: InvestigationSnapshot;
-  try {
-    contextSnapshot = ensureInvestigationKnowledgeGraph(snapshot);
-  } catch {
-    return failure(503, "The authoritative relationship ontology is unavailable. Copilot cannot safely answer this request.");
-  }
 
   let threadId = command.threadId ?? randomUUID();
   let existingThread = command.threadId ? await store.loadThread(investigationId, threadId) : undefined;
@@ -266,11 +260,84 @@ export async function executeCopilotTurn(command: CopilotTurnCommand): Promise<C
     new Date().toISOString(),
     idempotencyKey,
   );
-  const contextPacket: CopilotContextPacket = buildInvestigationContext(contextSnapshot, message);
   const existingMessages = existingThread.messages.at(-1)?.role === "user" && existingThread.messages.at(-1)?.idempotencyKey === idempotencyKey
     ? existingThread.messages.slice(0, -1)
     : existingThread.messages;
   const history = conversationMessages(existingMessages);
+  const previousAssistantMessage = [...existingMessages].reverse()
+    .find((entry) => entry.role === "assistant");
+
+  if (impactRoute.route === "blocked" || impactRoute.route === "runtime") {
+    let runtimeResult;
+    if (impactRoute.route === "blocked") {
+      runtimeResult = {
+        status: "unavailable" as const,
+        code: "runtime-credential-not-configured",
+      };
+    } else {
+      runtimeResult = await runtimeClient.answer({
+        question: message,
+        investigationId: String(investigationId),
+        conversationId: threadId,
+        turnId: idempotencyKey,
+        ...(previousAssistantMessage?.idempotencyKey
+          ? { parentTurnId: previousAssistantMessage.idempotencyKey }
+          : {}),
+        ...(existingThread.conversationState
+          ? { previousConversationState: existingThread.conversationState }
+          : {}),
+        ...(signal ? { signal } : {}),
+      });
+    }
+
+    const answer = mapEngineeringImpactRuntimeCall(runtimeResult, snapshot.identity.revision);
+    const responseState = runtimeResult.status === "response"
+      ? runtimeResult.response.continuationState
+      : undefined;
+    const validResponseState = responseState &&
+      responseState.conversationId === threadId &&
+      responseState.investigationId === String(investigationId) &&
+      responseState.previousTurnId === idempotencyKey &&
+      /^[a-f0-9]{64}$/.test(responseState.ownerFingerprint ?? "")
+        ? responseState
+        : undefined;
+    if (runtimeResult.status === "response" &&
+        (runtimeResult.response.continuationStateStatus === "invalid" ||
+         runtimeResult.response.continuationState && !validResponseState)) {
+      console.warn("Engineering Impact runtime continuation state was rejected; preserving the answer without state.");
+    }
+    const nextConversationState = runtimeResult.status === "response" &&
+      (runtimeResult.response.disposition === "Answer" || runtimeResult.response.disposition === "Clarify")
+        ? validResponseState ?? null
+        : undefined;
+    const completed = await store.appendTurn(investigationId, threadId, stagedThread.threadRevision, message, {
+      answer,
+      at: new Date().toISOString(),
+      snapshotRevision: snapshot.identity.revision,
+      idempotencyKey,
+    }, nextConversationState);
+    const assistant = completed.messages.at(-1);
+    if (!assistant || assistant.role !== "assistant")
+      return failure(503, "Runtime response was not persisted. Do not retry automatically.");
+    return {
+      ok: true,
+      investigationId,
+      threadId,
+      threadRevision: completed.threadRevision,
+      snapshotRevision: snapshot.identity.revision,
+      answer: assistant.answer,
+      idempotentReplay: false,
+    };
+  }
+
+  let contextSnapshot: InvestigationSnapshot;
+  try {
+    contextSnapshot = ensureInvestigationKnowledgeGraph(snapshot);
+  } catch {
+    return failure(503, "The authoritative relationship ontology is unavailable. Copilot cannot safely answer this request.");
+  }
+
+  const contextPacket: CopilotContextPacket = buildInvestigationContext(contextSnapshot, message);
 
   if (contextPacket.ambiguity.clarificationRequired) {
     const candidates = contextPacket.entityCandidates.slice(0, 5);

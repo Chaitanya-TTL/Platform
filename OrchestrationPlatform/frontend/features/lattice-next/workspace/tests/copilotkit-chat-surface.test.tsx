@@ -368,6 +368,26 @@ describe("CopilotKit investigation chat surface", () => {
     expect(assistantMarkup).not.toContain('aria-label="Uncertainties"');
   });
 
+  it("accepts runtime disposition and diagnostic metadata on the existing answer message", () => {
+    const runtimeAnswer: CopilotAnswer = {
+      ...answer,
+      runtime: {
+        disposition: "Answer",
+        contextPackageId: "context-1",
+        semanticSupportStatus: "partial",
+        issues: [{ code: "partial-evidence", claimId: "impact-1" }],
+      },
+    };
+
+    expect(getValidatedAnswerContext({
+      id: "assistant-runtime",
+      metadata: { latticeAnswer: runtimeAnswer },
+    })).toEqual({
+      messageId: "assistant-runtime",
+      answer: runtimeAnswer,
+    });
+  });
+
   it("passes_the_exact_answer_context_when_why_is_selected", () => {
     const expectedAnswerContext = {
       messageId: "assistant-why",

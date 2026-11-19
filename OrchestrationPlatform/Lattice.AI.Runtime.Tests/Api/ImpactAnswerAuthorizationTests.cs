@@ -151,6 +151,7 @@ public sealed class ImpactAnswerAuthorizationTests
               "investigationId": "investigation-1",
               "question": "What impacts if REQ-123 changes?",
               "conversationId": "conversation-1",
+              "turnId": "turn-1",
               "tenantId": "attacker-tenant",
               "subjectId": "attacker-subject",
               "grants": ["*"],
@@ -169,6 +170,7 @@ public sealed class ImpactAnswerAuthorizationTests
         Assert.Equal("tenant-from-authentication", factory.DecisionProvider.LastTenantId);
         Assert.Equal("subject-from-authentication", factory.DecisionProvider.LastSubjectId);
         Assert.Equal("investigation-1", factory.DecisionProvider.LastInvestigationId);
+        Assert.Equal("turn-1", factory.DecisionProvider.LastTurnId);
         Assert.Equal("tenant-from-authentication", factory.EntityResolver.Authorization?.Scope.TenantId);
         Assert.Equal("subject-from-authentication", factory.EntityResolver.Authorization?.Scope.SubjectId);
         Assert.Contains(
@@ -294,6 +296,7 @@ public sealed class ImpactAnswerAuthorizationTests
         public string? LastTenantId { get; private set; }
         public string? LastSubjectId { get; private set; }
         public string? LastInvestigationId { get; private set; }
+        public string? LastTurnId { get; private set; }
 
         public Task<AuthorizationScope?> EvaluateAsync(
             ClaimsPrincipal principal,
@@ -310,6 +313,7 @@ public sealed class ImpactAnswerAuthorizationTests
             LastTenantId = principal.FindFirst("tid")?.Value;
             LastSubjectId = principal.FindFirst("sub")?.Value;
             LastInvestigationId = investigationId;
+            LastTurnId = requestContext.TurnId;
             var grants = denyDecision
                 ? new HashSet<string>(["investigation:resolve-entity"], StringComparer.Ordinal)
                 : new HashSet<string>(

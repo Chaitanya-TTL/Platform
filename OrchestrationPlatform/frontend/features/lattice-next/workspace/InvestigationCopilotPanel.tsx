@@ -362,6 +362,16 @@ function InvestigationCopilotPanelContent({
           ) : null}
         </dl>
       ) : null}
+      {citation.deepLink ? (
+        <a
+          className="mt-1 inline-block text-xs text-cyan-200 underline underline-offset-2"
+          href={citation.deepLink}
+          target="_blank"
+          rel="noreferrer"
+        >
+          Open source record
+        </a>
+      ) : null}
     </li>
   );
 

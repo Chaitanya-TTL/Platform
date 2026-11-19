@@ -81,7 +81,12 @@ public static class AiRuntimeServiceCollectionExtensions
                 provider.GetRequiredService<TimeProvider>());
         });
         services.AddScoped<IAuthorizationContextProvider, AspNetAuthorizationContextProvider>();
+        services.Configure<ConversationStateRetentionOptions>(
+            configuration.GetSection("AiRuntime:ConversationState"));
+        services.AddSingleton(provider =>
+            provider.GetRequiredService<Microsoft.Extensions.Options.IOptions<ConversationStateRetentionOptions>>().Value);
         services.AddSingleton<IQuestionInterpreter, QuestionInterpreter>();
+        services.AddSingleton<IConversationTurnInterpreter, ConversationTurnInterpreter>();
         services.AddSingleton<IScopePlanner, ScopePlanner>();
         services.AddHttpClient<IPlmBrainClient, PlmBrainClient>()
             .AddStandardResilienceHandler();

@@ -16,7 +16,10 @@ public sealed class GoldenEvaluationTests
 
         Assert.True(report.Passed, string.Join(
             Environment.NewLine,
-            report.Cases.Where(result => !result.Passed).Select(result => $"{result.CaseId}: {result.FailureReason}")));
+            report.Cases.Where(result => !result.Passed).Select(result => $"{result.CaseId}: {result.FailureReason}")
+                .Concat(report.ConversationSequences.Cases
+                    .Where(result => !result.Passed)
+                    .Select(result => $"{result.SequenceId}: {result.FailureReason}"))));
         Assert.Equal(34, report.CaseCount);
         Assert.Equal(report.CaseCount, report.PassedCaseCount);
         Assert.Equal(0, report.FailedCaseCount);
@@ -51,6 +54,15 @@ public sealed class GoldenEvaluationTests
         Assert.Equal(1, report.Metrics.UnsupportedReferenceRejectionRate.Rate);
         Assert.Equal(1, report.Metrics.OmissionBehaviorAccuracy.Rate);
         Assert.Equal(10, report.Metrics.DispositionCounts["Answer"]);
+        Assert.Equal(13, report.ConversationSequences.SequenceCount);
+        Assert.Equal(13, report.ConversationSequences.PassedSequenceCount);
+        Assert.Equal(0, report.ConversationSequences.FailedSequenceCount);
+        Assert.Equal(27, report.ConversationSequences.TurnCount);
+        Assert.Equal(14, report.ConversationSequences.FollowUpTurnCount);
+        Assert.Equal(3, report.ConversationSequences.FollowUpRetrievalCount);
+        Assert.Equal(11, report.ConversationSequences.ClarificationCount);
+        Assert.Equal(5, report.ConversationSequences.StateInvalidationCount);
+        Assert.Equal(9, report.ConversationSequences.ParentTurnCorrelationCount);
 
         var multiHop = Assert.Single(report.Cases.Where(result => result.CaseId == "multi-hop-impact"));
         Assert.Equal(["REL-HOP-001", "REL-HOP-002"], multiHop.ActualRelationshipIds);

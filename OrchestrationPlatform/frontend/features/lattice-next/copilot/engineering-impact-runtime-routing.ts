@@ -1,9 +1,14 @@
 import "server-only";
-import type { CopilotCitation } from "./contracts";
+import type { CopilotAnswer, CopilotCitation, CopilotRuntimeDisposition } from "./contracts";
+import {
+  runtimeResponseCitations,
+  type EngineeringImpactRuntimeCallResult,
+  type EngineeringImpactRuntimeDisposition,
+  type EngineeringImpactRuntimeResponse,
+} from "./engineering-impact-runtime-client";
 
 const IMPACT_INTENT = /\b(?:impacts?|impacted|affected|downstream|depends?|dependents?|engineering\s+items)\b/i;
 const CONDITIONAL_CHANGE_INTENT = /\bwhat\s+happens\s+if\b.*\bchanges?\b/i;
-const EXPLICIT_SUBJECT_ID = /(?<![A-Z0-9_-])(?:REQ|R)-\d+(?![A-Z0-9_-])/gi;
 
 export interface EngineeringImpactRuntimeRoutingInput {
   question: string;
@@ -12,8 +17,8 @@ export interface EngineeringImpactRuntimeRoutingInput {
 
 export interface EngineeringImpactRuntimeRoutingConfiguration {
   enabled: boolean;
-  authorizationProviderAvailable: boolean;
-  userIdentityPropagationAvailable: boolean;
+  runtimeEndpointAvailable: boolean;
+  runtimeCredentialProviderAvailable: boolean;
 }
 
 export type EngineeringImpactRuntimeRoute =
@@ -34,12 +39,14 @@ export type EngineeringImpactRuntimeOutcome =
         sourceIds: readonly string[];
       }[];
       citations: readonly CopilotCitation[];
+      contextPackageId?: string;
     }
   | {
       disposition: "Clarify" | "Abstain";
       issues: readonly { message: string }[];
+      contextPackageId?: string;
     }
-  | { disposition: "Deny" | "Failed" };
+  | { disposition: "Deny" | "Failed" | "Unavailable"; diagnosticCode?: string };
 
 export type EngineeringImpactCopilotStatus =
   | "answer"
@@ -144,6 +151,7 @@ export function mapEngineeringImpactRuntimeOutcome(
         citations: [],
       };
     case "Failed":
+    case "Unavailable":
       return {
         status: "unavailable",
         assistantMessage: {
@@ -155,12 +163,114 @@ export function mapEngineeringImpactRuntimeOutcome(
   }
 }
 
-export function readEngineeringImpactRuntimeRoutingConfiguration():
-  EngineeringImpactRuntimeRoutingConfiguration {
+function copilotDisposition(disposition: EngineeringImpactRuntimeDisposition): CopilotRuntimeDisposition {
+  return disposition;
+}
+
+function mapRuntimeResponse(
+  response: EngineeringImpactRuntimeResponse,
+  snapshotRevision: number,
+): CopilotAnswer {
+  const { citations, sourceCitationIds } = runtimeResponseCitations(response);
+  const impacts = response.impacts.map((impact) => {
+    const citationIds = [...new Set(
+      impact.sourceIds
+        .map((sourceId) => sourceCitationIds.get(sourceId))
+        .filter((citationId): citationId is string => Boolean(citationId)),
+    )];
+    const markers = citationIds.map((citationId) => {
+      const citation = citations.find((candidate) => candidate.citationId === citationId);
+      return citation ? `(cite:source:${citationId.slice("cite:source:".length)})` : "";
+    }).filter(Boolean);
+    return {
+      text: impact.explanation,
+      citationIds,
+      kind: citationIds.length ? "fact" as const : "hypothesis" as const,
+      display: `${impact.explanation}${markers.length ? ` ${markers.join(" ")}` : ""}`,
+    };
+  });
+  const disposition = copilotDisposition(response.disposition);
+  const issues = response.issues.map((issue) => issue.message).filter(Boolean);
+  const summary = response.summary?.trim();
+  const answer = [
+    summary,
+    ...impacts.map((impact) => impact.display),
+    ...(disposition === "Answer" ? issues : []),
+  ].filter((part): part is string => Boolean(part)).join("\n\n") ||
+    (disposition === "Clarify"
+      ? issues.join("\n\n") || "Which engineering item should I assess?"
+      : disposition === "Abstain"
+        ? issues.join("\n\n") || "The available evidence does not support a reliable impact answer."
+        : "Engineering impact answers are temporarily unavailable.");
+
+  return {
+    answer,
+    claims: impacts.map(({ text, kind, citationIds }) => ({ text, kind, citationIds })),
+    recommendations: [],
+    uncertainties: issues,
+    followUpQuestions: disposition === "Clarify" ? issues : [],
+    snapshotRevision,
+    citations,
+    runtime: {
+      disposition,
+      ...(response.contextPackageId ? { contextPackageId: response.contextPackageId } : {}),
+      ...(response.semanticSupportStatus ? { semanticSupportStatus: response.semanticSupportStatus } : {}),
+      ...(response.issues.length
+        ? {
+            issues: response.issues.map((issue) => ({
+              code: issue.code,
+              ...(issue.claimId !== undefined ? { claimId: issue.claimId } : {}),
+            })),
+          }
+        : {}),
+    },
+  };
+}
+
+export function mapEngineeringImpactRuntimeCall(
+  result: EngineeringImpactRuntimeCallResult,
+  snapshotRevision: number,
+): CopilotAnswer {
+  if (result.status === "response") return mapRuntimeResponse(result.response, snapshotRevision);
+
+  const disposition: CopilotRuntimeDisposition = result.status === "denied"
+    ? "Deny"
+    : result.status === "unavailable"
+      ? "Unavailable"
+      : "Failed";
+  const answer = result.status === "denied"
+    ? "You are not authorized to access this investigation."
+    : result.status === "unavailable"
+      ? "Engineering impact answers are temporarily unavailable while the runtime connection is being configured."
+      : result.code === "runtime-credential-rejected"
+        ? "The engineering impact runtime rejected its configured credential."
+        : "The engineering impact runtime could not complete this answer.";
+  const diagnosticCode = "code" in result ? result.code : "authorization-denied";
+  return {
+    answer,
+    claims: [],
+    recommendations: [],
+    uncertainties: disposition === "Deny" ? [] : [answer],
+    followUpQuestions: [],
+    snapshotRevision,
+    citations: [],
+    runtime: {
+      disposition,
+      diagnosticCode,
+    },
+  };
+}
+
+export function readEngineeringImpactRuntimeRoutingConfiguration(
+  readiness: { endpointConfigured: boolean; credentialProviderConfigured: boolean } = {
+    endpointConfigured: false,
+    credentialProviderConfigured: false,
+  },
+): EngineeringImpactRuntimeRoutingConfiguration {
   return {
     enabled: process.env.LATTICE_AI_RUNTIME_ENGINEERING_IMPACT_ANSWERS_ENABLED?.trim().toLowerCase() === "true",
-    authorizationProviderAvailable: false,
-    userIdentityPropagationAvailable: false,
+    runtimeEndpointAvailable: readiness.endpointConfigured,
+    runtimeCredentialProviderAvailable: readiness.credentialProviderConfigured,
   };
 }
 
@@ -170,19 +280,17 @@ export function routeEngineeringImpactAnswer(
 ): EngineeringImpactRuntimeRoute {
   const question = input.question.trim();
   const hasImpactIntent = IMPACT_INTENT.test(question) || CONDITIONAL_CHANGE_INTENT.test(question);
-  const subjectIds = [...new Set((question.match(EXPLICIT_SUBJECT_ID) ?? []).map((id) => id.toUpperCase()))];
   if (!configuration.enabled ||
       !hasImpactIntent ||
-      subjectIds.length !== 1 ||
       !input.investigationId?.trim()) {
     return { route: "legacy" };
   }
 
-  if (!configuration.authorizationProviderAvailable || !configuration.userIdentityPropagationAvailable) {
+  if (!configuration.runtimeEndpointAvailable || !configuration.runtimeCredentialProviderAvailable) {
     return {
       route: "blocked",
       failureCode: "ai-runtime-rollout-blocked",
-      message: "Engineering impact answers are temporarily unavailable while authorization is being configured.",
+      message: "Engineering impact answers are temporarily unavailable while the runtime connection is being configured.",
     };
   }
 

@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using System.Text.RegularExpressions;
+using Lattice.AI.Runtime.Contracts.Answers;
+using Lattice.AI.Runtime.Contracts.Conversation;
 using Lattice.AI.Runtime.Contracts.Requests;
 using Lattice.AI.Runtime.Telemetry;
 using Microsoft.Extensions.Options;
@@ -75,6 +77,24 @@ public sealed class AiRuntimeTelemetry : IAiRuntimeTelemetry
         Meter.CreateCounter<long>("lattice.ai.runtime.model.tokens", "tokens");
     private static readonly Counter<long> Failures =
         Meter.CreateCounter<long>("lattice.ai.runtime.failures");
+    private static readonly Counter<long> ConversationTurnTypes =
+        Meter.CreateCounter<long>("lattice.ai.runtime.conversation.turns");
+    private static readonly Counter<long> ConversationReferenceResolutions =
+        Meter.CreateCounter<long>("lattice.ai.runtime.conversation.reference_resolutions");
+    private static readonly Histogram<long> InheritedReferenceCount =
+        Meter.CreateHistogram<long>("lattice.ai.runtime.conversation.inherited_reference_count", "references");
+    private static readonly Counter<long> ConversationFilterChanges =
+        Meter.CreateCounter<long>("lattice.ai.runtime.conversation.filter_changes");
+    private static readonly Counter<long> ConversationClarifications =
+        Meter.CreateCounter<long>("lattice.ai.runtime.conversation.clarifications");
+    private static readonly Counter<long> ConversationStateInvalidations =
+        Meter.CreateCounter<long>("lattice.ai.runtime.conversation.state_invalidations");
+    private static readonly Counter<long> ConversationFollowUpRetrievals =
+        Meter.CreateCounter<long>("lattice.ai.runtime.conversation.follow_up_retrievals");
+    private static readonly Counter<long> ConversationParentCorrelations =
+        Meter.CreateCounter<long>("lattice.ai.runtime.conversation.parent_correlations");
+    private static readonly Counter<long> ConversationDispositions =
+        Meter.CreateCounter<long>("lattice.ai.runtime.conversation.dispositions");
 
     private readonly AiRuntimeTelemetryOptions _options;
 
@@ -197,6 +217,49 @@ public sealed class AiRuntimeTelemetry : IAiRuntimeTelemetry
             }
         }
     }
+
+    public void RecordConversationTurn(ConversationTurnTelemetry summary)
+    {
+        ArgumentNullException.ThrowIfNull(summary);
+        ArgumentOutOfRangeException.ThrowIfNegative(summary.InheritedReferenceCount);
+        var inheritedCount = Math.Min(summary.InheritedReferenceCount, 10);
+        ConversationTurnTypes.Add(
+            1,
+            new KeyValuePair<string, object?>("turn.type", NormalizeTurnType(summary.TurnType)));
+        ConversationReferenceResolutions.Add(
+            1,
+            new KeyValuePair<string, object?>("resolution", summary.ReferenceResolution.ToString().ToLowerInvariant()));
+        InheritedReferenceCount.Record(inheritedCount);
+        ConversationFilterChanges.Add(
+            summary.FilterChanged ? 1 : 0,
+            new KeyValuePair<string, object?>("changed", summary.FilterChanged));
+        ConversationClarifications.Add(
+            summary.ClarificationRequired ? 1 : 0,
+            new KeyValuePair<string, object?>("required", summary.ClarificationRequired));
+        ConversationParentCorrelations.Add(
+            summary.ParentTurnCorrelated ? 1 : 0,
+            new KeyValuePair<string, object?>("correlated", summary.ParentTurnCorrelated));
+    }
+
+    public void RecordConversationStateInvalidation(ConversationStateInvalidationReason reason) =>
+        ConversationStateInvalidations.Add(
+            1,
+            new KeyValuePair<string, object?>("reason", reason.ToString().ToLowerInvariant()));
+
+    public void RecordConversationRetrieval(bool followUp)
+    {
+        if (followUp) ConversationFollowUpRetrievals.Add(1);
+    }
+
+    public void RecordConversationTurnDisposition(AnswerDisposition disposition) =>
+        ConversationDispositions.Add(
+            1,
+            new KeyValuePair<string, object?>("disposition", NormalizeDisposition(disposition.ToString())));
+
+    private static string NormalizeTurnType(ConversationTurnType turnType) =>
+        Enum.IsDefined(turnType)
+            ? turnType.ToString().Replace(" ", string.Empty, StringComparison.Ordinal).ToLowerInvariant()
+            : "unsupported";
 
     private static string NormalizeStage(string stage) =>
         StageNames.Contains(stage) ? stage : "other";

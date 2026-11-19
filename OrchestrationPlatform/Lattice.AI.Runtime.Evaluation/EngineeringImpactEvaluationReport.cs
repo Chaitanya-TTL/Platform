@@ -14,7 +14,33 @@ public sealed record EngineeringImpactEvaluationReport(
     int PassedCaseCount,
     int FailedCaseCount,
     EngineeringImpactEvaluationMetrics Metrics,
-    IReadOnlyList<EngineeringImpactEvaluationCaseResult> Cases);
+    IReadOnlyList<EngineeringImpactEvaluationCaseResult> Cases,
+    ConversationSequenceEvaluationReport ConversationSequences);
+
+public sealed record ConversationSequenceEvaluationReport(
+    int SequenceCount,
+    int PassedSequenceCount,
+    int FailedSequenceCount,
+    int TurnCount,
+    int FollowUpTurnCount,
+    int FollowUpRetrievalCount,
+    int ClarificationCount,
+    int StateInvalidationCount,
+    int ParentTurnCorrelationCount,
+    IReadOnlyList<ConversationSequenceEvaluationCase> Cases);
+
+public sealed record ConversationSequenceEvaluationCase(
+    string SequenceId,
+    bool Passed,
+    IReadOnlyList<string> ExpectedDispositions,
+    IReadOnlyList<string> ActualDispositions,
+    int EntityResolutionCalls,
+    int EvidenceRetrievalCalls,
+    int ModelCalls,
+    IReadOnlyList<string> StateInvalidations,
+    int ParentTurnCorrelationCount,
+    int FollowUpRetrievalCount,
+    string? FailureReason);
 
 public sealed record EngineeringImpactEvaluationMetrics(
     int UnsupportedClaimCount,

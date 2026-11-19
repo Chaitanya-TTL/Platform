@@ -7,7 +7,7 @@ vi.mock("server-only", () => ({}));
 
 import { FileCopilotConversationStore } from "../file-copilot-conversation-store";
 import { asInvestigationId } from "../../contracts/investigation-identity";
-import type { CopilotAnswer } from "../../../copilot/contracts";
+import type { CopilotAnswer, ConversationState } from "../../../copilot/contracts";
 
 const roots: string[] = [];
 async function temporaryRoot(): Promise<string> {
@@ -31,6 +31,29 @@ const answer: CopilotAnswer = {
 };
 const firstInvestigation = asInvestigationId("investigation-one");
 const secondInvestigation = asInvestigationId("investigation-two");
+const conversationState: ConversationState = {
+  schemaVersion: 1,
+  conversationId: "thread-state",
+  investigationId: String(firstInvestigation),
+  stateVersion: 1,
+  currentSubjectIds: ["part-17"],
+  currentValidatedEntityRefs: [{ canonicalId: "part-17", entityKind: "Part", application: "Windchill" }],
+  applicationFilters: { sourceApplications: [], targetApplications: [] },
+  relationshipFilters: [],
+  impactScope: { relationshipTypes: [], maxHops: 3, sourceSystems: [], asOf: null },
+  outputDimension: "impact",
+  previousTurnId: "turn-state",
+  previousContextPackageId: "context-1",
+  snapshotRevision: null,
+  sourceVersion: "source-v1",
+  ontologyVersion: "ontology-v1",
+  ownerFingerprint: "b".repeat(64),
+  unresolvedReference: null,
+  lastTurnDisposition: "answer",
+  createdAt: "2026-10-23T00:00:00.000Z",
+  updatedAt: "2026-10-23T00:00:01.000Z",
+  expiresAt: "2026-10-24T00:00:00.000Z",
+};
 
 describe("file copilot conversation store", () => {
   it("isolates threads by investigation and lists latest threads first", async () => {
@@ -56,6 +79,86 @@ describe("file copilot conversation store", () => {
 
     await expect(firstAppend).resolves.toMatchObject({ threadRevision: 2, messages: [{ role: "user" }, { role: "assistant", answer }] });
     await expect(conflictingAppend).rejects.toThrow(/revision conflict/i);
+  });
+
+  it("atomically persists server-produced continuation state with its assistant turn and supports explicit invalidation", async () => {
+    const store = new FileCopilotConversationStore(await temporaryRoot());
+    await store.createThread(firstInvestigation, "thread-state", "Question");
+    const staged = await store.appendUserMessage(
+      firstInvestigation,
+      "thread-state",
+      0,
+      "Question",
+      4,
+      undefined,
+      "turn-state",
+    );
+    const completed = await store.appendTurn(
+      firstInvestigation,
+      "thread-state",
+      staged.threadRevision,
+      "Question",
+      {
+        answer,
+        at: conversationState.updatedAt,
+        snapshotRevision: 4,
+        idempotencyKey: "turn-state",
+      },
+      conversationState,
+    );
+
+    expect(completed.conversationState).toEqual(conversationState);
+    await expect(store.loadThread(firstInvestigation, "thread-state"))
+      .resolves.toMatchObject({ conversationState, messages: [{ role: "user" }, { role: "assistant" }] });
+
+    await store.appendUserMessage(firstInvestigation, "thread-state", completed.threadRevision, "Reset", 4, undefined, "turn-next");
+    const cleared = await store.appendTurn(
+      firstInvestigation,
+      "thread-state",
+      completed.threadRevision + 1,
+      "Reset",
+      {
+        answer,
+        at: conversationState.updatedAt,
+        snapshotRevision: 4,
+        idempotencyKey: "turn-next",
+      },
+      null,
+    );
+    expect(cleared.conversationState).toBeUndefined();
+  });
+
+  it("rejects continuation state for another investigation, thread, or parent turn", async () => {
+    const store = new FileCopilotConversationStore(await temporaryRoot());
+    await store.createThread(firstInvestigation, "thread-state", "Question");
+
+    await expect(store.appendTurn(
+      firstInvestigation,
+      "thread-state",
+      0,
+      "Question",
+      {
+        answer,
+        at: conversationState.updatedAt,
+        snapshotRevision: 4,
+        idempotencyKey: "turn-state",
+      },
+      { ...conversationState, investigationId: String(secondInvestigation) },
+    )).rejects.toThrow(/not bound to this thread and turn/i);
+
+    await expect(store.appendTurn(
+      firstInvestigation,
+      "thread-state",
+      0,
+      "Question",
+      {
+        answer,
+        at: conversationState.updatedAt,
+        snapshotRevision: 4,
+        idempotencyKey: "another-turn",
+      },
+      conversationState,
+    )).rejects.toThrow(/not bound to this thread and turn/i);
   });
 
   it("persists citeable source-status records", async () => {

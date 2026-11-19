@@ -2,6 +2,7 @@ using System.Text.Json;
 using Lattice.AI.Runtime.Application;
 using Lattice.AI.Runtime.ContextCompilation;
 using Lattice.AI.Runtime.Contracts.Answers;
+using Lattice.AI.Runtime.Contracts.Conversation;
 using Lattice.AI.Runtime.Contracts.Authorization;
 using Lattice.AI.Runtime.Contracts.Context;
 using Lattice.AI.Runtime.Contracts.Evidence;
@@ -38,6 +39,21 @@ public sealed class ImpactAnswerServiceTests
         Assert.Equal(1, fixture.ScopePlanner.CallCount);
         Assert.Same(fixture.Resolver.Authorization, fixture.EvidenceSource.Authorization);
         Assert.Equal(1, fixture.Gateway.CallCount);
+    }
+
+    [Fact]
+    public async Task AnswerAsync_DoesNotPersistContinuationStateWithoutConfiguredRetention()
+    {
+        var fixture = new Fixture();
+
+        var result = await fixture.Service.AnswerAsync(
+            Request(),
+            Authorization(),
+            RequestContext() with { TurnId = "turn-1" },
+            CancellationToken.None);
+
+        Assert.Equal(AnswerDisposition.Answer, result.Disposition);
+        Assert.Null(result.ContinuationState);
     }
 
     [Fact]
@@ -280,6 +296,161 @@ public sealed class ImpactAnswerServiceTests
         Assert.Equal(0, fixture.Gateway.CallCount);
     }
 
+    [Theory]
+    [InlineData("SAP")]
+    [InlineData("Windchill")]
+    [InlineData("Teamcenter")]
+    public async Task AnswerAsync_DoesNotAnswerWithAnUnfilteredApplicationFollowUp(string application)
+    {
+        var fixture = new Fixture();
+        var now = DateTimeOffset.UtcNow;
+        var state = new ConversationState(
+            1,
+            "conversation-1",
+            "investigation-1",
+            1,
+            ["part-17"],
+            [new ValidatedEntityReference("part-17", "Part", "Windchill")],
+            new ConversationApplicationFilters([], []),
+            [],
+            new ImpactScope(new HashSet<string>(), 3, new HashSet<string>(), null),
+            ConversationOutputDimension.Impact,
+            "turn-1",
+            "context-1",
+            1,
+            "source-1",
+            "ontology-1",
+            ConversationStateOwnerFingerprint.Create(Authorization().Scope),
+            null,
+            ConversationTurnDisposition.Answer,
+            now.AddMinutes(-2),
+            now.AddMinutes(-1),
+            now.AddHours(1));
+        var request = new ImpactAnswerRequest(
+            "investigation-1",
+            $"What about only {application} impacts?",
+            "conversation-1")
+        {
+            PreviousConversationState = state,
+            ParentTurnId = "turn-1"
+        };
+
+        var result = await fixture.Service.AnswerAsync(
+            request,
+            Authorization(),
+            RequestContext(),
+            CancellationToken.None);
+
+        Assert.Equal(AnswerDisposition.Clarify, result.Disposition);
+        Assert.Contains(result.Issues, issue =>
+            issue.Code == "target-application-filter-not-supported" &&
+            issue.Message.Contains(application, StringComparison.Ordinal));
+        Assert.Equal(0, fixture.Resolver.CallCount);
+        Assert.Equal(0, fixture.EvidenceSource.CallCount);
+        Assert.Equal(0, fixture.Gateway.CallCount);
+    }
+
+    [Fact]
+    public async Task AnswerAsync_ReresolvesAValidatedFollowUpSubjectAndRetrievesFreshEvidence()
+    {
+        var fixture = new Fixture(conversationStateLifetime: TimeSpan.FromHours(2));
+        var now = DateTimeOffset.UtcNow;
+        var state = new ConversationState(
+            1,
+            "conversation-1",
+            "investigation-1",
+            1,
+            ["REQ-123"],
+            [new ValidatedEntityReference("REQ-123", "Requirement", "Codebeamer")],
+            new ConversationApplicationFilters([], []),
+            [],
+            new ImpactScope(new HashSet<string>(), 3, new HashSet<string>(), null),
+            ConversationOutputDimension.Impact,
+            "turn-1",
+            "context-1",
+            1,
+            "source-1",
+            "ontology-1",
+            ConversationStateOwnerFingerprint.Create(Authorization().Scope),
+            null,
+            ConversationTurnDisposition.Answer,
+            now.AddMinutes(-2),
+            now.AddMinutes(-1),
+            now.AddHours(1));
+        var request = new ImpactAnswerRequest(
+            "investigation-1",
+            "Why is it impacted?",
+            "conversation-1")
+        {
+            PreviousConversationState = state,
+            ParentTurnId = "turn-1"
+        };
+        var requestContext = RequestContext() with { TurnId = "turn-2" };
+
+        var result = await fixture.Service.AnswerAsync(
+            request,
+            Authorization(),
+            requestContext,
+            CancellationToken.None);
+
+        Assert.Equal(AnswerDisposition.Answer, result.Disposition);
+        Assert.Equal("REQ-123", fixture.Resolver.LastInterpretation?.CandidateEntityId);
+        Assert.Equal("Why is it impacted?", fixture.Resolver.LastInterpretation?.OriginalQuestion);
+        Assert.Equal(1, fixture.Resolver.CallCount);
+        Assert.Equal(1, fixture.EvidenceSource.CallCount);
+        Assert.Equal(1, fixture.ScopePlanner.ConversationCallCount);
+        Assert.Equal(1, fixture.Gateway.CallCount);
+        Assert.Equal("turn-2", result.ContinuationState?.PreviousTurnId);
+        Assert.Equal(2, result.ContinuationState?.StateVersion);
+        Assert.Equal("source-v1", result.ContinuationState?.SourceVersion);
+        Assert.Equal("ontology-v1", result.ContinuationState?.OntologyVersion);
+    }
+
+    [Fact]
+    public async Task AnswerAsync_DoesNotUseContinuationStateFromAnotherAuthorizedOwner()
+    {
+        var fixture = new Fixture();
+        var state = new ConversationState(
+            1,
+            "conversation-1",
+            "investigation-1",
+            1,
+            ["REQ-123"],
+            [new ValidatedEntityReference("REQ-123", "Requirement", "Codebeamer")],
+            new ConversationApplicationFilters([], []),
+            [],
+            new ImpactScope(new HashSet<string>(), 3, new HashSet<string>(), null),
+            ConversationOutputDimension.Impact,
+            "turn-1",
+            "context-1",
+            null,
+            "source-v1",
+            "ontology-v1",
+            "different-owner",
+            null,
+            ConversationTurnDisposition.Answer,
+            DateTimeOffset.UtcNow.AddMinutes(-1),
+            DateTimeOffset.UtcNow,
+            DateTimeOffset.UtcNow.AddHours(1));
+        var request = new ImpactAnswerRequest("investigation-1", "Why is it impacted?", "conversation-1")
+        {
+            ParentTurnId = "turn-1",
+            PreviousConversationState = state
+        };
+
+        var result = await fixture.Service.AnswerAsync(
+            request,
+            Authorization(),
+            RequestContext() with { TurnId = "turn-2" },
+            CancellationToken.None);
+
+        Assert.Equal(AnswerDisposition.Clarify, result.Disposition);
+        Assert.Equal("validated-subject-required", Assert.Single(result.Issues).Code);
+        Assert.Equal(0, fixture.Resolver.CallCount);
+        Assert.Equal(0, fixture.EvidenceSource.CallCount);
+        Assert.Equal(0, fixture.Gateway.CallCount);
+    }
+
     [Fact]
     public async Task AnswerAsync_RejectsMissingInvestigationBeforeCallingPlm()
     {
@@ -426,7 +597,8 @@ public sealed class ImpactAnswerServiceTests
             IPromptCatalog? promptCatalog = null,
             IPromptAssembler? promptAssembler = null,
             IContextCompiler? contextCompiler = null,
-            RecordingTelemetry? telemetry = null)
+            RecordingTelemetry? telemetry = null,
+            TimeSpan? conversationStateLifetime = null)
         {
             Resolver = new StubEntityResolver(resolution);
             ScopePlanner = new TrackingScopePlanner();
@@ -436,6 +608,7 @@ public sealed class ImpactAnswerServiceTests
             Telemetry = telemetry ?? new RecordingTelemetry();
             Service = new ImpactAnswerService(
                 new QuestionInterpreter(),
+                new ConversationTurnInterpreter(),
                 Resolver,
                 ScopePlanner,
                 EvidenceSource,
@@ -447,7 +620,10 @@ public sealed class ImpactAnswerServiceTests
                 new AnswerValidator(),
                 modelConfiguration ?? new ModelConfiguration(
                     "model-1", "test", "test-model", "test-deployment", 256, 8192),
-                telemetry: Telemetry);
+                telemetry: Telemetry,
+                conversationStateRetention: conversationStateLifetime is { } lifetime
+                    ? new ConversationStateRetentionOptions { LifetimeSeconds = (int)lifetime.TotalSeconds }
+                    : null);
         }
 
         public StubEntityResolver Resolver { get; }
@@ -512,6 +688,22 @@ public sealed class ImpactAnswerServiceTests
 
         public void RecordAnswerQuality(AnswerQualitySummary summary) =>
             AnswerQualitySummaries.Add(summary);
+
+        public void RecordConversationTurn(ConversationTurnTelemetry summary)
+        {
+        }
+
+        public void RecordConversationStateInvalidation(ConversationStateInvalidationReason reason)
+        {
+        }
+
+        public void RecordConversationRetrieval(bool followUp)
+        {
+        }
+
+        public void RecordConversationTurnDisposition(AnswerDisposition disposition)
+        {
+        }
     }
 
     private static void AssertSanitizedPromptFailure(ImpactAnswerResult result)
@@ -581,6 +773,18 @@ public sealed class ImpactAnswerServiceTests
         private readonly ScopePlanner _inner = new();
 
         public int CallCount { get; private set; }
+        public int ConversationCallCount { get; private set; }
+
+        public ScopePlanningResult Plan(
+            ConversationTurnInterpretation turn,
+            ConversationState? priorState,
+            ResolvedEntity subject,
+            AuthorizationContext authorization,
+            RuntimeRequestContext requestContext)
+        {
+            ConversationCallCount++;
+            return _inner.Plan(turn, priorState, subject, authorization, requestContext);
+        }
 
         public ScopePlanningResult Plan(
             QuestionInterpretation interpretation,
@@ -633,6 +837,7 @@ public sealed class ImpactAnswerServiceTests
     {
         public int CallCount { get; private set; }
         public AuthorizationContext? Authorization { get; private set; }
+        public QuestionInterpretation? LastInterpretation { get; private set; }
 
         public Task<EntityResolutionResult> ResolveAsync(
             string investigationId,
@@ -643,6 +848,7 @@ public sealed class ImpactAnswerServiceTests
         {
             CallCount++;
             Authorization = authorization;
+            LastInterpretation = interpretation;
             return Task.FromResult(result ?? new EntityResolutionResult(
                 EntityResolutionDisposition.Resolved,
                 new ResolvedEntity("plm", "Requirement", "REQ-123", "Requirement REQ-123"),

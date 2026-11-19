@@ -28,6 +28,132 @@ export interface CopilotCitation {
   source?: string;
   nativeId?: string;
   summary?: string;
+  deepLink?: string;
+}
+
+export type CopilotRuntimeDisposition =
+  | "Answer"
+  | "Clarify"
+  | "Abstain"
+  | "Deny"
+  | "Unavailable"
+  | "Failed";
+
+export interface CopilotRuntimeMetadata {
+  disposition: CopilotRuntimeDisposition;
+  contextPackageId?: string;
+  diagnosticCode?: string;
+  semanticSupportStatus?: string;
+  issues?: readonly { code: string; claimId?: string | null }[];
+}
+
+export const CONVERSATION_STATE_SCHEMA_VERSION = 1;
+
+export type ConversationOutputDimension =
+  | "impact"
+  | "ownership"
+  | "explanation"
+  | "comparison";
+
+export type ConversationTurnDisposition =
+  | "answer"
+  | "clarify"
+  | "abstain"
+  | "deny"
+  | "unavailable"
+  | "failed";
+
+export type ConversationTurnType =
+  | "new-impact-question"
+  | "follow-up-filter"
+  | "follow-up-restriction"
+  | "follow-up-expansion"
+  | "follow-up-ownership-question"
+  | "follow-up-explanation"
+  | "follow-up-comparison"
+  | "clarification-response"
+  | "unsupported";
+
+export interface ValidatedEntityReference {
+  canonicalId: string;
+  entityKind: string;
+  application: string;
+}
+
+export interface ConversationApplicationFilters {
+  sourceApplications: readonly string[];
+  targetApplications: readonly string[];
+}
+
+export interface UnresolvedConversationReference {
+  reasonCode: string;
+  candidateCanonicalIds: readonly string[];
+  createdAt: string;
+}
+
+export interface ConversationState {
+  schemaVersion: number;
+  conversationId: string;
+  investigationId: string;
+  stateVersion: number;
+  currentSubjectIds: readonly string[];
+  currentValidatedEntityRefs: readonly ValidatedEntityReference[];
+  applicationFilters: ConversationApplicationFilters;
+  relationshipFilters: readonly string[];
+  impactScope: {
+    relationshipTypes: readonly string[];
+    maxHops: number | null;
+    sourceSystems: readonly string[];
+    asOf: string | null;
+  };
+  outputDimension: ConversationOutputDimension;
+  previousTurnId: string | null;
+  previousContextPackageId: string | null;
+  snapshotRevision: number | null;
+  sourceVersion: string | null;
+  ontologyVersion: string | null;
+  ownerFingerprint: string | null;
+  unresolvedReference: UnresolvedConversationReference | null;
+  lastTurnDisposition: ConversationTurnDisposition | null;
+  createdAt: string;
+  updatedAt: string;
+  expiresAt: string;
+}
+
+export interface ConversationFilterDelta {
+  requestedSourceApplications: readonly string[] | null;
+  requestedTargetApplications: readonly string[] | null;
+  requestedRelationshipTerms: readonly string[] | null;
+  maxHops: number | null;
+  asOf: string | null;
+}
+
+export interface ConversationTurnInput {
+  question: string;
+  investigationId: string;
+  conversationId: string;
+  turnId: string;
+  parentTurnId: string | null;
+  previousState: ConversationState | null;
+}
+
+export interface ConversationTurnInterpretation {
+  type: ConversationTurnType;
+  explicitIdentifiers: readonly string[];
+  referenceCandidateIds: readonly string[];
+  filterDelta: ConversationFilterDelta;
+  outputDimension: ConversationOutputDimension | null;
+  isAmbiguous: boolean;
+  reasonCodes: readonly string[];
+  clarificationRequired: boolean;
+}
+
+export interface ConversationClarification {
+  reasonCode: string;
+  question: string;
+  candidateReferences: readonly ValidatedEntityReference[];
+  stateVersion: number;
+  expectedNextTurnAction: string;
 }
 
 export interface CopilotSourceContext {
@@ -342,4 +468,5 @@ export interface CopilotAnswer {
   followUpQuestions: readonly string[];
   snapshotRevision: number;
   citations?: readonly CopilotCitation[];
+  runtime?: CopilotRuntimeMetadata;
 }

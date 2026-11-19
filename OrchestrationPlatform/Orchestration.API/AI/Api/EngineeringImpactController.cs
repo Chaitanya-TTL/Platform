@@ -44,7 +44,10 @@ public sealed class EngineeringImpactController(
             requestId,
             activity.TraceId.ToHexString(),
             activity.ParentId,
-            request.ConversationId);
+            request.ConversationId)
+        {
+            TurnId = request.TurnId
+        };
         using var requestStage = telemetry.StartStage(
             "answer.request",
             requestContext,
@@ -120,13 +123,18 @@ public sealed class EngineeringImpactController(
         try
         {
             var result = await impactAnswerService.AnswerAsync(
-                new ImpactAnswerRequest(request.InvestigationId, request.Question, request.ConversationId),
+                new ImpactAnswerRequest(request.InvestigationId, request.Question, request.ConversationId)
+                {
+                    ParentTurnId = request.ParentTurnId,
+                    PreviousConversationState = request.PreviousConversationState
+                },
                 authorized.Context,
                 requestContext,
                 cancellationToken);
 
             requestStage.SetDisposition(result.Disposition.ToString());
             telemetry.RecordRequestOutcome(result.Disposition.ToString());
+            telemetry.RecordConversationTurnDisposition(result.Disposition);
             outcomeRecorded = true;
             return result.Disposition switch
             {

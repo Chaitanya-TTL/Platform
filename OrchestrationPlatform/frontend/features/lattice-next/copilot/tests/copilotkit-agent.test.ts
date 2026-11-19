@@ -37,16 +37,24 @@ describe("Lattice CopilotKit agent", () => {
   it("runs the approved server turn service and emits only its validated answer", async () => {
     const executeTurn = vi.fn().mockResolvedValue(answer);
     const agent = new LatticeCopilotAgent(executeTurn);
+    const browserControlledInput: RunAgentInput = {
+      ...input,
+      forwardedProps: {
+        snapshotRevision: 3,
+        accessToken: "browser-controlled-token",
+        identity: { subjectId: "forged-subject" },
+      },
+    };
 
-    const events = await collect(agent.run(input));
+    const events = await collect(agent.run(browserControlledInput));
 
-    expect(executeTurn).toHaveBeenCalledWith(expect.objectContaining({
+    expect(executeTurn).toHaveBeenCalledWith({
       investigationId,
       threadId: "thread-1",
       expectedSnapshotRevision: 3,
       idempotencyKey: "question-1",
       message: "Explain the source status",
-    }), expect.any(AbortSignal));
+    }, expect.any(AbortSignal));
     expect(events.map((event) => (event as { type: string }).type)).toEqual([
       EventType.RUN_STARTED,
       EventType.TEXT_MESSAGE_START,

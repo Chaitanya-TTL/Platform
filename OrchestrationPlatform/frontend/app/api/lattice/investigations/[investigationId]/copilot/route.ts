@@ -24,6 +24,13 @@ function jsonError(message: string, status: number) {
   return NextResponse.json({ message }, { status });
 }
 
+function clientThread(thread: Awaited<ReturnType<typeof store.loadThread>>) {
+  if (!thread) return undefined;
+  const visibleThread = { ...thread };
+  delete visibleThread.conversationState;
+  return visibleThread;
+}
+
 export async function GET(request: Request, context: Context) {
   const { investigationId: rawId } = await context.params;
   const investigationId = rawId as InvestigationId;
@@ -34,13 +41,13 @@ export async function GET(request: Request, context: Context) {
   if (threadId) {
     const thread = await store.loadThread(investigationId, threadId);
     return thread
-      ? NextResponse.json({ investigationId, thread })
+      ? NextResponse.json({ investigationId, thread: clientThread(thread) })
       : jsonError("Copilot thread was not found.", 404);
   }
 
   const threads = await store.listThreads(investigationId, MAX_THREAD_LIST);
   const latestThread = threads.length ? await store.loadThread(investigationId, threads[0].threadId) : undefined;
-  return NextResponse.json({ investigationId, threads, latestThread });
+  return NextResponse.json({ investigationId, threads, latestThread: clientThread(latestThread) });
 }
 
 export async function POST(request: Request, context: Context) {

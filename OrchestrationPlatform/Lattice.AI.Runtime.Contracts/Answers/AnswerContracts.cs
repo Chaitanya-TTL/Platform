@@ -1,4 +1,5 @@
 using Lattice.AI.Runtime.Contracts.Context;
+using Lattice.AI.Runtime.Contracts.Conversation;
 using Lattice.AI.Runtime.Contracts.Evidence;
 using Lattice.AI.Runtime.Contracts.Requests;
 
@@ -45,4 +46,6 @@ public sealed record ImpactAnswerResult(
     string? ContextPackageId)
 {
     public string SemanticSupportStatus { get; init; } = "not-evaluated";
+    public ConversationState? ContinuationState { get; init; }
+    public ConversationClarification? Clarification { get; init; }
 }

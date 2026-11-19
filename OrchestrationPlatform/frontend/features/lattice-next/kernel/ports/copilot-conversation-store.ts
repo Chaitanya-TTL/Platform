@@ -1,4 +1,5 @@
 import type { CopilotAnswer } from "../../copilot/contracts";
+import type { ConversationState } from "../../copilot/contracts";
 import type { InvestigationId } from "../contracts/investigation-identity";
 
 export interface CopilotUserMessage {
@@ -27,6 +28,7 @@ export interface CopilotConversationThread {
   createdAt: string;
   updatedAt: string;
   messages: readonly CopilotConversationMessage[];
+  conversationState?: ConversationState;
 }
 
 export interface CopilotThreadSummary {
@@ -45,5 +47,12 @@ export interface CopilotConversationStore {
   loadThread(investigationId: InvestigationId, threadId: string): Promise<CopilotConversationThread | undefined>;
   createThread(investigationId: InvestigationId, threadId: string, title: string, occurredAt?: string): Promise<CopilotConversationThread>;
   appendUserMessage(investigationId: InvestigationId, threadId: string, expectedThreadRevision: number, message: string, snapshotRevision: number, occurredAt?: string, idempotencyKey?: string): Promise<CopilotConversationThread>;
-  appendTurn(investigationId: InvestigationId, threadId: string, expectedThreadRevision: number, userMessage: string, assistantTurn: Omit<CopilotAssistantMessage, "role">): Promise<CopilotConversationThread>;
+  appendTurn(
+    investigationId: InvestigationId,
+    threadId: string,
+    expectedThreadRevision: number,
+    userMessage: string,
+    assistantTurn: Omit<CopilotAssistantMessage, "role">,
+    nextConversationState?: ConversationState | null,
+  ): Promise<CopilotConversationThread>;
 }

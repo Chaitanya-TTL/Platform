@@ -3,6 +3,7 @@ using Lattice.AI.Runtime.ContextCompilation;
 using Lattice.AI.Runtime.Contracts.Answers;
 using Lattice.AI.Runtime.Contracts.Authorization;
 using Lattice.AI.Runtime.Contracts.Context;
+using Lattice.AI.Runtime.Contracts.Conversation;
 using Lattice.AI.Runtime.Contracts.Evidence;
 using Lattice.AI.Runtime.Contracts.Generation;
 using Lattice.AI.Runtime.Contracts.Requests;
@@ -20,6 +21,7 @@ namespace Lattice.AI.Runtime.Application;
 
 public sealed class ImpactAnswerService(
     IQuestionInterpreter questionInterpreter,
+    IConversationTurnInterpreter conversationTurnInterpreter,
     IEngineeringEntityResolver entityResolver,
     IScopePlanner scopePlanner,
     IEngineeringEvidenceSource evidenceSource,
@@ -31,7 +33,8 @@ public sealed class ImpactAnswerService(
     IAnswerValidator answerValidator,
     ModelConfiguration modelConfiguration,
     TimeProvider? timeProvider = null,
-    IAiRuntimeTelemetry? telemetry = null) : IImpactAnswerService
+    IAiRuntimeTelemetry? telemetry = null,
+    ConversationStateRetentionOptions? conversationStateRetention = null) : IImpactAnswerService
 {
     private const string ResolveEntityGrant = "investigation:resolve-entity";
     private const string ReadImpactEvidenceGrant = "investigation:read-impact-evidence";
@@ -78,6 +81,22 @@ public sealed class ImpactAnswerService(
                 issues: [new ValidationIssue("authorization-unavailable", "The current authorization does not permit impact answering.")]);
         }
 
+        TimeSpan? conversationStateLifetime;
+        try
+        {
+            conversationStateLifetime = conversationStateRetention?.GetLifetime();
+        }
+        catch (InvalidOperationException)
+        {
+            return CreateResult(
+                request.InvestigationId,
+                requestContext,
+                AnswerDisposition.Failed,
+                issues: [new ValidationIssue(
+                    "conversation-state-retention-invalid",
+                    "The conversation-state retention period must be positive.")]);
+        }
+
         if (modelConfiguration.MaxInputTokens <= 0 ||
             modelConfiguration.MaxOutputTokens <= 0 ||
             modelConfiguration.MaxOutputTokens >= modelConfiguration.MaxInputTokens)
@@ -91,7 +110,80 @@ public sealed class ImpactAnswerService(
                     "The answer model input budget is not configured.")]);
         }
 
-        var interpretation = questionInterpreter.Interpret(request, requestContext);
+        var stateInvalidationReason = GetConversationStateInvalidationReason(
+            request.PreviousConversationState,
+            request,
+            requestContext,
+            authorization);
+        if (stateInvalidationReason is { } invalidationReason)
+        {
+            Telemetry.RecordConversationStateInvalidation(invalidationReason);
+        }
+        var priorConversationState = stateInvalidationReason is null
+            ? request.PreviousConversationState
+            : null;
+        var turnInterpretation = await conversationTurnInterpreter.InterpretAsync(
+            new ConversationTurnInput(
+                request.Question,
+                request.InvestigationId,
+                request.ConversationId ?? requestContext.ConversationId ?? string.Empty,
+                requestContext.TurnId ?? requestContext.RequestId,
+                request.ParentTurnId,
+                priorConversationState),
+            requestContext,
+            cancellationToken).ConfigureAwait(false);
+        var hasExplicitReference = turnInterpretation.ExplicitIdentifiers.Count > 0;
+        var referenceResolution = turnInterpretation.IsAmbiguous
+            ? ConversationReferenceResolution.Ambiguous
+            : hasExplicitReference
+                ? ConversationReferenceResolution.Explicit
+                : turnInterpretation.ReferenceCandidateIds.Count > 0
+                    ? ConversationReferenceResolution.Inherited
+                    : turnInterpretation.ClarificationRequired
+                        ? ConversationReferenceResolution.Unavailable
+                        : ConversationReferenceResolution.None;
+        var filterChanged =
+            turnInterpretation.FilterDelta.RequestedSourceApplications is { Count: > 0 } ||
+            turnInterpretation.FilterDelta.RequestedTargetApplications is { Count: > 0 } ||
+            turnInterpretation.FilterDelta.RequestedRelationshipTerms is { Count: > 0 } ||
+            turnInterpretation.FilterDelta.MaxHops is not null ||
+            turnInterpretation.FilterDelta.AsOf is not null;
+        var parentTurnCorrelated = priorConversationState is not null &&
+            string.Equals(priorConversationState.PreviousTurnId, request.ParentTurnId, StringComparison.Ordinal);
+        Telemetry.RecordConversationTurn(new ConversationTurnTelemetry(
+            turnInterpretation.Type,
+            referenceResolution,
+            hasExplicitReference ? 0 : turnInterpretation.ReferenceCandidateIds.Count,
+            filterChanged,
+            turnInterpretation.ClarificationRequired,
+            parentTurnCorrelated));
+
+        QuestionInterpretation interpretation;
+        var isConversationFollowUp = false;
+        if (turnInterpretation.Type is ConversationTurnType.NewImpactQuestion or ConversationTurnType.Unsupported)
+        {
+            interpretation = questionInterpreter.Interpret(request, requestContext);
+        }
+        else if (CanResolveAsFreshImpactTurn(turnInterpretation))
+        {
+            isConversationFollowUp = true;
+            interpretation = new QuestionInterpretation(
+                ImpactQuestionType.EngineeringImpact,
+                request.Question,
+                null,
+                turnInterpretation.ReferenceCandidateIds[0],
+                null,
+                []);
+        }
+        else
+        {
+            return CreateResult(
+                request.InvestigationId,
+                requestContext,
+                AnswerDisposition.Clarify,
+                issues: [CreateFollowUpIssue(turnInterpretation)]);
+        }
+
         if (interpretation.Type != ImpactQuestionType.EngineeringImpact ||
             interpretation.ClarificationReasons.Count > 0)
         {
@@ -208,6 +300,10 @@ public sealed class ImpactAnswerService(
         if (resolution.Disposition is EntityResolutionDisposition.Ambiguous or EntityResolutionDisposition.Unresolved ||
             resolution.Entity is null)
         {
+            if (isConversationFollowUp)
+            {
+                Telemetry.RecordConversationStateInvalidation(ConversationStateInvalidationReason.SubjectUnavailable);
+            }
             var reasons = resolution.Diagnostics.Count > 0
                 ? resolution.Diagnostics
                 : interpretation.ClarificationReasons;
@@ -224,11 +320,18 @@ public sealed class ImpactAnswerService(
             requestContext,
             request.InvestigationId))
         {
-            plannedScope = scopePlanner.Plan(
-                interpretation,
-                resolution.Entity,
-                authorization.Scope,
-                requestContext);
+            plannedScope = isConversationFollowUp
+                ? scopePlanner.Plan(
+                    turnInterpretation,
+                    priorConversationState,
+                    resolution.Entity,
+                    authorization,
+                    requestContext)
+                : scopePlanner.Plan(
+                    interpretation,
+                    resolution.Entity,
+                    authorization.Scope,
+                    requestContext);
             scopeStage.SetDisposition(plannedScope.Disposition.ToString());
         }
         if (plannedScope.Disposition != ScopePlanningDisposition.Ready || plannedScope.Scope is null)
@@ -254,6 +357,7 @@ public sealed class ImpactAnswerService(
         {
             try
             {
+                Telemetry.RecordConversationRetrieval(isConversationFollowUp);
                 evidence = await evidenceSource.RetrieveImpactAsync(
                     new ImpactEvidenceQuery(
                         request.InvestigationId,
@@ -263,6 +367,16 @@ public sealed class ImpactAnswerService(
                         requestContext),
                     cancellationToken).ConfigureAwait(false);
                 retrievalStage.SetDisposition("completed");
+                if (priorConversationState is not null &&
+                    !string.Equals(priorConversationState.SourceVersion, evidence.SourceVersion, StringComparison.Ordinal))
+                {
+                    Telemetry.RecordConversationStateInvalidation(ConversationStateInvalidationReason.SourceVersionChanged);
+                }
+                if (priorConversationState is not null &&
+                    !string.Equals(priorConversationState.OntologyVersion, evidence.OntologyVersion, StringComparison.Ordinal))
+                {
+                    Telemetry.RecordConversationStateInvalidation(ConversationStateInvalidationReason.OntologyVersionChanged);
+                }
                 retrievalStage.SetTag("evidence.relationship_count", evidence.Relationships.Count);
                 retrievalStage.SetTag("evidence.path_count", evidence.Paths.Count);
                 retrievalStage.SetTag("evidence.chain_count", evidence.Chains.Count);
@@ -528,7 +642,14 @@ public sealed class ImpactAnswerService(
                 requestContext,
                 context,
                 candidate,
-                validation.Issues),
+                validation.Issues,
+                resolution.Entity,
+                plannedScope.Scope,
+                evidence,
+                authorization.Scope,
+                turnInterpretation,
+                priorConversationState,
+                conversationStateLifetime),
             ValidationDisposition.Clarify => CreateResult(
                 request.InvestigationId,
                 requestContext,
@@ -550,6 +671,66 @@ public sealed class ImpactAnswerService(
         };
     }
 
+    private static ValidationIssue CreateFollowUpIssue(ConversationTurnInterpretation interpretation)
+    {
+        if (interpretation.IsAmbiguous)
+        {
+            return new ValidationIssue(
+                "multiple-validated-subjects",
+                "Several validated engineering items could match this follow-up. Please identify which item you mean.");
+        }
+
+        if (interpretation.ReasonCodes.Contains("no-eligible-prior-answer-state", StringComparer.Ordinal) ||
+            interpretation.ReasonCodes.Contains("no-validated-subject-reference", StringComparer.Ordinal))
+        {
+            return new ValidationIssue(
+                "validated-subject-required",
+                "I could not connect this follow-up to a validated subject from the previous runtime answer. Please identify the engineering item.");
+        }
+
+        if (interpretation.FilterDelta.RequestedTargetApplications is { Count: > 0 } applications)
+        {
+            return new ValidationIssue(
+                "target-application-filter-not-supported",
+                $"I recognized the requested {string.Join(", ", applications)} target-application filter, but the PLM target-application contract is not confirmed. I did not generate an unfiltered answer.");
+        }
+
+        if (interpretation.ReasonCodes.Contains(
+                "criticality-requires-governed-definition",
+                StringComparer.Ordinal))
+        {
+            return new ValidationIssue(
+                "criticality-requires-governed-definition",
+                "I need a governed criticality field and approved definition before I can identify critical impacts.");
+        }
+
+        if (interpretation.ReasonCodes.Contains(
+                "filter-term-requires-current-ontology-validation",
+                StringComparer.Ordinal))
+        {
+            return new ValidationIssue(
+                "filter-term-requires-ontology-validation",
+                "The requested relationship filter must be matched to the current authorized ontology before I can apply it.");
+        }
+
+        return new ValidationIssue(
+            "conversation-follow-up-not-supported",
+            "I recognized this as a conversation follow-up, but its runtime operation is not yet available.");
+    }
+
+    private static bool CanResolveAsFreshImpactTurn(ConversationTurnInterpretation interpretation) =>
+        (interpretation.Type is ConversationTurnType.FollowUpExpansion
+            or ConversationTurnType.FollowUpExplanation
+            or ConversationTurnType.ClarificationResponse) &&
+        !interpretation.ClarificationRequired &&
+        !interpretation.IsAmbiguous &&
+        interpretation.ReferenceCandidateIds.Count == 1 &&
+        interpretation.FilterDelta.RequestedSourceApplications is not { Count: > 0 } &&
+        interpretation.FilterDelta.RequestedTargetApplications is not { Count: > 0 } &&
+        interpretation.FilterDelta.RequestedRelationshipTerms is not { Count: > 0 } &&
+        interpretation.FilterDelta.MaxHops is null &&
+        interpretation.FilterDelta.AsOf is null;
+
     private bool HasRequiredAuthorization(AuthorizationContext authorization)
     {
         var scope = authorization.Scope;
@@ -559,12 +740,61 @@ public sealed class ImpactAnswerService(
                scope.Grants.Contains(ReadImpactEvidenceGrant);
     }
 
-    private static ImpactAnswerResult CreateAcceptedResult(
+    private ConversationStateInvalidationReason? GetConversationStateInvalidationReason(
+        ConversationState? state,
+        ImpactAnswerRequest request,
+        RuntimeRequestContext requestContext,
+        AuthorizationContext authorization)
+    {
+        if (state is null) return null;
+        if (state.SchemaVersion != 1 || state.StateVersion < 1 ||
+            state.LastTurnDisposition is not (ConversationTurnDisposition.Answer or ConversationTurnDisposition.Clarify))
+        {
+            return ConversationStateInvalidationReason.UnsupportedDisposition;
+        }
+        if (!string.Equals(
+                state.OwnerFingerprint,
+                ConversationStateOwnerFingerprint.Create(authorization.Scope),
+                StringComparison.Ordinal))
+        {
+            return ConversationStateInvalidationReason.OwnerMismatch;
+        }
+        if (!string.Equals(state.InvestigationId, request.InvestigationId, StringComparison.Ordinal))
+        {
+            return ConversationStateInvalidationReason.InvestigationMismatch;
+        }
+        if (!string.Equals(
+                state.ConversationId,
+                request.ConversationId ?? requestContext.ConversationId,
+                StringComparison.Ordinal))
+        {
+            return ConversationStateInvalidationReason.ConversationMismatch;
+        }
+        if (!string.Equals(state.PreviousTurnId, request.ParentTurnId, StringComparison.Ordinal))
+        {
+            return ConversationStateInvalidationReason.ParentTurnMismatch;
+        }
+        if (state.ExpiresAt <= (timeProvider ?? TimeProvider.System).GetUtcNow())
+        {
+            return ConversationStateInvalidationReason.Expired;
+        }
+
+        return null;
+    }
+
+    private ImpactAnswerResult CreateAcceptedResult(
         string investigationId,
         RuntimeRequestContext requestContext,
         ContextPackage context,
         AnswerCandidate candidate,
-        IReadOnlyList<ValidationIssue> issues)
+        IReadOnlyList<ValidationIssue> issues,
+        ResolvedEntity subject,
+        ImpactScope scope,
+        EvidenceRetrievalResult evidence,
+        AuthorizationScope authorization,
+        ConversationTurnInterpretation turnInterpretation,
+        ConversationState? priorState,
+        TimeSpan? conversationStateLifetime)
     {
         var referencedEvidenceIds = candidate.Impacts
             .SelectMany(impact => impact.EvidenceIds)
@@ -578,7 +808,7 @@ public sealed class ImpactAnswerService(
             .Distinct()
             .ToArray();
 
-        return new ImpactAnswerResult(
+        var result = new ImpactAnswerResult(
             investigationId,
             requestContext,
             AnswerDisposition.Answer,
@@ -587,6 +817,41 @@ public sealed class ImpactAnswerService(
             sources,
             issues,
             context.PackageId);
+        var conversationId = requestContext.ConversationId;
+        var turnId = requestContext.TurnId;
+        if (conversationStateLifetime is not { } lifetime ||
+            string.IsNullOrWhiteSpace(conversationId) ||
+            string.IsNullOrWhiteSpace(turnId))
+        {
+            return result;
+        }
+
+        var now = (timeProvider ?? TimeProvider.System).GetUtcNow();
+        return result with
+        {
+            ContinuationState = new ConversationState(
+                1,
+                conversationId,
+                investigationId,
+                (priorState?.StateVersion ?? 0) + 1,
+                [subject.CanonicalId],
+                [new ValidatedEntityReference(subject.CanonicalId, subject.EntityType, subject.System)],
+                new ConversationApplicationFilters([], []),
+                [],
+                scope,
+                turnInterpretation.OutputDimension ?? ConversationOutputDimension.Impact,
+                turnId,
+                context.PackageId,
+                null,
+                evidence.SourceVersion,
+                evidence.OntologyVersion,
+                ConversationStateOwnerFingerprint.Create(authorization),
+                null,
+                ConversationTurnDisposition.Answer,
+                priorState?.CreatedAt ?? now,
+                now,
+                now.Add(lifetime))
+        };
     }
 
     private static AnswerQualitySummary CreateAnswerQualitySummary(

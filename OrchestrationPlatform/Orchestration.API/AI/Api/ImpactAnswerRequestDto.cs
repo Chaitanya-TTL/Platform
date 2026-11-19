@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Lattice.AI.Runtime.Contracts.Conversation;
 
 namespace Orchestration.API.AI.Api;
 
@@ -16,4 +17,15 @@ public sealed record ImpactAnswerRequestDto
     /// <summary>An optional conversation identifier used for request correlation.</summary>
     [StringLength(200)]
     public string? ConversationId { get; init; }
+
+    /// <summary>An optional Copilot turn identifier used for request correlation.</summary>
+    [StringLength(128)]
+    public string? TurnId { get; init; }
+
+    /// <summary>The parent assistant turn for a server-loaded continuation state.</summary>
+    [StringLength(128)]
+    public string? ParentTurnId { get; init; }
+
+    /// <summary>Optional structured state loaded by the server from the existing thread.</summary>
+    public ConversationState? PreviousConversationState { get; init; }
 }

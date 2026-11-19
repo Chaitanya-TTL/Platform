@@ -2,7 +2,13 @@ import "server-only";
 
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import type { CopilotAnswer, CopilotCitation, CopilotClaim, CopilotRecommendation } from "../../copilot/contracts";
+import type {
+  CopilotAnswer,
+  CopilotCitation,
+  CopilotClaim,
+  CopilotRecommendation,
+  ConversationState,
+} from "../../copilot/contracts";
 import { CopilotAnswerValidationError } from "../../copilot/answer-validator";
 import type {
   CopilotAssistantMessage,
@@ -74,6 +80,7 @@ function validateAnswer(answer: CopilotAnswer, snapshotRevision: number): Copilo
       ...(typeof citation.source === "string" ? { source: citation.source } : {}),
       ...(typeof citation.nativeId === "string" ? { nativeId: citation.nativeId } : {}),
       ...(typeof citation.summary === "string" ? { summary: citation.summary } : {}),
+      ...(typeof citation.deepLink === "string" ? { deepLink: citation.deepLink } : {}),
     }));
     const citationIds = new Set(citations.map((citation) => citation.citationId));
     if ([...claims.flatMap((claim) => claim.citationIds), ...recommendations.flatMap((recommendation) => recommendation.citationIds)].some((id) => !citationIds.has(id)))
@@ -87,7 +94,55 @@ function validateAnswer(answer: CopilotAnswer, snapshotRevision: number): Copilo
     followUpQuestions: [...answer.followUpQuestions],
     snapshotRevision,
     ...(citations ? { citations } : {}),
+    ...(answer.runtime ? { runtime: { ...answer.runtime } } : {}),
   };
+}
+
+function validateConversationState(
+  state: ConversationState,
+  investigationId: InvestigationId,
+  threadId: string,
+  turnId?: string,
+): ConversationState {
+  if (!state || typeof state !== "object" ||
+      state.schemaVersion !== 1 ||
+      state.investigationId !== investigationId ||
+      state.conversationId !== threadId ||
+      !Number.isSafeInteger(state.stateVersion) || state.stateVersion < 1 ||
+      !Array.isArray(state.currentSubjectIds) ||
+      state.currentSubjectIds.some((subjectId) => typeof subjectId !== "string") ||
+      state.currentSubjectIds.length === 0 ||
+      !Array.isArray(state.currentValidatedEntityRefs) ||
+      !Array.isArray(state.relationshipFilters) ||
+      !state.applicationFilters ||
+      !Array.isArray(state.applicationFilters.sourceApplications) ||
+      !Array.isArray(state.applicationFilters.targetApplications) ||
+      !state.impactScope ||
+      !Array.isArray(state.impactScope.relationshipTypes) ||
+      state.impactScope.relationshipTypes.some((value) => typeof value !== "string") ||
+      !Array.isArray(state.impactScope.sourceSystems) ||
+      state.impactScope.sourceSystems.some((value) => typeof value !== "string") ||
+      !(state.impactScope.maxHops === null || Number.isSafeInteger(state.impactScope.maxHops)) ||
+      !(state.impactScope.asOf === null || Number.isFinite(Date.parse(state.impactScope.asOf))) ||
+      state.applicationFilters.sourceApplications.some((value) => typeof value !== "string") ||
+      state.applicationFilters.targetApplications.some((value) => typeof value !== "string") ||
+      state.relationshipFilters.some((value) => typeof value !== "string") ||
+      !["impact", "ownership", "explanation", "comparison"].includes(state.outputDimension) ||
+      !["answer", "clarify"].includes(state.lastTurnDisposition ?? "") ||
+      typeof state.ownerFingerprint !== "string" || !/^[a-f0-9]{64}$/.test(state.ownerFingerprint) ||
+      !Number.isFinite(Date.parse(state.createdAt)) ||
+      !Number.isFinite(Date.parse(state.updatedAt)) ||
+      !Number.isFinite(Date.parse(state.expiresAt)) ||
+      Date.parse(state.expiresAt) <= Date.parse(state.updatedAt) ||
+      (turnId !== undefined && state.previousTurnId !== turnId)) {
+    throw new CopilotAnswerValidationError("Continuation state is malformed or is not bound to this thread and turn.");
+  }
+  if (state.currentValidatedEntityRefs.some((reference) =>
+    !reference || typeof reference.canonicalId !== "string" ||
+    typeof reference.entityKind !== "string" || typeof reference.application !== "string")) {
+    throw new CopilotAnswerValidationError("Continuation state contains a malformed validated entity reference.");
+  }
+  return structuredClone(state);
 }
 
 export class FileCopilotConversationStore implements CopilotConversationStore {
@@ -227,7 +282,14 @@ export class FileCopilotConversationStore implements CopilotConversationStore {
     });
   }
 
-  async appendTurn(investigationId: InvestigationId, threadId: string, expectedThreadRevision: number, userMessage: string, assistantTurn: Omit<CopilotAssistantMessage, "role">): Promise<CopilotConversationThread> {
+  async appendTurn(
+    investigationId: InvestigationId,
+    threadId: string,
+    expectedThreadRevision: number,
+    userMessage: string,
+    assistantTurn: Omit<CopilotAssistantMessage, "role">,
+    nextConversationState?: ConversationState | null,
+  ): Promise<CopilotConversationThread> {
     const filePath = this.threadPath(investigationId, threadId);
     const key = `${investigationId}:${threadId}`;
     return this.serial(key, async () => {
@@ -242,6 +304,9 @@ export class FileCopilotConversationStore implements CopilotConversationStore {
       const safeAnswer = validateAnswer(assistantTurn.answer, assistantTurn.snapshotRevision);
       if (assistantTurn.answer.snapshotRevision !== assistantTurn.snapshotRevision)
         throw new CopilotAnswerValidationError("Assistant answer revision does not match the stored turn revision.");
+      const safeConversationState = nextConversationState
+        ? validateConversationState(nextConversationState, investigationId, threadId, assistantTurn.idempotencyKey)
+        : nextConversationState;
       const lastMessage = thread.messages.at(-1);
       const pendingUserMessage = lastMessage?.role === "user" ? lastMessage : undefined;
         if (pendingUserMessage && (pendingUserMessage.content !== content || pendingUserMessage.snapshotRevision !== assistantTurn.snapshotRevision ||
@@ -262,6 +327,11 @@ export class FileCopilotConversationStore implements CopilotConversationStore {
         threadRevision: thread.threadRevision + 1,
         updatedAt: at,
         messages,
+        ...(safeConversationState === null
+          ? { conversationState: undefined }
+          : safeConversationState
+            ? { conversationState: safeConversationState }
+            : {}),
       };
       await this.writeAtomic(filePath, updated);
       return updated;

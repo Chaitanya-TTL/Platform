@@ -4,12 +4,18 @@ import { resolve } from "node:path";
 import type { AzureChatRequest } from "../azure-openai-client";
 import { COPILOT_EVALUATION_CASES } from "../evals/cases";
 import type { InvestigationId } from "../../kernel/contracts/investigation-identity";
-import type { CopilotConversationStore } from "../../kernel/ports/copilot-conversation-store";
+import type {
+  CopilotConversationStore,
+  CopilotConversationThread,
+} from "../../kernel/ports/copilot-conversation-store";
+import type { ConversationState } from "../contracts";
 
 const mocks = vi.hoisted(() => ({
   relationshipGuidanceUnavailable: false,
   loadSnapshot: vi.fn(),
   completeCopilotTurn: vi.fn(),
+  storedThread: undefined as unknown,
+  appendedState: undefined as unknown,
 }));
 
 vi.mock("server-only", () => ({}));
@@ -29,7 +35,7 @@ vi.mock("../../kernel/server/file-copilot-conversation-store", () => ({
     }
 
     async loadThread() {
-      return undefined;
+      return mocks.storedThread as CopilotConversationThread | undefined;
     }
 
     async createThread(investigationId: InvestigationId, threadId: string, title: string) {
@@ -51,7 +57,7 @@ vi.mock("../../kernel/server/file-copilot-conversation-store", () => ({
         investigationId,
         threadId,
         title: message.slice(0, 160),
-        threadRevision: 1,
+        threadRevision: _expectedThreadRevision + 1,
         createdAt: now,
         updatedAt: now,
         messages: [{ role: "user" as const, content: message, at: now, snapshotRevision, idempotencyKey }],
@@ -64,20 +70,30 @@ vi.mock("../../kernel/server/file-copilot-conversation-store", () => ({
       _expectedThreadRevision: number,
       userMessage: string,
       assistantTurn: Parameters<CopilotConversationStore["appendTurn"]>[4],
+      nextConversationState?: ConversationState | null,
     ) {
       const now = assistantTurn.at;
-      return {
+      mocks.appendedState = nextConversationState;
+      const thread: CopilotConversationThread = {
         investigationId,
         threadId,
         title: userMessage.slice(0, 160),
-        threadRevision: 2,
+        threadRevision: _expectedThreadRevision + 1,
         createdAt: now,
         updatedAt: now,
         messages: [
           { role: "user" as const, content: userMessage, at: now, snapshotRevision: assistantTurn.snapshotRevision, idempotencyKey: assistantTurn.idempotencyKey },
           { role: "assistant" as const, ...assistantTurn },
         ],
+        ...(nextConversationState
+          ? { conversationState: nextConversationState }
+          : nextConversationState === null
+            ? {}
+            : (mocks.storedThread as CopilotConversationThread | undefined)?.conversationState
+              ? { conversationState: (mocks.storedThread as CopilotConversationThread).conversationState }
+              : {}),
       };
+      return thread;
     }
   },
 }));
@@ -123,6 +139,16 @@ const providerTestSnapshot = {
   },
 };
 
+function useIsolatedRateLimitInvestigation(investigationId: string): void {
+  mocks.loadSnapshot.mockResolvedValue({
+    ...providerTestSnapshot,
+    identity: {
+      ...providerTestSnapshot.identity,
+      investigationId: investigationId as InvestigationId,
+    },
+  });
+}
+
 function configureProviderResponse(): void {
   mocks.completeCopilotTurn.mockImplementation(async (request: AzureChatRequest) => {
     const userMessage = JSON.parse(request.messages.at(-1)!.content) as {
@@ -142,6 +168,9 @@ function configureProviderResponse(): void {
 }
 
 beforeEach(() => {
+  vi.stubEnv("LATTICE_AI_RUNTIME_ENGINEERING_IMPACT_ANSWERS_ENABLED", "false");
+  mocks.storedThread = undefined;
+  mocks.appendedState = undefined;
   mocks.relationshipGuidanceUnavailable = false;
   mocks.loadSnapshot.mockReset().mockResolvedValue(providerTestSnapshot);
   mocks.completeCopilotTurn.mockReset();
@@ -172,7 +201,7 @@ describe("executeCopilotTurn engineering impact routing", () => {
     });
   });
 
-  it("blocks enabled impact routing before any legacy snapshot or model work", async () => {
+  it("persists one unavailable answer when runtime credentials are not configured", async () => {
     vi.stubEnv("LATTICE_AI_RUNTIME_ENGINEERING_IMPACT_ANSWERS_ENABLED", "true");
 
     const outcome = await executeCopilotTurn({
@@ -185,14 +214,270 @@ describe("executeCopilotTurn engineering impact routing", () => {
     });
 
     expect(outcome).toMatchObject({
-      ok: false,
-      status: 503,
-      body: {
-        failureCode: "ai-runtime-rollout-blocked",
-        retryable: false,
+      ok: true,
+      answer: { runtime: { disposition: "Unavailable" } },
+    });
+    expect(mocks.loadSnapshot).toHaveBeenCalledOnce();
+    expect(mocks.completeCopilotTurn).not.toHaveBeenCalled();
+  });
+
+  it("calls the configured runtime once and never invokes the legacy model", async () => {
+    vi.stubEnv("LATTICE_AI_RUNTIME_ENGINEERING_IMPACT_ANSWERS_ENABLED", "true");
+    const runtimeClient = {
+      readiness: () => ({ endpointConfigured: true, credentialProviderConfigured: true }),
+      answer: vi.fn().mockResolvedValue({
+        status: "response",
+        response: {
+          investigationId: String(supportedCase.snapshot.identity.investigationId),
+          requestContext: { requestId: "request-1", traceId: "trace-1" },
+          disposition: "Answer",
+          summary: "Requirement R-123 reaches SAP MAT-200 through the validated engineering relationship.",
+          impacts: [{
+            claimId: "impact-1",
+            explanation: "The linked SAP material may be affected.",
+            evidenceIds: ["evidence-1"],
+            sourceIds: ["citation-1"],
+          }],
+          sources: [{
+            evidenceId: "evidence-1",
+            sourceType: "record",
+            sourceSystem: "SAP",
+            recordId: "MAT-200",
+            provenanceId: "provenance-1",
+            authority: "PLM Brain",
+            provider: "SAP",
+            authorizationDecisionId: "decision-1",
+            citationId: "citation-1",
+          }],
+          issues: [],
+          contextPackageId: "context-1",
+        },
+      }),
+    };
+
+    const outcome = await executeCopilotTurn({
+      investigationId: supportedCase.snapshot.identity.investigationId,
+      expectedSnapshotRevision: supportedCase.snapshot.identity.revision,
+      idempotencyKey: "impact-runtime-connected",
+      threadId: "impact-runtime-connected-thread",
+      createIfMissing: true,
+      message: "What is impacted if Requirement R-123 changes?",
+    }, { engineeringImpactRuntimeClient: runtimeClient });
+
+    expect(outcome).toMatchObject({
+      ok: true,
+      answer: {
+        runtime: { disposition: "Answer", contextPackageId: "context-1" },
+        answer: expect.stringContaining("The linked SAP material may be affected."),
+        citations: [{ citationId: "cite:source:citation-1" }],
       },
     });
-    expect(mocks.loadSnapshot).not.toHaveBeenCalled();
+    expect(runtimeClient.answer).toHaveBeenCalledOnce();
+    expect(runtimeClient.answer).toHaveBeenCalledWith(expect.objectContaining({
+      investigationId: String(supportedCase.snapshot.identity.investigationId),
+      conversationId: "impact-runtime-connected-thread",
+      turnId: "impact-runtime-connected",
+    }));
+    expect(mocks.completeCopilotTurn).not.toHaveBeenCalled();
+  });
+
+  it("loads prior structured state on the server and atomically saves runtime continuation state", async () => {
+    vi.stubEnv("LATTICE_AI_RUNTIME_ENGINEERING_IMPACT_ANSWERS_ENABLED", "true");
+    const investigationId = String(supportedCase.snapshot.identity.investigationId);
+    const previousState: ConversationState = {
+      schemaVersion: 1,
+      conversationId: "impact-state-thread",
+      investigationId,
+      stateVersion: 1,
+      currentSubjectIds: ["REQ-123"],
+      currentValidatedEntityRefs: [{ canonicalId: "REQ-123", entityKind: "Requirement", application: "Codebeamer" }],
+      applicationFilters: { sourceApplications: [], targetApplications: [] },
+      relationshipFilters: [],
+      impactScope: { relationshipTypes: [], maxHops: 3, sourceSystems: [], asOf: null },
+      outputDimension: "impact",
+      previousTurnId: "prior-turn",
+      previousContextPackageId: "prior-context",
+      snapshotRevision: null,
+      sourceVersion: "source-v1",
+      ontologyVersion: "ontology-v1",
+      ownerFingerprint: "a".repeat(64),
+      unresolvedReference: null,
+      lastTurnDisposition: "answer",
+      createdAt: "2026-11-19T10:00:00Z",
+      updatedAt: "2026-11-19T10:00:00Z",
+      expiresAt: "2026-11-20T10:00:00Z",
+    };
+    const nextState: ConversationState = {
+      ...previousState,
+      stateVersion: 2,
+      previousTurnId: "follow-up-turn",
+      previousContextPackageId: "context-2",
+      sourceVersion: "source-v2",
+      updatedAt: "2026-11-19T10:01:00Z",
+    };
+    mocks.storedThread = {
+      investigationId: supportedCase.snapshot.identity.investigationId,
+      threadId: "impact-state-thread",
+      title: "Impact question",
+      threadRevision: 2,
+      createdAt: previousState.createdAt,
+      updatedAt: previousState.updatedAt,
+      conversationState: previousState,
+      messages: [
+        {
+          role: "user",
+          content: "What impacts if R-123 changes?",
+          at: previousState.createdAt,
+          snapshotRevision: supportedCase.snapshot.identity.revision,
+          idempotencyKey: "prior-user-turn",
+        },
+        {
+          role: "assistant",
+          answer: {
+            answer: "A previous answer.",
+            claims: [],
+            recommendations: [],
+            uncertainties: [],
+            followUpQuestions: [],
+            snapshotRevision: supportedCase.snapshot.identity.revision,
+          },
+          at: previousState.updatedAt,
+          snapshotRevision: supportedCase.snapshot.identity.revision,
+          idempotencyKey: "prior-turn",
+        },
+      ],
+    };
+    const runtimeClient = {
+      readiness: () => ({ endpointConfigured: true, credentialProviderConfigured: true }),
+      answer: vi.fn().mockResolvedValue({
+        status: "response",
+        response: {
+          investigationId,
+          requestContext: { requestId: "request-2", traceId: "trace-2" },
+          disposition: "Answer",
+          summary: "The current impact is supported.",
+          impacts: [],
+          sources: [],
+          issues: [],
+          continuationState: nextState,
+        },
+      }),
+    };
+
+    await executeCopilotTurn({
+      investigationId: supportedCase.snapshot.identity.investigationId,
+      expectedSnapshotRevision: supportedCase.snapshot.identity.revision,
+      expectedThreadRevision: 2,
+      idempotencyKey: "follow-up-turn",
+      threadId: "impact-state-thread",
+      message: "What about that impact?",
+    }, { engineeringImpactRuntimeClient: runtimeClient });
+
+    expect(runtimeClient.answer).toHaveBeenCalledWith(expect.objectContaining({
+      parentTurnId: "prior-turn",
+      previousConversationState: previousState,
+    }));
+    expect(mocks.appendedState).toEqual(nextState);
+    expect(mocks.completeCopilotTurn).not.toHaveBeenCalled();
+  });
+
+  it("does not write continuation state after runtime denial", async () => {
+    vi.stubEnv("LATTICE_AI_RUNTIME_ENGINEERING_IMPACT_ANSWERS_ENABLED", "true");
+    const investigationId = String(supportedCase.snapshot.identity.investigationId);
+    mocks.storedThread = {
+      investigationId: supportedCase.snapshot.identity.investigationId,
+      threadId: "impact-runtime-denied-thread",
+      title: "Existing state",
+      threadRevision: 2,
+      createdAt: "2026-11-19T10:00:00Z",
+      updatedAt: "2026-11-19T10:00:00Z",
+      conversationState: {
+        schemaVersion: 1,
+        conversationId: "impact-runtime-denied-thread",
+        investigationId,
+        stateVersion: 1,
+        currentSubjectIds: ["REQ-123"],
+        currentValidatedEntityRefs: [{ canonicalId: "REQ-123", entityKind: "Requirement", application: "Codebeamer" }],
+        applicationFilters: { sourceApplications: [], targetApplications: [] },
+        relationshipFilters: [],
+        impactScope: { relationshipTypes: [], maxHops: 3, sourceSystems: [], asOf: null },
+        outputDimension: "impact",
+        previousTurnId: "prior-turn",
+        previousContextPackageId: "context-1",
+        snapshotRevision: null,
+        sourceVersion: "source-v1",
+        ontologyVersion: "ontology-v1",
+        ownerFingerprint: "a".repeat(64),
+        unresolvedReference: null,
+        lastTurnDisposition: "answer",
+        createdAt: "2026-11-19T10:00:00Z",
+        updatedAt: "2026-11-19T10:00:00Z",
+        expiresAt: "2026-11-20T10:00:00Z",
+      },
+      messages: [{
+        role: "assistant",
+        answer: {
+          answer: "A previous answer.",
+          claims: [],
+          recommendations: [],
+          uncertainties: [],
+          followUpQuestions: [],
+          snapshotRevision: supportedCase.snapshot.identity.revision,
+        },
+        at: "2026-11-19T10:00:00Z",
+        snapshotRevision: supportedCase.snapshot.identity.revision,
+        idempotencyKey: "prior-turn",
+      }],
+    };
+    const runtimeClient = {
+      readiness: () => ({ endpointConfigured: true, credentialProviderConfigured: true }),
+      answer: vi.fn().mockResolvedValue({ status: "denied" }),
+    };
+
+    await executeCopilotTurn({
+      investigationId: supportedCase.snapshot.identity.investigationId,
+      expectedThreadRevision: 2,
+      expectedSnapshotRevision: supportedCase.snapshot.identity.revision,
+      idempotencyKey: "impact-runtime-denied",
+      threadId: "impact-runtime-denied-thread",
+      message: "What is impacted if Requirement R-123 changes?",
+    }, { engineeringImpactRuntimeClient: runtimeClient });
+
+    expect(mocks.appendedState).toBeUndefined();
+    expect(mocks.completeCopilotTurn).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["denial", { status: "denied" }],
+    ["clarification", {
+      status: "response",
+      response: {
+        investigationId: String(supportedCase.snapshot.identity.investigationId),
+        requestContext: { requestId: "request-1", traceId: "trace-1" },
+        disposition: "Clarify",
+        summary: null,
+        impacts: [],
+        sources: [],
+        issues: [{ code: "question-clarification-required", message: "Which requirement should I assess?" }],
+      },
+    }],
+  ] as const)("does not fall back after runtime %s", async (_label, result) => {
+    vi.stubEnv("LATTICE_AI_RUNTIME_ENGINEERING_IMPACT_ANSWERS_ENABLED", "true");
+    const runtimeClient = {
+      readiness: () => ({ endpointConfigured: true, credentialProviderConfigured: true }),
+      answer: vi.fn().mockResolvedValue(result),
+    };
+
+    const outcome = await executeCopilotTurn({
+      investigationId: supportedCase.snapshot.identity.investigationId,
+      expectedSnapshotRevision: supportedCase.snapshot.identity.revision,
+      idempotencyKey: `impact-runtime-${_label}`,
+      threadId: `impact-runtime-${_label}-thread`,
+      createIfMissing: true,
+      message: "What is impacted if Requirement R-123 changes?",
+    }, { engineeringImpactRuntimeClient: runtimeClient });
+
+    expect(outcome).toMatchObject({ ok: true });
     expect(mocks.completeCopilotTurn).not.toHaveBeenCalled();
   });
 });
@@ -241,7 +526,7 @@ describe("executeCopilotTurn relationship guidance", () => {
   });
 
   it("separates_relationship_semantics_from_instance_evidence", async () => {
-    await executeCopilotTurn({
+    const outcome = await executeCopilotTurn({
       investigationId: supportedCase.snapshot.identity.investigationId,
       expectedSnapshotRevision: supportedCase.snapshot.identity.revision,
       idempotencyKey: "relationship-semantics-test",
@@ -250,6 +535,7 @@ describe("executeCopilotTurn relationship guidance", () => {
       message: providerQuestion,
     });
 
+    expect(outcome).toMatchObject({ ok: true });
     const request = mocks.completeCopilotTurn.mock.calls[0][0] as AzureChatRequest;
     const systemMessage = request.messages.find((item) => item.role === "system")!.content;
     const requestContext = JSON.parse(request.messages.at(-1)!.content).supportingContext;
@@ -262,8 +548,10 @@ describe("executeCopilotTurn relationship guidance", () => {
   });
 
   it("does_not_require_a_fixed_sentence_or_claim_count", async () => {
-    await executeCopilotTurn({
-      investigationId: supportedCase.snapshot.identity.investigationId,
+    const investigationId = "relationship-answer-length-investigation" as InvestigationId;
+    useIsolatedRateLimitInvestigation(investigationId);
+    const outcome = await executeCopilotTurn({
+      investigationId,
       expectedSnapshotRevision: supportedCase.snapshot.identity.revision,
       idempotencyKey: "relationship-answer-length-test",
       threadId: "relationship-answer-length-thread",
@@ -271,6 +559,7 @@ describe("executeCopilotTurn relationship guidance", () => {
       message: providerQuestion,
     });
 
+    expect(outcome).toMatchObject({ ok: true });
     const request = mocks.completeCopilotTurn.mock.calls[0][0] as AzureChatRequest;
     const systemMessage = request.messages.find((item) => item.role === "system")!.content;
     expect(systemMessage).not.toMatch(/at most two short sentences|at most three distinct claims/i);
@@ -279,6 +568,8 @@ describe("executeCopilotTurn relationship guidance", () => {
   });
 
   it("repairs_provider_claim_shape_before_validation", async () => {
+    const investigationId = "provider-repair-investigation" as InvestigationId;
+    useIsolatedRateLimitInvestigation(investigationId);
     mocks.completeCopilotTurn.mockResolvedValueOnce({
       content: JSON.stringify({
         answer: "The part is represented by an operational SAP material.",
@@ -289,7 +580,7 @@ describe("executeCopilotTurn relationship guidance", () => {
     });
 
     const outcome = await executeCopilotTurn({
-      investigationId: supportedCase.snapshot.identity.investigationId,
+      investigationId,
       expectedSnapshotRevision: supportedCase.snapshot.identity.revision,
       idempotencyKey: "provider-repair-test",
       threadId: "provider-repair-thread",
@@ -297,7 +588,7 @@ describe("executeCopilotTurn relationship guidance", () => {
       message: providerQuestion,
     });
 
-    expect(outcome.ok).toBe(true);
+    expect(outcome).toMatchObject({ ok: true });
     if (outcome.ok) {
       expect(outcome.answer.snapshotRevision).toBe(supportedCase.snapshot.identity.revision);
       expect(outcome.answer.recommendations).toHaveLength(0);

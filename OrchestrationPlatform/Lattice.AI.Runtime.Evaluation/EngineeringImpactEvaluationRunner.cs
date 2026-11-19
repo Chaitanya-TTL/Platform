@@ -5,6 +5,7 @@ using Lattice.AI.Runtime.ContextCompilation;
 using Lattice.AI.Runtime.Contracts.Answers;
 using Lattice.AI.Runtime.Contracts.Authorization;
 using Lattice.AI.Runtime.Contracts.Context;
+using Lattice.AI.Runtime.Contracts.Conversation;
 using Lattice.AI.Runtime.Contracts.Evidence;
 using Lattice.AI.Runtime.Contracts.Generation;
 using Lattice.AI.Runtime.Contracts.Requests;
@@ -15,13 +16,14 @@ using Lattice.AI.Runtime.Generation;
 using Lattice.AI.Runtime.Prompts;
 using Lattice.AI.Runtime.QuestionUnderstanding;
 using Lattice.AI.Runtime.ScopePlanning;
+using Lattice.AI.Runtime.Telemetry;
 using Lattice.AI.Runtime.Validation;
 
 namespace Lattice.AI.Runtime.Evaluation;
 
 public sealed class EngineeringImpactEvaluationRunner : IEngineeringImpactEvaluationRunner
 {
-    private const string ReportSchemaVersion = "engineering-impact-evaluation-report/v2";
+    private const string ReportSchemaVersion = "engineering-impact-evaluation-report/v3";
     private const string EvaluationScope =
         "Deterministic synthetic fixture reference-integrity regression; semantic support and live-model quality are not evaluated.";
     private const int MaximumDatasetBytes = 10 * 1024 * 1024;
@@ -206,7 +208,13 @@ public sealed class EngineeringImpactEvaluationRunner : IEngineeringImpactEvalua
         var requiredCasesPassed = sortedResults
             .Where(result => result.Required)
             .All(result => result.Passed);
+        var directCase = cases.Single(evaluationCase => evaluationCase.CaseId == "direct-impact");
+        var conversationSequences = await EvaluateConversationSequencesAsync(
+            directCase,
+            fixtures[directCase.FixtureFile],
+            cancellationToken).ConfigureAwait(false);
         var passed = requiredCasesPassed &&
+                     conversationSequences.FailedSequenceCount == 0 &&
                      (metrics.PathCoverage.Rate is null ||
                       metrics.PathCoverage.Rate >= manifest.MinimumPathCoverage) &&
                      (metrics.LinkCoverage.Rate is null ||
@@ -225,7 +233,459 @@ public sealed class EngineeringImpactEvaluationRunner : IEngineeringImpactEvalua
             sortedResults.Count(result => result.Passed),
             sortedResults.Count(result => !result.Passed),
             metrics,
-            sortedResults);
+            sortedResults,
+            conversationSequences);
+    }
+
+    private static async Task<ConversationSequenceEvaluationReport> EvaluateConversationSequencesAsync(
+        EvaluationCase templateCase,
+        EvaluationFixture fixture,
+        CancellationToken cancellationToken)
+    {
+        var cases = new List<ConversationSequenceEvaluationCase>();
+        await EvaluateSequenceAsync(
+            "supported-explanation-follow-up",
+            ["Answer", "Answer"],
+            "What is impacted if Requirement R-123 changes?",
+            async (harness, firstTurn) =>
+            {
+                var second = await AnswerTurnAsync(
+                    harness,
+                    "Why is it impacted?",
+                    "turn-a-2",
+                    firstTurn.ContinuationState,
+                    firstTurn.ContinuationState?.PreviousTurnId,
+                    cancellationToken);
+                if (second.ContinuationState is null || second.ContinuationState.StateVersion != 2)
+                    throw new InvalidOperationException("The successful follow-up did not advance structured state.");
+            }).ConfigureAwait(false);
+
+        await EvaluateSequenceAsync(
+            "ambiguous-subjects-clarify",
+            ["Answer", "Clarify"],
+            "What is impacted if Requirement R-123 changes?",
+            async (harness, firstTurn) =>
+            {
+                var ambiguousState = firstTurn.ContinuationState! with
+                {
+                    CurrentSubjectIds = ["REQ-123", "REQ-999"],
+                    CurrentValidatedEntityRefs =
+                    [
+                        new ValidatedEntityReference("REQ-123", "Requirement", "Codebeamer"),
+                        new ValidatedEntityReference("REQ-999", "Requirement", "Codebeamer")
+                    ]
+                };
+                var second = await AnswerTurnAsync(
+                    harness,
+                    "Explain those.",
+                    "turn-b-2",
+                    ambiguousState,
+                    firstTurn.ContinuationState?.PreviousTurnId,
+                    cancellationToken);
+                if (second.Disposition != AnswerDisposition.Clarify)
+                    throw new InvalidOperationException("An ambiguous inherited subject did not clarify.");
+            }).ConfigureAwait(false);
+
+        await EvaluateSequenceAsync(
+            "unsupported-application-filter-clarifies",
+            ["Answer", "Clarify"],
+            "What is impacted if Requirement R-123 changes?",
+            async (harness, firstTurn) =>
+            {
+                var second = await AnswerTurnAsync(
+                    harness,
+                    "What about only Teamcenter impacts?",
+                    "turn-c-2",
+                    firstTurn.ContinuationState,
+                    firstTurn.ContinuationState?.PreviousTurnId,
+                    cancellationToken);
+                if (second.Disposition != AnswerDisposition.Clarify ||
+                    !second.Issues.Any(issue => issue.Code == "target-application-filter-not-supported"))
+                    throw new InvalidOperationException("The unsupported application filter was not surfaced as a clarification.");
+            }).ConfigureAwait(false);
+
+        await EvaluateSequenceAsync(
+            "expired-state-not-inherited",
+            ["Answer", "Clarify"],
+            "What is impacted if Requirement R-123 changes?",
+            async (harness, firstTurn) =>
+            {
+                var expired = firstTurn.ContinuationState! with { ExpiresAt = EvaluationNow.AddSeconds(-1) };
+                var second = await AnswerTurnAsync(
+                    harness,
+                    "Why is it impacted?",
+                    "turn-d-2",
+                    expired,
+                    firstTurn.ContinuationState?.PreviousTurnId,
+                    cancellationToken);
+                if (second.Disposition != AnswerDisposition.Clarify)
+                    throw new InvalidOperationException("An expired conversation state was used for a follow-up.");
+            }).ConfigureAwait(false);
+
+        await EvaluateSequenceAsync(
+            "owner-mismatch-not-inherited",
+            ["Answer", "Clarify"],
+            "What is impacted if Requirement R-123 changes?",
+            async (harness, firstTurn) =>
+            {
+                var otherOwner = firstTurn.ContinuationState! with { OwnerFingerprint = new string('0', 64) };
+                var second = await AnswerTurnAsync(
+                    harness,
+                    "Why is it impacted?",
+                    "turn-e-2",
+                    otherOwner,
+                    firstTurn.ContinuationState?.PreviousTurnId,
+                    cancellationToken);
+                if (second.Disposition != AnswerDisposition.Clarify)
+                    throw new InvalidOperationException("Conversation state from another owner was used.");
+            }).ConfigureAwait(false);
+
+        await EvaluateSequenceAsync(
+            "investigation-mismatch-not-inherited",
+            ["Answer", "Clarify"],
+            "What is impacted if Requirement R-123 changes?",
+            async (harness, firstTurn) =>
+            {
+                var otherInvestigation = firstTurn.ContinuationState! with { InvestigationId = "INV-EVAL-OTHER" };
+                var second = await AnswerTurnAsync(
+                    harness,
+                    "Why is it impacted?",
+                    "turn-f-2",
+                    otherInvestigation,
+                    firstTurn.ContinuationState?.PreviousTurnId,
+                    cancellationToken);
+                if (second.Disposition != AnswerDisposition.Clarify)
+                    throw new InvalidOperationException("Conversation state from another investigation was used.");
+            }).ConfigureAwait(false);
+
+        await EvaluateSequenceAsync(
+            "deleted-subject-not-reused",
+            ["Answer", "Clarify"],
+            "What is impacted if Requirement R-123 changes?",
+            async (harness, firstTurn) =>
+            {
+                var deletedSubject = firstTurn.ContinuationState! with
+                {
+                    CurrentSubjectIds = ["REQ-404"],
+                    CurrentValidatedEntityRefs =
+                    [
+                        new ValidatedEntityReference("REQ-404", "Requirement", "Codebeamer")
+                    ]
+                };
+                var second = await AnswerTurnAsync(
+                    harness,
+                    "Why is it impacted?",
+                    "turn-g-2",
+                    deletedSubject,
+                    firstTurn.ContinuationState?.PreviousTurnId,
+                    cancellationToken);
+                if (second.Disposition != AnswerDisposition.Clarify)
+                    throw new InvalidOperationException("A missing current subject was answered from stale state.");
+            }).ConfigureAwait(false);
+
+        await EvaluateSequenceAsync(
+            "conflicting-application-filter-not-applied",
+            ["Answer", "Clarify"],
+            "What is impacted if Requirement R-123 changes?",
+            async (harness, firstTurn) =>
+            {
+                var priorFilter = firstTurn.ContinuationState! with
+                {
+                    ApplicationFilters = new ConversationApplicationFilters([], ["Windchill"])
+                };
+                var second = await AnswerTurnAsync(
+                    harness,
+                    "What about only Teamcenter impacts?",
+                    "turn-h-2",
+                    priorFilter,
+                    firstTurn.ContinuationState?.PreviousTurnId,
+                    cancellationToken);
+                if (second.Disposition != AnswerDisposition.Clarify)
+                    throw new InvalidOperationException("An unsupported conflicting application filter produced an answer.");
+            }).ConfigureAwait(false);
+
+        await EvaluateSequenceAsync(
+            "conversation-A-application-filter-prefix",
+            ["Answer", "Clarify"],
+            "What is impacted if Requirement R-123 changes?",
+            async (harness, firstTurn) =>
+            {
+                var filtered = await AnswerTurnAsync(
+                    harness,
+                    "What about only Teamcenter impacts?",
+                    "turn-conversation-a-2",
+                    firstTurn.ContinuationState,
+                    firstTurn.ContinuationState?.PreviousTurnId,
+                    cancellationToken);
+                if (filtered.Disposition != AnswerDisposition.Clarify)
+                    throw new InvalidOperationException("An unconfirmed target-application filter was applied without PLM semantics.");
+            }).ConfigureAwait(false);
+
+        await EvaluateSequenceAsync(
+            "conversation-B-explicit-subject-switch",
+            ["Answer", "Clarify", "Answer"],
+            "What is impacted if Requirement R-123 changes?",
+            async (harness, firstTurn) =>
+            {
+                var changedSubject = await AnswerTurnAsync(
+                    harness,
+                    "What is impacted if Requirement R-456 changes?",
+                    "turn-conversation-b-2",
+                    firstTurn.ContinuationState,
+                    firstTurn.ContinuationState?.PreviousTurnId,
+                    cancellationToken);
+                if (changedSubject.Disposition != AnswerDisposition.Clarify)
+                    throw new InvalidOperationException("An unresolved explicit subject switch was not clarified.");
+                var returnedSubject = await AnswerTurnAsync(
+                    harness,
+                    "What is impacted if Requirement R-123 changes?",
+                    "turn-conversation-b-3",
+                    null,
+                    null,
+                    cancellationToken);
+                if (returnedSubject.Disposition != AnswerDisposition.Answer ||
+                    returnedSubject.ContinuationState?.CurrentSubjectIds.SingleOrDefault() != "REQ-123")
+                    throw new InvalidOperationException("The explicit return to R-123 did not resolve as a fresh impact turn.");
+            },
+            expectedEntityResolutionCalls: 3,
+            expectedEvidenceRetrievalCalls: 2).ConfigureAwait(false);
+
+        await EvaluateSequenceAsync(
+            "conversation-C-clarification-response",
+            ["Clarify", "Answer"],
+            "What is impacted?",
+            async (harness, _) =>
+            {
+                var clarified = await AnswerTurnAsync(
+                    harness,
+                    "I meant Requirement R-123.",
+                    "turn-conversation-c-2",
+                    null,
+                    null,
+                    cancellationToken);
+                if (clarified.Disposition != AnswerDisposition.Answer)
+                    throw new InvalidOperationException("An explicit clarification response did not resolve as a fresh impact turn.");
+            },
+            expectedEntityResolutionCalls: 1,
+            expectedEvidenceRetrievalCalls: 1).ConfigureAwait(false);
+
+        await EvaluateSequenceAsync(
+            "conversation-D-ambiguous-parts",
+            ["Answer", "Clarify"],
+            "What is impacted if Requirement R-123 changes?",
+            async (harness, firstTurn) =>
+            {
+                var ambiguousParts = firstTurn.ContinuationState! with
+                {
+                    CurrentValidatedEntityRefs =
+                    [
+                        new ValidatedEntityReference("PART-1", "Part", "Windchill"),
+                        new ValidatedEntityReference("PART-2", "Part", "Teamcenter")
+                    ]
+                };
+                var clarification = await AnswerTurnAsync(
+                    harness,
+                    "Explain those parts.",
+                    "turn-conversation-d-2",
+                    ambiguousParts,
+                    firstTurn.ContinuationState?.PreviousTurnId,
+                    cancellationToken);
+                if (clarification.Disposition != AnswerDisposition.Clarify)
+                    throw new InvalidOperationException("Plural reference to multiple validated parts did not clarify.");
+            },
+            expectedEntityResolutionCalls: 1,
+            expectedEvidenceRetrievalCalls: 1).ConfigureAwait(false);
+
+        await EvaluateSequenceAsync(
+            "conversation-E-source-version-change",
+            ["Answer", "Answer"],
+            "What is impacted if Requirement R-123 changes?",
+            async (harness, firstTurn) =>
+            {
+                harness.EvidenceSource.NextSourceVersion = "source-v2";
+                var followUp = await AnswerTurnAsync(
+                    harness,
+                    "Why is it impacted?",
+                    "turn-conversation-e-2",
+                    firstTurn.ContinuationState,
+                    firstTurn.ContinuationState?.PreviousTurnId,
+                    cancellationToken);
+                if (followUp.ContinuationState?.SourceVersion != "source-v2" ||
+                    !harness.Telemetry.StateInvalidations.Contains(ConversationStateInvalidationReason.SourceVersionChanged))
+                    throw new InvalidOperationException("A fresh source version was not captured and reported after retrieval.");
+            },
+            expectedEntityResolutionCalls: 2,
+            expectedEvidenceRetrievalCalls: 2).ConfigureAwait(false);
+
+        var flattenedDispositions = cases.SelectMany(item => item.ActualDispositions).ToArray();
+        return new ConversationSequenceEvaluationReport(
+            cases.Count,
+            cases.Count(item => item.Passed),
+            cases.Count(item => !item.Passed),
+            flattenedDispositions.Length,
+            cases.Sum(item => Math.Max(0, item.ActualDispositions.Count - 1)),
+            cases.Sum(item => item.FollowUpRetrievalCount),
+            flattenedDispositions.Count(disposition => disposition == "Clarify"),
+            cases.Sum(item => item.StateInvalidations.Count),
+            cases.Sum(item => item.ParentTurnCorrelationCount),
+            cases);
+
+        async Task EvaluateSequenceAsync(
+            string sequenceId,
+            IReadOnlyList<string> expectedDispositions,
+            string firstQuestion,
+            Func<ConversationSequenceHarness, ImpactAnswerResult, Task> execute,
+            int? expectedEntityResolutionCalls = null,
+            int? expectedEvidenceRetrievalCalls = null)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var harness = CreateConversationSequenceHarness(templateCase, fixture, sequenceId);
+            var first = await AnswerTurnAsync(
+                harness,
+                firstQuestion,
+                $"turn-{sequenceId}-1",
+                null,
+                null,
+                cancellationToken).ConfigureAwait(false);
+            var actualDispositions = new List<string> { first.Disposition.ToString() };
+            if (!string.Equals(actualDispositions[0], expectedDispositions[0], StringComparison.Ordinal))
+            {
+                var reason = $"Expected first disposition {expectedDispositions[0]}, got {actualDispositions[0]}.";
+                cases.Add(new ConversationSequenceEvaluationCase(
+                    sequenceId,
+                    false,
+                    expectedDispositions,
+                    actualDispositions,
+                    harness.Resolver.CallCount,
+                    harness.EvidenceSource.CallCount,
+                    harness.ModelGateway.CallCount,
+                    harness.Telemetry.StateInvalidations.Select(item => item.ToString()).ToArray(),
+                    harness.Telemetry.Turns.Count(turn => turn.ParentTurnCorrelated),
+                    harness.Telemetry.FollowUpRetrievalCount,
+                    reason));
+                return;
+            }
+            string? failureReason = null;
+            try
+            {
+                await execute(harness, first).ConfigureAwait(false);
+                actualDispositions = harness.TurnDispositions.Select(disposition => disposition.ToString()).ToList();
+                if (!actualDispositions.SequenceEqual(expectedDispositions, StringComparer.Ordinal))
+                    failureReason = $"Expected dispositions [{string.Join(", ", expectedDispositions)}], got [{string.Join(", ", actualDispositions)}].";
+            }
+            catch (Exception exception) when (exception is InvalidOperationException or ArgumentException)
+            {
+                failureReason = exception.Message;
+                actualDispositions = harness.TurnDispositions.Select(disposition => disposition.ToString()).ToList();
+                if (actualDispositions.Count == 1) actualDispositions.Add("Failed");
+            }
+
+            var expectedEntityCalls = expectedEntityResolutionCalls ?? (sequenceId is "supported-explanation-follow-up" or "deleted-subject-not-reused"
+                ? 2
+                : 1);
+            if (harness.Resolver.CallCount != expectedEntityCalls)
+                failureReason ??= $"Expected {expectedEntityCalls} entity resolutions, got {harness.Resolver.CallCount}.";
+            var expectedEvidenceCalls = expectedEvidenceRetrievalCalls ?? (sequenceId is "supported-explanation-follow-up"
+                ? 2
+                : 1);
+            if (harness.EvidenceSource.CallCount != expectedEvidenceCalls)
+                failureReason ??= $"Expected {expectedEvidenceCalls} evidence retrievals, got {harness.EvidenceSource.CallCount}.";
+            if (harness.ModelGateway.CallCount != expectedEvidenceCalls)
+                failureReason ??= $"Expected {expectedEvidenceCalls} model calls, got {harness.ModelGateway.CallCount}.";
+            cases.Add(new ConversationSequenceEvaluationCase(
+                sequenceId,
+                failureReason is null,
+                expectedDispositions,
+                actualDispositions,
+                harness.Resolver.CallCount,
+                harness.EvidenceSource.CallCount,
+                harness.ModelGateway.CallCount,
+                harness.Telemetry.StateInvalidations.Select(reason => reason.ToString()).ToArray(),
+                harness.Telemetry.Turns.Count(turn => turn.ParentTurnCorrelated),
+                harness.Telemetry.FollowUpRetrievalCount,
+                failureReason));
+        }
+    }
+
+    private static ConversationSequenceHarness CreateConversationSequenceHarness(
+        EvaluationCase templateCase,
+        EvaluationFixture fixture,
+        string sequenceId)
+    {
+        var requestContext = new RuntimeRequestContext(
+            $"eval-sequence-{sequenceId}",
+            $"eval-sequence-trace-{sequenceId}",
+            null,
+            $"eval-conversation-{sequenceId}");
+        var decisionId = $"eval-decision-{sequenceId}";
+        var expiration = EvaluationNow.AddMinutes(1);
+        var authorizationScope = new AuthorizationScope(
+            "synthetic-tenant",
+            "synthetic-evaluator",
+            "fixture-policy-v1",
+            decisionId,
+            new HashSet<string>([ResolveGrant, ReadEvidenceGrant], StringComparer.Ordinal),
+            expiration);
+        var authorization = new AuthorizationContext(authorizationScope, $"fixture-token-{sequenceId}", expiration);
+        var timeProvider = new FixedTimeProvider(EvaluationNow);
+        var evidence = BuildEvidence(templateCase, fixture, decisionId, requestContext);
+        var resolver = new FixtureEntityResolver(templateCase, fixture);
+        var evidenceSource = new FixtureEvidenceSource(evidence, updateRequestContext: true);
+        var modelGateway = new FixtureModelGateway(fixture.ModelResponses.GetValueOrDefault("direct"));
+        var telemetry = new ConversationSequenceTelemetry();
+        var scopePlanner = new RecordingScopePlanner(new ScopePlanner());
+        var service = new ImpactAnswerService(
+            new QuestionInterpreter(),
+            new ConversationTurnInterpreter(timeProvider),
+            resolver,
+            scopePlanner,
+            evidenceSource,
+            new RecordingContextCompiler(new ContextCompiler()),
+            new SourceControlledPromptCatalog(),
+            new PromptAssembler(),
+            modelGateway,
+            new AnswerCandidateParser(),
+            new AnswerValidator(timeProvider),
+            new ModelConfiguration("evaluation-model", "offline-fixture", "deterministic-fake", "offline-fixture", 256, 4096),
+            timeProvider,
+            telemetry,
+            new ConversationStateRetentionOptions { LifetimeSeconds = 3600 });
+        return new ConversationSequenceHarness(
+            service,
+            resolver,
+            evidenceSource,
+            modelGateway,
+            authorization,
+            telemetry,
+            requestContext,
+            requestContext.ConversationId!,
+            templateCase.InvestigationId);
+    }
+
+    private static async Task<ImpactAnswerResult> AnswerTurnAsync(
+        ConversationSequenceHarness harness,
+        string question,
+        string turnId,
+        ConversationState? previousState,
+        string? parentTurnId,
+        CancellationToken cancellationToken)
+    {
+        var requestContext = harness.RequestContext with { TurnId = turnId };
+        var request = new ImpactAnswerRequest(
+            harness.InvestigationId,
+            question,
+            harness.ConversationId)
+        {
+            ParentTurnId = parentTurnId,
+            PreviousConversationState = previousState
+        };
+        var result = await harness.Service.AnswerAsync(
+            request,
+            harness.Authorization,
+            requestContext,
+            cancellationToken).ConfigureAwait(false);
+        harness.TurnDispositions.Add(result.Disposition);
+        return result;
     }
 
     private static async Task<EngineeringImpactEvaluationCaseResult> EvaluateCaseAsync(
@@ -269,6 +729,7 @@ public sealed class EngineeringImpactEvaluationRunner : IEngineeringImpactEvalua
         var contextCompiler = new RecordingContextCompiler(new ContextCompiler());
         var service = new ImpactAnswerService(
             questionInterpreter,
+            new ConversationTurnInterpreter(),
             resolver,
             scopePlanner,
             evidenceSource,
@@ -1407,9 +1868,72 @@ public sealed class EngineeringImpactEvaluationRunner : IEngineeringImpactEvalua
         IReadOnlyList<ImpactChainEvidence> Chains,
         IReadOnlyDictionary<string, string> ModelResponses);
 
+    private sealed record ConversationSequenceHarness(
+        ImpactAnswerService Service,
+        FixtureEntityResolver Resolver,
+        FixtureEvidenceSource EvidenceSource,
+        FixtureModelGateway ModelGateway,
+        AuthorizationContext Authorization,
+        ConversationSequenceTelemetry Telemetry,
+        RuntimeRequestContext RequestContext,
+        string ConversationId,
+        string InvestigationId)
+    {
+        public List<AnswerDisposition> TurnDispositions { get; } = [];
+    }
+
+    private sealed class ConversationSequenceTelemetry : IAiRuntimeTelemetry
+    {
+        public List<ConversationTurnTelemetry> Turns { get; } = [];
+        public List<ConversationStateInvalidationReason> StateInvalidations { get; } = [];
+
+        public IRuntimeTelemetryStage StartStage(
+            string stage,
+            RuntimeRequestContext requestContext,
+            string? investigationId = null) =>
+            NullAiRuntimeTelemetry.Instance.StartStage(stage, requestContext, investigationId);
+
+        public void RecordRequestOutcome(string disposition)
+        {
+        }
+
+        public void RecordValidationDisposition(string disposition)
+        {
+        }
+
+        public void RecordModelUsage(string provider, string modelConfigurationId, int? inputTokens, int? outputTokens)
+        {
+        }
+
+        public void RecordContextQuality(int omissionCount, bool budgetExhausted)
+        {
+        }
+
+        public void RecordAnswerQuality(AnswerQualitySummary summary)
+        {
+        }
+
+        public void RecordConversationTurn(ConversationTurnTelemetry summary) => Turns.Add(summary);
+
+        public void RecordConversationStateInvalidation(ConversationStateInvalidationReason reason) =>
+            StateInvalidations.Add(reason);
+
+        public int FollowUpRetrievalCount { get; private set; }
+
+        public void RecordConversationRetrieval(bool followUp)
+        {
+            if (followUp) FollowUpRetrievalCount++;
+        }
+
+        public void RecordConversationTurnDisposition(AnswerDisposition disposition)
+        {
+        }
+    }
+
     private sealed class FixtureEntityResolver(EvaluationCase evaluationCase, EvaluationFixture fixture)
         : IEngineeringEntityResolver
     {
+        public int CallCount { get; private set; }
         public ResolvedEntity? ResolvedEntity { get; private set; }
         public string? DenialScenario { get; private set; }
 
@@ -1420,6 +1944,7 @@ public sealed class EngineeringImpactEvaluationRunner : IEngineeringImpactEvalua
             RuntimeRequestContext requestContext,
             CancellationToken cancellationToken)
         {
+            CallCount++;
             if (!string.Equals(investigationId, fixture.InvestigationId, StringComparison.Ordinal))
             {
                 DenialScenario = "investigation-mismatch";
@@ -1477,6 +2002,17 @@ public sealed class EngineeringImpactEvaluationRunner : IEngineeringImpactEvalua
         public ScopePlanningResult? LastResult { get; private set; }
 
         public ScopePlanningResult Plan(
+            ConversationTurnInterpretation turn,
+            ConversationState? priorState,
+            ResolvedEntity subject,
+            AuthorizationContext authorization,
+            RuntimeRequestContext requestContext)
+        {
+            LastResult = inner.Plan(turn, priorState, subject, authorization, requestContext);
+            return LastResult;
+        }
+
+        public ScopePlanningResult Plan(
             QuestionInterpretation interpretation,
             ResolvedEntity subject,
             AuthorizationScope authorization,
@@ -1498,18 +2034,32 @@ public sealed class EngineeringImpactEvaluationRunner : IEngineeringImpactEvalua
         }
     }
 
-    private sealed class FixtureEvidenceSource(EvidenceRetrievalResult result) : IEngineeringEvidenceSource
+    private sealed class FixtureEvidenceSource(
+        EvidenceRetrievalResult result,
+        bool updateRequestContext = false) : IEngineeringEvidenceSource
     {
         public int CallCount { get; private set; }
         public EvidenceRetrievalResult? LastResult { get; private set; }
+        public string? NextSourceVersion { get; set; }
 
         public Task<EvidenceRetrievalResult> RetrieveImpactAsync(
             ImpactEvidenceQuery query,
             CancellationToken cancellationToken)
         {
             CallCount++;
-            LastResult = result;
-            return Task.FromResult(result);
+            var retrieved = updateRequestContext
+                ? result with
+                {
+                    InvestigationId = query.InvestigationId,
+                    RequestId = query.RequestContext.RequestId,
+                    TraceId = query.RequestContext.TraceId
+                }
+                : result;
+            LastResult = NextSourceVersion is { } sourceVersion
+                ? retrieved with { SourceVersion = sourceVersion }
+                : retrieved;
+            NextSourceVersion = null;
+            return Task.FromResult(LastResult);
         }
     }
 

@@ -8,6 +8,13 @@ export const dynamic = "force-dynamic";
 type Context = { params: Promise<{ investigationId: string; threadId: string }> };
 const store = new FileCopilotConversationStore();
 
+function clientThread(thread: Awaited<ReturnType<typeof store.loadThread>>) {
+  if (!thread) return undefined;
+  const visibleThread = { ...thread };
+  delete visibleThread.conversationState;
+  return visibleThread;
+}
+
 export async function GET(_: Request, context: Context) {
   const { investigationId: rawId, threadId } = await context.params;
   const investigationId = rawId as InvestigationId;
@@ -15,6 +22,6 @@ export async function GET(_: Request, context: Context) {
   if (!snapshot) return NextResponse.json({ message: "Investigation was not found." }, { status: 404 });
   const thread = await store.loadThread(investigationId, threadId);
   return thread
-    ? NextResponse.json({ investigationId, thread })
+    ? NextResponse.json({ investigationId, thread: clientThread(thread) })
     : NextResponse.json({ message: "Copilot thread was not found." }, { status: 404 });
 }

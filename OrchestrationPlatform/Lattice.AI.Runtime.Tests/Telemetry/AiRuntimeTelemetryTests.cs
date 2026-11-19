@@ -6,6 +6,7 @@ using Lattice.AI.Runtime.Authorization;
 using Lattice.AI.Runtime.ContextCompilation;
 using Lattice.AI.Runtime.Contracts.Answers;
 using Lattice.AI.Runtime.Contracts.Authorization;
+using Lattice.AI.Runtime.Contracts.Conversation;
 using Lattice.AI.Runtime.Contracts.Evidence;
 using Lattice.AI.Runtime.Contracts.Generation;
 using Lattice.AI.Runtime.Contracts.Requests;
@@ -79,6 +80,37 @@ public sealed class AiRuntimeTelemetryTests
                 UnsupportedAssertionRejectionCount: 0,
                 EvidenceCitationCoverageRatio: 1.1,
                 SourceClaimConfidenceValues: [])));
+    }
+
+    [Fact]
+    public void ConversationMetricsUseBoundedDimensionsAndCapInheritedReferenceCounts()
+    {
+        using var capture = new TelemetryCapture();
+        var telemetry = new AiRuntimeTelemetry();
+
+        telemetry.RecordConversationTurn(new ConversationTurnTelemetry(
+            ConversationTurnType.FollowUpExplanation,
+            ConversationReferenceResolution.Inherited,
+            99,
+            FilterChanged: false,
+            ClarificationRequired: false,
+            ParentTurnCorrelated: true));
+        telemetry.RecordConversationStateInvalidation(ConversationStateInvalidationReason.OwnerMismatch);
+        telemetry.RecordConversationRetrieval(followUp: true);
+        telemetry.RecordConversationTurnDisposition(AnswerDisposition.Answer);
+
+        AssertMetric(capture, "lattice.ai.runtime.conversation.turns", 1L);
+        AssertMetric(capture, "lattice.ai.runtime.conversation.reference_resolutions", 1L);
+        AssertMetric(capture, "lattice.ai.runtime.conversation.inherited_reference_count", 10L);
+        AssertMetric(capture, "lattice.ai.runtime.conversation.state_invalidations", 1L);
+        AssertMetric(capture, "lattice.ai.runtime.conversation.follow_up_retrievals", 1L);
+        AssertMetric(capture, "lattice.ai.runtime.conversation.dispositions", 1L);
+        Assert.DoesNotContain(
+            capture.Measurements.SelectMany(measurement => measurement.Tags),
+            tag => tag.Value?.ToString()?.Contains("PRIVATE", StringComparison.Ordinal) == true);
+        Assert.All(capture.Measurements, measurement =>
+            Assert.All(measurement.Tags, tag =>
+                Assert.DoesNotContain("private", tag.Key, StringComparison.OrdinalIgnoreCase)));
     }
 
     [Fact]
@@ -595,6 +627,7 @@ public sealed class AiRuntimeTelemetryTests
         {
             Service = new ImpactAnswerService(
                 new QuestionInterpreter(),
+                new ConversationTurnInterpreter(),
                 new StubEntityResolver(),
                 new ScopePlanner(),
                 new StubEvidenceSource(),

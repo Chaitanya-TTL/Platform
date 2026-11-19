@@ -112,10 +112,28 @@ function isCitation(value: unknown): value is CopilotCitation {
     return false;
   if (typeof value.kind !== "string" || !citationKinds.has(value.kind as CopilotCitation["kind"]))
     return false;
-  return ["source", "nativeId", "summary"].every((key) => value[key] === undefined || typeof value[key] === "string");
+  return ["source", "nativeId", "summary", "deepLink"].every((key) => value[key] === undefined || typeof value[key] === "string");
 }
 
 function isCopilotAnswer(value: unknown): value is CopilotAnswer {
+  const runtime = isRecord(value) && value.runtime !== undefined
+    ? value.runtime
+    : undefined;
+  const validRuntime = runtime === undefined || (
+    isRecord(runtime) &&
+    ["Answer", "Clarify", "Abstain", "Deny", "Unavailable", "Failed"].includes(String(runtime.disposition)) &&
+    (runtime.contextPackageId === undefined || typeof runtime.contextPackageId === "string") &&
+    (runtime.diagnosticCode === undefined || typeof runtime.diagnosticCode === "string") &&
+    (runtime.semanticSupportStatus === undefined || typeof runtime.semanticSupportStatus === "string") &&
+    (runtime.issues === undefined || (
+      Array.isArray(runtime.issues) &&
+      runtime.issues.every((issue) =>
+        isRecord(issue) &&
+        typeof issue.code === "string" &&
+        (issue.claimId === undefined || issue.claimId === null || typeof issue.claimId === "string"),
+      )
+    ))
+  );
   if (!isRecord(value) ||
       typeof value.answer !== "string" ||
       !Array.isArray(value.claims) ||
@@ -124,6 +142,7 @@ function isCopilotAnswer(value: unknown): value is CopilotAnswer {
       !isStringArray(value.followUpQuestions) ||
       !Number.isSafeInteger(value.snapshotRevision) ||
       Number(value.snapshotRevision) < 1 ||
+      !validRuntime ||
       (value.citations !== undefined &&
         (!Array.isArray(value.citations) || !value.citations.every(isCitation)))) {
     return false;
