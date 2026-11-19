@@ -1,0 +1,76 @@
+{
+  "datasetId": "synthetic-source-evidence-v1",
+  "corpusClassification": "synthetic-fixture-only",
+  "records": [
+    {
+      "recordId": "SYNTH-REQ-001-DESC",
+      "sourceApplication": "SyntheticPLM",
+      "recordType": "description",
+      "searchableText": "A synthetic requirement says the demo pump must sustain 18 bar at 72 °C.",
+      "sourceRevision": "demo-rev-A",
+      "location": "synthetic://plm/REQ-001/description",
+      "provenanceId": "SYNTH-PROV-001",
+      "freshness": "current"
+    },
+    {
+      "recordId": "SYNTH-REQ-001-DESC-COPY",
+      "sourceApplication": "SyntheticPLM",
+      "recordType": "description",
+      "searchableText": "A synthetic requirement says the demo pump must sustain 18 bar at 72 °C.",
+      "sourceRevision": "demo-rev-A",
+      "location": "synthetic://plm/REQ-001/description-copy",
+      "provenanceId": "SYNTH-PROV-002",
+      "freshness": "current"
+    },
+    {
+      "recordId": "SYNTH-REQ-001-DESC-FORMAT",
+      "sourceApplication": "SyntheticRequirements",
+      "recordType": "requirement",
+      "searchableText": "  A SYNTHETIC requirement says the demo pump must sustain 18 bar at 72 °C.  ",
+      "sourceRevision": "demo-rev-A",
+      "location": "synthetic://requirements/REQ-001/text",
+      "provenanceId": "SYNTH-PROV-003",
+      "freshness": "current"
+    },
+    {
+      "recordId": "SYNTH-REQ-002-TEXT",
+      "sourceApplication": "SyntheticRequirements",
+      "recordType": "requirement",
+      "searchableText": "Synthetic requirement REQ-002 states that a test fixture must tolerate a 4.5 kN axial load for 30 seconds.",
+      "sourceRevision": "demo-rev-B",
+      "location": "synthetic://requirements/REQ-002/text",
+      "provenanceId": null,
+      "freshness": "current"
+    },
+    {
+      "recordId": "SYNTH-RULE-003-TEXT",
+      "sourceApplication": "SyntheticRules",
+      "recordType": "rule",
+      "searchableText": "Synthetic rule RULE-003 requires a minimum clearance of 2.0 mm between the guard and rotating shaft.",
+      "sourceRevision": null,
+      "location": null,
+      "provenanceId": "SYNTH-PROV-005",
+      "freshness": "stale"
+    },
+    {
+      "recordId": "SYNTH-EMPTY-001",
+      "sourceApplication": "SyntheticRules",
+      "recordType": "rule",
+      "searchableText": "   ",
+      "sourceRevision": "demo-rev-C",
+      "location": null,
+      "provenanceId": null,
+      "freshness": "unknown"
+    },
+    {
+      "recordId": "SYNTH-ID-ONLY-001",
+      "sourceApplication": "SyntheticPLM",
+      "recordType": "identifier",
+      "searchableText": "REQ-123",
+      "sourceRevision": null,
+      "location": null,
+      "provenanceId": null,
+      "freshness": "unknown"
+    }
+  ]
+}
