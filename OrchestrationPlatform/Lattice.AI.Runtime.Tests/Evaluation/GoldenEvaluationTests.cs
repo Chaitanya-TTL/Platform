@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using Lattice.AI.Runtime.Evaluation;
 
@@ -15,16 +16,16 @@ public sealed class GoldenEvaluationTests
         Assert.True(report.Passed, string.Join(
             Environment.NewLine,
             report.Cases.Where(result => !result.Passed).Select(result => $"{result.CaseId}: {result.FailureReason}")));
-        Assert.Equal(12, report.CaseCount);
+        Assert.Equal(33, report.CaseCount);
         Assert.Equal(report.CaseCount, report.PassedCaseCount);
         Assert.Equal(0, report.FailedCaseCount);
         Assert.Equal(0, report.Metrics.UnsupportedClaimCount);
         Assert.Equal(0, report.Metrics.UnsupportedClaimRate);
-        Assert.Equal(3, report.Metrics.ExpectedLinkCount);
-        Assert.Equal(3, report.Metrics.CoveredLinkCount);
+        Assert.Equal(14, report.Metrics.ExpectedLinkCount);
+        Assert.Equal(14, report.Metrics.CoveredLinkCount);
         Assert.Equal(1, report.Metrics.PathCoverage);
         Assert.Equal(1, report.Metrics.LinkCoverage);
-        Assert.Equal(2, report.Metrics.DispositionCounts["Answer"]);
+        Assert.Equal(10, report.Metrics.DispositionCounts["Answer"]);
 
         var multiHop = Assert.Single(report.Cases.Where(result => result.CaseId == "multi-hop-impact"));
         Assert.Equal(["REL-HOP-001", "REL-HOP-002"], multiHop.ActualRelationshipIds);
@@ -84,11 +85,18 @@ public sealed class GoldenEvaluationTests
         var report = await new EngineeringImpactEvaluationRunner().RunAsync(dataset.Path, CancellationToken.None);
 
         Assert.False(report.Passed);
-        Assert.Equal(1, report.Metrics.UnsupportedClaimCount);
-        Assert.Equal(2, report.Metrics.EvaluatedModelClaimCount);
-        Assert.Equal(0.5, report.Metrics.UnsupportedClaimRate);
+        Assert.Equal(
+            report.Cases.Sum(result => result.UnsupportedClaimCount),
+            report.Metrics.UnsupportedClaimCount);
+        Assert.Equal(
+            report.Cases.Sum(result => result.EvaluatedModelClaimCount),
+            report.Metrics.EvaluatedModelClaimCount);
+        Assert.Equal(
+            (double)report.Metrics.UnsupportedClaimCount / report.Metrics.EvaluatedModelClaimCount,
+            report.Metrics.UnsupportedClaimRate);
         var direct = Assert.Single(report.Cases.Where(result => result.CaseId == "direct-impact"));
         Assert.False(direct.Passed);
+        Assert.Equal(1, direct.UnsupportedClaimCount);
         Assert.Contains("unknown-evidence", direct.Issues);
     }
 
@@ -133,6 +141,100 @@ public sealed class GoldenEvaluationTests
         await Assert.ThrowsAsync<InvalidDataException>(() =>
             new EngineeringImpactEvaluationRunner().RunAsync(dataset.Path, CancellationToken.None));
     }
+
+    [Fact]
+    public void Dataset_CoversTheNarrowIntentAndFailureCategories()
+    {
+        using var manifest = JsonDocument.Parse(
+            File.ReadAllText(Path.Combine(GetDatasetDirectory(), "manifest.json")));
+        var caseLines = File.ReadAllLines(Path.Combine(GetDatasetDirectory(), "cases.jsonl"));
+        var cases = caseLines
+            .Select(line => JsonDocument.Parse(line))
+            .ToArray();
+
+        try
+        {
+            Assert.Equal(caseLines.Length, manifest.RootElement.GetProperty("caseCount").GetInt32());
+            Assert.True(CountTagged(cases, "supported-paraphrase") >= 10);
+            Assert.True(CountTagged(cases, "missing-or-ambiguous-subject") >= 5);
+            Assert.True(CountTagged(cases, "unsupported-question") >= 3);
+            Assert.True(CountTagged(cases, "no-evidence-or-missing-provenance") >= 3);
+            Assert.True(CountTagged(cases, "authorization") >= 4);
+            Assert.True(CountTagged(cases, "malformed-or-unsupported-model-output") >= 3);
+            Assert.True(CountTagged(cases, "budget-pressure") >= 3);
+
+            var supportedQuestions = cases
+                .Where(item => HasCategory(item.RootElement, "supported-paraphrase"))
+                .Select(item => item.RootElement.GetProperty("question").GetString())
+                .Distinct(StringComparer.Ordinal)
+                .Count();
+            Assert.True(supportedQuestions >= 10);
+
+            var baselineQuestions = cases
+                .Select(item => item.RootElement)
+                .Select(item => item.GetProperty("question").GetString())
+                .ToHashSet(StringComparer.Ordinal);
+            Assert.Contains("What is impacted if Requirement R-123 changes?", baselineQuestions);
+            Assert.Contains("If R-123 changes, what could be affected?", baselineQuestions);
+            Assert.Contains("Show the downstream engineering impact of R-123.", baselineQuestions);
+            Assert.Contains("What is impacted?", baselineQuestions);
+            Assert.Contains("What is impacted if R-999 changes?", baselineQuestions);
+            Assert.Contains(cases.Select(item => item.RootElement)
+                .Select(item => item.GetProperty("authorizationScenario").GetString()), scenario => scenario == "denied");
+            Assert.Contains(cases.Select(item => item.RootElement)
+                .Select(item => item.GetProperty("caseId").GetString()), caseId => caseId == "no-evidence");
+
+            foreach (var item in cases.Select(item => item.RootElement))
+            {
+                var expectation = item.GetProperty("expect");
+                Assert.False(expectation.GetProperty("authorizationLeakageAllowed").GetBoolean());
+                Assert.Contains(expectation.GetProperty("questionIntent").GetString(),
+                    new[] { "engineering-impact", "unsupported" });
+                Assert.True(expectation.TryGetProperty("subjectId", out _));
+                Assert.Empty(expectation.GetProperty("scopeRelationshipTypes").EnumerateArray());
+                Assert.Empty(expectation.GetProperty("scopeSourceSystems").EnumerateArray());
+                Assert.True(expectation.GetProperty("clarificationRequired").ValueKind is JsonValueKind.True or JsonValueKind.False);
+                var maxHops = expectation.GetProperty("scopeMaxHops");
+                var subjectId = expectation.GetProperty("subjectId");
+                Assert.Equal(
+                    subjectId.ValueKind == JsonValueKind.String ? 3 : (int?)null,
+                    maxHops.ValueKind == JsonValueKind.Number ? maxHops.GetInt32() : null);
+                Assert.True(expectation.GetProperty("omissionBehaviorCorrect").GetBoolean());
+                Assert.Contains(expectation.GetProperty("parseSucceeded").ValueKind,
+                    new[] { JsonValueKind.Null, JsonValueKind.True, JsonValueKind.False });
+                Assert.Contains(expectation.GetProperty("unsupportedReferenceRejected").ValueKind,
+                    new[] { JsonValueKind.Null, JsonValueKind.True, JsonValueKind.False });
+            }
+
+            var fixturePath = Path.Combine(GetDatasetDirectory(), "fixtures", "requirement-r123.json");
+            using var fixture = JsonDocument.Parse(File.ReadAllText(fixturePath));
+            Assert.Equal("synthetic-plm-fixture-v1", fixture.RootElement.GetProperty("sourceVersion").GetString());
+            Assert.All(cases.Select(item => item.RootElement), item =>
+                Assert.Equal("INV-EVAL-001", item.GetProperty("investigationId").GetString()));
+            foreach (var source in fixture.RootElement.GetProperty("sources").EnumerateArray())
+            {
+                Assert.StartsWith(
+                    "https://plm.example.test/",
+                    source.GetProperty("deepLink").GetString(),
+                    StringComparison.Ordinal);
+            }
+        }
+        finally
+        {
+            foreach (var item in cases)
+            {
+                item.Dispose();
+            }
+        }
+    }
+
+    private static int CountTagged(IEnumerable<JsonDocument> cases, string category) =>
+        cases.Count(item => HasCategory(item.RootElement, category));
+
+    private static bool HasCategory(JsonElement item, string category) =>
+        item.GetProperty("categories")
+            .EnumerateArray()
+            .Any(value => string.Equals(value.GetString(), category, StringComparison.Ordinal));
 
     private static string GetDatasetDirectory()
     {

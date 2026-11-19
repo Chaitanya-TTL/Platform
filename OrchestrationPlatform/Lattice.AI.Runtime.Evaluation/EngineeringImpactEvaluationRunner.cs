@@ -614,7 +614,7 @@ public sealed class EngineeringImpactEvaluationRunner : IEngineeringImpactEvalua
             using var document = ParseJson(line, $"JSONL line {index + 1}");
             var root = document.RootElement;
             EnsureProperties(root,
-                ["caseId", "scenario", "required", "fixtureFile", "investigationId",
+                ["caseId", "scenario", "categories", "required", "fixtureFile", "investigationId",
                     "requestInvestigationId", "question", "evidenceMode", "authorizationScenario",
                     "modelResponseKey", "expect"],
                 $"JSONL line {index + 1}");
@@ -654,6 +654,10 @@ public sealed class EngineeringImpactEvaluationRunner : IEngineeringImpactEvalua
             {
                 throw new InvalidDataException($"Case '{caseId}' modelResponseKey cannot be empty.");
             }
+            if (ReadStringArray(root, "categories").Count == 0)
+            {
+                throw new InvalidDataException($"Case '{caseId}' must include at least one evaluation category.");
+            }
 
             cases.Add(new EvaluationCase(
                 caseId,
@@ -684,7 +688,10 @@ public sealed class EngineeringImpactEvaluationRunner : IEngineeringImpactEvalua
                 "requiredRelationshipIds", "forbiddenRelationshipIds", "requiredEvidenceIds",
                 "forbiddenEvidenceIds", "requiredSourceIds", "forbiddenSourceIds", "requiredSourceRefIds",
                 "forbiddenSourceRefIds", "requiredLinkIds", "forbiddenLinkIds", "requiredPathIds",
-                "noEvidenceLeakage", "noEvidenceAccess", "modelCalls"],
+                "noEvidenceLeakage", "noEvidenceAccess", "modelCalls", "questionIntent",
+                "clarificationRequired", "scopeMaxHops", "scopeRelationshipTypes", "scopeSourceSystems",
+                "parseSucceeded", "unsupportedReferenceRejected", "authorizationLeakageAllowed",
+                "omissionBehaviorCorrect"],
             $"case '{caseId}' expect");
 
         if (!Enum.TryParse<AnswerDisposition>(ReadString(element, "disposition"), false, out var disposition))
@@ -711,11 +718,32 @@ public sealed class EngineeringImpactEvaluationRunner : IEngineeringImpactEvalua
             ReadStringArray(element, "requiredPathIds"),
             ReadBoolean(element, "noEvidenceLeakage"),
             ReadBoolean(element, "noEvidenceAccess"),
-            ReadInt(element, "modelCalls"));
+            ReadInt(element, "modelCalls"),
+            ReadString(element, "questionIntent"),
+            ReadBoolean(element, "clarificationRequired"),
+            ReadNullableInt(element, "scopeMaxHops"),
+            ReadStringArray(element, "scopeRelationshipTypes"),
+            ReadStringArray(element, "scopeSourceSystems"),
+            ReadNullableBoolean(element, "parseSucceeded"),
+            ReadNullableBoolean(element, "unsupportedReferenceRejected"),
+            ReadBoolean(element, "authorizationLeakageAllowed"),
+            ReadBoolean(element, "omissionBehaviorCorrect"));
         if (!SupportedAuthorizationScenarios.Contains(expectation.AuthorizationScenario))
         {
             throw new InvalidDataException(
                 $"Case '{caseId}' has unsupported expected authorizationScenario '{expectation.AuthorizationScenario}'.");
+        }
+        if (expectation.QuestionIntent is not ("engineering-impact" or "unsupported"))
+        {
+            throw new InvalidDataException($"Case '{caseId}' has unsupported questionIntent '{expectation.QuestionIntent}'.");
+        }
+        if (expectation.ScopeMaxHops is <= 0)
+        {
+            throw new InvalidDataException($"Case '{caseId}' scopeMaxHops must be positive or null.");
+        }
+        if (expectation.AuthorizationLeakageAllowed)
+        {
+            throw new InvalidDataException($"Case '{caseId}' cannot allow authorization leakage.");
         }
         if (expectation.NoEvidenceAccess && !expectation.NoEvidenceLeakage)
         {
@@ -990,6 +1018,46 @@ public sealed class EngineeringImpactEvaluationRunner : IEngineeringImpactEvalua
         return value.GetString();
     }
 
+    private static int? ReadNullableInt(JsonElement element, string propertyName)
+    {
+        if (!element.TryGetProperty(propertyName, out var value))
+        {
+            throw new InvalidDataException($"Required field '{propertyName}' is missing.");
+        }
+
+        if (value.ValueKind == JsonValueKind.Null)
+        {
+            return null;
+        }
+
+        if (value.ValueKind != JsonValueKind.Number || !value.TryGetInt32(out var result))
+        {
+            throw new InvalidDataException($"Field '{propertyName}' must be an integer or null.");
+        }
+
+        return result;
+    }
+
+    private static bool? ReadNullableBoolean(JsonElement element, string propertyName)
+    {
+        if (!element.TryGetProperty(propertyName, out var value))
+        {
+            throw new InvalidDataException($"Required field '{propertyName}' is missing.");
+        }
+
+        if (value.ValueKind == JsonValueKind.Null)
+        {
+            return null;
+        }
+
+        if (value.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
+        {
+            throw new InvalidDataException($"Field '{propertyName}' must be a boolean or null.");
+        }
+
+        return value.GetBoolean();
+    }
+
     private static IReadOnlyList<string> ReadStringArray(JsonElement element, string propertyName)
     {
         if (!element.TryGetProperty(propertyName, out var value) || value.ValueKind != JsonValueKind.Array)
@@ -1095,7 +1163,16 @@ public sealed class EngineeringImpactEvaluationRunner : IEngineeringImpactEvalua
         IReadOnlyList<string> RequiredPathIds,
         bool NoEvidenceLeakage,
         bool NoEvidenceAccess,
-        int ModelCalls);
+        int ModelCalls,
+        string QuestionIntent,
+        bool ClarificationRequired,
+        int? ScopeMaxHops,
+        IReadOnlyList<string> ScopeRelationshipTypes,
+        IReadOnlyList<string> ScopeSourceSystems,
+        bool? ParseSucceeded,
+        bool? UnsupportedReferenceRejected,
+        bool AuthorizationLeakageAllowed,
+        bool OmissionBehaviorCorrect);
 
     private sealed record EvaluationFixture(
         string InvestigationId,
@@ -1140,12 +1217,36 @@ public sealed class EngineeringImpactEvaluationRunner : IEngineeringImpactEvalua
                     ["The fixture authorization decision has been revoked."]));
             }
 
+            if (!MatchesFixtureSubject(interpretation.CandidateEntityId, fixture.SubjectId))
+            {
+                return Task.FromResult(new EntityResolutionResult(
+                    EntityResolutionDisposition.Unresolved,
+                    null,
+                    [],
+                    ["The explicit subject identifier is absent from the synthetic fixture."]));
+            }
+
             ResolvedEntity = new ResolvedEntity("synthetic-plm", "Requirement", fixture.SubjectId, fixture.SubjectId);
             return Task.FromResult(new EntityResolutionResult(
                 EntityResolutionDisposition.Resolved,
                 ResolvedEntity,
                 [fixture.SubjectId],
                 []));
+        }
+
+        private static bool MatchesFixtureSubject(string? candidateId, string fixtureSubjectId)
+        {
+            if (string.IsNullOrWhiteSpace(candidateId))
+            {
+                return false;
+            }
+
+            static string Normalize(string value) =>
+                value.StartsWith("REQ-", StringComparison.OrdinalIgnoreCase)
+                    ? $"R-{value[4..]}"
+                    : value;
+
+            return string.Equals(Normalize(candidateId), Normalize(fixtureSubjectId), StringComparison.OrdinalIgnoreCase);
         }
     }
 

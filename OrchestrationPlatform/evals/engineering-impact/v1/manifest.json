@@ -5,7 +5,7 @@
   "fixtureFiles": [
     "fixtures/requirement-r123.json"
   ],
-  "caseCount": 12,
+  "caseCount": 33,
   "minimumPathCoverage": 1.0,
   "minimumLinkCoverage": 1.0,
   "maximumUnsupportedClaimRate": 0.0
