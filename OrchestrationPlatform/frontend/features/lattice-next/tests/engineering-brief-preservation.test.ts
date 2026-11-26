@@ -28,6 +28,6 @@ describe("engineering brief reasoning preservation", () => {
     expect(payload.topImpactChains.length).toBeGreaterThanOrEqual(1);
     expect(payload.engineeringBrief.majorRelationships.length).toBeGreaterThan(0);
     expect(payload.engineeringBrief.relationshipEvidence.length).toBeGreaterThan(0);
-    expect(JSON.stringify(packet).length).toBeLessThanOrEqual(packet.omissions.maxContextChars);
+    expect(packet.omissions.categories).toEqual([]);
   });
 });

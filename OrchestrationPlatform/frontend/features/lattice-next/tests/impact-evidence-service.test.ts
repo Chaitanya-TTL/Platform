@@ -77,6 +77,42 @@ const graph = {
       observedAt: "2026-11-17T10:00:00Z",
       snapshotRevision: 42,
     },
+  }, {
+    id: "relationship-10",
+    definitionId: "definition-2",
+    evidenceRuleId: "rule-2",
+    sourceEntityId: "part-canonical-2",
+    targetEntityId: "part-canonical-1",
+    forwardType: "references",
+    forwardMeaning: "The assembly references the bracket.",
+    inverseType: "referenced-by",
+    inverseMeaning: "The bracket is referenced by the assembly.",
+    status: "CONFIRMED",
+    strength: "STRONG",
+    mechanism: "source evidence",
+    impactTraversal: false,
+    evidence: [{
+      id: "evidence-2",
+      citationId: "citation-2",
+      application: "sap",
+      entityId: "part-canonical-2",
+      path: "reference.part",
+      value: "BR-100",
+      provider: "sap-adapter",
+      observedAt: "2026-11-17T10:00:00Z",
+      authority: "source-authoritative",
+      mappingId: "mapping-2",
+    }],
+    evidenceIds: ["evidence-2"],
+    canonicalRelationshipIds: ["canonical-rel-2"],
+    citationIds: ["citation-2"],
+    provenance: {
+      authority: "source-authoritative",
+      provider: "sap-adapter",
+      ontologyVersion: "ontology-v7",
+      observedAt: "2026-11-17T10:00:00Z",
+      snapshotRevision: 42,
+    },
   }],
   unresolvedEvaluations: [],
   relationshipPaths: [],
@@ -122,7 +158,7 @@ const graph = {
   }],
   knowledgeGraphSummary: {
     entityCount: 2,
-    relationshipCount: 1,
+    relationshipCount: 2,
     impactPathCount: 1,
     evidenceCount: 1,
     applicationCoverage: {},
@@ -137,6 +173,16 @@ const graph = {
     path: "structure.children",
     value: "AS-200",
     provider: "windchill-adapter",
+    observedAt: "2026-11-17T10:00:00Z",
+    authority: "source-authoritative",
+  }, {
+    id: "evidence-2",
+    citationId: "citation-2",
+    application: "sap",
+    entityId: "part-canonical-2",
+    path: "reference.part",
+    value: "BR-100",
+    provider: "sap-adapter",
     observedAt: "2026-11-17T10:00:00Z",
     authority: "source-authoritative",
   }],
@@ -209,6 +255,21 @@ describe("private PLM impact evidence service", () => {
     });
     expect(evidence.sourceVersion).toBe("42");
     expect(evidence.ontologyVersion).toBe("ontology-v7");
+  });
+
+  it("retrieves investigation-wide relationships and sources without requiring a graph subject", async () => {
+    const service = createImpactEvidenceService(async () => snapshot, (value) => value);
+
+    const evidence = await service.retrieveInvestigationEvidence("investigation-1", authorization);
+
+    expect(evidence.relationships.map((relationship) => relationship.id)).toEqual([
+      "relationship-9",
+      "relationship-10",
+    ]);
+    expect(evidence.sources.map((source) => source.evidenceId)).toEqual(["evidence-1", "evidence-2"]);
+    expect(evidence.paths.map((path) => path.id)).toEqual(["path-11"]);
+    expect(evidence.chains.map((chain) => chain.id)).toEqual(["chain-5"]);
+    expect(evidence.authorizationDecisionId).toBe(authorization.decisionId);
   });
 
   it("does not resolve an entity by substring or load another investigation", async () => {

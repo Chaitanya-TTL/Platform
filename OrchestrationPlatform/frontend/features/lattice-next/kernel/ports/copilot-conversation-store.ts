@@ -43,7 +43,7 @@ export interface CopilotThreadSummary {
 }
 
 export interface CopilotConversationStore {
-  listThreads(investigationId: InvestigationId, limit?: number): Promise<readonly CopilotThreadSummary[]>;
+  listThreads(investigationId: InvestigationId): Promise<readonly CopilotThreadSummary[]>;
   loadThread(investigationId: InvestigationId, threadId: string): Promise<CopilotConversationThread | undefined>;
   createThread(investigationId: InvestigationId, threadId: string, title: string, occurredAt?: string): Promise<CopilotConversationThread>;
   appendUserMessage(investigationId: InvestigationId, threadId: string, expectedThreadRevision: number, message: string, snapshotRevision: number, occurredAt?: string, idempotencyKey?: string): Promise<CopilotConversationThread>;

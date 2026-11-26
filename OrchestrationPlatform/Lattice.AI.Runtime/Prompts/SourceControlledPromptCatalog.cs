@@ -6,8 +6,8 @@ namespace Lattice.AI.Runtime.Prompts;
 public sealed class SourceControlledPromptCatalog : IPromptCatalog
 {
     private const string PromptId = "engineering-impact";
-    private const string PromptVersion = "v1";
-    private const string ResourcePrefix = "Lattice.AI.Runtime.Prompts.engineering-impact.v1.";
+    private const string PromptVersion = "v2";
+    private const string ResourcePrefix = "Lattice.AI.Runtime.Prompts.engineering-impact.v2.";
 
     public PromptBundle GetRequired(string id, string version)
     {

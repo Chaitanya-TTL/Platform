@@ -1,6 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { InvestigationSnapshot } from "../../kernel/contracts/investigation-snapshot";
-import type { CopilotConversationStore } from "../../kernel/ports/copilot-conversation-store";
+import type {
+  CopilotAssistantMessage,
+  CopilotConversationStore,
+  CopilotConversationThread,
+  CopilotUserMessage,
+} from "../../kernel/ports/copilot-conversation-store";
+import type { InvestigationId } from "../../kernel/contracts/investigation-identity";
+import type { ConversationState } from "../contracts";
 import {
   buildSprint1A5GoldenInvestigation,
   buildSprint1A5Snapshot,
@@ -39,21 +46,33 @@ vi.mock("../../kernel/server/file-copilot-conversation-store", () => ({
       return undefined;
     }
 
-    async createThread(investigationId: string, threadId: string, title: string) {
-      const now = new Date().toISOString();
+    async createThread(
+      investigationId: InvestigationId,
+      threadId: string,
+      title: string,
+      occurredAt?: string,
+    ): Promise<CopilotConversationThread> {
+      const now = occurredAt ?? new Date().toISOString();
       return { investigationId, threadId, title, threadRevision: 0, createdAt: now, updatedAt: now, messages: [] };
     }
 
     async appendUserMessage(
-      investigationId: string,
+      investigationId: InvestigationId,
       threadId: string,
       _expectedThreadRevision: number,
       message: string,
       snapshotRevision: number,
       occurredAt?: string,
       idempotencyKey?: string,
-    ) {
+    ): Promise<CopilotConversationThread> {
       const now = occurredAt ?? new Date().toISOString();
+      const userMessage: CopilotUserMessage = {
+        role: "user",
+        content: message,
+        at: now,
+        snapshotRevision,
+        ...(idempotencyKey !== undefined ? { idempotencyKey } : {}),
+      };
       return {
         investigationId,
         threadId,
@@ -61,17 +80,18 @@ vi.mock("../../kernel/server/file-copilot-conversation-store", () => ({
         threadRevision: 1,
         createdAt: now,
         updatedAt: now,
-        messages: [{ role: "user" as const, content: message, at: now, snapshotRevision, idempotencyKey }],
+        messages: [userMessage],
       };
     }
 
     async appendTurn(
-      investigationId: string,
+      investigationId: InvestigationId,
       threadId: string,
       _expectedThreadRevision: number,
       userMessage: string,
-      assistantTurn: Parameters<CopilotConversationStore["appendTurn"]>[4],
-    ) {
+      assistantTurn: Omit<CopilotAssistantMessage, "role">,
+      nextConversationState?: ConversationState | null,
+    ): Promise<CopilotConversationThread> {
       const now = assistantTurn.at;
       return {
         investigationId,
@@ -80,8 +100,17 @@ vi.mock("../../kernel/server/file-copilot-conversation-store", () => ({
         threadRevision: 2,
         createdAt: now,
         updatedAt: now,
+        ...(nextConversationState ? { conversationState: nextConversationState } : {}),
         messages: [
-          { role: "user" as const, content: userMessage, at: now, snapshotRevision: assistantTurn.snapshotRevision, idempotencyKey: assistantTurn.idempotencyKey },
+          {
+            role: "user",
+            content: userMessage,
+            at: now,
+            snapshotRevision: assistantTurn.snapshotRevision,
+            ...(assistantTurn.idempotencyKey !== undefined
+              ? { idempotencyKey: assistantTurn.idempotencyKey }
+              : {}),
+          },
           { role: "assistant" as const, ...assistantTurn },
         ],
       };
@@ -278,7 +307,7 @@ describe("Sprint 1A.6 opt-in provider-backed golden-fixture validation", () => {
         relationshipEvidence: readonly { evidenceId: string; citationId: string }[];
       };
       citations: readonly { citationId: string }[];
-      omissions: { maxContextChars: number };
+      omissions: { categories: readonly string[]; omittedCounts: Readonly<Record<string, number>> };
     };
     const prompt = providerCall ? promptPayloadFrom(providerCall) : undefined;
     const promptBrief = prompt?.engineeringBrief as Record<string, unknown> | undefined;
@@ -334,7 +363,7 @@ describe("Sprint 1A.6 opt-in provider-backed golden-fixture validation", () => {
         impactChains: packet.reasoningPackage.impactChains,
         engineeringBrief: packet.engineeringBrief,
         citations: packet.citations,
-        maxContextChars: packet.omissions.maxContextChars,
+        omissions: packet.omissions,
       } : undefined,
       prompt: {
         majorRelationships: promptRelationships,
@@ -395,7 +424,7 @@ describe("Sprint 1A.6 opt-in provider-backed golden-fixture validation", () => {
       expect(rawClaimCitationIds.some((citationId) => citationIdPattern.test(citationId) && evidenceCitationIds.has(citationId))).toBe(true);
       expect(finalAnswer.answer.toLocaleLowerCase()).toMatch(/potential impact|may require|does not establish causation|not proof of causation/i);
       expect(finalAnswer.answer).not.toMatch(/cite:evidence:/i);
-      expect(finalAnswer.citations.some((citation) => citation.kind === "evidence")).toBe(true);
+      expect(finalAnswer.citations?.some((citation) => citation.kind === "evidence")).toBe(true);
     }
 
     expect(JSON.stringify(providerCall?.requestBody)).not.toContain(process.env.AZURE_OPENAI_API_KEY ?? "__no_api_key__");

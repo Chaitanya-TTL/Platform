@@ -7,9 +7,15 @@ export class CopilotAnswerValidationError extends Error {
   }
 }
 
-const MAX_ANSWER_CHARS = 16_000;
-const MAX_ITEMS = 100;
-const MAX_ITEM_CHARS = 4_000;
+export interface CopilotAnswerValidationOutcome {
+  assertionType: "claim" | "recommendation";
+  assertionIndex: number;
+  accepted: boolean;
+  citationIds: readonly string[];
+  issue?: string;
+}
+
+export type CopilotAnswerValidationObserver = (outcome: CopilotAnswerValidationOutcome) => void;
 
 function object(value: unknown): Record<string, unknown> | undefined {
   return value !== null && typeof value === "object" && !Array.isArray(value)
@@ -17,20 +23,20 @@ function object(value: unknown): Record<string, unknown> | undefined {
     : undefined;
 }
 
-function requiredText(value: unknown, field: string, maximum = MAX_ITEM_CHARS): string {
-  if (typeof value !== "string" || !value.trim() || value.length > maximum)
-    throw new CopilotAnswerValidationError(`${field} must be a non-empty string within the allowed length.`);
+function requiredText(value: unknown, field: string): string {
+  if (typeof value !== "string" || !value.trim())
+    throw new CopilotAnswerValidationError(`${field} must be a non-empty string.`);
   return value.trim();
 }
 
 function textArray(value: unknown, field: string): string[] {
-  if (!Array.isArray(value) || value.length > MAX_ITEMS)
-    throw new CopilotAnswerValidationError(`${field} must be an array within the allowed item count.`);
-  return value.map((item, index) => requiredText(item, `${field}[${index}]`, 2_000));
+  if (!Array.isArray(value))
+    throw new CopilotAnswerValidationError(`${field} must be an array.`);
+  return value.map((item, index) => requiredText(item, `${field}[${index}]`));
 }
 
 function citationIds(value: unknown, field: string, known: ReadonlySet<string>, required: boolean): string[] {
-  if (!Array.isArray(value) || value.length > MAX_ITEMS || value.some((item) => typeof item !== "string" || item.length > 512))
+  if (!Array.isArray(value) || value.some((item) => typeof item !== "string"))
     throw new CopilotAnswerValidationError(`${field} must be an array of citation IDs.`);
   const ids = value as string[];
   if (required && ids.length === 0) throw new CopilotAnswerValidationError(`${field} requires citations from the active snapshot.`);
@@ -55,38 +61,86 @@ function validateClaim(value: unknown, index: number, known: ReadonlySet<string>
   };
 }
 
-function validateRecommendation(value: unknown, index: number, known: ReadonlySet<string>): CopilotRecommendation | undefined {
+function validateRecommendation(
+  value: unknown,
+  index: number,
+  known: ReadonlySet<string>,
+  observe?: CopilotAnswerValidationObserver,
+): CopilotRecommendation | undefined {
+  const item = object(value);
   try {
-    const item = object(value);
     if (!item || item.approvalRequired !== true)
       throw new CopilotAnswerValidationError(`recommendations[${index}] must require engineer approval.`);
-    return {
+    const recommendation = {
       text: requiredText(item.text, `recommendations[${index}].text`),
       rationale: requiredText(item.rationale, `recommendations[${index}].rationale`),
       citationIds: citationIds(item.citationIds, `recommendations[${index}].citationIds`, known, true),
-      approvalRequired: true,
+      approvalRequired: true as const,
     };
-  } catch {
+    observe?.({
+      assertionType: "recommendation",
+      assertionIndex: index,
+      accepted: true,
+      citationIds: recommendation.citationIds,
+    });
+    return recommendation;
+  } catch (error) {
+    observe?.({
+      assertionType: "recommendation",
+      assertionIndex: index,
+      accepted: false,
+      citationIds: Array.isArray(item?.citationIds)
+        ? item.citationIds.filter((citationId): citationId is string => typeof citationId === "string")
+        : [],
+      issue: error instanceof Error ? error.message : "Recommendation validation failed.",
+    });
     return undefined;
   }
 }
 
-export function validateCopilotAnswer(value: unknown, context: CopilotContextPacket): CopilotAnswer {
+export function validateCopilotAnswer(
+  value: unknown,
+  context: CopilotContextPacket,
+  observe?: CopilotAnswerValidationObserver,
+): CopilotAnswer {
   const answer = object(value);
   if (!answer) throw new CopilotAnswerValidationError("Answer must be a JSON object.");
   if (!Number.isSafeInteger(answer.snapshotRevision) || answer.snapshotRevision !== context.snapshotRevision)
     throw new CopilotAnswerValidationError("Answer snapshot revision does not match the active investigation snapshot.");
 
-  const answerText = requiredText(answer.answer, "answer", MAX_ANSWER_CHARS);
-  if (!Array.isArray(answer.claims) || answer.claims.length > MAX_ITEMS)
-    throw new CopilotAnswerValidationError("claims must be an array within the allowed item count.");
-  if (!Array.isArray(answer.recommendations) || answer.recommendations.length > MAX_ITEMS)
-    throw new CopilotAnswerValidationError("recommendations must be an array within the allowed item count.");
+  const answerText = requiredText(answer.answer, "answer");
+  if (!Array.isArray(answer.claims))
+    throw new CopilotAnswerValidationError("claims must be an array.");
+  if (!Array.isArray(answer.recommendations))
+    throw new CopilotAnswerValidationError("recommendations must be an array.");
 
   const knownCitationIds = new Set(context.citations.map((citation) => citation.citationId));
-  const claims = answer.claims.map((claim, index) => validateClaim(claim, index, knownCitationIds));
+  const claims = answer.claims.map((claim, index) => {
+    try {
+      const validatedClaim = validateClaim(claim, index, knownCitationIds);
+      observe?.({
+        assertionType: "claim",
+        assertionIndex: index,
+        accepted: true,
+        citationIds: validatedClaim.citationIds,
+      });
+      return validatedClaim;
+    } catch (error) {
+      const claimValue = object(claim);
+      observe?.({
+        assertionType: "claim",
+        assertionIndex: index,
+        accepted: false,
+        citationIds: Array.isArray(claimValue?.citationIds)
+          ? claimValue.citationIds.filter((citationId): citationId is string => typeof citationId === "string")
+          : [],
+        issue: error instanceof Error ? error.message : "Claim validation failed.",
+      });
+      throw error;
+    }
+  });
   const recommendations = answer.recommendations.flatMap((recommendation, index) => {
-    const validated = validateRecommendation(recommendation, index, knownCitationIds);
+    const validated = validateRecommendation(recommendation, index, knownCitationIds, observe);
     return validated ? [validated] : [];
   });
   const usedCitationIds = new Set([...claims.flatMap((claim) => claim.citationIds), ...recommendations.flatMap((recommendation) => recommendation.citationIds)]);

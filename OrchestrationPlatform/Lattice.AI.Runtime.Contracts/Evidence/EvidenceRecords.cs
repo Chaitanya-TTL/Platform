@@ -1,3 +1,6 @@
+using Lattice.AI.Runtime.Contracts.Authorization;
+using Lattice.AI.Runtime.Contracts.Requests;
+
 namespace Lattice.AI.Runtime.Contracts.Evidence;
 
 public sealed record EvidenceSourceReference(
@@ -72,3 +75,8 @@ public sealed record EvidenceRetrievalResult(
     string AuthorizationDecisionId,
     string RequestId,
     string TraceId);
+
+public sealed record InvestigationEvidenceQuery(
+    string InvestigationId,
+    AuthorizationContext Authorization,
+    RuntimeRequestContext RequestContext);

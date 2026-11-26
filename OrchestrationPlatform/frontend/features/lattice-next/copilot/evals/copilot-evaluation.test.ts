@@ -8,10 +8,7 @@ import { scoreCopilotEvaluation, summarizeCopilotEvaluation } from "./metrics";
 const relationshipDocument = readFileSync(resolve(process.cwd(), "..", "docs", "relationships.md"), "utf8");
 const contexts = new Map(COPILOT_EVALUATION_CASES.map((evaluationCase) => [
   evaluationCase.id,
-  buildInvestigationContext(evaluationCase.snapshot, evaluationCase.question, {
-    maxContextChars: evaluationCase.maxContextChars,
-    relationshipDocument,
-  }),
+  buildInvestigationContext(evaluationCase.snapshot, evaluationCase.question, { relationshipDocument }),
 ]));
 
 describe("synthetic copilot evaluation set", () => {
@@ -136,7 +133,7 @@ describe("synthetic copilot evaluation set", () => {
     expect(contexts.get(byCategory("unsupported-question").id)!.grounding.unsupportedIdentifiers).toContain("UNKNOWN-PART-999999");
   });
 
-  it("keeps investigation isolation, treats injection text as data, and discloses oversized omissions", () => {
+  it("keeps investigation isolation, treats injection text as data, and preserves oversized context", () => {
     const isolationCase = COPILOT_EVALUATION_CASES.find((item) => item.category === "investigation-isolation")!;
     const isolationPacket = contexts.get(isolationCase.id)!;
     expect(isolationPacket.investigationId).toBe(isolationCase.snapshot.identity.investigationId);
@@ -147,9 +144,8 @@ describe("synthetic copilot evaluation set", () => {
 
     const oversizedCase = COPILOT_EVALUATION_CASES.find((item) => item.category === "oversized-context")!;
     const oversizedPacket = contexts.get(oversizedCase.id)!;
-    expect(JSON.stringify(oversizedPacket).length).toBeLessThanOrEqual(oversizedCase.maxContextChars!);
-    expect(oversizedPacket.omissions.categories).toContain("entities");
-    expect(oversizedPacket.uncertainties.join(" ")).toMatch(/omitted content is unknown/i);
+    expect(oversizedPacket.entities).toHaveLength(150);
+    expect(oversizedPacket.omissions.omittedCounts.entities).toBe(0);
   });
 
   it("scores citation precision, unsupported claims, uncertainty, isolation, latency, and token budgets", () => {
@@ -208,6 +204,136 @@ describe("synthetic copilot evaluation set", () => {
       uncertaintyExpected: true,
     });
     expect(metrics).toMatchObject({ citationPrecision: 0, unsupportedClaimRate: 1, correctUncertainty: false, investigationIsolation: false, withinLatencyBudget: false, withinTokenBudget: false, estimatedCostUsd: 0.0012, withinCostBudget: false });
+  });
+
+  it("compares matched PLM-only, fact, RAG, and combined evidence answers", () => {
+    const evaluationCase = COPILOT_EVALUATION_CASES.find((item) => item.id === "supported-cross-system-consequence")!;
+    const context = contexts.get(evaluationCase.id)!;
+    const graphCitationId = context.relationships.find((item) =>
+      item.relationshipId === evaluationCase.requiredRelationshipIds?.[0],
+    )!.citationId;
+    const sourceCitation = {
+      citationId: "cite:evidence:SYNTH-PASSAGE-THERMAL-CYCLE",
+      kind: "evidence" as const,
+      label: "Windchill SYNTH-NATIVE-RECORD-001",
+      source: "Windchill",
+      nativeId: "SYNTH-NATIVE-RECORD-001",
+      summary: "requirements[0].verification",
+      deepLink: "https://plm.example/records/SYNTH-NATIVE-RECORD-001",
+    };
+    const factCitation = {
+      citationId: "cite:source:SYNTH-FACT-WEIGHT",
+      kind: "source" as const,
+      label: "Windchill SYNTH-NATIVE-RECORD-001",
+      source: "Windchill",
+      nativeId: "SYNTH-NATIVE-RECORD-001",
+      summary: "weight",
+    };
+    const participationCitation = {
+      citationId: "cite:source:SYNTH-PARTICIPATION-WINDCHILL",
+      kind: "source" as const,
+      label: "Windchill SYNTH-NATIVE-RECORD-001",
+      source: "Windchill",
+      nativeId: "SYNTH-NATIVE-RECORD-001",
+    };
+    const contextWithPassage = {
+      ...context,
+      citations: [...context.citations, sourceCitation],
+    };
+    const contextWithFact = {
+      ...context,
+      citations: [...context.citations, factCitation, participationCitation],
+    };
+    const combinedContext = {
+      ...context,
+      citations: [...context.citations, sourceCitation, factCitation, participationCitation],
+    };
+    const plmOnlyAnswer = {
+      answer: "The engineering part is represented by a SAP material.",
+      claims: [{
+        text: "The engineering part is represented by a SAP material.",
+        kind: "fact" as const,
+        citationIds: [graphCitationId],
+      }],
+      recommendations: [],
+      uncertainties: [],
+      followUpQuestions: [],
+      snapshotRevision: context.snapshotRevision,
+    };
+    const factAnswer = {
+      ...plmOnlyAnswer,
+      answer: `${plmOnlyAnswer.answer} Fact fact-weight-1: 2.50 (kg).`,
+      claims: [
+        ...plmOnlyAnswer.claims,
+        {
+          text: "Fact fact-weight-1: 2.50 (kg).",
+          kind: "fact" as const,
+          citationIds: [factCitation.citationId],
+        },
+      ],
+    };
+    const ragAnswer = {
+      ...plmOnlyAnswer,
+      answer: `${plmOnlyAnswer.answer} The requirement calls for thermal-cycle validation.`,
+      claims: [
+        ...plmOnlyAnswer.claims,
+        {
+          text: "The requirement calls for thermal-cycle validation.",
+          kind: "fact" as const,
+          citationIds: [sourceCitation.citationId],
+        },
+      ],
+    };
+    const combinedAnswer = {
+      ...factAnswer,
+      answer: `${factAnswer.answer} The requirement calls for thermal-cycle validation. Windchill participation is represented for the part.`,
+      claims: [
+        ...factAnswer.claims,
+        {
+          text: "The requirement calls for thermal-cycle validation.",
+          kind: "fact" as const,
+          citationIds: [sourceCitation.citationId],
+        },
+        {
+          text: "Windchill participation is represented for the part.",
+          kind: "fact" as const,
+          citationIds: [participationCitation.citationId],
+        },
+      ],
+    };
+    const run = (answer: typeof plmOnlyAnswer, runContext: typeof context) => scoreCopilotEvaluation({
+      expectedInvestigationId: String(evaluationCase.snapshot.identity.investigationId),
+      actualInvestigationId: String(evaluationCase.snapshot.identity.investigationId),
+      context: runContext,
+      answer,
+      latencyMs: 200,
+      maxLatencyMs: 1_000,
+      maxTotalTokens: 1_000,
+      uncertaintyExpected: false,
+      requiredRelationshipCitationIds: [graphCitationId],
+    });
+
+    const plmOnlyMetrics = run(plmOnlyAnswer, context);
+    const factMetrics = run(factAnswer, contextWithFact);
+    const ragMetrics = run(ragAnswer, contextWithPassage);
+    const combinedMetrics = run(combinedAnswer, combinedContext);
+
+    for (const metrics of [plmOnlyMetrics, factMetrics, ragMetrics, combinedMetrics]) {
+      expect(metrics).toMatchObject({
+        citationPrecision: 1,
+        unsupportedClaimRate: 0,
+        requiredPathCitationCoverage: 1,
+      });
+    }
+    expect(factAnswer.claims[1]).toMatchObject({
+      text: "Fact fact-weight-1: 2.50 (kg).",
+      citationIds: [factCitation.citationId],
+    });
+    expect(ragAnswer.claims.at(-1)?.citationIds).toEqual([sourceCitation.citationId]);
+    expect(combinedAnswer.claims.slice(-2).map((claim) => claim.citationIds)).toEqual([
+      [sourceCitation.citationId],
+      [participationCitation.citationId],
+    ]);
   });
 
   it("measures citation coverage for the required consequence path", () => {

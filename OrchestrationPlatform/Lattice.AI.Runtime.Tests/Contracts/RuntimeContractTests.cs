@@ -72,6 +72,40 @@ public sealed class RuntimeContractTests
                     "rev-2", null, "https://example.test/record-1", "provenance-1", "decision-9")
             },
             new[] { new ContextOmission("claim-2", "over budget") });
+        original = original with
+        {
+            SourceEvidencePassages =
+            [
+                new SourceEvidencePassage(
+                    "SYNTH-PASSAGE-001",
+                    "SYNTH-RECORD-001",
+                    "investigation-1",
+                    1,
+                    "Windchill",
+                    "SYNTH-NATIVE-RECORD-001",
+                    ["part-17"],
+                    "rev-2",
+                    "requirements[0].description",
+                    "Synthetic source evidence.",
+                    ["SYNTH-EVIDENCE-001"],
+                    "SYNTH-PROVENANCE-001",
+                    "decision-9",
+                    "current",
+                    "hybrid",
+                    0.75,
+                    "source-index-v1",
+                    "synthetic-embedding-v1")
+            ],
+            Omissions =
+            [
+                new ContextOmission("SYNTH-PASSAGE-002", "duplicate source passage")
+                {
+                    Kind = ContextOmissionKind.SourceEvidencePassage
+                }
+            ],
+            EngineeringFacts = [EngineeringFactCandidate()],
+            ApplicationParticipation = [ApplicationParticipationCandidate()]
+        };
 
         var json = JsonSerializer.Serialize(original, ApiJsonOptions);
         var deserialized = Deserialize<ContextPackage>(json);
@@ -81,11 +115,181 @@ public sealed class RuntimeContractTests
         Assert.Equal(json, JsonSerializer.Serialize(deserialized, ApiJsonOptions));
         Assert.NotNull(deserialized.Claims);
         Assert.NotNull(deserialized.Sources);
+        Assert.NotNull(deserialized.SourceEvidencePassages);
         Assert.NotNull(deserialized.Omissions);
         Assert.NotNull(deserialized.Claims[0].EntityIds);
         Assert.NotNull(deserialized.Claims[0].RelationshipIds);
         Assert.NotNull(deserialized.Claims[0].EvidenceIds);
         Assert.Equal(0.85, deserialized.Claims[0].Confidence);
+        Assert.Equal("SYNTH-PASSAGE-001", Assert.Single(deserialized.SourceEvidencePassages).PassageId);
+        Assert.Equal(ContextOmissionKind.SourceEvidencePassage, Assert.Single(deserialized.Omissions).Kind);
+        Assert.Equal("fact-context-1", Assert.Single(deserialized.EngineeringFacts).FactId);
+        Assert.Equal(
+            "participation-context-1",
+            Assert.Single(deserialized.ApplicationParticipation).CandidateId);
+    }
+
+    [Fact]
+    public void EngineeringFactEvidence_RoundTripsExactValuesLineageAndAuthorization()
+    {
+        using var exactValueDocument = JsonDocument.Parse("""{"amount":12.50,"currency":"USD"}""");
+        using var normalizedValueDocument = JsonDocument.Parse("""{"amount":12.5,"currency":"USD"}""");
+        using var dimensionValueDocument = JsonDocument.Parse("\"plant-7\"");
+        var original = new EngineeringFactEvidence(
+            "1.0",
+            "fact-17",
+            "investigation-1",
+            7,
+            "sap",
+            "material-42",
+            "material",
+            "stock.quantity",
+            "LABST",
+            "Unrestricted stock",
+            EngineeringFactRole.Metric,
+            exactValueDocument.RootElement.Clone(),
+            EngineeringFactValueType.Money,
+            EngineeringFactValueType.Money,
+            normalizedValueDocument.RootElement.Clone(),
+            EngineeringFactValueType.Money,
+            "USD",
+            "USD",
+            2,
+            [new EngineeringFactDimension(
+                "plant",
+                "Plant",
+                dimensionValueDocument.RootElement.Clone(),
+                EngineeringFactValueType.Identifier,
+                null)],
+            DateTimeOffset.Parse("2026-11-18T10:00:00Z"),
+            DateTimeOffset.Parse("2026-11-18T10:01:00Z"),
+            DateTimeOffset.Parse("2026-11-18T10:02:00Z"),
+            DateTimeOffset.Parse("2026-11-18T10:00:00Z"),
+            null,
+            null,
+            EngineeringFactFreshness.Current,
+            EngineeringFactCompleteness.Complete,
+            EngineeringFactDerivationStatus.Raw,
+            null,
+            [],
+            ["evidence-17"],
+            ["citation-17"],
+            true,
+            EngineeringFactAuthority.SourceAuthoritative,
+            new EngineeringFactProvenance(
+                "sap",
+                "sap-synthetic-fixture",
+                "MAT-42",
+                "R3",
+                "execution-8",
+                "material-42",
+                "sha256:source",
+                DateTimeOffset.Parse("2026-11-18T10:00:00Z"),
+                EngineeringFactAuthority.SourceAuthoritative),
+            "decision-9");
+
+        var json = JsonSerializer.Serialize(original, ApiJsonOptions);
+        var deserialized = Deserialize<EngineeringFactEvidence>(json);
+
+        Assert.Contains("\"exactSourceValue\":{\"amount\":12.50,\"currency\":\"USD\"}", json);
+        Assert.Contains("\"factRole\":\"metric\"", json);
+        Assert.Contains("\"freshness\":\"current\"", json);
+        Assert.Equal(json, JsonSerializer.Serialize(deserialized, ApiJsonOptions));
+        Assert.Equal(12.50m, deserialized.ExactSourceValue.GetProperty("amount").GetDecimal());
+        Assert.Equal(12.5m, deserialized.NormalizedValue?.GetProperty("amount").GetDecimal());
+        Assert.Equal("plant-7", Assert.Single(deserialized.Dimensions).ExactValue.GetString());
+        Assert.Equal("LABST", deserialized.SourceFieldName);
+        Assert.Equal("decision-9", deserialized.AuthorizationDecisionId);
+        Assert.Equal(["citation-17"], deserialized.CitationIds);
+    }
+
+    [Fact]
+    public void ApplicationParticipationAndEnrichmentPlans_RoundTripWithoutRelationshipClaims()
+    {
+        var participation = new ApplicationParticipationEvidence(
+            "1.0",
+            "participation-1",
+            "investigation-1",
+            7,
+            "windchill",
+            ["part-17"],
+            "gather-intelligence",
+            SourceOperationStatus.Partial,
+            EngineeringFactCompleteness.Partial,
+            ["evidence-17"],
+            ["citation-17"],
+            EngineeringFactAuthority.SourceAuthoritative,
+            new EngineeringFactProvenance(
+                "windchill",
+                "windchill-synthetic-fixture",
+                "WT-PART-17",
+                "A",
+                "execution-8",
+                "part-17",
+                null,
+                DateTimeOffset.Parse("2026-11-18T10:00:00Z"),
+                EngineeringFactAuthority.SourceAuthoritative),
+            "decision-9");
+        var planning = new ScopePlanningResult(
+            ScopePlanningDisposition.Ready,
+            new ImpactScope(new HashSet<string>(), 3, new HashSet<string>(), null),
+            [],
+            null,
+            new FactEvidencePlan(true, ["part-17"], ["sap"], ["stock.quantity"], ["MAT-42"], "explicit-field"),
+            new ApplicationContextPlan(true, ["part-17"], ["windchill"], "cross-application-context"));
+
+        var participationJson = JsonSerializer.Serialize(participation, ApiJsonOptions);
+        var planningJson = JsonSerializer.Serialize(planning, ApiJsonOptions);
+        var deserializedParticipation = Deserialize<ApplicationParticipationEvidence>(participationJson);
+        var deserializedPlanning = Deserialize<ScopePlanningResult>(planningJson);
+
+        Assert.DoesNotContain("relationshipId", participationJson, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("partial", JsonDocument.Parse(participationJson)
+            .RootElement.GetProperty("sourceOperationStatus").GetString());
+        Assert.Equal(participationJson, JsonSerializer.Serialize(deserializedParticipation, ApiJsonOptions));
+        Assert.Equal(planningJson, JsonSerializer.Serialize(deserializedPlanning, ApiJsonOptions));
+        Assert.Equal(["stock.quantity"], deserializedPlanning.FactEvidencePlan?.FieldIds);
+        Assert.True(deserializedPlanning.ApplicationContextPlan?.Requested);
+    }
+
+    [Theory]
+    [InlineData(SourceOperationStatus.Requested, "requested")]
+    [InlineData(SourceOperationStatus.Running, "running")]
+    [InlineData(SourceOperationStatus.Succeeded, "succeeded")]
+    [InlineData(SourceOperationStatus.Empty, "empty")]
+    public void ApplicationParticipation_PreservesSourceOperationStatus(
+        SourceOperationStatus status,
+        string expectedStatus)
+    {
+        var participation = new ApplicationParticipationEvidence(
+            "1.0",
+            "participation-1",
+            "investigation-1",
+            7,
+            "windchill",
+            ["part-17"],
+            "gather-intelligence",
+            status,
+            EngineeringFactCompleteness.Partial,
+            ["evidence-17"],
+            ["citation-17"],
+            EngineeringFactAuthority.SourceAuthoritative,
+            new EngineeringFactProvenance(
+                "windchill",
+                "windchill-synthetic-fixture",
+                "WT-PART-17",
+                "A",
+                "execution-8",
+                "part-17",
+                null,
+                DateTimeOffset.Parse("2026-11-18T10:00:00Z"),
+                EngineeringFactAuthority.SourceAuthoritative),
+            "decision-9");
+
+        var json = JsonSerializer.Serialize(participation, ApiJsonOptions);
+
+        Assert.Equal(expectedStatus, JsonDocument.Parse(json)
+            .RootElement.GetProperty("sourceOperationStatus").GetString());
     }
 
     [Fact]
@@ -153,6 +357,24 @@ public sealed class RuntimeContractTests
     }
 
     [Fact]
+    public void AnswerFactAssertion_PreservesExactNumericJsonText()
+    {
+        using var exactValueDocument = JsonDocument.Parse("2.50");
+        var original = new AnswerFactAssertion(
+            "fact-weight-1",
+            exactValueDocument.RootElement.Clone(),
+            ["fact-evidence-1"],
+            ["fact-citation-1"]);
+
+        var json = JsonSerializer.Serialize(original, ApiJsonOptions);
+        var deserialized = Deserialize<AnswerFactAssertion>(json);
+
+        Assert.Contains("\"exactValue\":2.50", json);
+        Assert.Contains("\"exactValueJson\":\"2.50\"", json);
+        Assert.Equal("2.50", deserialized.ExactValueJson);
+    }
+
+    [Fact]
     public void QuestionInterpretation_UsesKebabCaseForEnumValues()
     {
         var original = new QuestionInterpretation(
@@ -192,6 +414,85 @@ public sealed class RuntimeContractTests
 
     private static RuntimeRequestContext CreateRequestContext() =>
         new("request-42", "4bf92f3577b34da6a3ce929d0e0e4736", "request-parent", "conversation-42");
+
+    private static EngineeringFactEvidence EngineeringFactCandidate() =>
+        new(
+            "1.0",
+            "fact-context-1",
+            "investigation-1",
+            1,
+            "windchill",
+            "WT-PART-17",
+            "Part",
+            "part.weight",
+            "weight",
+            "Weight",
+            EngineeringFactRole.Metric,
+            JsonDocument.Parse("2.5").RootElement.Clone(),
+            EngineeringFactValueType.Quantity,
+            EngineeringFactValueType.Quantity,
+            null,
+            null,
+            "kg",
+            null,
+            1,
+            [],
+            DateTimeOffset.Parse("2026-11-18T10:00:00Z"),
+            null,
+            null,
+            null,
+            null,
+            null,
+            EngineeringFactFreshness.Current,
+            EngineeringFactCompleteness.Complete,
+            EngineeringFactDerivationStatus.Raw,
+            null,
+            [],
+            ["fact-evidence-1"],
+            ["fact-citation-1"],
+            true,
+            EngineeringFactAuthority.SourceAuthoritative,
+            new EngineeringFactProvenance(
+                "windchill",
+                "windchill-fixture",
+                "WT-PART-17",
+                "A",
+                "execution-1",
+                "part-17",
+                null,
+                DateTimeOffset.Parse("2026-11-18T10:00:00Z"),
+                EngineeringFactAuthority.SourceAuthoritative),
+            "decision-9")
+        {
+            SubjectId = "part-17",
+            SourceNativeId = "WT-PART-17"
+        };
+
+    private static ApplicationParticipationEvidence ApplicationParticipationCandidate() =>
+        new(
+            "1.0",
+            "participation-context-1",
+            "investigation-1",
+            1,
+            "windchill",
+            ["part-17"],
+            "gather-intelligence",
+            SourceOperationStatus.Partial,
+            EngineeringFactCompleteness.Partial,
+            ["participation-evidence-1"],
+            ["participation-citation-1"],
+            EngineeringFactAuthority.SourceAuthoritative,
+            new EngineeringFactProvenance(
+                "windchill",
+                "windchill-fixture",
+                "WT-PART-17",
+                "A",
+                "execution-1",
+                "part-17",
+                null,
+                DateTimeOffset.Parse("2026-11-18T10:00:00Z"),
+                EngineeringFactAuthority.SourceAuthoritative),
+            "decision-9");
 
     private static T Deserialize<T>(string json) =>
         JsonSerializer.Deserialize<T>(json, ApiJsonOptions)

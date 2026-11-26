@@ -22,7 +22,6 @@ import type { InvestigationReviewCue } from "../copilot/review-cues";
 import { CopilotAnswerContent } from "./CopilotAnswerContent";
 import ThoughtLine from "./ThoughtLine";
 
-const MAX_MESSAGE_LENGTH = 2_000;
 // The runner module also imports server-only storage, so the client mirrors its ID separator.
 const THREAD_SEPARATOR = "--";
 const EMPTY_MESSAGE_ID_SET: ReadonlySet<string> = new Set();
@@ -433,7 +432,7 @@ function LatticeChatView(props: ChatViewProps) {
   }, [isRunning, props.messages]);
 
   const handleSubmit = useCallback((value: string) => {
-    if (!context?.isArchived && value.length <= MAX_MESSAGE_LENGTH) {
+    if (!context?.isArchived && value.trim()) {
       submittedAssistantIds.current = new Set(
         messagesRef.current
           .filter((message) => message.role === "assistant" && typeof message.id === "string")
@@ -493,7 +492,6 @@ function LatticeChatView(props: ChatViewProps) {
           input={{
             textArea: {
               disabled: (context?.isArchived ?? false) || isConnecting,
-              maxLength: MAX_MESSAGE_LENGTH,
               "aria-label": "Ask about this investigation",
             },
             showDisclaimer: false,

@@ -1,0 +1,10 @@
+{
+  "id": "engineering-impact",
+  "version": "v2",
+  "outputSchemaVersion": "answer-v2",
+  "requiredSections": [
+    "system-policy.md",
+    "domain-guidance.md",
+    "impact-task.md"
+  ]
+}

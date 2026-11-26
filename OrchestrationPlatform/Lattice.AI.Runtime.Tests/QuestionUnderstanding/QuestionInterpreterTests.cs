@@ -36,15 +36,48 @@ public sealed class QuestionInterpreterTests
         Assert.Empty(result.ClarificationReasons);
     }
 
+    [Fact]
+    public void Interpret_ResolvesARegisteredFieldNeedAlongsideImpactIntent()
+    {
+        var result = Interpret("What is the weight of Requirement R-123 and what is impacted?");
+
+        Assert.Equal(ImpactQuestionType.EngineeringImpact, result.Type);
+        Assert.Equal(["windchill.part.weight"], result.RequestedFactFieldIds);
+        Assert.Empty(result.RequestedSourceApplications);
+        Assert.False(result.ApplicationContextRequested);
+    }
+
+    [Fact]
+    public void Interpret_RequestsApplicationContextForExplicitSourceSystemIntent()
+    {
+        var result = Interpret("What impacts of R-123 are represented in SAP?");
+
+        Assert.Equal(ImpactQuestionType.EngineeringImpact, result.Type);
+        Assert.Equal(["sap"], result.RequestedSourceApplications);
+        Assert.True(result.ApplicationContextRequested);
+    }
+
     [Theory]
-    [InlineData("What changes?", ImpactQuestionType.Unsupported, null)]
-    [InlineData("What is impacted?", ImpactQuestionType.EngineeringImpact, "explicit requirement")]
-    [InlineData("Tell me about R-123.", ImpactQuestionType.Unsupported, null)]
-    [InlineData("Summarize this investigation.", ImpactQuestionType.Unsupported, null)]
-    [InlineData("What applications are connected?", ImpactQuestionType.Unsupported, null)]
+    [InlineData("Which systems contributed data?")]
+    [InlineData("What applications are connected?")]
+    [InlineData("Summarize everything captured in this investigation.")]
+    public void Interpret_RequestsApplicationContextForBroadInvestigationCoverage(string question)
+    {
+        var result = Interpret(question);
+
+        Assert.Equal(ImpactQuestionType.InvestigationQuestion, result.Type);
+        Assert.True(result.ApplicationContextRequested);
+    }
+
+    [Theory]
+    [InlineData("What changes?", ImpactQuestionType.InvestigationQuestion, null)]
+    [InlineData("What is impacted?", ImpactQuestionType.EngineeringImpact, null)]
+    [InlineData("Tell me about R-123.", ImpactQuestionType.InvestigationQuestion, null)]
+    [InlineData("Summarize this investigation.", ImpactQuestionType.InvestigationQuestion, null)]
+    [InlineData("What applications are connected?", ImpactQuestionType.InvestigationQuestion, null)]
     [InlineData("Impact R-123 or R-456.", ImpactQuestionType.EngineeringImpact, "multiple possible")]
-    [InlineData("What happens if the steering requirement changes?", ImpactQuestionType.EngineeringImpact, "explicit requirement")]
-    public void Interpret_RejectsOrClarifiesQuestionsOutsideTheSupportedIntent(
+    [InlineData("What happens if the steering requirement changes?", ImpactQuestionType.EngineeringImpact, null)]
+    public void Interpret_AcceptsInvestigationQuestionsWithoutAnExplicitImpactSubject(
         string question,
         ImpactQuestionType expectedType,
         string? expectedReason)
@@ -60,14 +93,7 @@ public sealed class QuestionInterpreterTests
                 reason => reason.Contains(expectedReason, StringComparison.OrdinalIgnoreCase));
         }
 
-        if (expectedType == ImpactQuestionType.Unsupported)
-        {
-            Assert.Null(result.CandidateEntityId);
-        }
-
-        if (question is "What is impacted?"
-            or "Impact R-123 or R-456."
-            or "What happens if the steering requirement changes?")
+        if (question is "What is impacted?" or "What happens if the steering requirement changes?")
         {
             Assert.Null(result.CandidateEntityId);
         }
@@ -90,16 +116,14 @@ public sealed class QuestionInterpreterTests
     }
 
     [Fact]
-    public void Interpret_DoesNotInventAnIdentifierWhenTheQuestionHasNoExplicitSubject()
+    public void Interpret_DoesNotRequireAnIdentifierForInvestigationWideImpact()
     {
         const string question = "What happens if the steering requirement changes?";
 
         var result = Interpret(question);
 
         Assert.Null(result.CandidateEntityId);
-        Assert.Contains(
-            result.ClarificationReasons,
-            reason => reason.Contains("explicit requirement", StringComparison.OrdinalIgnoreCase));
+        Assert.Empty(result.ClarificationReasons);
     }
 
     private QuestionInterpretation Interpret(string question) =>

@@ -4,8 +4,11 @@ vi.mock("server-only", () => ({}));
 
 import {
   EngineeringImpactRuntimeClient,
+  runtimeResponseCitations,
   type EngineeringImpactRuntimeResponse,
 } from "../engineering-impact-runtime-client";
+import type { CopilotTraceContext } from "../copilot-execution-trace";
+import { mapEngineeringImpactRuntimeCall } from "../engineering-impact-runtime-routing";
 import type { RuntimeAccessTokenProvider } from "../runtime-access-token-provider";
 import type { ConversationState } from "../contracts";
 
@@ -86,6 +89,13 @@ const request = {
   conversationId: "thread-1",
   turnId: "turn-1",
 };
+const traceContext: CopilotTraceContext = {
+  requestId: "request-1",
+  traceId: "a".repeat(32),
+  traceparent: `00-${"a".repeat(32)}-${"b".repeat(16)}-01`,
+  routeSource: "UnifiedRuntime",
+  payloadDetail: "summary",
+};
 
 describe("EngineeringImpactRuntimeClient", () => {
   it("uses the server-side credential provider and forwards only server-loaded structured state", async () => {
@@ -123,6 +133,48 @@ describe("EngineeringImpactRuntimeClient", () => {
       previousConversationState: priorState,
     });
     expect(init.body).not.toContain("accessToken");
+  });
+
+  it("propagates server-generated trace context without forwarding caller credentials", async () => {
+    const fetcher = vi.fn().mockResolvedValue(response(200, runtimeResponse));
+    const client = new EngineeringImpactRuntimeClient({
+      endpoint: "https://orchestration.example/api",
+      accessTokenProvider: provider({ status: "available", accessToken: "server-token" }),
+      fetcher,
+    });
+
+    await client.answer({
+      ...request,
+      traceContext,
+      snapshotRevision: 7,
+    });
+
+    const [, init] = fetcher.mock.calls[0];
+    expect(init.headers).toMatchObject({
+      "X-Copilot-Request-Id": "request-1",
+      "X-Copilot-Snapshot-Revision": "7",
+      "X-Copilot-Route-Source": "UnifiedRuntime",
+      traceparent: traceContext.traceparent,
+    });
+    expect(init.headers).not.toHaveProperty("X-Copilot-Diagnostic-Detail");
+  });
+
+  it("forwards full-payload selection only for a request explicitly marked full", async () => {
+    const fetcher = vi.fn().mockResolvedValue(response(200, runtimeResponse));
+    const client = new EngineeringImpactRuntimeClient({
+      endpoint: "https://orchestration.example/api",
+      accessTokenProvider: provider({ status: "available", accessToken: "server-token" }),
+      fetcher,
+    });
+
+    await client.answer({
+      ...request,
+      traceContext: { ...traceContext, payloadDetail: "full" },
+      snapshotRevision: 7,
+    });
+
+    const [, init] = fetcher.mock.calls[0];
+    expect(init.headers["X-Copilot-Diagnostic-Detail"]).toBe("full");
   });
 
   it("reports missing endpoint or credential configuration without making a request", async () => {
@@ -204,6 +256,141 @@ describe("EngineeringImpactRuntimeClient", () => {
     }
   });
 
+  it("parses and maps standalone source-evidence citations without requiring a deep link", async () => {
+    const responseWithPassage: EngineeringImpactRuntimeResponse = {
+      ...runtimeResponse,
+      sourceEvidence: [{
+        passageId: "SYNTH-PASSAGE-001",
+        explanation: "The Windchill source describes the requirement.",
+        evidenceIds: ["SYNTH-EVIDENCE-001"],
+        sourceIds: ["SYNTH-PASSAGE-001"],
+      }],
+      impacts: [{
+        ...runtimeResponse.impacts[0],
+        sourceIds: ["citation-1"],
+      }],
+      sources: [
+        ...runtimeResponse.sources,
+        {
+          evidenceId: "SYNTH-EVIDENCE-001",
+          sourceType: "source-evidence-passage",
+          sourceSystem: "Windchill",
+          recordId: "SYNTH-NATIVE-RECORD-001",
+          provenanceId: "SYNTH-PROVENANCE-001",
+          authority: "Windchill",
+          provider: "Windchill",
+          authorizationDecisionId: "decision-1",
+          citationId: "SYNTH-PASSAGE-001",
+          location: "requirements[0].description",
+        },
+      ],
+    };
+
+    const client = new EngineeringImpactRuntimeClient({
+      endpoint: "https://orchestration.example",
+      accessTokenProvider: provider({ status: "available", accessToken: "server-token" }),
+      fetcher: vi.fn().mockResolvedValue(response(200, responseWithPassage)),
+    });
+    const result = await client.answer(request);
+    expect(result).toMatchObject({
+      status: "response",
+      response: { sourceEvidence: responseWithPassage.sourceEvidence },
+    });
+    if (result.status !== "response") throw new Error("Expected a runtime response.");
+
+    const { citations, sourceCitationIds } = runtimeResponseCitations(result.response);
+
+    expect(citations).toContainEqual({
+      citationId: "cite:evidence:SYNTH-PASSAGE-001",
+      kind: "evidence",
+      label: "Windchill SYNTH-NATIVE-RECORD-001",
+      source: "Windchill",
+      nativeId: "SYNTH-NATIVE-RECORD-001",
+      summary: "requirements[0].description",
+    });
+    expect(sourceCitationIds.get("SYNTH-PASSAGE-001")).toBe("cite:evidence:SYNTH-PASSAGE-001");
+    const mapped = mapEngineeringImpactRuntimeCall(
+      result,
+      1,
+    );
+    expect(mapped.claims).toContainEqual({
+      text: "The Windchill source describes the requirement.",
+      kind: "fact",
+      citationIds: ["cite:evidence:SYNTH-PASSAGE-001"],
+    });
+  });
+
+  it("parses exact fact assertions and exposes fact and participation citations", async () => {
+    const responseWithEvidence = {
+      ...runtimeResponse,
+      facts: [{
+        factId: "fact-weight-1",
+        exactValue: 2.5,
+        exactValueJson: "2.50",
+        evidenceIds: ["fact-evidence-1"],
+        sourceIds: ["fact-citation-1"],
+      }],
+      applicationContexts: [{
+        candidateId: "participation-1",
+        evidenceIds: ["participation-evidence-1"],
+        sourceIds: ["participation-citation-1"],
+      }],
+      sources: [
+        ...runtimeResponse.sources,
+        {
+          evidenceId: "fact-evidence-1",
+          sourceType: "engineering-fact",
+          sourceSystem: "Windchill",
+          recordId: "WT-REQ-123",
+          provenanceId: "fact-provenance-1",
+          authority: "SourceAuthoritative",
+          provider: "Windchill",
+          authorizationDecisionId: "decision-1",
+          citationId: "fact-citation-1",
+          location: "weight",
+        },
+        {
+          evidenceId: "participation-evidence-1",
+          sourceType: "application-participation",
+          sourceSystem: "Windchill",
+          recordId: "WT-REQ-123",
+          provenanceId: "participation-provenance-1",
+          authority: "SourceAuthoritative",
+          provider: "Windchill",
+          authorizationDecisionId: "decision-1",
+          citationId: "participation-citation-1",
+        },
+      ],
+    };
+    const client = new EngineeringImpactRuntimeClient({
+      endpoint: "https://orchestration.example",
+      accessTokenProvider: provider({ status: "available", accessToken: "server-token" }),
+      fetcher: vi.fn().mockResolvedValue(response(200, responseWithEvidence)),
+    });
+
+    const result = await client.answer(request);
+
+    expect(result).toMatchObject({
+      status: "response",
+      response: {
+        facts: [{
+          factId: "fact-weight-1",
+          exactValue: 2.5,
+          exactValueJson: "2.50",
+        }],
+        applicationContexts: [{ candidateId: "participation-1" }],
+      },
+    });
+    if (result.status !== "response") throw new Error("Expected a runtime response.");
+    const { citations, sourceCitationIds } = runtimeResponseCitations(result.response);
+    expect(citations.map((citation) => citation.citationId)).toContain("cite:source:fact-citation-1");
+    expect(citations.map((citation) => citation.citationId))
+      .toContain("cite:source:participation-citation-1");
+    expect(sourceCitationIds.get("fact-citation-1")).toBe("cite:source:fact-citation-1");
+    expect(sourceCitationIds.get("participation-citation-1"))
+      .toBe("cite:source:participation-citation-1");
+  });
+
   it("preserves the answer when optional continuation state is malformed", async () => {
     const fetcher = vi.fn().mockResolvedValue(response(200, {
       ...runtimeResponse,
@@ -224,15 +411,31 @@ describe("EngineeringImpactRuntimeClient", () => {
     });
   });
 
-  it("does not forward prior assistant prose or transcript history to the runtime", async () => {
+  it("forwards the typed server transcript while ignoring arbitrary transcript fields", async () => {
     const fetcher = vi.fn().mockResolvedValue(response(200, runtimeResponse));
     const client = new EngineeringImpactRuntimeClient({
       endpoint: "https://orchestration.example",
       accessTokenProvider: provider({ status: "available", accessToken: "server-token" }),
       fetcher,
     });
-    const injectedText = "Prior assistant prose must never become engineering evidence.";
+    const assistantText = "Previously completed assistant response.";
+    const injectedText = "Browser-supplied transcript must not be forwarded.";
+    const conversationHistory = [
+      {
+        turnId: "turn-previous",
+        userMessage: "What impacts if R-123 changes?",
+        assistantMessage: assistantText,
+        disposition: "answer",
+      },
+      {
+        turnId: "turn-clarification",
+        userMessage: "Which requirement should I assess?",
+        assistantMessage: "R-123.",
+        disposition: "clarify",
+      },
+    ] as const;
     const requestWithHistory = Object.assign({}, request, {
+      conversationHistory,
       priorAssistantAnswer: injectedText,
       transcript: Array.from({ length: 250 }, (_, index) => ({
         role: index % 2 ? "assistant" : "user",
@@ -248,7 +451,9 @@ describe("EngineeringImpactRuntimeClient", () => {
       question: request.question,
       conversationId: request.conversationId,
       turnId: request.turnId,
+      conversationHistory,
     });
+    expect(init.body).toContain(assistantText);
     expect(init.body).not.toContain(injectedText);
   });
 

@@ -8,8 +8,11 @@ namespace Lattice.AI.Runtime.ContextCompilation;
 public sealed record ContextCompilationInput(
     RuntimeRequestContext RequestContext,
     string InvestigationId,
-    ResolvedEntity Subject,
+    ResolvedEntity? Subject,
     ImpactScope Scope,
     AuthorizationScope Authorization,
     EvidenceRetrievalResult Evidence,
-    ContextBudget Budget);
+    ContextBudget Budget,
+    SourceEvidenceRetrievalResult? SourceEvidence = null,
+    FactEvidenceRetrievalResult? FactEvidence = null,
+    ApplicationContextRetrievalResult? ApplicationContext = null);

@@ -218,7 +218,10 @@ const contextPacket: CopilotContextPacket = {
   citations,
   uncertainties: [],
   grounding: { hasCanonicalEvidence: true, partialSources: [], staleSources: [], unsupportedIdentifiers: [] },
-  omissions: { categories: [], omittedCounts: {}, maxContextChars: 24_000 },
+  omissions: {
+    categories: [],
+    omittedCounts: {},
+  },
 };
 
 const timestamp = "2026-10-30T00:00:00.000Z";

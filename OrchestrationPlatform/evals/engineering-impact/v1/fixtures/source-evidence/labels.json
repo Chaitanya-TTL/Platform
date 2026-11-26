@@ -1,0 +1,153 @@
+{
+  "datasetId": "synthetic-source-evidence-labels-v1",
+  "corpusClassification": "synthetic-fixture-only",
+  "queries": [
+    {
+      "queryId": "SYNTH-LABEL-EXACT-ID",
+      "question": "For REQ-002, what axial load and dwell time are required?",
+      "scenario": "ExactIdentifier",
+      "k": 3,
+      "exactRecordId": "SYNTH-REQ-002-TEXT"
+    },
+    {
+      "queryId": "SYNTH-LABEL-ABBREVIATION",
+      "question": "What 4.5 kN load must the fixture withstand for 30 s?",
+      "scenario": "Abbreviation",
+      "k": 3,
+      "exactRecordId": null
+    },
+    {
+      "queryId": "SYNTH-LABEL-ENGINEERING-VOCABULARY",
+      "question": "What shaft-to-guard separation is mandated?",
+      "scenario": "EngineeringVocabulary",
+      "k": 3,
+      "exactRecordId": null
+    },
+    {
+      "queryId": "SYNTH-LABEL-CROSS-SYSTEM",
+      "question": "Which cross-system sources state the pump operating pressure and temperature?",
+      "scenario": "CrossSystemTerms",
+      "k": 3,
+      "exactRecordId": null
+    },
+    {
+      "queryId": "SYNTH-LABEL-PARAPHRASE",
+      "question": "How hot and pressurized can the demo pump operate?",
+      "scenario": "Paraphrase",
+      "k": 3,
+      "exactRecordId": null
+    },
+    {
+      "queryId": "SYNTH-LABEL-DISTRACTORS",
+      "question": "Which requirement says the demo pump handles 18 bar at 72 °C?",
+      "scenario": "Distractors",
+      "k": 3,
+      "exactRecordId": null
+    },
+    {
+      "queryId": "SYNTH-LABEL-LONG-RECORD",
+      "question": "What is the complete axial-load requirement and duration?",
+      "scenario": "LongRecord",
+      "k": 3,
+      "exactRecordId": null
+    },
+    {
+      "queryId": "SYNTH-LABEL-SHORT-RECORD",
+      "question": "What pressure does the pump specification list?",
+      "scenario": "ShortRecord",
+      "k": 3,
+      "exactRecordId": null
+    },
+    {
+      "queryId": "SYNTH-LABEL-MISSING-TEXT",
+      "question": "What color is the synthetic component?",
+      "scenario": "MissingText",
+      "k": 3,
+      "exactRecordId": null
+    },
+    {
+      "queryId": "SYNTH-LABEL-CONFLICTING-REVISION",
+      "question": "What is the current approved pump pressure?",
+      "scenario": "ConflictingRevision",
+      "k": 3,
+      "exactRecordId": null
+    }
+  ],
+  "labeledEvidence": [
+    {
+      "queryId": "SYNTH-LABEL-EXACT-ID",
+      "recordId": "SYNTH-REQ-002-TEXT",
+      "expectedLocation": "synthetic://requirements/REQ-002/text"
+    },
+    {
+      "queryId": "SYNTH-LABEL-ABBREVIATION",
+      "recordId": "SYNTH-REQ-002-TEXT",
+      "expectedLocation": "synthetic://requirements/REQ-002/text"
+    },
+    {
+      "queryId": "SYNTH-LABEL-ENGINEERING-VOCABULARY",
+      "recordId": "SYNTH-RULE-003-TEXT",
+      "expectedLocation": null
+    },
+    {
+      "queryId": "SYNTH-LABEL-CROSS-SYSTEM",
+      "recordId": "SYNTH-REQ-001-DESC",
+      "expectedLocation": "synthetic://plm/REQ-001/description"
+    },
+    {
+      "queryId": "SYNTH-LABEL-CROSS-SYSTEM",
+      "recordId": "SYNTH-REQ-001-DESC-COPY",
+      "expectedLocation": "synthetic://plm/REQ-001/description-copy"
+    },
+    {
+      "queryId": "SYNTH-LABEL-CROSS-SYSTEM",
+      "recordId": "SYNTH-REQ-001-DESC-FORMAT",
+      "expectedLocation": "synthetic://requirements/REQ-001/text"
+    },
+    {
+      "queryId": "SYNTH-LABEL-PARAPHRASE",
+      "recordId": "SYNTH-REQ-001-DESC",
+      "expectedLocation": "synthetic://plm/REQ-001/description"
+    },
+    {
+      "queryId": "SYNTH-LABEL-PARAPHRASE",
+      "recordId": "SYNTH-REQ-001-DESC-COPY",
+      "expectedLocation": "synthetic://plm/REQ-001/description-copy"
+    },
+    {
+      "queryId": "SYNTH-LABEL-PARAPHRASE",
+      "recordId": "SYNTH-REQ-001-DESC-FORMAT",
+      "expectedLocation": "synthetic://requirements/REQ-001/text"
+    },
+    {
+      "queryId": "SYNTH-LABEL-DISTRACTORS",
+      "recordId": "SYNTH-REQ-001-DESC",
+      "expectedLocation": "synthetic://plm/REQ-001/description"
+    },
+    {
+      "queryId": "SYNTH-LABEL-DISTRACTORS",
+      "recordId": "SYNTH-REQ-001-DESC-COPY",
+      "expectedLocation": "synthetic://plm/REQ-001/description-copy"
+    },
+    {
+      "queryId": "SYNTH-LABEL-DISTRACTORS",
+      "recordId": "SYNTH-REQ-001-DESC-FORMAT",
+      "expectedLocation": "synthetic://requirements/REQ-001/text"
+    },
+    {
+      "queryId": "SYNTH-LABEL-LONG-RECORD",
+      "recordId": "SYNTH-REQ-002-TEXT",
+      "expectedLocation": "synthetic://requirements/REQ-002/text"
+    },
+    {
+      "queryId": "SYNTH-LABEL-SHORT-RECORD",
+      "recordId": "SYNTH-REQ-001-DESC",
+      "expectedLocation": "synthetic://plm/REQ-001/description"
+    },
+    {
+      "queryId": "SYNTH-LABEL-CONFLICTING-REVISION",
+      "recordId": "SYNTH-REQ-001-DESC",
+      "expectedLocation": "synthetic://plm/REQ-001/description"
+    }
+  ]
+}

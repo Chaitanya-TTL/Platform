@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Lattice.AI.Runtime.Evaluation.PromptExperiments;
 
 namespace Lattice.AI.Runtime.Evaluation;
 
@@ -17,16 +18,32 @@ internal static class Program
         if (args is ["--help"] or ["-h"])
         {
             Console.Out.WriteLine(
-                "Usage: dotnet run --project Lattice.AI.Runtime.Evaluation.csproj -- [--dataset <directory>] [--report <path>]");
+                "Usage: dotnet run --project Lattice.AI.Runtime.Evaluation.csproj -- [--dataset <directory> | --prompt-evaluation <directory>] [--report <path>]");
             return 0;
         }
 
         try
         {
             var options = ParseArguments(args);
-            var runner = new EngineeringImpactEvaluationRunner();
-            var report = await runner.RunAsync(options.DatasetPath, CancellationToken.None).ConfigureAwait(false);
-            var json = JsonSerializer.Serialize(report, ReportJsonOptions);
+            string json;
+            bool passed;
+            if (options.PromptEvaluationDatasetPath is not null)
+            {
+                var report = await new FewShotPromptEvaluationRunner()
+                    .RunAsync(options.PromptEvaluationDatasetPath, CancellationToken.None)
+                    .ConfigureAwait(false);
+                json = JsonSerializer.Serialize(report, ReportJsonOptions);
+                passed = report.StructuralChecksPassed;
+            }
+            else
+            {
+                var report = await new EngineeringImpactEvaluationRunner()
+                    .RunAsync(options.DatasetPath, CancellationToken.None)
+                    .ConfigureAwait(false);
+                json = JsonSerializer.Serialize(report, ReportJsonOptions);
+                passed = report.Passed;
+            }
+
             Console.Out.WriteLine(json);
 
             if (options.ReportPath is not null)
@@ -40,7 +57,7 @@ internal static class Program
                 await File.WriteAllTextAsync(reportPath, json + Environment.NewLine).ConfigureAwait(false);
             }
 
-            return report.Passed ? 0 : 1;
+            return passed ? 0 : 1;
         }
         catch (Exception exception) when (
             exception is ArgumentException or IOException or InvalidDataException or UnauthorizedAccessException)
@@ -52,7 +69,8 @@ internal static class Program
 
     private static CommandOptions ParseArguments(IReadOnlyList<string> args)
     {
-        var datasetPath = Path.Combine("evals", "engineering-impact", "v1");
+        string? datasetPath = null;
+        string? promptEvaluationDatasetPath = null;
         string? reportPath = null;
         for (var index = 0; index < args.Count; index++)
         {
@@ -60,6 +78,9 @@ internal static class Program
             {
                 case "--dataset" when index + 1 < args.Count:
                     datasetPath = args[++index];
+                    break;
+                case "--prompt-evaluation" when index + 1 < args.Count:
+                    promptEvaluationDatasetPath = args[++index];
                     break;
                 case "--report" when index + 1 < args.Count:
                     reportPath = args[++index];
@@ -69,8 +90,19 @@ internal static class Program
             }
         }
 
-        return new CommandOptions(datasetPath, reportPath);
+        if (datasetPath is not null && promptEvaluationDatasetPath is not null)
+        {
+            throw new ArgumentException("Choose either --dataset or --prompt-evaluation, not both.");
+        }
+
+        return new CommandOptions(
+            datasetPath ?? Path.Combine("evals", "engineering-impact", "v1"),
+            promptEvaluationDatasetPath,
+            reportPath);
     }
 
-    private sealed record CommandOptions(string DatasetPath, string? ReportPath);
+    private sealed record CommandOptions(
+        string DatasetPath,
+        string? PromptEvaluationDatasetPath,
+        string? ReportPath);
 }

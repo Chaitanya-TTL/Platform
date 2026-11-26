@@ -81,7 +81,7 @@ vi.mock("@copilotkit/react-core/v2", () => {
       <textarea
         aria-label="Ask about this investigation"
         disabled={Boolean(textAreaProps?.disabled)}
-        maxLength={Number(textAreaProps?.maxLength)}
+        {...(typeof textAreaProps?.maxLength === "number" ? { maxLength: textAreaProps.maxLength } : {})}
       />
     );
     const welcomeInput = (
@@ -500,7 +500,8 @@ describe("CopilotKit investigation chat surface", () => {
     const markup = renderSurface({ isArchived: true });
 
     expect(markup).toContain("disabled");
-    expect(mocks.inputProps?.textArea).toMatchObject({ disabled: true, maxLength: 2000 });
+    expect(mocks.inputProps?.textArea).toMatchObject({ disabled: true });
+    expect(mocks.inputProps?.textArea).not.toHaveProperty("maxLength");
     expect(mocks.chatProps?.labels).toMatchObject({
       chatInputPlaceholder: "This investigation is archived",
     });

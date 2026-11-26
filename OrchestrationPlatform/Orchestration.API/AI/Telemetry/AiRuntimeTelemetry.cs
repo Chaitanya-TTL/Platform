@@ -3,6 +3,7 @@ using System.Diagnostics.Metrics;
 using System.Text.RegularExpressions;
 using Lattice.AI.Runtime.Contracts.Answers;
 using Lattice.AI.Runtime.Contracts.Conversation;
+using Lattice.AI.Runtime.Contracts.Evidence;
 using Lattice.AI.Runtime.Contracts.Requests;
 using Lattice.AI.Runtime.Telemetry;
 using Microsoft.Extensions.Options;
@@ -21,6 +22,15 @@ public sealed class AiRuntimeTelemetry : IAiRuntimeTelemetry
         "entity-resolution",
         "scope-planning",
         "plm-retrieval",
+        "source-evidence-retrieval",
+        "source-evidence-projection",
+        "source-evidence-segmentation",
+        "source-evidence-embedding",
+        "source-evidence-retrieval-exact",
+        "source-evidence-retrieval-lexical",
+        "source-evidence-retrieval-vector",
+        "source-evidence-retrieval-hybrid",
+        "source-evidence-omission",
         "context-compilation",
         "prompt",
         "prompt-assembly",
@@ -42,6 +52,7 @@ public sealed class AiRuntimeTelemetry : IAiRuntimeTelemetry
         "accept",
         "reject",
         "authorized",
+        "unavailable",
         "unsupported",
         "denied",
         "resolved",
@@ -65,6 +76,12 @@ public sealed class AiRuntimeTelemetry : IAiRuntimeTelemetry
         Meter.CreateCounter<long>("lattice.ai.runtime.context.omissions", "omissions");
     private static readonly Counter<long> ContextBudgetExhaustions =
         Meter.CreateCounter<long>("lattice.ai.runtime.context.budget_exhaustions");
+    private static readonly Counter<long> SourceEvidenceOmissions =
+        Meter.CreateCounter<long>("lattice.ai.runtime.source_evidence.omissions", "omissions");
+    private static readonly Counter<long> SourceEvidenceIndexStatuses =
+        Meter.CreateCounter<long>("lattice.ai.runtime.source_evidence.index.statuses");
+    private static readonly Counter<long> SourceEvidenceIndexRevisions =
+        Meter.CreateCounter<long>("lattice.ai.runtime.source_evidence.index.revisions");
     private static readonly Counter<long> GroundedAnswers =
         Meter.CreateCounter<long>("lattice.ai.runtime.answer.grounded");
     private static readonly Counter<long> UnsupportedAssertionRejections =
@@ -173,6 +190,31 @@ public sealed class AiRuntimeTelemetry : IAiRuntimeTelemetry
             ContextBudgetExhaustions.Add(1);
         }
     }
+
+    public void RecordSourceEvidenceOmissions(int omissionCount)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(omissionCount);
+
+        if (omissionCount > 0)
+        {
+            SourceEvidenceOmissions.Add(omissionCount);
+        }
+    }
+
+    public void RecordSourceEvidenceIndexStatus(SourceEvidenceIndexState status)
+    {
+        if (!Enum.IsDefined(status))
+        {
+            throw new ArgumentOutOfRangeException(nameof(status), status, "Unsupported source evidence index status.");
+        }
+
+        SourceEvidenceIndexStatuses.Add(
+            1,
+            new KeyValuePair<string, object?>("status", status.ToString().ToLowerInvariant()));
+    }
+
+    public void RecordSourceEvidenceIndexRevision() =>
+        SourceEvidenceIndexRevisions.Add(1);
 
     public void RecordAnswerQuality(AnswerQualitySummary summary)
     {

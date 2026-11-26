@@ -7,9 +7,6 @@ import {
   type EngineeringImpactRuntimeResponse,
 } from "./engineering-impact-runtime-client";
 
-const IMPACT_INTENT = /\b(?:impacts?|impacted|affected|downstream|depends?|dependents?|engineering\s+items)\b/i;
-const CONDITIONAL_CHANGE_INTENT = /\bwhat\s+happens\s+if\b.*\bchanges?\b/i;
-
 export interface EngineeringImpactRuntimeRoutingInput {
   question: string;
   investigationId?: string | null;
@@ -172,16 +169,66 @@ function mapRuntimeResponse(
   snapshotRevision: number,
 ): CopilotAnswer {
   const { citations, sourceCitationIds } = runtimeResponseCitations(response);
+  const factClaims = (response.facts ?? []).flatMap((fact) => {
+    const citationIds = [...new Set(
+      fact.sourceIds
+        .map((sourceId) => sourceCitationIds.get(sourceId))
+        .filter((citationId): citationId is string => Boolean(citationId)),
+    )];
+    if (citationIds.length === 0) return [];
+    const exactValue = fact.exactValueJson ??
+      JSON.stringify(fact.exactValue) ??
+      String(fact.exactValue);
+    return [{
+      text: `Fact ${fact.factId}: ${exactValue}`,
+      kind: "fact" as const,
+      citationIds,
+      display: `Fact ${fact.factId}: ${exactValue} ${citationIds.map(id => `(${id})`).join(" ")}`,
+    }];
+  });
+  const applicationContextClaims = (response.applicationContexts ?? []).flatMap((applicationContext) => {
+    const matchingCitations = applicationContext.sourceIds
+      .map((sourceId) => {
+        const citationId = sourceCitationIds.get(sourceId);
+        return citationId ? citations.find((citation) => citation.citationId === citationId) : undefined;
+      })
+      .filter((citation): citation is CopilotCitation => Boolean(citation));
+    const citationIds = [...new Set(matchingCitations.map((citation) => citation.citationId))];
+    if (citationIds.length === 0) return [];
+    const label = matchingCitations.map((citation) => citation.label).join(", ");
+    const text = `Application participation: ${label}.`;
+    return [{
+      text,
+      kind: "fact" as const,
+      citationIds,
+      display: `${text} ${citationIds.map(id => `(${id})`).join(" ")}`,
+    }];
+  });
+  const sourceEvidenceClaims = (response.sourceEvidence ?? []).flatMap((assertion) => {
+    const citationIds = [...new Set(
+      assertion.sourceIds
+        .map((sourceId) => sourceCitationIds.get(sourceId))
+        .filter((citationId): citationId is string => Boolean(citationId)),
+    )];
+    if (citationIds.length === 0) return [];
+    return [{
+      text: assertion.explanation,
+      kind: "fact" as const,
+      citationIds,
+      display: `${assertion.explanation} ${citationIds.map(id => `(${id})`).join(" ")}`,
+    }];
+  });
   const impacts = response.impacts.map((impact) => {
     const citationIds = [...new Set(
       impact.sourceIds
         .map((sourceId) => sourceCitationIds.get(sourceId))
         .filter((citationId): citationId is string => Boolean(citationId)),
     )];
-    const markers = citationIds.map((citationId) => {
-      const citation = citations.find((candidate) => candidate.citationId === citationId);
-      return citation ? `(cite:source:${citationId.slice("cite:source:".length)})` : "";
-    }).filter(Boolean);
+    const markers = citationIds.map((citationId) =>
+      citations.some((citation) => citation.citationId === citationId)
+        ? `(${citationId})`
+        : "",
+    ).filter(Boolean);
     return {
       text: impact.explanation,
       citationIds,
@@ -195,6 +242,9 @@ function mapRuntimeResponse(
   const answer = [
     summary,
     ...impacts.map((impact) => impact.display),
+    ...factClaims.map((claim) => claim.display),
+    ...applicationContextClaims.map((claim) => claim.display),
+    ...sourceEvidenceClaims.map((claim) => claim.display),
     ...(disposition === "Answer" ? issues : []),
   ].filter((part): part is string => Boolean(part)).join("\n\n") ||
     (disposition === "Clarify"
@@ -205,7 +255,12 @@ function mapRuntimeResponse(
 
   return {
     answer,
-    claims: impacts.map(({ text, kind, citationIds }) => ({ text, kind, citationIds })),
+    claims: [
+      ...impacts.map(({ text, kind, citationIds }) => ({ text, kind, citationIds })),
+      ...factClaims.map(({ text, kind, citationIds }) => ({ text, kind, citationIds })),
+      ...applicationContextClaims.map(({ text, kind, citationIds }) => ({ text, kind, citationIds })),
+      ...sourceEvidenceClaims.map(({ text, kind, citationIds }) => ({ text, kind, citationIds })),
+    ],
     recommendations: [],
     uncertainties: issues,
     followUpQuestions: disposition === "Clarify" ? issues : [],
@@ -278,10 +333,8 @@ export function routeEngineeringImpactAnswer(
   input: EngineeringImpactRuntimeRoutingInput,
   configuration: EngineeringImpactRuntimeRoutingConfiguration,
 ): EngineeringImpactRuntimeRoute {
-  const question = input.question.trim();
-  const hasImpactIntent = IMPACT_INTENT.test(question) || CONDITIONAL_CHANGE_INTENT.test(question);
   if (!configuration.enabled ||
-      !hasImpactIntent ||
+      !input.question.trim() ||
       !input.investigationId?.trim()) {
     return { route: "legacy" };
   }

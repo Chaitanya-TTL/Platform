@@ -28,4 +28,9 @@ public sealed record ImpactAnswerRequestDto
 
     /// <summary>Optional structured state loaded by the server from the existing thread.</summary>
     public ConversationState? PreviousConversationState { get; init; }
+
+    /// <summary>Completed transcript turns used only as untrusted conversational context.</summary>
+    [MaxLength(50)]
+    public IReadOnlyList<ConversationHistoryTurn> ConversationHistory { get; init; } =
+        Array.Empty<ConversationHistoryTurn>();
 }

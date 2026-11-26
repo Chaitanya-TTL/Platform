@@ -38,6 +38,87 @@ public sealed class ScopePlannerTests
     }
 
     [Fact]
+    public void Plan_RequestsSourceEvidenceLinkedToTheResolvedImpactSubject()
+    {
+        var result = new ScopePlanner().Plan(
+            EngineeringImpactInterpretation(),
+            Subject(),
+            Authorization(),
+            RequestContext());
+
+        Assert.Equal(ScopePlanningDisposition.Ready, result.Disposition);
+        Assert.NotNull(result.Scope);
+        Assert.NotNull(result.SourceEvidencePlan);
+        Assert.True(result.SourceEvidencePlan.Requested);
+        Assert.Equal(["REQ-123"], result.SourceEvidencePlan.LinkedEntityIds);
+        Assert.Empty(result.SourceEvidencePlan.SourceApplications);
+        Assert.Equal(["REQ-123"], result.SourceEvidencePlan.ExactIdentifiers);
+    }
+
+    [Fact]
+    public void Plan_RestrictsSourceApplicationsToEvidenceWithoutNarrowingImpactScope()
+    {
+        var result = new ScopePlanner().Plan(
+            ConversationTurn(
+                ConversationTurnType.FollowUpFilter,
+                ["part-17"],
+                sourceApplications: ["Windchill"]),
+            ConversationState(),
+            new ResolvedEntity("windchill", "Part", "part-17", "Housing"),
+            new AuthorizationContext(Authorization(), "signed-ticket", DateTimeOffset.UtcNow.AddMinutes(1)),
+            RequestContext());
+
+        Assert.Equal(ScopePlanningDisposition.Ready, result.Disposition);
+        Assert.NotNull(result.Scope);
+        Assert.Equal(3, result.Scope.MaxHops);
+        Assert.Empty(result.Scope.RelationshipTypes);
+        Assert.Empty(result.Scope.SourceSystems);
+        Assert.NotNull(result.SourceEvidencePlan);
+        Assert.True(result.SourceEvidencePlan.Requested);
+        Assert.Equal(["part-17"], result.SourceEvidencePlan.LinkedEntityIds);
+        Assert.Equal(["Windchill"], result.SourceEvidencePlan.SourceApplications);
+        Assert.Empty(result.SourceEvidencePlan.ExactIdentifiers);
+    }
+
+    [Fact]
+    public void Plan_PreservesAnExplicitIdentifierForExactEvidenceLookup()
+    {
+        var result = new ScopePlanner().Plan(
+            ConversationTurn(
+                ConversationTurnType.FollowUpFilter,
+                ["REQ-123"],
+                sourceApplications: ["SAP"],
+                explicitIdentifiers: ["REQ-123"]),
+            ConversationState(),
+            new ResolvedEntity("plm", "Requirement", "REQ-123", "Requirement R-123"),
+            new AuthorizationContext(Authorization(), "signed-ticket", DateTimeOffset.UtcNow.AddMinutes(1)),
+            RequestContext());
+
+        Assert.Equal(ScopePlanningDisposition.Ready, result.Disposition);
+        Assert.Equal(["REQ-123"], result.SourceEvidencePlan?.ExactIdentifiers);
+        Assert.Equal(["REQ-123"], result.SourceEvidencePlan?.LinkedEntityIds);
+        Assert.Empty(result.Scope!.SourceSystems);
+    }
+
+    [Fact]
+    public void Plan_DoesNotRequestSourceEvidenceForAnAmbiguousFollowUp()
+    {
+        var result = new ScopePlanner().Plan(
+            ConversationTurn(
+                ConversationTurnType.FollowUpFilter,
+                ["part-17", "part-18"],
+                sourceApplications: ["Windchill"]),
+            ConversationState(),
+            new ResolvedEntity("windchill", "Part", "part-17", "Housing"),
+            new AuthorizationContext(Authorization(), "signed-ticket", DateTimeOffset.UtcNow.AddMinutes(1)),
+            RequestContext());
+
+        Assert.Equal(ScopePlanningDisposition.Clarify, result.Disposition);
+        Assert.Null(result.Scope);
+        Assert.Null(result.SourceEvidencePlan);
+    }
+
+    [Fact]
     public void Plan_ClarifiesUnsupportedInterpretationAndPreservesDiagnostics()
     {
         var diagnostics = new[] { "The question does not describe an engineering-impact request." };
@@ -129,7 +210,7 @@ public sealed class ScopePlannerTests
     }
 
     [Fact]
-    public void Plan_DoesNotTreatARequestedApplicationAsASourceSystemFilter()
+    public void Plan_RequestsApplicationContextWithoutNarrowingTheImpactGraph()
     {
         var turn = ConversationTurn(
             ConversationTurnType.FollowUpFilter,
@@ -143,10 +224,73 @@ public sealed class ScopePlannerTests
             new AuthorizationContext(Authorization(), "signed-ticket", DateTimeOffset.UtcNow.AddMinutes(1)),
             RequestContext());
 
-        Assert.Equal(ScopePlanningDisposition.Unsupported, result.Disposition);
-        Assert.Null(result.Scope);
-        Assert.Contains(result.Diagnostics, diagnostic =>
-            diagnostic.Contains("PLM evidence contract", StringComparison.Ordinal));
+        Assert.Equal(ScopePlanningDisposition.Ready, result.Disposition);
+        Assert.NotNull(result.Scope);
+        Assert.Empty(result.Scope.SourceSystems);
+        Assert.Empty(result.Scope.RelationshipTypes);
+        Assert.Equal(3, result.Scope.MaxHops);
+        Assert.Equal(["Teamcenter"], result.ApplicationContextPlan?.SourceApplications);
+        Assert.True(result.ApplicationContextPlan?.Requested);
+    }
+
+    [Fact]
+    public void Plan_RequestsFactsOnlyForResolvedFieldIds()
+    {
+        var interpretation = EngineeringImpactInterpretation() with
+        {
+            RequestedFactFieldIds = ["windchill.part.weight"]
+        };
+
+        var result = new ScopePlanner().Plan(
+            interpretation,
+            Subject(),
+            Authorization(),
+            RequestContext());
+
+        Assert.Equal(ScopePlanningDisposition.Ready, result.Disposition);
+        Assert.Equal(["windchill.part.weight"], result.FactEvidencePlan?.FieldIds);
+    }
+
+    [Fact]
+    public void Plan_RequestsAllInvestigationFactsAndApplicationCoverageForBroadQuestion()
+    {
+        var interpretation = new QuestionInterpretation(
+            ImpactQuestionType.InvestigationQuestion,
+            "Summarize everything captured in this investigation.",
+            null,
+            null,
+            null,
+            []);
+
+        var result = new ScopePlanner().Plan(
+            interpretation,
+            null,
+            Authorization(),
+            RequestContext());
+
+        Assert.Equal(ScopePlanningDisposition.Ready, result.Disposition);
+        Assert.True(result.FactEvidencePlan?.Requested);
+        Assert.Empty(result.FactEvidencePlan?.FieldIds ?? []);
+        Assert.Empty(result.FactEvidencePlan?.SourceApplications ?? []);
+        Assert.True(result.ApplicationContextPlan?.Requested);
+        Assert.Empty(result.ApplicationContextPlan?.SourceApplications ?? []);
+        Assert.True(result.SourceEvidencePlan?.Requested);
+        Assert.Empty(result.SourceEvidencePlan?.LinkedEntityIds ?? []);
+        Assert.Empty(result.SourceEvidencePlan?.SourceApplications ?? []);
+        Assert.Empty(result.SourceEvidencePlan?.ExactIdentifiers ?? []);
+    }
+
+    [Fact]
+    public void Plan_DoesNotRequestFactsWithoutAResolvedFieldNeed()
+    {
+        var result = new ScopePlanner().Plan(
+            EngineeringImpactInterpretation(),
+            Subject(),
+            Authorization(),
+            RequestContext());
+
+        Assert.Null(result.FactEvidencePlan);
+        Assert.Null(result.ApplicationContextPlan);
     }
 
     [Fact]
@@ -194,12 +338,14 @@ public sealed class ScopePlannerTests
     private static ConversationTurnInterpretation ConversationTurn(
         ConversationTurnType type,
         IReadOnlyList<string> references,
-        IReadOnlyList<string>? targetApplications = null) =>
+        IReadOnlyList<string>? targetApplications = null,
+        IReadOnlyList<string>? sourceApplications = null,
+        IReadOnlyList<string>? explicitIdentifiers = null) =>
         new(
             type,
-            [],
+            explicitIdentifiers ?? [],
             references,
-            new ConversationFilterDelta(null, targetApplications, null, null, null),
+            new ConversationFilterDelta(sourceApplications, targetApplications, null, null, null),
             ConversationOutputDimension.Impact,
             false,
             [],

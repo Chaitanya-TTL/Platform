@@ -5,6 +5,7 @@ using System.Text.Json.Serialization;
 using Lattice.AI.Runtime.Contracts.Authorization;
 using Lattice.AI.Runtime.Contracts.Requests;
 using Lattice.AI.Runtime.Evidence;
+using Lattice.AI.Runtime.Contracts.Scope;
 using Microsoft.Extensions.Options;
 
 namespace Orchestration.API.AI.Adapters;
@@ -22,6 +23,37 @@ public interface IPlmBrainClient
         string investigationId,
         string subjectEntityId,
         Lattice.AI.Runtime.Contracts.Scope.ImpactScope scope,
+        AuthorizationContext authorization,
+        RuntimeRequestContext requestContext,
+        CancellationToken cancellationToken);
+
+    Task<PlmBrainImpactEvidenceResponse> RetrieveInvestigationAsync(
+        string investigationId,
+        AuthorizationContext authorization,
+        RuntimeRequestContext requestContext,
+        CancellationToken cancellationToken);
+
+    Task<PlmBrainFactEvidenceResponse> RetrieveFactEvidenceAsync(
+        string investigationId,
+        FactEvidencePlan plan,
+        string sourceVersion,
+        string ontologyVersion,
+        AuthorizationContext authorization,
+        RuntimeRequestContext requestContext,
+        CancellationToken cancellationToken);
+
+    Task<PlmBrainApplicationContextResponse> RetrieveApplicationContextAsync(
+        string investigationId,
+        ApplicationContextPlan plan,
+        string sourceVersion,
+        string ontologyVersion,
+        AuthorizationContext authorization,
+        RuntimeRequestContext requestContext,
+        CancellationToken cancellationToken);
+
+    Task<PlmBrainSourceEvidenceResponse> RetrieveSourceEvidenceAsync(
+        string investigationId,
+        SourceEvidencePlan plan,
         AuthorizationContext authorization,
         RuntimeRequestContext requestContext,
         CancellationToken cancellationToken);
@@ -60,6 +92,64 @@ public sealed class PlmBrainClient(
         PostAsync<PlmBrainImpactEvidenceRequest, PlmBrainImpactEvidenceResponse>(
             $"/api/internal/v1/investigations/{Uri.EscapeDataString(investigationId)}/impact-evidence",
             new PlmBrainImpactEvidenceRequest(subjectEntityId, scope),
+            authorization,
+            requestContext,
+            cancellationToken);
+
+    public Task<PlmBrainImpactEvidenceResponse> RetrieveInvestigationAsync(
+        string investigationId,
+        AuthorizationContext authorization,
+        RuntimeRequestContext requestContext,
+        CancellationToken cancellationToken) =>
+        PostAsync<PlmBrainInvestigationEvidenceRequest, PlmBrainImpactEvidenceResponse>(
+            $"/api/internal/v1/investigations/{Uri.EscapeDataString(investigationId)}/investigation-evidence",
+            new PlmBrainInvestigationEvidenceRequest(),
+            authorization,
+            requestContext,
+            cancellationToken);
+
+    public Task<PlmBrainFactEvidenceResponse> RetrieveFactEvidenceAsync(
+        string investigationId,
+        FactEvidencePlan plan,
+        string sourceVersion,
+        string ontologyVersion,
+        AuthorizationContext authorization,
+        RuntimeRequestContext requestContext,
+        CancellationToken cancellationToken) =>
+        PostAsync<PlmBrainFactEvidenceRequest, PlmBrainFactEvidenceResponse>(
+            $"/api/internal/v1/investigations/{Uri.EscapeDataString(investigationId)}/fact-evidence",
+            new PlmBrainFactEvidenceRequest(plan, sourceVersion, ontologyVersion),
+            authorization,
+            requestContext,
+            cancellationToken);
+
+    public Task<PlmBrainApplicationContextResponse> RetrieveApplicationContextAsync(
+        string investigationId,
+        ApplicationContextPlan plan,
+        string sourceVersion,
+        string ontologyVersion,
+        AuthorizationContext authorization,
+        RuntimeRequestContext requestContext,
+        CancellationToken cancellationToken) =>
+        PostAsync<PlmBrainApplicationContextRequest, PlmBrainApplicationContextResponse>(
+            $"/api/internal/v1/investigations/{Uri.EscapeDataString(investigationId)}/application-context",
+            new PlmBrainApplicationContextRequest(plan, sourceVersion, ontologyVersion),
+            authorization,
+            requestContext,
+            cancellationToken);
+
+    public Task<PlmBrainSourceEvidenceResponse> RetrieveSourceEvidenceAsync(
+        string investigationId,
+        SourceEvidencePlan plan,
+        AuthorizationContext authorization,
+        RuntimeRequestContext requestContext,
+        CancellationToken cancellationToken) =>
+        PostAsync<PlmBrainSourceEvidenceRequest, PlmBrainSourceEvidenceResponse>(
+            $"/api/internal/v1/investigations/{Uri.EscapeDataString(investigationId)}/source-evidence",
+            new PlmBrainSourceEvidenceRequest(
+                plan.SourceApplications,
+                plan.LinkedEntityIds,
+                plan.ExactIdentifiers),
             authorization,
             requestContext,
             cancellationToken);

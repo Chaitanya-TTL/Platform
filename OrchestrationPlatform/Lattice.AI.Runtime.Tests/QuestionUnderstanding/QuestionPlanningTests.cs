@@ -23,7 +23,7 @@ public sealed class QuestionPlanningTests
     }
 
     [Fact]
-    public void Interpret_RequiresActiveInvestigationAndExplicitIdentifier()
+    public void Interpret_RequiresAnActiveInvestigationButAllowsInvestigationWideQuestions()
     {
         var result = _interpreter.Interpret(
             new ImpactAnswerRequest(" ", "What is affected?"),
@@ -31,7 +31,7 @@ public sealed class QuestionPlanningTests
 
         Assert.Null(result.CandidateEntityId);
         Assert.Contains(result.ClarificationReasons, reason => reason.Contains("active investigation"));
-        Assert.Contains(result.ClarificationReasons, reason => reason.Contains("explicit requirement"));
+        Assert.DoesNotContain(result.ClarificationReasons, reason => reason.Contains("explicit requirement"));
     }
 
     [Fact]

@@ -16,6 +16,7 @@ using Lattice.AI.Runtime.Generation;
 using Lattice.AI.Runtime.Prompts;
 using Lattice.AI.Runtime.QuestionUnderstanding;
 using Lattice.AI.Runtime.ScopePlanning;
+using Lattice.AI.Runtime.SourceEvidence;
 using Lattice.AI.Runtime.Telemetry;
 using Lattice.AI.Runtime.Validation;
 
@@ -287,8 +288,8 @@ public sealed class EngineeringImpactEvaluationRunner : IEngineeringImpactEvalua
             }).ConfigureAwait(false);
 
         await EvaluateSequenceAsync(
-            "unsupported-application-filter-clarifies",
-            ["Answer", "Clarify"],
+            "application-context-filter-preserves-impact",
+            ["Answer", "Answer"],
             "What is impacted if Requirement R-123 changes?",
             async (harness, firstTurn) =>
             {
@@ -299,10 +300,14 @@ public sealed class EngineeringImpactEvaluationRunner : IEngineeringImpactEvalua
                     firstTurn.ContinuationState,
                     firstTurn.ContinuationState?.PreviousTurnId,
                     cancellationToken);
-                if (second.Disposition != AnswerDisposition.Clarify ||
-                    !second.Issues.Any(issue => issue.Code == "target-application-filter-not-supported"))
-                    throw new InvalidOperationException("The unsupported application filter was not surfaced as a clarification.");
-            }).ConfigureAwait(false);
+                if (second.Disposition != AnswerDisposition.Answer ||
+                    !second.Impacts.Select(impact => impact.ClaimId)
+                        .SequenceEqual(firstTurn.Impacts.Select(impact => impact.ClaimId), StringComparer.Ordinal))
+                    throw new InvalidOperationException(
+                        "The application-context follow-up changed the authoritative PLM impact claims.");
+            },
+            expectedEntityResolutionCalls: 2,
+            expectedEvidenceRetrievalCalls: 2).ConfigureAwait(false);
 
         await EvaluateSequenceAsync(
             "expired-state-not-inherited",
@@ -384,8 +389,8 @@ public sealed class EngineeringImpactEvaluationRunner : IEngineeringImpactEvalua
             }).ConfigureAwait(false);
 
         await EvaluateSequenceAsync(
-            "conflicting-application-filter-not-applied",
-            ["Answer", "Clarify"],
+            "application-context-filter-replaces-prior-context",
+            ["Answer", "Answer"],
             "What is impacted if Requirement R-123 changes?",
             async (harness, firstTurn) =>
             {
@@ -400,13 +405,18 @@ public sealed class EngineeringImpactEvaluationRunner : IEngineeringImpactEvalua
                     priorFilter,
                     firstTurn.ContinuationState?.PreviousTurnId,
                     cancellationToken);
-                if (second.Disposition != AnswerDisposition.Clarify)
-                    throw new InvalidOperationException("An unsupported conflicting application filter produced an answer.");
-            }).ConfigureAwait(false);
+                if (second.Disposition != AnswerDisposition.Answer ||
+                    !second.Impacts.Select(impact => impact.ClaimId)
+                        .SequenceEqual(firstTurn.Impacts.Select(impact => impact.ClaimId), StringComparer.Ordinal))
+                    throw new InvalidOperationException(
+                        "A new application-context preference changed the authoritative PLM impact claims.");
+            },
+            expectedEntityResolutionCalls: 2,
+            expectedEvidenceRetrievalCalls: 2).ConfigureAwait(false);
 
         await EvaluateSequenceAsync(
-            "conversation-A-application-filter-prefix",
-            ["Answer", "Clarify"],
+            "conversation-A-application-context-prefix",
+            ["Answer", "Answer"],
             "What is impacted if Requirement R-123 changes?",
             async (harness, firstTurn) =>
             {
@@ -417,9 +427,14 @@ public sealed class EngineeringImpactEvaluationRunner : IEngineeringImpactEvalua
                     firstTurn.ContinuationState,
                     firstTurn.ContinuationState?.PreviousTurnId,
                     cancellationToken);
-                if (filtered.Disposition != AnswerDisposition.Clarify)
-                    throw new InvalidOperationException("An unconfirmed target-application filter was applied without PLM semantics.");
-            }).ConfigureAwait(false);
+                if (filtered.Disposition != AnswerDisposition.Answer ||
+                    !filtered.Impacts.Select(impact => impact.ClaimId)
+                        .SequenceEqual(firstTurn.Impacts.Select(impact => impact.ClaimId), StringComparer.Ordinal))
+                    throw new InvalidOperationException(
+                        "The conversation application-context preference changed the authoritative PLM impact claims.");
+            },
+            expectedEntityResolutionCalls: 2,
+            expectedEvidenceRetrievalCalls: 2).ConfigureAwait(false);
 
         await EvaluateSequenceAsync(
             "conversation-B-explicit-subject-switch",
@@ -452,7 +467,7 @@ public sealed class EngineeringImpactEvaluationRunner : IEngineeringImpactEvalua
 
         await EvaluateSequenceAsync(
             "conversation-C-clarification-response",
-            ["Clarify", "Answer"],
+            ["Answer", "Answer"],
             "What is impacted?",
             async (harness, _) =>
             {
@@ -467,7 +482,7 @@ public sealed class EngineeringImpactEvaluationRunner : IEngineeringImpactEvalua
                     throw new InvalidOperationException("An explicit clarification response did not resolve as a fresh impact turn.");
             },
             expectedEntityResolutionCalls: 1,
-            expectedEvidenceRetrievalCalls: 1).ConfigureAwait(false);
+            expectedEvidenceRetrievalCalls: 2).ConfigureAwait(false);
 
         await EvaluateSequenceAsync(
             "conversation-D-ambiguous-parts",
@@ -640,6 +655,9 @@ public sealed class EngineeringImpactEvaluationRunner : IEngineeringImpactEvalua
             resolver,
             scopePlanner,
             evidenceSource,
+            new EvaluationUnavailableSourceEvidenceRetriever(),
+            new Lattice.AI.Runtime.FactEvidence.UnavailableFactEvidenceRetriever(),
+            new Lattice.AI.Runtime.ApplicationContext.UnavailableApplicationContextRetriever(),
             new RecordingContextCompiler(new ContextCompiler()),
             new SourceControlledPromptCatalog(),
             new PromptAssembler(),
@@ -733,6 +751,9 @@ public sealed class EngineeringImpactEvaluationRunner : IEngineeringImpactEvalua
             resolver,
             scopePlanner,
             evidenceSource,
+            new EvaluationUnavailableSourceEvidenceRetriever(),
+            new Lattice.AI.Runtime.FactEvidence.UnavailableFactEvidenceRetriever(),
+            new Lattice.AI.Runtime.ApplicationContext.UnavailableApplicationContextRetriever(),
             contextCompiler,
             new SourceControlledPromptCatalog(),
             new PromptAssembler(),
@@ -852,14 +873,19 @@ public sealed class EngineeringImpactEvaluationRunner : IEngineeringImpactEvalua
         var modelClaimCount = modelGateway.CallCount == 0 || modelGateway.Content is null
             ? 0
             : CountModelClaims(modelGateway.Content);
-        var actualQuestionIntent = interpretation.Type == ImpactQuestionType.EngineeringImpact
-            ? "engineering-impact"
-            : "unsupported";
+        var actualQuestionIntent = interpretation.Type switch
+        {
+            ImpactQuestionType.EngineeringImpact => "engineering-impact",
+            ImpactQuestionType.InvestigationQuestion => "investigation-question",
+            _ => "unsupported"
+        };
         var actualClarificationRequired = result.Disposition == AnswerDisposition.Clarify;
         var actualScope = scopePlanner.LastResult?.Scope;
         var actualScopeRelationshipTypes = Sorted(actualScope?.RelationshipTypes ?? new HashSet<string>(StringComparer.Ordinal));
         var actualScopeSourceSystems = Sorted(actualScope?.SourceSystems ?? new HashSet<string>(StringComparer.Ordinal));
-        var actualOmittedClaimIds = Sorted(contextCompiler.LastResult?.Package?.Omissions.Select(omission => omission.ClaimId)
+        var actualOmittedClaimIds = Sorted(contextCompiler.LastResult?.Package?.Omissions
+            .Where(omission => omission.Kind == ContextOmissionKind.Claim)
+            .Select(omission => omission.ClaimId)
             ?? Enumerable.Empty<string>());
         bool? actualModelJsonParseSucceeded = modelGateway.CallCount == 0
             ? null
@@ -1405,7 +1431,8 @@ public sealed class EngineeringImpactEvaluationRunner : IEngineeringImpactEvalua
             throw new InvalidDataException(
                 $"Case '{caseId}' has unsupported expected authorizationScenario '{expectation.AuthorizationScenario}'.");
         }
-        if (expectation.QuestionIntent is not ("engineering-impact" or "unsupported"))
+        if (expectation.QuestionIntent is not (
+                "engineering-impact" or "investigation-question" or "unsupported"))
         {
             throw new InvalidDataException($"Case '{caseId}' has unsupported questionIntent '{expectation.QuestionIntent}'.");
         }
@@ -1909,6 +1936,18 @@ public sealed class EngineeringImpactEvaluationRunner : IEngineeringImpactEvalua
         {
         }
 
+        public void RecordSourceEvidenceOmissions(int omissionCount)
+        {
+        }
+
+        public void RecordSourceEvidenceIndexStatus(SourceEvidenceIndexState status)
+        {
+        }
+
+        public void RecordSourceEvidenceIndexRevision()
+        {
+        }
+
         public void RecordAnswerQuality(AnswerQualitySummary summary)
         {
         }
@@ -2014,7 +2053,7 @@ public sealed class EngineeringImpactEvaluationRunner : IEngineeringImpactEvalua
 
         public ScopePlanningResult Plan(
             QuestionInterpretation interpretation,
-            ResolvedEntity subject,
+            ResolvedEntity? subject,
             AuthorizationScope authorization,
             RuntimeRequestContext requestContext)
         {
@@ -2060,6 +2099,40 @@ public sealed class EngineeringImpactEvaluationRunner : IEngineeringImpactEvalua
                 : retrieved;
             NextSourceVersion = null;
             return Task.FromResult(LastResult);
+        }
+
+        public Task<EvidenceRetrievalResult> RetrieveInvestigationAsync(
+            InvestigationEvidenceQuery query,
+            CancellationToken cancellationToken)
+        {
+            CallCount++;
+            var retrieved = updateRequestContext
+                ? result with
+                {
+                    InvestigationId = query.InvestigationId,
+                    AuthorizationDecisionId = query.Authorization.Scope.DecisionId,
+                    RequestId = query.RequestContext.RequestId,
+                    TraceId = query.RequestContext.TraceId
+                }
+                : result;
+            LastResult = NextSourceVersion is { } sourceVersion
+                ? retrieved with { SourceVersion = sourceVersion }
+                : retrieved;
+            NextSourceVersion = null;
+            return Task.FromResult(LastResult);
+        }
+    }
+
+    private sealed class EvaluationUnavailableSourceEvidenceRetriever : ISourceEvidenceRetriever
+    {
+        public Task<SourceEvidenceRetrievalResult> RetrieveAsync(
+            SourceEvidenceQuery query,
+            CancellationToken cancellationToken)
+        {
+            ArgumentNullException.ThrowIfNull(query);
+            cancellationToken.ThrowIfCancellationRequested();
+            throw new SourceEvidenceUnavailableException(
+                "The offline evaluation runner has no source-evidence retrieval adapter.");
         }
     }
 

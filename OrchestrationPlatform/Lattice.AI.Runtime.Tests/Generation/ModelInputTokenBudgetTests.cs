@@ -5,31 +5,22 @@ namespace Lattice.AI.Runtime.Tests.Generation;
 public sealed class ModelInputTokenBudgetTests
 {
     [Fact]
-    public void Fits_WhenInputAndOutputAndSafetyMarginExactlyFillLimit()
+    public void Fits_WhenInputAndOutputExactlyFillLimit()
     {
-        Assert.True(ModelInputTokenBudget.Fits(750, maxInputTokens: 1000, maxOutputTokens: 100));
+        Assert.True(ModelInputTokenBudget.Fits(900, maxInputTokens: 1000, maxOutputTokens: 100));
     }
 
     [Fact]
     public void Fits_WhenInputExceedsLimitByOneToken_ReturnsFalse()
     {
-        Assert.False(ModelInputTokenBudget.Fits(751, maxInputTokens: 1000, maxOutputTokens: 100));
+        Assert.False(ModelInputTokenBudget.Fits(901, maxInputTokens: 1000, maxOutputTokens: 100));
     }
 
     [Fact]
     public void Fits_ReservesConfiguredOutputTokens()
     {
-        Assert.True(ModelInputTokenBudget.Fits(700, maxInputTokens: 1000, maxOutputTokens: 150));
-        Assert.False(ModelInputTokenBudget.Fits(700, maxInputTokens: 1000, maxOutputTokens: 151));
-    }
-
-    [Theory]
-    [InlineData(1, 1)]
-    [InlineData(100, 15)]
-    [InlineData(101, 16)]
-    public void CalculateSafetyMargin_CeilsFifteenPercent(int maxInputTokens, int expected)
-    {
-        Assert.Equal(expected, ModelInputTokenBudget.CalculateSafetyMargin(maxInputTokens));
+        Assert.True(ModelInputTokenBudget.Fits(850, maxInputTokens: 1000, maxOutputTokens: 150));
+        Assert.False(ModelInputTokenBudget.Fits(850, maxInputTokens: 1000, maxOutputTokens: 151));
     }
 
     [Fact]
@@ -55,8 +46,8 @@ public sealed class ModelInputTokenBudgetTests
             maxOutputTokens: 1024,
             estimatedFixedPromptTokens: 4096);
 
-        Assert.Equal(5811, allowanceWithSmallPrompt);
-        Assert.Equal(1843, allowanceWithLargePrompt);
+        Assert.Equal(7040, allowanceWithSmallPrompt);
+        Assert.Equal(3072, allowanceWithLargePrompt);
         Assert.True(allowanceWithLargePrompt < allowanceWithSmallPrompt);
     }
 
@@ -66,6 +57,6 @@ public sealed class ModelInputTokenBudgetTests
         Assert.False(ModelInputTokenBudget.Fits(
             int.MaxValue,
             maxInputTokens: int.MaxValue,
-            maxOutputTokens: 0));
+            maxOutputTokens: 1));
     }
 }

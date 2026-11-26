@@ -14,14 +14,26 @@ public sealed class PromptGovernanceTests
     public void GetRequired_LoadsExactVersionedBundleWithRequiredSections()
     {
         var catalog = new SourceControlledPromptCatalog();
-        var prompt = catalog.GetRequired("engineering-impact", "v1");
+        var prompt = catalog.GetRequired("engineering-impact", "v2");
 
         Assert.Equal("engineering-impact", prompt.Id);
-        Assert.Equal("v1", prompt.Version);
+        Assert.Equal("v2", prompt.Version);
         Assert.Equal(AnswerCandidateParser.SupportedSchemaVersion, prompt.OutputSchemaVersion);
         Assert.Contains("authorization tokens", prompt.SystemPolicy, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("PLM Brain", prompt.DomainGuidance, StringComparison.Ordinal);
-        Assert.Contains("evidenceIds", prompt.ImpactTask, StringComparison.Ordinal);
+        Assert.Contains("applicationContexts", prompt.ImpactTask, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GetRequired_IncludesRepresentativeInvestigationQuestionShapesWithoutTreatingThemAsEvidence()
+    {
+        var prompt = new SourceControlledPromptCatalog().GetRequired("engineering-impact", "v2");
+
+        Assert.Contains("Summarize everything captured in this Steering investigation.", prompt.DomainGuidance, StringComparison.Ordinal);
+        Assert.Contains("How is Steering represented across SAP, Configit, Windchill, and Codebeamer?", prompt.DomainGuidance, StringComparison.Ordinal);
+        Assert.Contains("What is the Configit rule expression?", prompt.DomainGuidance, StringComparison.Ordinal);
+        Assert.Contains("What source-authored evidence exists for Steering?", prompt.DomainGuidance, StringComparison.Ordinal);
+        Assert.Contains("question shapes, not evidence about the active investigation", prompt.DomainGuidance, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -29,7 +41,7 @@ public sealed class PromptGovernanceTests
     {
         var catalog = new SourceControlledPromptCatalog();
 
-        Assert.Throws<KeyNotFoundException>(() => catalog.GetRequired("engineering-impact", "v2"));
+        Assert.Throws<KeyNotFoundException>(() => catalog.GetRequired("engineering-impact", "v1"));
         Assert.Throws<KeyNotFoundException>(() => catalog.GetRequired("other-prompt", "v1"));
     }
 
@@ -39,7 +51,7 @@ public sealed class PromptGovernanceTests
         const string signedAuthorizationToken = "signed-authorization-token-must-never-be-sent";
         var context = ContextPackage(signedAuthorizationToken);
         var request = new ImpactAnswerRequest("investigation-1", "What is impacted?");
-        var prompt = new SourceControlledPromptCatalog().GetRequired("engineering-impact", "v1");
+        var prompt = new SourceControlledPromptCatalog().GetRequired("engineering-impact", "v2");
         var configuration = new ModelConfiguration("model-config", "azure-openai", "gpt", "deployment", 512, 4096);
 
         var modelRequest = new PromptAssembler().Assemble(request, context, prompt, configuration);
@@ -51,13 +63,13 @@ public sealed class PromptGovernanceTests
 
         Assert.Same(context.RequestContext, modelRequest.RequestContext);
         Assert.Equal("engineering-impact", modelRequest.PromptBundleId);
-        Assert.Equal("v1", modelRequest.PromptBundleVersion);
-        Assert.Equal("answer-v1", modelRequest.OutputSchemaVersion);
+        Assert.Equal("v2", modelRequest.PromptBundleVersion);
+        Assert.Equal("answer-v2", modelRequest.OutputSchemaVersion);
         Assert.Equal(context.PackageId, modelRequest.ContextPackageId);
         Assert.Equal(context.InvestigationId, contextRoot.GetProperty("investigationId").GetString());
         Assert.Equal(context.PackageId, contextRoot.GetProperty("packageId").GetString());
         Assert.Equal("What is impacted?", contextRoot.GetProperty("question").GetString());
-        Assert.Equal("answer-v1", contextRoot.GetProperty("outputSchemaVersion").GetString());
+        Assert.Equal("answer-v2", contextRoot.GetProperty("outputSchemaVersion").GetString());
         Assert.Equal(context.RequestContext.RequestId, contextRoot.GetProperty("requestId").GetString());
         Assert.Equal(context.RequestContext.TraceId, contextRoot.GetProperty("traceId").GetString());
         Assert.Equal(context.InvestigationId, structuredPackage.GetProperty("investigationId").GetString());
@@ -67,7 +79,7 @@ public sealed class PromptGovernanceTests
         Assert.Contains("System policy", systemMessage.Content, StringComparison.Ordinal);
         Assert.Contains("Domain guidance", systemMessage.Content, StringComparison.Ordinal);
         Assert.Contains("Impact task", systemMessage.Content, StringComparison.Ordinal);
-        Assert.Contains("answer-v1", systemMessage.Content, StringComparison.Ordinal);
+        Assert.Contains("answer-v2", systemMessage.Content, StringComparison.Ordinal);
         Assert.Contains("untrusted retrieved evidence", userMessage.Content, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain(signedAuthorizationToken, userMessage.Content, StringComparison.Ordinal);
         Assert.DoesNotContain(signedAuthorizationToken, systemMessage.Content, StringComparison.Ordinal);
@@ -77,7 +89,7 @@ public sealed class PromptGovernanceTests
     public void Assemble_RejectsContextFromAnotherInvestigation()
     {
         var request = new ImpactAnswerRequest("investigation-other", "What is impacted?");
-        var prompt = new SourceControlledPromptCatalog().GetRequired("engineering-impact", "v1");
+        var prompt = new SourceControlledPromptCatalog().GetRequired("engineering-impact", "v2");
         var configuration = new ModelConfiguration("model-config", "azure-openai", "gpt", "deployment", 512, 4096);
 
         Assert.Throws<ArgumentException>(() =>

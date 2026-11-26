@@ -161,7 +161,15 @@ public sealed class ConversationTurnInterpreter(TimeProvider? timeProvider = nul
             outputDimension,
             ambiguous,
             reasons,
-            ambiguous || (requiresReference && references.Length == 0));
+            ambiguous || (requiresReference && references.Length == 0))
+        {
+            RequestedFactFieldIds = FactFieldNeedResolver.ResolveFieldIds(
+                question,
+                targetApplications),
+            ApplicationContextRequested =
+                targetApplications is { Length: > 0 } ||
+                FactFieldNeedResolver.RequestsApplicationContext(question)
+        };
 
         return Task.FromResult(interpretation);
     }

@@ -114,6 +114,49 @@ describe("copilot answer citation validation", () => {
       .toThrow(/citationIds/i);
   });
 
+  it("reports each accepted or rejected assertion without changing the validated answer", () => {
+    const outcomes: Parameters<NonNullable<Parameters<typeof validateCopilotAnswer>[2]>>[0][] = [];
+    expect(() => validateCopilotAnswer(answer({
+      claims: [
+        { text: "The record is Housing.", kind: "fact", citationIds: [entityCitation] },
+        { text: "A fabricated record exists.", kind: "fact", citationIds: ["cite:entity:invented"] },
+      ],
+    }), context, (outcome) => outcomes.push(outcome))).toThrow(/unknown citation ID/i);
+
+    expect(outcomes).toEqual([
+      { assertionType: "claim", assertionIndex: 0, accepted: true, citationIds: [entityCitation] },
+      {
+        assertionType: "claim",
+        assertionIndex: 1,
+        accepted: false,
+        citationIds: ["cite:entity:invented"],
+        issue: "claims[1].citationIds contains an unknown citation ID.",
+      },
+    ]);
+  });
+
+  it("reports rejected optional recommendations while retaining the existing omission behavior", () => {
+    const outcomes: Parameters<NonNullable<Parameters<typeof validateCopilotAnswer>[2]>>[0][] = [];
+    const validated = validateCopilotAnswer(answer({
+      recommendations: [
+        { text: "Review the source.", rationale: "Useful.", citationIds: [entityCitation], approvalRequired: true },
+        { text: "Change the part.", rationale: "Suggested action.", citationIds: [entityCitation], approvalRequired: false },
+      ],
+    }), context, (outcome) => outcomes.push(outcome));
+
+    expect(validated.recommendations).toHaveLength(1);
+    expect(outcomes.filter((outcome) => outcome.assertionType === "recommendation")).toEqual([
+      { assertionType: "recommendation", assertionIndex: 0, accepted: true, citationIds: [entityCitation] },
+      {
+        assertionType: "recommendation",
+        assertionIndex: 1,
+        accepted: false,
+        citationIds: [entityCitation],
+        issue: "recommendations[1] must require engineer approval.",
+      },
+    ]);
+  });
+
   it("keeps a grounded answer when an optional recommendation lacks valid citations", () => {
     const validated = validateCopilotAnswer(answer({
       recommendations: [{ text: "Inspect the source.", rationale: "The model could not cite a record.", citationIds: [], approvalRequired: true }],
@@ -121,5 +164,28 @@ describe("copilot answer citation validation", () => {
 
     expect(validated.answer).toBe("The selected record is Housing.");
     expect(validated.recommendations).toEqual([]);
+  });
+
+  it("preserves supported answers and claims beyond the former application size limits", () => {
+    const longAnswer = "Supported answer. ".repeat(1_000);
+    const longClaim = "The source record supports this statement. ".repeat(110);
+    const claims = Array.from({ length: 101 }, (_, index) => ({
+      text: `${index}: ${longClaim}`,
+      kind: "fact",
+      citationIds: [entityCitation],
+    }));
+
+    const validated = validateCopilotAnswer(answer({
+      answer: longAnswer,
+      claims,
+      uncertainties: Array.from({ length: 101 }, () => "The available evidence does not resolve this detail. ".repeat(50)),
+      followUpQuestions: Array.from({ length: 101 }, (_, index) => `Follow-up ${index}: ${"which source field? ".repeat(120)}`),
+    }), context);
+
+    expect(validated.answer).toBe(longAnswer.trim());
+    expect(validated.claims).toHaveLength(101);
+    expect(validated.claims[0].text.length).toBeGreaterThan(4_000);
+    expect(validated.uncertainties).toHaveLength(101);
+    expect(validated.followUpQuestions).toHaveLength(101);
   });
 });

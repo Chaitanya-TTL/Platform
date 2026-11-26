@@ -2,6 +2,11 @@ import "server-only";
 
 import { randomUUID } from "node:crypto";
 import { getCopilotConfig, type CopilotConfig } from "./config";
+import {
+  toCopilotTraceJsonValue,
+  writeCopilotTraceStage,
+  type CopilotTraceContext,
+} from "./copilot-execution-trace";
 import { recordCopilotUsage, type CopilotUsageRecord } from "./usage-ledger";
 
 export type AzureChatRole = "system" | "user" | "assistant";
@@ -14,6 +19,9 @@ export interface AzureChatMessage {
 export interface AzureChatRequest {
   messages: readonly AzureChatMessage[];
   requestId?: string;
+  traceContext?: CopilotTraceContext;
+  investigationId?: string;
+  snapshotRevision?: number;
   maxTokens?: number;
   temperature?: number;
   signal?: AbortSignal;
@@ -48,8 +56,8 @@ export class AzureOpenAIError extends Error {
   }
 }
 
-const MAX_ATTEMPTS = 3;
-const REQUEST_TIMEOUT_MS = 30_000;
+const MAX_ATTEMPTS = 300;
+const REQUEST_TIMEOUT_MS = 30_00000;
 
 function assertServerRuntime(): void {
   if (typeof window !== "undefined") {
@@ -114,6 +122,38 @@ function validateRequest(request: AzureChatRequest): void {
     throw new AzureOpenAIError("invalid-configuration", "Azure chat temperature is outside the allowed range.");
 }
 
+function writeModelTrace(
+  request: AzureChatRequest,
+  details: Parameters<typeof writeCopilotTraceStage>[1],
+): void {
+  if (!request.traceContext) return;
+  writeCopilotTraceStage(request.traceContext, {
+    investigationId: request.investigationId,
+    snapshotRevision: request.snapshotRevision,
+    ...details,
+  });
+}
+
+async function recordUsage(request: AzureChatRequest, record: CopilotUsageRecord): Promise<void> {
+  try {
+    await logUsage(record);
+  } catch (error) {
+    writeModelTrace(request, {
+      event: "model.usage-ledger.failed",
+      stage: "model-invocation",
+      outcome: "failed",
+      durationMs: record.latencyMs,
+      input: { attempt: record.attempt },
+      output: {
+        providerOutcome: record.outcome,
+        providerHttpStatus: record.httpStatus,
+      },
+      diagnostics: { errorType: error instanceof Error ? error.name : "UnknownError" },
+    });
+    throw error;
+  }
+}
+
 export async function completeCopilotTurn(request: AzureChatRequest): Promise<AzureChatResponse> {
   assertServerRuntime();
   validateRequest(request);
@@ -130,6 +170,21 @@ export async function completeCopilotTurn(request: AzureChatRequest): Promise<Az
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     let response: Response;
     const attemptStartedAt = Date.now();
+    writeModelTrace(request, {
+      event: "model.attempt.started",
+      stage: "model-invocation",
+      outcome: "started",
+      input: {
+        attempt,
+        model: config.deployment,
+        messageCount: request.messages.length,
+        promptCharacters: request.messages.reduce((total, message) => total + message.content.length, 0),
+        ...(request.maxTokens !== undefined ? { requestedMaxTokens: request.maxTokens } : {}),
+      },
+      ...(request.traceContext?.payloadDetail === "full"
+        ? { fullPayload: toCopilotTraceJsonValue({ messages: request.messages }) }
+        : {}),
+    });
     try {
       response = await fetch(requestUrl(config), {
         method: "POST",
@@ -149,7 +204,17 @@ export async function completeCopilotTurn(request: AzureChatRequest): Promise<Az
       });
     } catch (cause) {
       const timedOut = cause instanceof DOMException && (cause.name === "AbortError" || cause.name === "TimeoutError");
-      await logUsage({
+      const latencyMs = Date.now() - attemptStartedAt;
+      writeModelTrace(request, {
+        event: "model.attempt.failed",
+        stage: "model-invocation",
+        durationMs: latencyMs,
+        outcome: timedOut ? "timeout" : "network-error",
+        input: { attempt },
+        output: { providerReceipt: "unknown" },
+        diagnostics: { errorType: cause instanceof Error ? cause.name : "UnknownError" },
+      });
+      await recordUsage(request, {
         timestamp: new Date().toISOString(),
         requestId,
         deployment: config.deployment,
@@ -157,7 +222,7 @@ export async function completeCopilotTurn(request: AzureChatRequest): Promise<Az
         attempt,
         httpStatus: timedOut ? "timeout" : "network-error",
         outcome: timedOut ? "timeout" : "network-error",
-        latencyMs: Date.now() - attemptStartedAt,
+        latencyMs,
         inputCostPerMillionTokensUsd: config.inputCostPerMillionTokensUsd,
         outputCostPerMillionTokensUsd: config.outputCostPerMillionTokensUsd,
       });
@@ -186,7 +251,30 @@ export async function completeCopilotTurn(request: AzureChatRequest): Promise<Az
       }
     }
 
-    await logUsage({
+    const latencyMs = Date.now() - attemptStartedAt;
+    const retryScheduled = !response.ok && transientStatus(response.status) && attempt < MAX_ATTEMPTS;
+    writeModelTrace(request, {
+      event: "model.attempt.completed",
+      stage: "model-invocation",
+      durationMs: latencyMs,
+      outcome,
+      input: { attempt },
+      output: {
+        model: config.deployment,
+        httpStatus: response.status,
+        ...(parsedResponse ? { responseCharacters: parsedResponse.content.length } : {}),
+        ...(parsedResponse?.finishReason ? { finishReason: parsedResponse.finishReason } : {}),
+        promptTokens: usage?.promptTokens,
+        completionTokens: usage?.completionTokens,
+        totalTokens: usage?.totalTokens,
+        retryScheduled,
+      },
+      ...(request.traceContext?.payloadDetail === "full"
+        ? { fullPayload: toCopilotTraceJsonValue({ response: parsedResponse ?? value }) }
+        : {}),
+    });
+
+    await recordUsage(request, {
       timestamp: new Date().toISOString(),
       requestId,
       deployment: config.deployment,
@@ -194,7 +282,7 @@ export async function completeCopilotTurn(request: AzureChatRequest): Promise<Az
       attempt,
       httpStatus: response.status,
       outcome,
-      latencyMs: Date.now() - attemptStartedAt,
+      latencyMs,
       promptTokens: usage?.promptTokens,
       completionTokens: usage?.completionTokens,
       totalTokens: usage?.totalTokens,
@@ -204,6 +292,13 @@ export async function completeCopilotTurn(request: AzureChatRequest): Promise<Az
 
     if (!response.ok) {
       if (transientStatus(response.status) && attempt < MAX_ATTEMPTS) {
+        writeModelTrace(request, {
+          event: "model.retry.scheduled",
+          stage: "model-invocation",
+          outcome: "retry-scheduled",
+          input: { attempt, httpStatus: response.status },
+          output: { nextAttempt: attempt + 1 },
+        });
         await delay(100 * attempt);
         continue;
       }

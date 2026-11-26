@@ -6,8 +6,8 @@ import {
   relationshipsDocument,
 } from "./sprint-1a5-fixture-support";
 
-describe("Sprint 1A.5 protected relationship context", () => {
-  it("retains a complete governed relationship group under the production context budget", () => {
+describe("Sprint 1A.5 relationship context", () => {
+  it("retains complete governed relationship groups with their supporting evidence", () => {
     const canonical = buildSprint1A5GoldenInvestigation();
     const packet = buildInvestigationContext(
       buildSprint1A5Snapshot(canonical),
@@ -25,15 +25,18 @@ describe("Sprint 1A.5 protected relationship context", () => {
       item.summary.includes("mappingReference=PLM-RELATIONSHIP-BIBLE-V1") &&
       item.summary.includes("handshakeEvidenceId="),
     )).toBe(true);
-    expect(packet.omissions.budgetTrace.protectedRelationshipId).toBe(retained.relationshipId);
   });
 
-  it("fails explicitly when the minimum context cannot retain protected reasoning", () => {
+  it("preserves every relationship and evidence record when context exceeds historical budgets", () => {
     const canonical = buildSprint1A5GoldenInvestigation();
-    expect(() => buildInvestigationContext(
+    const packet = buildInvestigationContext(
       buildSprint1A5Snapshot(canonical),
       "What operational consequence follows from this Windchill part being represented as a SAP material?",
-      { maxContextChars: 2_048, relationshipDocument: relationshipsDocument },
-    )).toThrow(/Context budget exceeded[\s\S]*impact narratives[\s\S]*impact chains[\s\S]*2048/);
+      { relationshipDocument: relationshipsDocument },
+    );
+    expect(packet.relationships.map((item) => item.relationshipId)).toEqual(
+      expect.arrayContaining(canonical.relationships.map((item) => item.id)),
+    );
+    expect(packet.omissions.categories).toEqual([]);
   });
 });

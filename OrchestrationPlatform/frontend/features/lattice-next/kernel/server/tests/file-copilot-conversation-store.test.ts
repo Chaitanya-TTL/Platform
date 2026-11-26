@@ -211,16 +211,26 @@ describe("file copilot conversation store", () => {
     expect(completed.messages).toHaveLength(2);
   });
 
-  it("retains readable thread data, and bounds user messages and stored history", async () => {
-    const store = new FileCopilotConversationStore(await temporaryRoot(), { maxMessageChars: 40, maxMessagesPerThread: 4 });
+  it("preserves long user messages and complete conversation history", async () => {
+    const store = new FileCopilotConversationStore(await temporaryRoot());
     await store.createThread(firstInvestigation, "thread-a", "Long question");
-    await expect(store.appendUserMessage(firstInvestigation, "thread-a", 0, "x".repeat(41), 4)).rejects.toThrow(/message length/i);
-    await store.appendUserMessage(firstInvestigation, "thread-a", 0, "Question one", 4);
-    await store.appendTurn(firstInvestigation, "thread-a", 1, "Question one", { answer, at: "2026-10-23T00:00:01.000Z", snapshotRevision: 4 });
-    await store.appendUserMessage(firstInvestigation, "thread-a", 2, "Question two", 4);
-    await store.appendTurn(firstInvestigation, "thread-a", 3, "Question two", { answer, at: "2026-10-23T00:00:02.000Z", snapshotRevision: 4 });
-    await expect(store.appendUserMessage(firstInvestigation, "thread-a", 4, "Question three", 4)).rejects.toThrow(/history limit/i);
-    await expect(store.loadThread(firstInvestigation, "thread-a")).resolves.toMatchObject({ messages: [{ role: "user" }, { role: "assistant" }, { role: "user" }, { role: "assistant" }] });
+    const longQuestion = `${"x".repeat(12_001)} `;
+    await store.appendUserMessage(firstInvestigation, "thread-a", 0, longQuestion, 4);
+    let revision = 1;
+    await store.appendTurn(firstInvestigation, "thread-a", revision, longQuestion, { answer, at: "2026-10-23T00:00:01.000Z", snapshotRevision: 4 });
+    revision += 1;
+
+    for (let turn = 1; turn < 51; turn += 1) {
+      const question = `Question ${turn}`;
+      await store.appendUserMessage(firstInvestigation, "thread-a", revision, question, 4);
+      revision += 1;
+      await store.appendTurn(firstInvestigation, "thread-a", revision, question, { answer, at: `2026-10-23T00:00:${String(turn + 1).padStart(2, "0")}.000Z`, snapshotRevision: 4 });
+      revision += 1;
+    }
+
+    const thread = await store.loadThread(firstInvestigation, "thread-a");
+    expect(thread?.messages[0]).toMatchObject({ role: "user", content: longQuestion });
+    expect(thread?.messages).toHaveLength(102);
   });
 
   it("rejects path-shaped thread IDs and refuses malformed assistant answer structures", async () => {

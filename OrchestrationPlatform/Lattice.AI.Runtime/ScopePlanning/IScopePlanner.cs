@@ -17,7 +17,7 @@ public interface IScopePlanner
 
     ScopePlanningResult Plan(
         QuestionInterpretation interpretation,
-        ResolvedEntity subject,
+        ResolvedEntity? subject,
         AuthorizationScope authorization,
         RuntimeRequestContext requestContext);
 }

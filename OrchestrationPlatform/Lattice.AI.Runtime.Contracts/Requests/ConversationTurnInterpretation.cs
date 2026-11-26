@@ -10,4 +10,8 @@ public sealed record ConversationTurnInterpretation(
     ConversationOutputDimension? OutputDimension,
     bool IsAmbiguous,
     IReadOnlyList<string> ReasonCodes,
-    bool ClarificationRequired);
+    bool ClarificationRequired)
+{
+    public IReadOnlyList<string> RequestedFactFieldIds { get; init; } = Array.Empty<string>();
+    public bool ApplicationContextRequested { get; init; }
+}

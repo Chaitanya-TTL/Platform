@@ -1,7 +1,9 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
+using System.Text.Json;
 using Lattice.AI.Runtime.Application;
+using Lattice.AI.Runtime.ApplicationContext;
 using Lattice.AI.Runtime.Authorization;
 using Lattice.AI.Runtime.ContextCompilation;
 using Lattice.AI.Runtime.Contracts.Answers;
@@ -13,10 +15,12 @@ using Lattice.AI.Runtime.Contracts.Requests;
 using Lattice.AI.Runtime.Contracts.Scope;
 using Lattice.AI.Runtime.EntityResolution;
 using Lattice.AI.Runtime.Evidence;
+using Lattice.AI.Runtime.FactEvidence;
 using Lattice.AI.Runtime.Generation;
 using Lattice.AI.Runtime.Prompts;
 using Lattice.AI.Runtime.QuestionUnderstanding;
 using Lattice.AI.Runtime.ScopePlanning;
+using Lattice.AI.Runtime.Tests.SourceEvidence;
 using Lattice.AI.Runtime.Telemetry;
 using Lattice.AI.Runtime.Validation;
 using Microsoft.AspNetCore.Http;
@@ -151,6 +155,7 @@ public sealed class AiRuntimeTelemetryTests
             "authorization",
             "entity-resolution",
             "plm-retrieval",
+            "source-evidence-retrieval",
             "context-compilation",
             "prompt",
             "prompt-assembly",
@@ -167,9 +172,9 @@ public sealed class AiRuntimeTelemetryTests
 
         var promptStage = Assert.Single(stages, stage => stage.OperationName == "prompt");
         Assert.Equal("engineering-impact", promptStage.GetTagItem("prompt.id"));
-        Assert.Equal("v1", promptStage.GetTagItem("prompt.version"));
+        Assert.Equal("v2", promptStage.GetTagItem("prompt.version"));
         var compilationStage = Assert.Single(stages, stage => stage.OperationName == "context-compilation");
-        Assert.Equal("compiler-v1", compilationStage.GetTagItem("context.compiler.version"));
+        Assert.Equal("compiler-v3", compilationStage.GetTagItem("context.compiler.version"));
         Assert.Null(compilationStage.GetTagItem("context.package.id"));
         Assert.Null(Assert.Single(stages, stage => stage.OperationName == "entity-resolution").GetTagItem("entity.id"));
         var excludedIdentifierTags = new[]
@@ -193,6 +198,9 @@ public sealed class AiRuntimeTelemetryTests
         Assert.Contains(capture.Measurements, measurement =>
             measurement.Name == "lattice.ai.runtime.stage.duration" &&
             measurement.Tags.Any(tag => tag.Key == "stage" && Equals(tag.Value, "plm-retrieval")));
+        Assert.Contains(capture.Measurements, measurement =>
+            measurement.Name == "lattice.ai.runtime.stage.duration" &&
+            measurement.Tags.Any(tag => tag.Key == "stage" && Equals(tag.Value, "source-evidence-retrieval")));
         Assert.Contains(capture.Measurements, measurement =>
             measurement.Name == "lattice.ai.runtime.validation.dispositions" &&
             measurement.Tags.Any(tag => tag.Key == "disposition" && Equals(tag.Value, "accept")));
@@ -247,6 +255,89 @@ public sealed class AiRuntimeTelemetryTests
             }.Contains(tag.Value?.ToString(), StringComparer.Ordinal));
     }
 
+    [Fact]
+    public async Task SourceEvidenceCompilationTelemetryContainsOnlyAggregateCounts()
+    {
+        using var capture = new TelemetryCapture();
+        var telemetry = new AiRuntimeTelemetry();
+        var requestContext = new RuntimeRequestContext(
+            "request-source-evidence-telemetry",
+            new string('d', 32),
+            null,
+            null);
+        var currentPassage = new SourceEvidencePassage(
+            "SYNTH-PASSAGE-CURRENT",
+            "SYNTH-RECORD-001",
+            "investigation-1",
+            1,
+            "Windchill",
+            "SYNTH-NATIVE-RECORD-001",
+            ["REQ-123"],
+            "revision-1",
+            "requirements[0].description",
+            "SOURCE_PRIVATE_MARKER",
+            ["SYNTH-EVIDENCE-001"],
+            "SYNTH-PROVENANCE-001",
+            "decision-telemetry-1",
+            "current",
+            "hybrid",
+            0.75,
+            "source-index-v1",
+            "synthetic-embedding-v1");
+        var stalePassage = currentPassage with
+        {
+            PassageId = "SYNTH-PASSAGE-STALE",
+            Freshness = "stale"
+        };
+        var fixture = new Fixture(
+            telemetry,
+            sourceEvidencePassages: [currentPassage, stalePassage]);
+
+        var result = await fixture.Service.AnswerAsync(
+            new ImpactAnswerRequest("investigation-1", "What impacts if REQ-123 changes?"),
+            Authorization(),
+            requestContext,
+            CancellationToken.None);
+
+        Assert.Equal(AnswerDisposition.Answer, result.Disposition);
+        var compilationStage = Assert.Single(capture.Activities, activity =>
+            activity.OperationName == "context-compilation" &&
+            activity.GetTagItem("lattice.request.id") is "request-source-evidence-telemetry");
+        Assert.Equal(2, compilationStage.GetTagItem("context.source_evidence_passage_count"));
+        Assert.Equal(0, compilationStage.GetTagItem("context.source_evidence_omission_count"));
+        var telemetryText = string.Join(
+            '\n',
+            capture.Activities.SelectMany(activity => activity.Tags)
+               .Select(tag => tag.Value?.ToString()));
+        Assert.DoesNotContain("SOURCE_PRIVATE_MARKER", telemetryText, StringComparison.Ordinal);
+        Assert.DoesNotContain("SYNTH-PASSAGE-CURRENT", telemetryText, StringComparison.Ordinal);
+        Assert.DoesNotContain("SYNTH-PASSAGE-STALE", telemetryText, StringComparison.Ordinal);
+        Assert.DoesNotContain("SYNTH-NATIVE-RECORD-001", telemetryText, StringComparison.Ordinal);
+        Assert.DoesNotContain("SYNTH-EVIDENCE-001", telemetryText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SourceEvidenceTelemetryRetainsUnavailableDisposition()
+    {
+        using var capture = new TelemetryCapture();
+        var telemetry = new AiRuntimeTelemetry();
+        var requestContext = new RuntimeRequestContext(
+            "request-source-evidence-unavailable",
+            new string('c', 32),
+            null,
+            null);
+
+        using (var stage = telemetry.StartStage("source-evidence-retrieval", requestContext))
+        {
+            stage.SetDisposition("unavailable");
+        }
+
+        var activity = Assert.Single(capture.Activities, item =>
+            item.GetTagItem("lattice.request.id") is "request-source-evidence-unavailable");
+        Assert.Equal("source-evidence-retrieval", activity.OperationName);
+        Assert.Equal("unavailable", activity.GetTagItem("lattice.stage.disposition"));
+    }
+
     [Theory]
     [InlineData("investigation")]
     [InlineData("entity")]
@@ -294,7 +385,9 @@ public sealed class AiRuntimeTelemetryTests
             stage.SetTag("authorization.decision.id", "DECISION_IDENTIFIER");
         }
 
-        var activity = Assert.Single(capture.Activities);
+        var activity = Assert.Single(capture.Activities, item =>
+            item.OperationName == "answer.request" &&
+            item.GetTagItem("lattice.request.id") is "request-opt-in");
         var expectedValue = identifier switch
         {
             "investigation" => "INVESTIGATION_IDENTIFIER",
@@ -589,6 +682,108 @@ public sealed class AiRuntimeTelemetryTests
         }
     }
 
+    [Fact]
+    public async Task ApiIngressAdoptsValidatedFrontendCorrelationAndRouteHeaders()
+    {
+        var previousActivity = Activity.Current;
+        Activity.Current = null;
+        try
+        {
+            var traceId = new string('a', 32);
+            var parentSpanId = new string('b', 16);
+            var executionTrace = new CapturingCopilotTrace();
+            var authorizationProvider = new StubAuthorizationContextProvider();
+            var answerService = new StubImpactAnswerService();
+            var httpContext = new DefaultHttpContext();
+            httpContext.TraceIdentifier = "fallback-request-id";
+            httpContext.Request.Headers["X-Copilot-Request-Id"] = "send-request-1";
+            httpContext.Request.Headers["X-Copilot-Route-Source"] = "UnifiedRuntime";
+            httpContext.Request.Headers["X-Copilot-Snapshot-Revision"] = "12";
+            httpContext.Request.Headers["traceparent"] = $"00-{traceId}-{parentSpanId}-01";
+            var controller = new EngineeringImpactController(
+                authorizationProvider,
+                answerService,
+                new AiRuntimeTelemetry(),
+                executionTrace)
+            {
+                ControllerContext = new ControllerContext { HttpContext = httpContext }
+            };
+
+            var response = await controller.Answer(
+                new ImpactAnswerRequestDto
+                {
+                    InvestigationId = "investigation-1",
+                    Question = "What impacts if REQ-123 changes?",
+                    ConversationId = "conversation-1"
+                },
+                CancellationToken.None);
+
+            Assert.IsType<OkObjectResult>(response.Result);
+            Assert.Equal("send-request-1", answerService.RequestContext!.RequestId);
+            Assert.Equal(traceId, answerService.RequestContext.TraceId);
+            Assert.Equal("UnifiedRuntime", answerService.RequestContext.RouteSource);
+            Assert.Equal(12, answerService.RequestContext.SnapshotRevision);
+            Assert.Contains(
+                executionTrace.Events,
+                traceEvent => traceEvent.Event == "request.received" &&
+                              traceEvent.RouteSource == "UnifiedRuntime" &&
+                              traceEvent.TraceId == traceId &&
+                              traceEvent.PayloadDetail == "summary");
+        }
+        finally
+        {
+            Activity.Current = previousActivity;
+        }
+    }
+
+    [Fact]
+    public async Task ApiIngressRecordsInvalidCorrelationHeadersAndContinuesWithLocalContext()
+    {
+        var previousActivity = Activity.Current;
+        Activity.Current = null;
+        try
+        {
+            var executionTrace = new CapturingCopilotTrace();
+            var authorizationProvider = new StubAuthorizationContextProvider();
+            var answerService = new StubImpactAnswerService();
+            var httpContext = new DefaultHttpContext();
+            httpContext.TraceIdentifier = "fallback-request-id";
+            httpContext.Request.Headers["X-Copilot-Request-Id"] = "not a safe request id";
+            httpContext.Request.Headers["X-Copilot-Route-Source"] = "unrecognized";
+            httpContext.Request.Headers["X-Copilot-Snapshot-Revision"] = "not-a-revision";
+            httpContext.Request.Headers["traceparent"] = "invalid";
+            var controller = new EngineeringImpactController(
+                authorizationProvider,
+                answerService,
+                new AiRuntimeTelemetry(),
+                executionTrace)
+            {
+                ControllerContext = new ControllerContext { HttpContext = httpContext }
+            };
+
+            var response = await controller.Answer(
+                new ImpactAnswerRequestDto
+                {
+                    InvestigationId = "investigation-1",
+                    Question = "What impacts if REQ-123 changes?"
+                },
+                CancellationToken.None);
+
+            Assert.IsType<OkObjectResult>(response.Result);
+            Assert.Equal("fallback-request-id", answerService.RequestContext!.RequestId);
+            Assert.Equal("Unknown", answerService.RequestContext.RouteSource);
+            Assert.Null(answerService.RequestContext.SnapshotRevision);
+            var ingress = Assert.Single(executionTrace.Events, item => item.Event == "request.received");
+            Assert.False(ingress.Diagnostics!.Value.GetProperty("requestIdHeaderAccepted").GetBoolean());
+            Assert.False(ingress.Diagnostics.Value.GetProperty("traceParentHeaderAccepted").GetBoolean());
+            Assert.False(ingress.Diagnostics.Value.GetProperty("snapshotRevisionHeaderAccepted").GetBoolean());
+        }
+        finally
+        {
+            Activity.Current = previousActivity;
+        }
+    }
+
     private static AuthorizationContext Authorization()
     {
         var scope = new AuthorizationScope(
@@ -623,7 +818,10 @@ public sealed class AiRuntimeTelemetryTests
 
     private sealed class Fixture
     {
-        public Fixture(IAiRuntimeTelemetry telemetry, Exception? modelFailure = null)
+        public Fixture(
+            IAiRuntimeTelemetry telemetry,
+            Exception? modelFailure = null,
+            IReadOnlyList<SourceEvidencePassage>? sourceEvidencePassages = null)
         {
             Service = new ImpactAnswerService(
                 new QuestionInterpreter(),
@@ -631,6 +829,9 @@ public sealed class AiRuntimeTelemetryTests
                 new StubEntityResolver(),
                 new ScopePlanner(),
                 new StubEvidenceSource(),
+                new FakeSourceEvidenceRetriever(sourceEvidencePassages),
+                new UnavailableFactEvidenceRetriever(),
+                new UnavailableApplicationContextRetriever(),
                 new ContextCompiler(),
                 new SourceControlledPromptCatalog(),
                 new PromptAssembler(),
@@ -703,6 +904,21 @@ public sealed class AiRuntimeTelemetryTests
                 query.Authorization.Scope.DecisionId,
                 query.RequestContext.RequestId,
                 query.RequestContext.TraceId));
+
+        public Task<EvidenceRetrievalResult> RetrieveInvestigationAsync(
+            InvestigationEvidenceQuery query,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(new EvidenceRetrievalResult(
+                query.InvestigationId,
+                [],
+                [],
+                [],
+                [],
+                "source-v1",
+                "ontology-v1",
+                query.Authorization.Scope.DecisionId,
+                query.RequestContext.RequestId,
+                query.RequestContext.TraceId));
     }
 
     private sealed class StubModelGateway(Exception? failure) : IModelGateway
@@ -763,6 +979,13 @@ public sealed class AiRuntimeTelemetryTests
                 [],
                 null));
         }
+    }
+
+    private sealed class CapturingCopilotTrace : ICopilotExecutionTrace
+    {
+        public List<CopilotExecutionTraceEvent> Events { get; } = [];
+
+        public void Write(CopilotExecutionTraceEvent traceEvent) => Events.Add(traceEvent);
     }
 
     private sealed class TelemetryCapture : IDisposable

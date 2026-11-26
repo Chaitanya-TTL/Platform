@@ -5,14 +5,7 @@ namespace Lattice.AI.Runtime.Generation;
 
 public static class ModelInputTokenBudget
 {
-    private const double SafetyMarginRatio = 0.15;
     private const int MessageFramingTokenEstimate = 4;
-
-    public static int CalculateSafetyMargin(int maxInputTokens)
-    {
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxInputTokens);
-        return (int)Math.Ceiling(maxInputTokens * SafetyMarginRatio);
-    }
 
     public static int CalculateContextAllowance(
         int maxInputTokens,
@@ -25,7 +18,6 @@ public static class ModelInputTokenBudget
 
         var allowance = (long)maxInputTokens -
                         maxOutputTokens -
-                        CalculateSafetyMargin(maxInputTokens) -
                         estimatedFixedPromptTokens;
         return (int)Math.Max(0, allowance);
     }
@@ -36,9 +28,7 @@ public static class ModelInputTokenBudget
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxInputTokens);
         ArgumentOutOfRangeException.ThrowIfNegative(maxOutputTokens);
 
-        return (long)estimatedInputTokens +
-               maxOutputTokens +
-               CalculateSafetyMargin(maxInputTokens) <= maxInputTokens;
+        return (long)estimatedInputTokens + maxOutputTokens <= maxInputTokens;
     }
 
     public static int EstimateInputTokens(IReadOnlyList<ModelMessage> messages)

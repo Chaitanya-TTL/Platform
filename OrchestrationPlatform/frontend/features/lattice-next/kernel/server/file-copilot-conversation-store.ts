@@ -18,11 +18,6 @@ import type {
 } from "../ports/copilot-conversation-store";
 import type { InvestigationId } from "../contracts/investigation-identity";
 
-export interface FileCopilotConversationStoreOptions {
-  maxMessageChars?: number;
-  maxMessagesPerThread?: number;
-}
-
 const defaultRoot = path.resolve(/* turbopackIgnore: true */ process.env.LATTICE_INVESTIGATION_DATA_DIR?.trim() || path.join(process.cwd(), ".lattice-data", "investigations"));
 const validSegment = (value: string) => /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/.test(value);
 
@@ -146,14 +141,9 @@ function validateConversationState(
 }
 
 export class FileCopilotConversationStore implements CopilotConversationStore {
-  private readonly maxMessageChars: number;
-  private readonly maxMessagesPerThread: number;
   private readonly queues = new Map<string, Promise<void>>();
 
-  constructor(private readonly rootDirectory = defaultRoot, options: FileCopilotConversationStoreOptions = {}) {
-    this.maxMessageChars = options.maxMessageChars ?? 10_000;
-    this.maxMessagesPerThread = options.maxMessagesPerThread ?? 100;
-  }
+  constructor(private readonly rootDirectory = defaultRoot) {}
 
   private investigationDirectory(investigationId: InvestigationId): string {
     const id = String(investigationId);
@@ -198,7 +188,7 @@ export class FileCopilotConversationStore implements CopilotConversationStore {
     });
   }
 
-  async listThreads(investigationId: InvestigationId, limit = 20): Promise<readonly CopilotThreadSummary[]> {
+  async listThreads(investigationId: InvestigationId): Promise<readonly CopilotThreadSummary[]> {
     const directory = this.investigationDirectory(investigationId);
     let entries;
     try {
@@ -230,8 +220,7 @@ export class FileCopilotConversationStore implements CopilotConversationStore {
         continue;
       }
     }
-    const boundedLimit = Math.max(1, Math.min(100, Math.floor(limit)));
-    return summaries.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt) || left.threadId.localeCompare(right.threadId)).slice(0, boundedLimit);
+    return summaries.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt) || left.threadId.localeCompare(right.threadId));
   }
 
   async loadThread(investigationId: InvestigationId, threadId: string): Promise<CopilotConversationThread | undefined> {
@@ -248,7 +237,7 @@ export class FileCopilotConversationStore implements CopilotConversationStore {
       const thread: CopilotConversationThread = {
         investigationId,
         threadId,
-        title: this.validateMessage(title, "Thread title", 160),
+        title: this.validateThreadTitle(title),
         threadRevision: 0,
         createdAt: occurredAt,
         updatedAt: occurredAt,
@@ -273,9 +262,8 @@ export class FileCopilotConversationStore implements CopilotConversationStore {
       if (thread.threadRevision !== expectedThreadRevision)
         throw new Error(`Copilot thread revision conflict: expected ${expectedThreadRevision}, found ${thread.threadRevision}.`);
       if (!Number.isSafeInteger(snapshotRevision) || snapshotRevision < 1) throw new Error("Snapshot revision must be a positive integer.");
-      if (thread.messages.length >= this.maxMessagesPerThread) throw new Error("Copilot thread history limit has been reached.");
       if (pendingMessage?.role === "user") throw new Error("Copilot thread already has a pending user message.");
-      const userMessage = { role: "user" as const, content: this.validateMessage(message, "Message", this.maxMessageChars), at: occurredAt, snapshotRevision, ...(idempotencyKey ? { idempotencyKey } : {}) };
+      const userMessage = { role: "user" as const, content: this.validateMessage(message, "Message"), at: occurredAt, snapshotRevision, ...(idempotencyKey ? { idempotencyKey } : {}) };
       const updated: CopilotConversationThread = { ...thread, threadRevision: thread.threadRevision + 1, updatedAt: occurredAt, messages: [...thread.messages, userMessage] };
       await this.writeAtomic(filePath, updated);
       return updated;
@@ -300,7 +288,7 @@ export class FileCopilotConversationStore implements CopilotConversationStore {
         return thread;
       if (thread.threadRevision !== expectedThreadRevision)
         throw new Error(`Copilot thread revision conflict: expected ${expectedThreadRevision}, found ${thread.threadRevision}.`);
-      const content = this.validateMessage(userMessage, "Message", this.maxMessageChars);
+      const content = this.validateMessage(userMessage, "Message");
       const safeAnswer = validateAnswer(assistantTurn.answer, assistantTurn.snapshotRevision);
       if (assistantTurn.answer.snapshotRevision !== assistantTurn.snapshotRevision)
         throw new CopilotAnswerValidationError("Assistant answer revision does not match the stored turn revision.");
@@ -312,8 +300,6 @@ export class FileCopilotConversationStore implements CopilotConversationStore {
         if (pendingUserMessage && (pendingUserMessage.content !== content || pendingUserMessage.snapshotRevision !== assistantTurn.snapshotRevision ||
           (assistantTurn.idempotencyKey !== undefined && pendingUserMessage.idempotencyKey !== assistantTurn.idempotencyKey)))
         throw new Error("Pending user message does not match the assistant turn.");
-      const additions = pendingUserMessage ? 1 : 2;
-      if (thread.messages.length + additions > this.maxMessagesPerThread) throw new Error("Copilot thread history limit has been reached.");
       const at = assistantTurn.at;
       const messages = pendingUserMessage
         ? [...thread.messages, { role: "assistant" as const, ...assistantTurn, answer: safeAnswer }]
@@ -338,9 +324,15 @@ export class FileCopilotConversationStore implements CopilotConversationStore {
     });
   }
 
-  private validateMessage(message: string, label: string, maximum: number): string {
-    if (typeof message !== "string" || !message.trim() || message.length > maximum)
-      throw new Error(`${label} length must be between 1 and ${maximum} characters.`);
-    return message.trim();
+  private validateMessage(message: string, label: string): string {
+    if (typeof message !== "string" || !message.trim())
+      throw new Error(`${label} must be a non-empty string.`);
+    return message;
+  }
+
+  private validateThreadTitle(title: string): string {
+    if (typeof title !== "string" || !title.trim() || title.length > 160)
+      throw new Error("Thread title must be a non-empty string of at most 160 characters.");
+    return title.trim();
   }
 }

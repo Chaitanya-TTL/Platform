@@ -7,4 +7,8 @@ public interface IEngineeringEvidenceSource
     Task<EvidenceRetrievalResult> RetrieveImpactAsync(
         ImpactEvidenceQuery query,
         CancellationToken cancellationToken);
+
+    Task<EvidenceRetrievalResult> RetrieveInvestigationAsync(
+        InvestigationEvidenceQuery query,
+        CancellationToken cancellationToken);
 }

@@ -3,7 +3,7 @@ using Lattice.AI.Runtime.Contracts.Requests;
 
 namespace Lattice.AI.Runtime.QuestionUnderstanding;
 
-/// <summary>Narrow Phase 1 engineering-impact question interpretation.</summary>
+/// <summary>Interprets engineering questions within an active investigation.</summary>
 public sealed class QuestionInterpreter : IQuestionInterpreter
 {
     private static readonly Regex ExplicitIdentifier = new(
@@ -37,25 +37,25 @@ public sealed class QuestionInterpreter : IQuestionInterpreter
 
         var question = request.Question ?? string.Empty;
         var hasImpactIntent = ImpactIntent.IsMatch(question) || ConditionalChangeIntent.IsMatch(question);
-        if (hasImpactIntent && matches.Length == 0)
-        {
-            clarificationReasons.Add("An explicit requirement or entity identifier is required.");
-        }
-        else if (hasImpactIntent && matches.Length > 1)
+        if (hasImpactIntent && matches.Length > 1)
         {
             clarificationReasons.Add("The question contains multiple possible subject identifiers.");
         }
-        else if (!hasImpactIntent)
-        {
-            clarificationReasons.Add("The question does not describe an engineering-impact request.");
-        }
 
+        var requestedSourceApplications = FactFieldNeedResolver.ResolveApplications(question);
         return new QuestionInterpretation(
-            hasImpactIntent ? ImpactQuestionType.EngineeringImpact : ImpactQuestionType.Unsupported,
+            hasImpactIntent ? ImpactQuestionType.EngineeringImpact : ImpactQuestionType.InvestigationQuestion,
             question,
             null,
-            hasImpactIntent && matches.Length == 1 ? matches[0] : null,
+            matches.Length == 1 ? matches[0] : null,
             null,
-            clarificationReasons);
+            clarificationReasons)
+        {
+            RequestedFactFieldIds = FactFieldNeedResolver.ResolveFieldIds(
+                question,
+                requestedSourceApplications),
+            RequestedSourceApplications = requestedSourceApplications,
+            ApplicationContextRequested = FactFieldNeedResolver.RequestsApplicationContext(question)
+        };
     }
 }

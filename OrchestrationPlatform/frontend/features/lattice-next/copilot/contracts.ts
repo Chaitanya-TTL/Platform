@@ -63,6 +63,13 @@ export type ConversationTurnDisposition =
   | "unavailable"
   | "failed";
 
+export interface ConversationHistoryTurn {
+  readonly turnId: string;
+  readonly userMessage: string;
+  readonly assistantMessage: string;
+  readonly disposition: ConversationTurnDisposition;
+}
+
 export type ConversationTurnType =
   | "new-impact-question"
   | "follow-up-filter"
@@ -438,12 +445,6 @@ export interface CopilotContextPacket {
   omissions: {
     categories: readonly string[];
     omittedCounts: Readonly<Record<string, number>>;
-    maxContextChars: number;
-    budgetTrace: {
-      before: Readonly<Record<string, number>>;
-      after: Readonly<Record<string, number>>;
-      protectedRelationshipId?: string;
-    };
   };
 }
 

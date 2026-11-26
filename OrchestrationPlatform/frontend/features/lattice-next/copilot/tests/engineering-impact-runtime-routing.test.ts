@@ -44,11 +44,14 @@ describe("engineering impact runtime routing", () => {
     "Tell me about R-123.",
     "Summarize this investigation.",
     "What applications are connected?",
-  ])("keeps unsupported or non-explicit question on the existing path: %s", (question) => {
+    "What is the Configit work-item status?",
+    "What is the Configit rule expression?",
+    "What evidence exists across systems?",
+  ])("routes investigation questions through the runtime: %s", (question) => {
     expect(routeEngineeringImpactAnswer(
       { question, investigationId: "INV-123" },
       readyConfiguration,
-    )).toEqual({ route: "legacy" });
+    )).toEqual({ route: "runtime" });
   });
 
   it.each([
@@ -319,6 +322,91 @@ describe("engineering impact runtime routing", () => {
     expect(answer.answer).toContain("(cite:source:citation-1)");
     expect(answer.answer).toContain("(cite:source:citation-2)");
     expect(answer.answer).toContain("Indirect paths are not available in the current evidence package.");
+  });
+
+  it("maps exact facts and application participation only when their response sources are present", () => {
+    const answer = mapEngineeringImpactRuntimeCall({
+      status: "response",
+      response: {
+        investigationId: "INV-123",
+        requestContext: { requestId: "request-1", traceId: "trace-1" },
+        disposition: "Answer",
+        summary: "Requirement R-123 has a supported impact.",
+        impacts: [{
+          claimId: "impact-1",
+          explanation: "The linked part may be affected.",
+          evidenceIds: ["impact-evidence-1"],
+          sourceIds: ["impact-citation-1"],
+        }],
+        facts: [{
+          factId: "fact-weight-1",
+          exactValue: 2.5,
+          exactValueJson: "2.50",
+          evidenceIds: ["fact-evidence-1"],
+          sourceIds: ["fact-citation-1"],
+        }, {
+          factId: "unmapped-fact",
+          exactValue: "unsupported",
+          evidenceIds: ["missing-evidence"],
+          sourceIds: ["missing-citation"],
+        }],
+        applicationContexts: [{
+          candidateId: "participation-1",
+          evidenceIds: ["participation-evidence-1"],
+          sourceIds: ["participation-citation-1"],
+        }],
+        sources: [{
+          evidenceId: "impact-evidence-1",
+          sourceType: "record",
+          sourceSystem: "SAP",
+          recordId: "MAT-200",
+          provenanceId: "impact-provenance-1",
+          authority: "PLM Brain",
+          provider: "SAP",
+          authorizationDecisionId: "decision-1",
+          citationId: "impact-citation-1",
+        }, {
+          evidenceId: "fact-evidence-1",
+          sourceType: "engineering-fact",
+          sourceSystem: "Windchill",
+          recordId: "WT-123",
+          provenanceId: "fact-provenance-1",
+          authority: "SourceAuthoritative",
+          provider: "Windchill",
+          authorizationDecisionId: "decision-1",
+          citationId: "fact-citation-1",
+        }, {
+          evidenceId: "participation-evidence-1",
+          sourceType: "application-participation",
+          sourceSystem: "Windchill",
+          recordId: "WT-123",
+          provenanceId: "participation-provenance-1",
+          authority: "SourceAuthoritative",
+          provider: "Windchill",
+          authorizationDecisionId: "decision-1",
+          citationId: "participation-citation-1",
+        }],
+        issues: [],
+      },
+    }, 7);
+
+    expect(answer.claims).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        text: "Fact fact-weight-1: 2.50",
+        kind: "fact",
+        citationIds: ["cite:source:fact-citation-1"],
+      }),
+      expect.objectContaining({
+        text: "Application participation: Windchill WT-123.",
+        kind: "fact",
+        citationIds: ["cite:source:participation-citation-1"],
+      }),
+    ]));
+    expect(answer.claims.some((claim) => claim.text.includes("unmapped-fact"))).toBe(false);
+    expect(answer.citations?.map((citation) => citation.citationId)).toEqual(expect.arrayContaining([
+      "cite:source:fact-citation-1",
+      "cite:source:participation-citation-1",
+    ]));
   });
 
   it.each([

@@ -59,8 +59,8 @@ public sealed class GoldenEvaluationTests
         Assert.Equal(0, report.ConversationSequences.FailedSequenceCount);
         Assert.Equal(27, report.ConversationSequences.TurnCount);
         Assert.Equal(14, report.ConversationSequences.FollowUpTurnCount);
-        Assert.Equal(3, report.ConversationSequences.FollowUpRetrievalCount);
-        Assert.Equal(11, report.ConversationSequences.ClarificationCount);
+        Assert.Equal(6, report.ConversationSequences.FollowUpRetrievalCount);
+        Assert.Equal(7, report.ConversationSequences.ClarificationCount);
         Assert.Equal(5, report.ConversationSequences.StateInvalidationCount);
         Assert.Equal(9, report.ConversationSequences.ParentTurnCorrelationCount);
 
@@ -135,6 +135,26 @@ public sealed class GoldenEvaluationTests
         Assert.False(direct.Passed);
         Assert.Equal(1, direct.UnsupportedClaimCount);
         Assert.Contains("unknown-evidence", direct.Issues);
+    }
+
+    [Fact]
+    public async Task RunAsync_RejectsRagOnlyImpactAssertionWithoutAPlmClaim()
+    {
+        using var dataset = CopyDataset();
+        var fixturePath = Path.Combine(dataset.Path, "fixtures", "requirement-r123.json");
+        var fixture = JsonNode.Parse(File.ReadAllText(fixturePath))!;
+        var response = JsonNode.Parse(fixture["modelResponses"]!["direct"]!.GetValue<string>())!;
+        response["impacts"]!.AsArray().Add(JsonNode.Parse(
+            """{"claimId":"source-evidence:SYNTH-PASSAGE-ONLY","explanation":"A retrieved passage alone proves a new impact.","evidenceIds":["EVIDENCE-DIRECT-001"],"sourceIds":["PROV-DIRECT-001"]}"""));
+        fixture["modelResponses"]!["direct"] = response.ToJsonString();
+        File.WriteAllText(fixturePath, fixture.ToJsonString(), new UTF8Encoding(false));
+
+        var report = await new EngineeringImpactEvaluationRunner().RunAsync(dataset.Path, CancellationToken.None);
+
+        var direct = Assert.Single(report.Cases.Where(result => result.CaseId == "direct-impact"));
+        Assert.False(direct.Passed);
+        Assert.Contains("unknown-claim", direct.Issues);
+        Assert.Equal(1, direct.UnsupportedClaimCount);
     }
 
     [Fact]
@@ -240,7 +260,7 @@ public sealed class GoldenEvaluationTests
     }
 
     [Fact]
-    public void Dataset_CoversTheNarrowIntentAndFailureCategories()
+    public void Dataset_CoversBroadInvestigationIntentsAndFailureCategories()
     {
         using var manifest = JsonDocument.Parse(
             File.ReadAllText(Path.Combine(GetDatasetDirectory(), "manifest.json")));
@@ -254,7 +274,7 @@ public sealed class GoldenEvaluationTests
             Assert.Equal(caseLines.Length, manifest.RootElement.GetProperty("caseCount").GetInt32());
             Assert.True(CountTagged(cases, "supported-paraphrase") >= 10);
             Assert.True(CountTagged(cases, "missing-or-ambiguous-subject") >= 5);
-            Assert.True(CountTagged(cases, "unsupported-question") >= 3);
+            Assert.True(CountTagged(cases, "investigation-question") >= 3);
             Assert.True(CountTagged(cases, "no-evidence-or-missing-provenance") >= 3);
             Assert.True(CountTagged(cases, "authorization") >= 4);
             Assert.True(CountTagged(cases, "malformed-or-unsupported-model-output") >= 3);
@@ -275,6 +295,8 @@ public sealed class GoldenEvaluationTests
             Assert.Contains("If R-123 changes, what could be affected?", baselineQuestions);
             Assert.Contains("Show the downstream engineering impact of R-123.", baselineQuestions);
             Assert.Contains("What is impacted?", baselineQuestions);
+            Assert.Contains("Summarize this investigation.", baselineQuestions);
+            Assert.Contains("What applications are connected?", baselineQuestions);
             Assert.Contains("What is impacted if R-999 changes?", baselineQuestions);
             Assert.Contains(cases.Select(item => item.RootElement)
                 .Select(item => item.GetProperty("authorizationScenario").GetString()), scenario => scenario == "denied");
@@ -286,7 +308,7 @@ public sealed class GoldenEvaluationTests
                 var expectation = item.GetProperty("expect");
                 Assert.False(expectation.GetProperty("authorizationLeakageAllowed").GetBoolean());
                 Assert.Contains(expectation.GetProperty("questionIntent").GetString(),
-                    new[] { "engineering-impact", "unsupported" });
+                    new[] { "engineering-impact", "investigation-question", "unsupported" });
                 Assert.True(expectation.TryGetProperty("extractedSubjectId", out _));
                 Assert.True(expectation.TryGetProperty("subjectId", out _));
                 Assert.True(expectation.TryGetProperty("requiredChainIds", out _));
@@ -343,7 +365,8 @@ public sealed class GoldenEvaluationTests
              directory = directory.Parent)
         {
             var candidate = Path.Combine(directory.FullName, "evals", "engineering-impact", "v1");
-            if (Directory.Exists(candidate))
+            if (File.Exists(Path.Combine(candidate, "manifest.json")) &&
+                File.Exists(Path.Combine(candidate, "cases.jsonl")))
             {
                 return candidate;
             }

@@ -7,4 +7,7 @@ public sealed record RuntimeRequestContext(
     string? ConversationId)
 {
     public string? TurnId { get; init; }
+    public string RouteSource { get; init; } = "Unknown";
+    public int? SnapshotRevision { get; init; }
+    public bool FullPayloadTraceEnabled { get; init; }
 }

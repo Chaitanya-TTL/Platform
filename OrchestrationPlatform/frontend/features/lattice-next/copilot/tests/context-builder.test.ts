@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { InvestigationSnapshot } from "../../kernel/contracts/investigation-snapshot";
 import type { EngineeringIntelligenceInvestigationV1, IntelligenceEntity, IntelligenceRelationship } from "../../contracts/intelligence-v1";
-import { buildInvestigationContext, stableCitationId } from "../context-builder";
+import { buildInvestigationContext, engineeringPromptPayload, stableCitationId } from "../context-builder";
 
 const temporal = { capturedAt: "2026-10-22T08:00:00.000Z", assembledAt: "2026-10-22T08:01:00.000Z", freshness: "current" as const };
 const relationshipDocument = readFileSync(resolve(process.cwd(), "..", "docs", "relationships.md"), "utf8");
@@ -109,6 +109,40 @@ describe("investigation copilot context", () => {
     ]));
   });
 
+  it("preserves every application's entities and complete properties in broad prompt context", () => {
+    const applications = ["codebeamer", "configit", "sap", "windchill"] as const;
+    const entities = Array.from({ length: 80 }, (_, index) =>
+      entity(
+        `entity:${index}`,
+        applications[index % applications.length],
+        `native-${index}`,
+        `Record ${index}`,
+        `PN-${index}`,
+      ),
+    );
+    const expression = "rule-".repeat(400);
+    entities[1] = {
+      ...entities[1],
+      properties: { ruleExpression: { type: "text", text: expression } },
+    };
+
+    const packet = buildInvestigationContext(
+      snapshot(canonical(entities)),
+      "Summarize this investigation across all applications.",
+    );
+    const payload = JSON.stringify(engineeringPromptPayload(
+      "Summarize this investigation across all applications.",
+      packet,
+    ));
+
+    expect(packet.entities).toHaveLength(entities.length);
+    expect(new Set(packet.entities.map((item) => item.source))).toEqual(new Set(applications));
+    for (const item of entities) expect(payload).toContain(item.id);
+    expect(packet.entities.find((item) => item.entityId === entities[1].id)?.properties.ruleExpression)
+      .toBe(expression);
+    expect(payload).toContain(expression);
+  });
+
   it("includes relationship guidance for the selected path", () => {
     const packet = buildInvestigationContext(
       snapshot(canonical([windchillPart, sapMaterial], [relation])),
@@ -143,28 +177,23 @@ describe("investigation copilot context", () => {
     }));
   });
 
-  it("preserves path endpoints and evidence when context is trimmed", () => {
+  it("preserves path endpoints and evidence without context truncation", () => {
     const packet = buildInvestigationContext(
       snapshot(canonical([windchillPart, sapMaterial], [relation])),
       "Trace the allocation from Windchill to SAP",
-      { relationshipDocument, maxContextChars: 4_000, maxItemsPerCategory: 2 },
+      { relationshipDocument },
     );
 
     const retained = packet.relationships.find((item) => item.relationshipId === relation.id);
-    if (retained) {
-      expect(retained.evidenceCitationIds).toContain(stableCitationId("evidence", "evidence:link-1"));
-      for (const selectedRelationship of packet.relationships) {
-        expect(packet.entities.some((item) => item.entityId === selectedRelationship.sourceEntityId)).toBe(true);
-        expect(packet.entities.some((item) => item.entityId === selectedRelationship.targetEntityId)).toBe(true);
-        for (const citationId of selectedRelationship.evidenceCitationIds) {
-          expect(packet.evidence.some((item) => item.citationId === citationId)).toBe(true);
-        }
+    expect(retained).toBeDefined();
+    expect(retained!.evidenceCitationIds).toContain(stableCitationId("evidence", "evidence:link-1"));
+    for (const selectedRelationship of packet.relationships) {
+      expect(packet.entities.some((item) => item.entityId === selectedRelationship.sourceEntityId)).toBe(true);
+      expect(packet.entities.some((item) => item.entityId === selectedRelationship.targetEntityId)).toBe(true);
+      for (const citationId of selectedRelationship.evidenceCitationIds) {
+        expect(packet.evidence.some((item) => item.citationId === citationId)).toBe(true);
       }
-    } else {
-      expect(packet.omissions.omittedCounts.relationships).toBeGreaterThan(0);
-      expect(packet.uncertainties.join(" ")).toMatch(/omitted \d+ relationship path/i);
     }
-    expect(JSON.stringify(packet).length).toBeLessThanOrEqual(4_000);
   });
 
   it("does not create a relationship from a name-only match", () => {
@@ -374,7 +403,7 @@ describe("investigation copilot context", () => {
     const packet = buildInvestigationContext(
       snapshot(value),
       "Why is this unresolved?",
-      { maxItemsPerCategory: 1 },
+      {},
     );
     const retainedEvidenceCitationIds = new Set(packet.evidence.map((item) => item.citationId));
 
@@ -382,7 +411,7 @@ describe("investigation copilot context", () => {
     expect(packet.unresolvedEvaluations[0].evidenceCitationIds.every((id) => retainedEvidenceCitationIds.has(id))).toBe(true);
   });
 
-  it("keeps oversized relationship omission metadata within the context limit", () => {
+  it("preserves all oversized relationships and their source context", () => {
     const manyRelationships = Array.from({ length: 30 }, (_, index) => link(
       `relationship-${String(index).padStart(2, "0")}-${"x".repeat(90)}`,
       windchillPart.id,
@@ -391,22 +420,22 @@ describe("investigation copilot context", () => {
     const packet = buildInvestigationContext(
       snapshot(canonical([windchillPart, sapMaterial], manyRelationships)),
       "Trace OR:wt.part.WTPart:1001",
-      { maxContextChars: 4_500, maxItemsPerCategory: 1 },
+      {},
     );
 
-    expect(JSON.stringify(packet).length).toBeLessThanOrEqual(4_500);
-    expect(packet.omissions.omittedCounts.relationships).toBeGreaterThan(0);
+    expect(packet.relationships.map((item) => item.relationshipId)).toEqual(
+      expect.arrayContaining(manyRelationships.map((item) => item.id)),
+    );
+    expect(packet.omissions.omittedCounts.relationships).toBe(0);
   });
 
-  it("is deterministic and discloses omissions when bounded", () => {
+  it("is deterministic and preserves all entities regardless of context size", () => {
     const many = Array.from({ length: 80 }, (_, index) => entity(`entity:${index}`, "windchill", `native-${index}`, `Component ${index}`, `PN-${index}`));
     const value = canonical(many);
-    const options = { maxContextChars: 7000, maxItemsPerCategory: 50 };
-    const first = buildInvestigationContext(snapshot(value), "Find PN-79", options);
-    const second = buildInvestigationContext(snapshot(value), "Find PN-79", options);
+    const first = buildInvestigationContext(snapshot(value), "Find PN-79");
+    const second = buildInvestigationContext(snapshot(value), "Find PN-79");
     expect(first).toEqual(second);
-    expect(JSON.stringify(first).length).toBeLessThanOrEqual(options.maxContextChars);
-    expect(first.omissions.categories).toContain("entities");
-    expect(first.omissions.omittedCounts.entities).toBeGreaterThan(0);
+    expect(first.entities).toHaveLength(many.length);
+    expect(first.omissions.omittedCounts.entities).toBe(0);
   });
 });

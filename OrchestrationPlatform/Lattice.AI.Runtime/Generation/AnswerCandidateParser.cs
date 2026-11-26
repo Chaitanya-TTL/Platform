@@ -5,7 +5,8 @@ namespace Lattice.AI.Runtime.Generation;
 
 public sealed class AnswerCandidateParser : IAnswerCandidateParser
 {
-    public const string SupportedSchemaVersion = "answer-v1";
+    public const string SupportedSchemaVersion = "answer-v2";
+    private const string LegacySchemaVersion = "answer-v1";
 
     public AnswerCandidate Parse(string content)
     {
@@ -20,28 +21,65 @@ public sealed class AnswerCandidateParser : IAnswerCandidateParser
             new JsonDocumentOptions { AllowTrailingCommas = false, CommentHandling = JsonCommentHandling.Disallow, MaxDepth = 32 });
         var root = document.RootElement;
         EnsureObject(root, "The answer must be a JSON object.");
-        EnsureProperties(root, "schemaVersion", "summary", "impacts", "warnings");
 
         var schemaVersion = RequiredString(root, "schemaVersion", allowEmpty: false);
-        if (!string.Equals(schemaVersion, SupportedSchemaVersion, StringComparison.Ordinal))
+        var includesEvidenceAssertions = string.Equals(
+            schemaVersion,
+            SupportedSchemaVersion,
+            StringComparison.Ordinal);
+        if (!includesEvidenceAssertions &&
+            !string.Equals(schemaVersion, LegacySchemaVersion, StringComparison.Ordinal))
         {
             throw new JsonException($"Unsupported answer schema version '{schemaVersion}'.");
         }
 
+        if (includesEvidenceAssertions)
+        {
+            EnsureProperties(
+                root,
+                "schemaVersion",
+                "summary",
+                "impacts",
+                "facts",
+                "applicationContexts",
+                "sourceEvidence",
+                "warnings");
+        }
+        else
+        {
+            EnsureProperties(root, "schemaVersion", "summary", "impacts", "warnings");
+        }
+
         var summary = RequiredString(root, "summary", allowEmpty: false);
         var impactsElement = RequiredArray(root, "impacts");
-        var warningsElement = RequiredArray(root, "warnings");
-
         var impacts = impactsElement
             .EnumerateArray()
             .Select(ParseImpact)
             .ToArray();
+        var facts = includesEvidenceAssertions
+            ? RequiredArray(root, "facts").EnumerateArray().Select(ParseFact).ToArray()
+            : Array.Empty<AnswerFactAssertion>();
+        var applicationContexts = includesEvidenceAssertions
+            ? RequiredArray(root, "applicationContexts")
+                .EnumerateArray()
+                .Select(ParseApplicationContext)
+                .ToArray()
+            : Array.Empty<AnswerApplicationContextAssertion>();
+        var sourceEvidence = includesEvidenceAssertions
+            ? RequiredArray(root, "sourceEvidence").EnumerateArray().Select(ParseSourceEvidence).ToArray()
+            : Array.Empty<AnswerSourceEvidenceAssertion>();
+        var warningsElement = RequiredArray(root, "warnings");
         var warnings = warningsElement
             .EnumerateArray()
             .Select(warning => ReadArrayString(warning, "warnings"))
             .ToArray();
 
-        return new AnswerCandidate(summary, impacts, warnings);
+        return new AnswerCandidate(summary, impacts, warnings)
+        {
+            Facts = facts,
+            ApplicationContexts = applicationContexts,
+            SourceEvidence = sourceEvidence
+        };
     }
 
     private static AnswerImpact ParseImpact(JsonElement element)
@@ -57,6 +95,60 @@ public sealed class AnswerCandidateParser : IAnswerCandidateParser
 
         return new AnswerImpact(
             RequiredString(element, "claimId", allowEmpty: false),
+            RequiredString(element, "explanation", allowEmpty: false),
+            evidenceIds,
+            sourceIds);
+    }
+
+    private static AnswerFactAssertion ParseFact(JsonElement element)
+    {
+        EnsureObject(element, "Each fact assertion must be a JSON object.");
+        EnsureProperties(element, "factId", "exactValue", "evidenceIds", "sourceIds");
+        var exactValue = element.GetProperty("exactValue");
+        var evidenceIds = ReadStringArray(RequiredArray(element, "evidenceIds"), "evidenceIds");
+        var sourceIds = ReadStringArray(RequiredArray(element, "sourceIds"), "sourceIds");
+        if (evidenceIds.Length == 0 || sourceIds.Length == 0)
+        {
+            throw new JsonException("Each fact assertion must reference at least one evidence ID and one source ID.");
+        }
+
+        return new AnswerFactAssertion(
+            RequiredString(element, "factId", allowEmpty: false),
+            exactValue.Clone(),
+            evidenceIds,
+            sourceIds);
+    }
+
+    private static AnswerApplicationContextAssertion ParseApplicationContext(JsonElement element)
+    {
+        EnsureObject(element, "Each application-context assertion must be a JSON object.");
+        EnsureProperties(element, "candidateId", "evidenceIds", "sourceIds");
+        var evidenceIds = ReadStringArray(RequiredArray(element, "evidenceIds"), "evidenceIds");
+        var sourceIds = ReadStringArray(RequiredArray(element, "sourceIds"), "sourceIds");
+        if (evidenceIds.Length == 0 || sourceIds.Length == 0)
+        {
+            throw new JsonException("Each application-context assertion must cite evidence and source IDs.");
+        }
+
+        return new AnswerApplicationContextAssertion(
+            RequiredString(element, "candidateId", allowEmpty: false),
+            evidenceIds,
+            sourceIds);
+    }
+
+    private static AnswerSourceEvidenceAssertion ParseSourceEvidence(JsonElement element)
+    {
+        EnsureObject(element, "Each source-evidence assertion must be a JSON object.");
+        EnsureProperties(element, "passageId", "explanation", "evidenceIds", "sourceIds");
+        var evidenceIds = ReadStringArray(RequiredArray(element, "evidenceIds"), "evidenceIds");
+        var sourceIds = ReadStringArray(RequiredArray(element, "sourceIds"), "sourceIds");
+        if (evidenceIds.Length == 0 || sourceIds.Length == 0)
+        {
+            throw new JsonException("Each source-evidence assertion must reference at least one evidence ID and one source ID.");
+        }
+
+        return new AnswerSourceEvidenceAssertion(
+            RequiredString(element, "passageId", allowEmpty: false),
             RequiredString(element, "explanation", allowEmpty: false),
             evidenceIds,
             sourceIds);

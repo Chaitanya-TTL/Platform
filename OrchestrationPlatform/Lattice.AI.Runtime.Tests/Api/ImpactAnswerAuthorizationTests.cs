@@ -416,6 +416,47 @@ public sealed class ImpactAnswerAuthorizationTests
                 query.RequestContext.RequestId,
                 query.RequestContext.TraceId));
         }
+
+        public Task<EvidenceRetrievalResult> RetrieveInvestigationAsync(
+            InvestigationEvidenceQuery query,
+            CancellationToken cancellationToken)
+        {
+            CallCount++;
+            Authorization = query.Authorization;
+            return Task.FromResult(new EvidenceRetrievalResult(
+                query.InvestigationId,
+                [
+                    new RelationshipEvidence(
+                        "relationship-1",
+                        "REQ-123",
+                        "P-1",
+                        "depends-on",
+                        "REQ-123 affects P-1.",
+                        ["evidence-1"])
+                ],
+                [],
+                [],
+                [
+                    new EvidenceSourceReference(
+                        "evidence-1",
+                        "relationship",
+                        "plm",
+                        "record-1",
+                        "revision-1",
+                        null,
+                        null,
+                        "provenance-1",
+                        query.Authorization.Scope.DecisionId,
+                        CitationId: "citation-1",
+                        Authority: "source-authoritative",
+                        Provider: "plm")
+                ],
+                "revision-1",
+                "ontology-1",
+                query.Authorization.Scope.DecisionId,
+                query.RequestContext.RequestId,
+                query.RequestContext.TraceId));
+        }
     }
 
     private sealed class RecordingModelGateway : IModelGateway

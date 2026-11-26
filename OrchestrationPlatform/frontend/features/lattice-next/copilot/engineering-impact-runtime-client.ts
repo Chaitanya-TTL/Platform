@@ -1,10 +1,15 @@
 import "server-only";
 
-import type { CopilotCitation, ConversationState } from "./contracts";
+import type {
+  CopilotCitation,
+  ConversationHistoryTurn,
+  ConversationState,
+} from "./contracts";
 import {
   runtimeAccessTokenProvider,
   type RuntimeAccessTokenProvider,
 } from "./runtime-access-token-provider";
+import type { CopilotTraceContext } from "./copilot-execution-trace";
 
 export type EngineeringImpactRuntimeDisposition =
   | "Answer"
@@ -46,6 +51,24 @@ export interface EngineeringImpactRuntimeResponse {
     evidenceIds: readonly string[];
     sourceIds: readonly string[];
   }[];
+  facts?: readonly {
+    factId: string;
+    exactValue: unknown;
+    exactValueJson?: string;
+    evidenceIds: readonly string[];
+    sourceIds: readonly string[];
+  }[];
+  applicationContexts?: readonly {
+    candidateId: string;
+    evidenceIds: readonly string[];
+    sourceIds: readonly string[];
+  }[];
+  sourceEvidence?: readonly {
+    passageId: string;
+    explanation: string;
+    evidenceIds: readonly string[];
+    sourceIds: readonly string[];
+  }[];
   sources: readonly EngineeringImpactRuntimeSource[];
   issues: readonly {
     code: string;
@@ -65,6 +88,9 @@ export interface EngineeringImpactRuntimeRequest {
   turnId: string;
   parentTurnId?: string;
   previousConversationState?: ConversationState;
+  conversationHistory?: readonly ConversationHistoryTurn[];
+  snapshotRevision?: number;
+  traceContext?: CopilotTraceContext;
   signal?: AbortSignal;
 }
 
@@ -237,6 +263,9 @@ function parseRuntimeResponse(value: unknown): EngineeringImpactRuntimeResponse 
   const body = object(value);
   const requestContext = object(body?.requestContext);
   const impacts = body?.impacts;
+  const facts = body?.facts;
+  const applicationContexts = body?.applicationContexts;
+  const sourceEvidence = body?.sourceEvidence;
   const sources = body?.sources;
   const issues = body?.issues;
   const dispositions: Record<string, EngineeringImpactRuntimeDisposition> = {
@@ -253,7 +282,11 @@ function parseRuntimeResponse(value: unknown): EngineeringImpactRuntimeResponse 
       typeof body.investigationId !== "string" ||
       typeof requestContext.requestId !== "string" ||
       typeof requestContext.traceId !== "string" ||
-      !Array.isArray(impacts) || !Array.isArray(sources) || !Array.isArray(issues)) {
+      !Array.isArray(impacts) ||
+      (facts !== undefined && !Array.isArray(facts)) ||
+      (applicationContexts !== undefined && !Array.isArray(applicationContexts)) ||
+      (sourceEvidence !== undefined && !Array.isArray(sourceEvidence)) ||
+      !Array.isArray(sources) || !Array.isArray(issues)) {
     return undefined;
   }
 
@@ -271,6 +304,53 @@ function parseRuntimeResponse(value: unknown): EngineeringImpactRuntimeResponse 
     }];
   });
   if (parsedImpacts.length !== impacts.length) return undefined;
+
+  const parsedFacts = (facts ?? []).flatMap((item) => {
+    const fact = object(item);
+    const evidenceIds = asStringArray(fact?.evidenceIds);
+    const sourceIds = asStringArray(fact?.sourceIds);
+    if (!fact || typeof fact.factId !== "string" || !("exactValue" in fact) ||
+        !evidenceIds || !sourceIds) return [];
+    return [{
+      factId: fact.factId,
+      exactValue: fact.exactValue,
+      ...(asString(fact.exactValueJson) !== undefined
+        ? { exactValueJson: asString(fact.exactValueJson) }
+        : {}),
+      evidenceIds,
+      sourceIds,
+    }];
+  });
+  if (parsedFacts.length !== (facts ?? []).length) return undefined;
+
+  const parsedApplicationContexts = (applicationContexts ?? []).flatMap((item) => {
+    const applicationContext = object(item);
+    const evidenceIds = asStringArray(applicationContext?.evidenceIds);
+    const sourceIds = asStringArray(applicationContext?.sourceIds);
+    if (!applicationContext || typeof applicationContext.candidateId !== "string" ||
+        !evidenceIds || !sourceIds) return [];
+    return [{
+      candidateId: applicationContext.candidateId,
+      evidenceIds,
+      sourceIds,
+    }];
+  });
+  if (parsedApplicationContexts.length !== (applicationContexts ?? []).length) return undefined;
+
+  const parsedSourceEvidence = (sourceEvidence ?? []).flatMap((item) => {
+    const assertion = object(item);
+    const evidenceIds = asStringArray(assertion?.evidenceIds);
+    const sourceIds = asStringArray(assertion?.sourceIds);
+    if (!assertion || typeof assertion.passageId !== "string" ||
+        typeof assertion.explanation !== "string" || !evidenceIds || !sourceIds) return [];
+    return [{
+      passageId: assertion.passageId,
+      explanation: assertion.explanation,
+      evidenceIds,
+      sourceIds,
+    }];
+  });
+  if (parsedSourceEvidence.length !== (sourceEvidence ?? []).length) return undefined;
 
   const parsedSources = sources.flatMap((item) => {
     const source = object(item);
@@ -334,6 +414,9 @@ function parseRuntimeResponse(value: unknown): EngineeringImpactRuntimeResponse 
     disposition,
     ...(asNullableString(body.summary) !== undefined ? { summary: asNullableString(body.summary) } : {}),
     impacts: parsedImpacts,
+    facts: parsedFacts,
+    applicationContexts: parsedApplicationContexts,
+    sourceEvidence: parsedSourceEvidence,
     sources: parsedSources,
     issues: parsedIssues,
     ...(asNullableString(body.contextPackageId) !== undefined ? { contextPackageId: asNullableString(body.contextPackageId) } : {}),
@@ -346,7 +429,12 @@ function parseRuntimeResponse(value: unknown): EngineeringImpactRuntimeResponse 
 export function runtimeResponseCitations(
   response: EngineeringImpactRuntimeResponse,
 ): { citations: readonly CopilotCitation[]; sourceCitationIds: ReadonlyMap<string, string> } {
-  const referencedSourceIds = new Set(response.impacts.flatMap((impact) => impact.sourceIds));
+  const referencedSourceIds = new Set([
+    ...response.impacts.flatMap((impact) => impact.sourceIds),
+    ...(response.facts ?? []).flatMap((fact) => fact.sourceIds),
+    ...(response.applicationContexts ?? []).flatMap((context) => context.sourceIds),
+    ...(response.sourceEvidence ?? []).flatMap((assertion) => assertion.sourceIds),
+  ]);
   const citations: CopilotCitation[] = [];
   const sourceCitationIds = new Map<string, string>();
   const seenCitationIds = new Set<string>();
@@ -362,12 +450,13 @@ export function runtimeResponseCitations(
     if (!referenced.length) continue;
 
     const referenceId = source.citationId || source.provenanceId || source.recordId || source.evidenceId;
-    const citationId = `cite:source:${encodeURIComponent(referenceId)}`;
+    const citationKind = source.sourceType === "source-evidence-passage" ? "evidence" : "source";
+    const citationId = `cite:${citationKind}:${encodeURIComponent(referenceId)}`;
     if (!seenCitationIds.has(citationId)) {
       const deepLink = safeDeepLink(source.deepLink);
       citations.push({
         citationId,
-        kind: "source",
+        kind: citationKind,
         label: [source.sourceSystem, source.recordId].filter(Boolean).join(" "),
         source: source.sourceSystem,
         nativeId: source.recordId,
@@ -452,6 +541,19 @@ export class EngineeringImpactRuntimeClient {
         headers: {
           "content-type": "application/json",
           authorization: `Bearer ${credential.accessToken}`,
+          ...(request.traceContext
+            ? {
+                "X-Copilot-Request-Id": request.traceContext.requestId,
+                "X-Copilot-Route-Source": request.traceContext.routeSource,
+                traceparent: request.traceContext.traceparent,
+              }
+            : {}),
+          ...(request.snapshotRevision !== undefined
+            ? { "X-Copilot-Snapshot-Revision": String(request.snapshotRevision) }
+            : {}),
+          ...(request.traceContext?.payloadDetail === "full"
+            ? { "X-Copilot-Diagnostic-Detail": "full" }
+            : {}),
         },
         body: JSON.stringify({
           investigationId: request.investigationId,
@@ -461,6 +563,9 @@ export class EngineeringImpactRuntimeClient {
           ...(request.parentTurnId ? { parentTurnId: request.parentTurnId } : {}),
           ...(request.previousConversationState
             ? { previousConversationState: request.previousConversationState }
+            : {}),
+          ...(request.conversationHistory?.length
+            ? { conversationHistory: request.conversationHistory }
             : {}),
         }),
         cache: "no-store",

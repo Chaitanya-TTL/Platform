@@ -11,8 +11,8 @@ const questions = [
   "What operational consequence follows from this Windchill part being represented as a SAP material?",
 ];
 
-describe("reasoning intelligence budget preservation", () => {
-  it.each(questions)("preserves available reasoning artifacts within budget for: %s", (question) => {
+describe("reasoning intelligence preservation", () => {
+  it.each(questions)("preserves all available reasoning artifacts for: %s", (question) => {
     const packet = buildInvestigationContext(
       buildSprint1A5Snapshot(buildSprint1A5GoldenInvestigation()),
       question,
@@ -22,16 +22,19 @@ describe("reasoning intelligence budget preservation", () => {
     expect(packet.reasoningPackage.relationshipNarratives.length).toBeGreaterThanOrEqual(1);
     expect(packet.reasoningPackage.impactNarratives.length).toBeGreaterThanOrEqual(1);
     expect(packet.reasoningPackage.impactChains.length).toBeGreaterThanOrEqual(1);
-    expect(JSON.stringify(packet).length).toBeLessThanOrEqual(packet.omissions.maxContextChars);
+    expect(packet.omissions.categories).toEqual([]);
   });
 
-  it("fails with protected-category diagnostics when the minimum packet budget cannot fit", () => {
+  it("preserves complete reasoning when the packet is larger than historical budgets", () => {
     const canonical = buildSprint1A5GoldenInvestigation();
 
-    expect(() => buildInvestigationContext(
+    const packet = buildInvestigationContext(
       buildSprint1A5Snapshot(canonical),
       questions[1],
-      { maxContextChars: 2_048, relationshipDocument: relationshipsDocument },
-    )).toThrow(/Context budget exceeded[\s\S]*relationship narratives[\s\S]*impact narratives[\s\S]*impact chains[\s\S]*2048/);
+      { relationshipDocument: relationshipsDocument },
+    );
+
+    expect(packet.impactPaths).toHaveLength(canonical.knowledgeGraph?.impactPaths.length ?? 0);
+    expect(packet.reasoningPackage.impactChains.length).toBeGreaterThan(0);
   });
 });

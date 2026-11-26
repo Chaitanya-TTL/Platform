@@ -191,5 +191,24 @@ public sealed class AuthorizationAwareRetrievalTests
                 query.RequestContext.RequestId,
                 query.RequestContext.TraceId));
         }
+
+        public Task<EvidenceRetrievalResult> RetrieveInvestigationAsync(
+            InvestigationEvidenceQuery query,
+            CancellationToken cancellationToken)
+        {
+            CallCount++;
+            Authorization = query.Authorization;
+            return Task.FromResult(new EvidenceRetrievalResult(
+                query.InvestigationId,
+                [],
+                [],
+                [],
+                [],
+                "revision-1",
+                "ontology-1",
+                query.Authorization.Scope.DecisionId,
+                query.RequestContext.RequestId,
+                query.RequestContext.TraceId));
+        }
     }
 }

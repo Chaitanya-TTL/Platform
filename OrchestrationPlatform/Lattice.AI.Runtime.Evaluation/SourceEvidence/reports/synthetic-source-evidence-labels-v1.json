@@ -1,0 +1,345 @@
+{
+  "reportVersion": "1.0",
+  "runDate": "2026-11-24",
+  "classification": "synthetic-fixture-only",
+  "dataBoundary": {
+    "recordDatasetId": "synthetic-source-evidence-v1",
+    "labelDatasetId": "synthetic-source-evidence-labels-v1",
+    "recordCount": 7,
+    "queryCount": 10,
+    "labeledEvidenceCount": 15,
+    "externalEmbeddingRequests": 0,
+    "liveEngineeringDataUsed": false
+  },
+  "corpusProfile": {
+    "recordsByApplication": {
+      "SyntheticPLM": 3,
+      "SyntheticRequirements": 2,
+      "SyntheticRules": 2
+    },
+    "recordsByType": {
+      "description": 2,
+      "identifier": 1,
+      "requirement": 2,
+      "rule": 2
+    },
+    "eligibleSourceTextRecords": 5,
+    "emptyTextRecords": 1,
+    "emptyTextRate": 0.1428571429,
+    "identifierOnlyTextRecords": 1,
+    "identifierOnlyTextRate": 0.1428571429,
+    "textLengthCharacters": {
+      "minimum": 72,
+      "mean": 85.2,
+      "median": 76,
+      "maximum": 106,
+      "distribution": {
+        "72": 2,
+        "76": 1,
+        "100": 1,
+        "106": 1
+      }
+    },
+    "exactDuplicateRecordCount": 1,
+    "exactDuplicateRate": 0.2,
+    "normalizedDuplicateRecordCount": 2,
+    "normalizedDuplicateRate": 0.4,
+    "revisionCoverageRateAmongEligibleTextRecords": 0.8,
+    "provenanceCoverageRateAmongEligibleTextRecords": 0.8,
+    "locationCoverageRateAmongEligibleTextRecords": 0.8
+  },
+  "offlineBenchmark": {
+    "k": 3,
+    "segmentationStrategies": [
+      "WholeRecord",
+      "StructuralFieldGroups",
+      "StructuralSemantic"
+    ],
+    "retrievalStrategies": [
+      "ExactMetadata",
+      "Lexical",
+      "Vector",
+      "HybridReciprocalRankFusion"
+    ],
+    "candidateCount": 12,
+    "embedding": {
+      "model": "deterministic-fake",
+      "version": "v1",
+      "dimensions": 8,
+      "embeddingCalls": 1,
+      "inputTextCount": 28,
+      "inputCharacterCount": 1817,
+      "inputFormatting": "All candidate segment texts and query questions passed as-is in one batch.",
+      "tokenCount": null,
+      "modelInputLimitTokens": null,
+      "estimatedCost": null,
+      "note": "The fake provider has no tokenizer, hosted input limit, or billing behavior."
+    },
+    "elapsedMilliseconds": {
+      "wholeRun": 20.0413,
+      "note": "Single local fake-provider run; not a service or hosted-model latency estimate."
+    },
+    "results": [
+      {
+        "segmentation": "WholeRecord",
+        "retrieval": "ExactMetadata",
+        "segmentCount": 6,
+        "relevantEvidenceCoverage": 0.0666666667,
+        "citationSpanValidity": 1.0,
+        "elapsedMilliseconds": 1.2582,
+        "retrievalMetrics": {
+          "recallAtK": 0.1111111111,
+          "precisionAtK": 0.0333333333,
+          "meanReciprocalRank": 0.1,
+          "ndcgAtK": 0.1111111111,
+          "citationLocationAccuracy": 1.0,
+          "exactIdSuccessRate": 1.0
+        }
+      },
+      {
+        "segmentation": "WholeRecord",
+        "retrieval": "Lexical",
+        "segmentCount": 6,
+        "relevantEvidenceCoverage": 0.8666666667,
+        "citationSpanValidity": 0.9615384615,
+        "elapsedMilliseconds": 1.258,
+        "retrievalMetrics": {
+          "recallAtK": 0.7777777778,
+          "precisionAtK": 0.4333333333,
+          "meanReciprocalRank": 0.72,
+          "ndcgAtK": 0.7777777778,
+          "citationLocationAccuracy": 1.0,
+          "exactIdSuccessRate": 1.0
+        }
+      },
+      {
+        "segmentation": "WholeRecord",
+        "retrieval": "Vector",
+        "segmentCount": 6,
+        "relevantEvidenceCoverage": 0.5333333333,
+        "citationSpanValidity": 0.7333333333,
+        "elapsedMilliseconds": 1.2846,
+        "retrievalMetrics": {
+          "recallAtK": 0.5925925926,
+          "precisionAtK": 0.2666666667,
+          "meanReciprocalRank": 0.4116666667,
+          "ndcgAtK": 0.4248113395,
+          "citationLocationAccuracy": 1.0,
+          "exactIdSuccessRate": 0.0
+        }
+      },
+      {
+        "segmentation": "WholeRecord",
+        "retrieval": "HybridReciprocalRankFusion",
+        "segmentCount": 6,
+        "relevantEvidenceCoverage": 0.8,
+        "citationSpanValidity": 0.7333333333,
+        "elapsedMilliseconds": 7.5948,
+        "retrievalMetrics": {
+          "recallAtK": 0.8148148148,
+          "precisionAtK": 0.4,
+          "meanReciprocalRank": 0.82,
+          "ndcgAtK": 0.8299198584,
+          "citationLocationAccuracy": 1.0,
+          "exactIdSuccessRate": 1.0
+        }
+      },
+      {
+        "segmentation": "StructuralFieldGroups",
+        "retrieval": "ExactMetadata",
+        "segmentCount": 6,
+        "relevantEvidenceCoverage": 0.0666666667,
+        "citationSpanValidity": 1.0,
+        "elapsedMilliseconds": 0.3135,
+        "retrievalMetrics": {
+          "recallAtK": 0.1111111111,
+          "precisionAtK": 0.0333333333,
+          "meanReciprocalRank": 0.1,
+          "ndcgAtK": 0.1111111111,
+          "citationLocationAccuracy": 1.0,
+          "exactIdSuccessRate": 1.0
+        }
+      },
+      {
+        "segmentation": "StructuralFieldGroups",
+        "retrieval": "Lexical",
+        "segmentCount": 6,
+        "relevantEvidenceCoverage": 0.8666666667,
+        "citationSpanValidity": 0.9615384615,
+        "elapsedMilliseconds": 1.2094,
+        "retrievalMetrics": {
+          "recallAtK": 0.7777777778,
+          "precisionAtK": 0.4333333333,
+          "meanReciprocalRank": 0.72,
+          "ndcgAtK": 0.7777777778,
+          "citationLocationAccuracy": 1.0,
+          "exactIdSuccessRate": 1.0
+        }
+      },
+      {
+        "segmentation": "StructuralFieldGroups",
+        "retrieval": "Vector",
+        "segmentCount": 6,
+        "relevantEvidenceCoverage": 0.4666666667,
+        "citationSpanValidity": 0.7,
+        "elapsedMilliseconds": 1.0476,
+        "retrievalMetrics": {
+          "recallAtK": 0.5555555556,
+          "precisionAtK": 0.2333333333,
+          "meanReciprocalRank": 0.3666666667,
+          "ndcgAtK": 0.377365599,
+          "citationLocationAccuracy": 1.0,
+          "exactIdSuccessRate": 0.0
+        }
+      },
+      {
+        "segmentation": "StructuralFieldGroups",
+        "retrieval": "HybridReciprocalRankFusion",
+        "segmentCount": 6,
+        "relevantEvidenceCoverage": 0.7333333333,
+        "citationSpanValidity": 0.7666666667,
+        "elapsedMilliseconds": 1.1145,
+        "retrievalMetrics": {
+          "recallAtK": 0.7777777778,
+          "precisionAtK": 0.3666666667,
+          "meanReciprocalRank": 0.77,
+          "ndcgAtK": 0.762841013,
+          "citationLocationAccuracy": 1.0,
+          "exactIdSuccessRate": 1.0
+        }
+      },
+      {
+        "segmentation": "StructuralSemantic",
+        "retrieval": "ExactMetadata",
+        "segmentCount": 6,
+        "relevantEvidenceCoverage": 0.0666666667,
+        "citationSpanValidity": 1.0,
+        "elapsedMilliseconds": 0.1684,
+        "retrievalMetrics": {
+          "recallAtK": 0.1111111111,
+          "precisionAtK": 0.0333333333,
+          "meanReciprocalRank": 0.1,
+          "ndcgAtK": 0.1111111111,
+          "citationLocationAccuracy": 1.0,
+          "exactIdSuccessRate": 1.0
+        }
+      },
+      {
+        "segmentation": "StructuralSemantic",
+        "retrieval": "Lexical",
+        "segmentCount": 6,
+        "relevantEvidenceCoverage": 0.8666666667,
+        "citationSpanValidity": 0.9615384615,
+        "elapsedMilliseconds": 1.0059,
+        "retrievalMetrics": {
+          "recallAtK": 0.7777777778,
+          "precisionAtK": 0.4333333333,
+          "meanReciprocalRank": 0.72,
+          "ndcgAtK": 0.7777777778,
+          "citationLocationAccuracy": 1.0,
+          "exactIdSuccessRate": 1.0
+        }
+      },
+      {
+        "segmentation": "StructuralSemantic",
+        "retrieval": "Vector",
+        "segmentCount": 6,
+        "relevantEvidenceCoverage": 0.4666666667,
+        "citationSpanValidity": 0.7,
+        "elapsedMilliseconds": 1.0126,
+        "retrievalMetrics": {
+          "recallAtK": 0.5555555556,
+          "precisionAtK": 0.2333333333,
+          "meanReciprocalRank": 0.3666666667,
+          "ndcgAtK": 0.377365599,
+          "citationLocationAccuracy": 1.0,
+          "exactIdSuccessRate": 0.0
+        }
+      },
+      {
+        "segmentation": "StructuralSemantic",
+        "retrieval": "HybridReciprocalRankFusion",
+        "segmentCount": 6,
+        "relevantEvidenceCoverage": 0.7333333333,
+        "citationSpanValidity": 0.7666666667,
+        "elapsedMilliseconds": 1.1528,
+        "retrievalMetrics": {
+          "recallAtK": 0.7777777778,
+          "precisionAtK": 0.3666666667,
+          "meanReciprocalRank": 0.77,
+          "ndcgAtK": 0.762841013,
+          "citationLocationAccuracy": 1.0,
+          "exactIdSuccessRate": 1.0
+        }
+      }
+    ]
+  },
+  "modelCandidates": [
+    {
+      "provider": "Azure OpenAI",
+      "model": "text-embedding-3-small",
+      "status": "not-run",
+      "version": null,
+      "dimensions": null,
+      "tokenizerOrInputLimit": null,
+      "inputFormatting": null,
+      "regionOrDeploymentAvailability": "not checked",
+      "cost": null
+    },
+    {
+      "provider": "Azure OpenAI",
+      "model": "text-embedding-3-large",
+      "status": "not-run",
+      "version": null,
+      "dimensions": null,
+      "tokenizerOrInputLimit": null,
+      "inputFormatting": null,
+      "regionOrDeploymentAvailability": "not checked",
+      "cost": null
+    },
+    {
+      "provider": "local",
+      "model": "BAAI/bge-m3",
+      "status": "not-run",
+      "checksPending": [
+        "license",
+        "hosting",
+        "language",
+        "supply-chain"
+      ]
+    }
+  ],
+  "copilotFlowChecks": {
+    "plmOnly": {
+      "source": "GoldenEvaluationTests",
+      "syntheticCases": 34,
+      "passed": 34
+    },
+    "ragOnlyDiagnostic": {
+      "source": "RunAsync_RejectsRagOnlyImpactAssertionWithoutAPlmClaim",
+      "outcome": "source evidence alone does not establish a PLM impact claim",
+      "testPassed": true
+    },
+    "plmPlusRag": {
+      "source": "AnswerAsync_AddsCitedRequirementDetailWithoutChangingPlmImpactClaims",
+      "outcome": "graph impact claims remain unchanged while cited source detail is added",
+      "testPassed": true
+    }
+  },
+  "findings": [
+    "Lexical and hybrid RRF have the strongest coverage on this tiny synthetic set; whole-record hybrid has the highest observed Recall@3 and nDCG@3. These are smoke results, not a model or backend selection.",
+    "The deterministic hash-based fake vectors are not semantic embeddings; vector results are not evidence of Azure or BAAI retrieval quality.",
+    "All three segmenters produced six segments for this fixture. The corpus is too small and structurally uniform to distinguish segmentation strategies.",
+    "The synthetic corpus contains duplicate and normalized-duplicate records, and only 80 percent of eligible text records have revision, provenance, and location metadata.",
+    "Citation-location accuracy against expected labels was 1.0 for the measured relevant hits; the separate citation-span validity measure varies by result set and should not be confused with relevance or answer grounding.",
+    "The benchmark adapter supplies fixed synthetic lifecycle, completeness, and extraction-status values; variation in those snapshot and source-operation dimensions was not evaluated."
+  ],
+  "productionConclusions": {
+    "embeddingModelSelected": false,
+    "retrievalBackendSelected": false,
+    "azureActivated": false,
+    "deploymentApproved": false,
+    "dataBoundaryForExternalEmbedding": "not approved; no external request was made",
+    "latencyOrCostConclusion": "none; fake-provider measurements contain no network, tokenizer, or billing behavior"
+  }
+}

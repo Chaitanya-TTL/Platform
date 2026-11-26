@@ -10,13 +10,18 @@
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="Prompts\engineering-impact\v1\manifest.json"
-                      LogicalName="Lattice.AI.Runtime.Prompts.engineering-impact.v1.manifest.json" />
-    <EmbeddedResource Include="Prompts\engineering-impact\v1\system-policy.md"
-                      LogicalName="Lattice.AI.Runtime.Prompts.engineering-impact.v1.system-policy.md" />
-    <EmbeddedResource Include="Prompts\engineering-impact\v1\domain-guidance.md"
-                      LogicalName="Lattice.AI.Runtime.Prompts.engineering-impact.v1.domain-guidance.md" />
-    <EmbeddedResource Include="Prompts\engineering-impact\v1\impact-task.md"
-                      LogicalName="Lattice.AI.Runtime.Prompts.engineering-impact.v1.impact-task.md" />
+    <EmbeddedResource Include="Prompts\engineering-impact\v2\manifest.json"
+                      LogicalName="Lattice.AI.Runtime.Prompts.engineering-impact.v2.manifest.json" />
+    <EmbeddedResource Include="Prompts\engineering-impact\v2\system-policy.md"
+                      LogicalName="Lattice.AI.Runtime.Prompts.engineering-impact.v2.system-policy.md" />
+    <EmbeddedResource Include="Prompts\engineering-impact\v2\domain-guidance.md"
+                      LogicalName="Lattice.AI.Runtime.Prompts.engineering-impact.v2.domain-guidance.md" />
+    <EmbeddedResource Include="Prompts\engineering-impact\v2\impact-task.md"
+                      LogicalName="Lattice.AI.Runtime.Prompts.engineering-impact.v2.impact-task.md" />
+    <EmbeddedResource Include="Prompts\engineering-impact\few-shot\v1\manifest.json"
+                      LogicalName="Lattice.AI.Runtime.Prompts.engineering-impact.few-shot.v1.manifest.json" />
+    <EmbeddedResource Include="Prompts\engineering-impact\few-shot\v1\examples.json"
+                      LogicalName="Lattice.AI.Runtime.Prompts.engineering-impact.few-shot.v1.examples.json" />
+    <InternalsVisibleTo Include="Lattice.AI.Runtime.Tests" />
   </ItemGroup>
 </Project>

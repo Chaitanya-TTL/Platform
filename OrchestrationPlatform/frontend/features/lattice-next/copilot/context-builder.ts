@@ -33,22 +33,13 @@ import {
 } from "./relationship-guidance";
 import type { InvestigationKnowledgeGraph, OntologyRelationshipPath } from "../plm-brain/contracts/relationship-ontology";
 
-const DEFAULT_MAX_CHARS = 24_000;
-const DEFAULT_MAX_ITEMS = 60;
-const MAX_MESSAGE_CHARS = 2_000;
-const MAX_FIELD_CHARS = 1_200;
-
 export interface ContextBuilderOptions {
-  maxContextChars?: number;
-  maxItemsPerCategory?: number;
-  maxTraversalDepth?: number;
   relationshipDocument?: string;
 }
 
 type Canonical = EngineeringIntelligenceInvestigationV1;
 type CanonicalEvidence = Canonical["evidence"][number];
 type CanonicalFinding = Canonical["findings"][number];
-type RelationshipDirection = "forward" | "reverse" | "either";
 type RelationshipLike = {
   id: string;
   kind?: string;
@@ -76,9 +67,9 @@ type EvidenceLike = {
   evaluatedAt?: string;
 };
 
-function short(value: unknown, max = MAX_FIELD_CHARS): string {
+function short(value: unknown, _max?: number): string {
   const text = typeof value === "string" ? value : value === undefined || value === null ? "" : String(value);
-  return text.length <= max ? text : `${text.slice(0, Math.max(0, max - 1))}…`;
+  return text;
 }
 
 export function stableCitationId(kind: string, id: string): string {
@@ -92,16 +83,15 @@ function isCanonical(value: unknown): value is Canonical {
 }
 
 function propertyText(value: unknown): string {
-  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return short(value, 300);
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return String(value);
   if (!value || typeof value !== "object") return "";
   const property = value as Record<string, unknown>;
-  if (typeof property.text === "string") return short(property.text, 300);
+  if (typeof property.text === "string") return property.text;
   if (typeof property.number === "number") return String(property.number);
   if (typeof property.boolean === "boolean") return String(property.boolean);
-  if (typeof property.timestamp === "string") return short(property.timestamp, 100);
-  if (typeof property.reference === "string") return short(property.reference, 300);
-  if (Array.isArray(property.items)) return property.items.map((item) => short(item, 80)).join(", ").slice(0, 300);
-  return "";
+  if (typeof property.timestamp === "string") return property.timestamp;
+  if (typeof property.reference === "string") return property.reference;
+  return JSON.stringify(value);
 }
 
 function normalizedEntity(entity: IntelligenceEntity): CopilotEntityContext {
@@ -152,25 +142,6 @@ function containsExactIdentifier(message: string, identifier: string): boolean {
     fromIndex = index + normalizedIdentifier.length;
   }
   return false;
-}
-
-function relationshipDirection(message: string): RelationshipDirection {
-  const forward = [
-    /\bdownstream\b/i,
-    /\b(?:impact|impacts|impacted|impacting|consequence|consequences|effect|effects)\s+(?:of|from|for)\b/i,
-    /\bwhat\s+depends\s+on\b/i,
-    /\bdependents?\s+of\b/i,
-    /\bwhat\s+(?:happens|changes)\s+(?:if|when)\b/i,
-  ].some((pattern) => pattern.test(message));
-  const reverse = [
-    /\bupstream\b/i,
-    /\bwhat\s+(?:affects|impacts|influences|feeds|drives|causes)\b/i,
-    /\b(?:affected|impacted|influenced|fed|driven|caused)\s+by\b/i,
-    /\b(?:dependencies|inputs|causes)\s+(?:of|for)\b/i,
-  ].some((pattern) => pattern.test(message));
-
-  if (forward === reverse) return "either";
-  return forward ? "forward" : "reverse";
 }
 
 function classifyQuestion(message: string): CopilotContextPacket["questionIntent"] {
@@ -295,7 +266,7 @@ function rankEntityCandidates(
     right.score - left.score ||
     businessWeight(right.entity) - businessWeight(left.entity) ||
     left.entity.entityId.localeCompare(right.entity.entityId),
-  ).slice(0, 10).map(({ entity, score, matchBasis }) => ({
+  ).map(({ entity, score, matchBasis }) => ({
     entityId: entity.entityId,
     label: entity.displayName,
     ...(entity.source ? { source: entity.source } : {}),
@@ -581,59 +552,6 @@ function applicationPairKey(sourceApplication: string, targetApplication: string
   return `${sourceApplication.trim().replace(/\s+/g, " ").toLocaleLowerCase()}\u0000${targetApplication.trim().replace(/\s+/g, " ").toLocaleLowerCase()}`;
 }
 
-function orderRelationshipsFromFocus(
-  relationships: readonly { relation: RelationshipLike; score: number }[],
-  focalEntityId?: string,
-  direction: RelationshipDirection = "either",
-  maxDepth: number = COPILOT_RETRIEVAL_CONFIG.maxTraversalDepth,
-): { relation: RelationshipLike; score: number; distance: number }[] {
-  if (!focalEntityId) {
-    return relationships.map((item) => ({ ...item, distance: 0 }));
-  }
-
-  const relationshipsByEntity = new Map<string, typeof relationships[number][]>();
-  for (const item of relationships) {
-    const startEntityIds = direction === "forward"
-      ? [item.relation.sourceEntityId]
-      : direction === "reverse"
-        ? [item.relation.targetEntityId]
-        : [item.relation.sourceEntityId, item.relation.targetEntityId];
-    for (const entityId of startEntityIds) {
-      const connected = relationshipsByEntity.get(entityId) ?? [];
-      connected.push(item);
-      relationshipsByEntity.set(entityId, connected);
-    }
-  }
-
-  const distances = new Map<string, number>([[focalEntityId, 0]]);
-  const selected = new Map<string, { relation: RelationshipLike; score: number; distance: number }>();
-  const queue = [focalEntityId];
-  for (let cursor = 0; cursor < queue.length; cursor++) {
-    const currentEntityId = queue[cursor];
-    const distance = distances.get(currentEntityId)!;
-    if (distance >= maxDepth) continue;
-    for (const item of relationshipsByEntity.get(currentEntityId) ?? []) {
-      if (selected.has(item.relation.id)) continue;
-      selected.set(item.relation.id, { ...item, distance });
-      const connectedEntityId = direction === "forward"
-        ? item.relation.targetEntityId
-        : direction === "reverse"
-          ? item.relation.sourceEntityId
-          : item.relation.sourceEntityId === currentEntityId
-            ? item.relation.targetEntityId
-            : item.relation.sourceEntityId;
-      if (!distances.has(connectedEntityId)) {
-        distances.set(connectedEntityId, distance + 1);
-        queue.push(connectedEntityId);
-      }
-    }
-  }
-
-  return [...selected.values()].sort((left, right) => (
-    left.distance - right.distance || right.score - left.score || left.relation.id.localeCompare(right.relation.id)
-  ));
-}
-
 function citationsFor(
   sourceSelections: readonly CopilotSourceContext[],
   unresolvedEvaluations: readonly CopilotUnresolvedEvaluationContext[],
@@ -883,7 +801,6 @@ export function buildReasoningPackage(input: {
     ...diversePrimaryEntities,
     ...rankedPrimaryEntities.filter((entity) => !diversePrimaryEntities.some((selected) => selected.entityId === entity.entityId)),
   ]
-    .slice(0, COPILOT_RETRIEVAL_CONFIG.maxPrimaryEntities)
     .map((entity) => {
       const importance = importanceByEntity[entity.entityId] ?? {
         score: 0,
@@ -934,7 +851,7 @@ export function buildReasoningPackage(input: {
         ? [{ ...narrative, text: `${impactChain.engineeringExplanation} ${impactChain.impactRationale}` }]
         : narrative ? [narrative] : [];
     });
-  const strongestEvidence = [...input.evidence].slice(0, COPILOT_RETRIEVAL_CONFIG.maxReasoningItems);
+  const strongestEvidence = [...input.evidence];
 
   const engineeringFindings: EngineeringFinding[] = input.findings.map((finding) => ({
     id: finding.findingId,
@@ -1135,27 +1052,27 @@ export function buildReasoningPackage(input: {
       crossApplicationCount
         ? `${crossApplicationCount} retrieved relationship(s) cross application boundaries.`
         : "No cross-application relationship was retrieved.",
-      ...relationshipNarratives.slice(0, 3).map((item) => item.text),
+      ...relationshipNarratives.map((item) => item.text),
     ].join(" "),
     applicationCoverage,
-    keyDependencies: scoredPaths.filter((item) => item.path.steps.length > 1).slice(0, 5).map((item) => pathNarrative(item, entityById, false)?.text ?? ""),
-    mostConnectedEntities: primaryEntities.slice(0, 5).map((entity) => entity.displayName),
-    highestValueRelationships: relationshipNarratives.slice(0, 5).map((item) => item.text),
-    strongestEvidence: strongestEvidence.slice(0, 5).map((item) => item.summary),
-    strongestImpactChains: impactNarratives.slice(0, 5).map((item) => item.text),
+    keyDependencies: scoredPaths.filter((item) => item.path.steps.length > 1).map((item) => pathNarrative(item, entityById, false)?.text ?? ""),
+    mostConnectedEntities: primaryEntities.map((entity) => entity.displayName),
+    highestValueRelationships: relationshipNarratives.map((item) => item.text),
+    strongestEvidence: strongestEvidence.map((item) => item.summary),
+    strongestImpactChains: impactNarratives.map((item) => item.text),
   };
 
   return {
     primaryEntities,
     entityImportance: importanceByEntity,
-    keyDependencies: scoredPaths.filter((item) => item.path.steps.length > 1).slice(0, COPILOT_RETRIEVAL_CONFIG.maxReasoningItems),
-    impactChains: engineeringImpactChains.slice(0, COPILOT_RETRIEVAL_CONFIG.maxReasoningItems),
+    keyDependencies: scoredPaths.filter((item) => item.path.steps.length > 1),
+    impactChains: engineeringImpactChains,
     strongestEvidence,
-    engineeringFindings: engineeringFindings.slice(0, COPILOT_RETRIEVAL_CONFIG.maxReasoningItems),
-    relationshipNarratives: relationshipNarratives.slice(0, COPILOT_RETRIEVAL_CONFIG.maxReasoningItems),
-    impactNarratives: impactNarratives.slice(0, COPILOT_RETRIEVAL_CONFIG.maxReasoningItems),
-    unresolvedRelationships: input.unresolvedRelationships.slice(0, COPILOT_RETRIEVAL_CONFIG.maxReasoningItems),
-    missingEvidence: missingEvidence.slice(0, COPILOT_RETRIEVAL_CONFIG.maxReasoningItems),
+    engineeringFindings,
+    relationshipNarratives,
+    impactNarratives,
+    unresolvedRelationships: input.unresolvedRelationships,
+    missingEvidence,
     investigationSummary: summary,
   };
 }
@@ -1182,17 +1099,17 @@ export function buildEngineeringBrief(
     const insight = reasoningPackage.engineeringFindings.find((finding) => finding.kind === kind);
     return insight ? [insight] : [];
   });
-  const topFindings = reasoningPackage.engineeringFindings.slice(0, 5);
-  const topImpactChains = reasoningPackage.impactChains.slice(0, 5);
-  const relationshipNarratives = reasoningPackage.relationshipNarratives.slice(0, 5);
-  const impactNarratives = reasoningPackage.impactNarratives.slice(0, 5);
-  const strongestEvidence = reasoningPackage.strongestEvidence.slice(0, 5);
-  const missingEvidence = reasoningPackage.missingEvidence.slice(0, 5);
-  const unresolvedRelationships = reasoningPackage.unresolvedRelationships.slice(0, 5);
+  const topFindings = reasoningPackage.engineeringFindings;
+  const topImpactChains = reasoningPackage.impactChains;
+  const relationshipNarratives = reasoningPackage.relationshipNarratives;
+  const impactNarratives = reasoningPackage.impactNarratives;
+  const strongestEvidence = reasoningPackage.strongestEvidence;
+  const missingEvidence = reasoningPackage.missingEvidence;
+  const unresolvedRelationships = reasoningPackage.unresolvedRelationships;
   const recommendedInvestigationAreas = [...new Set([
     ...missingEvidence.map((item) => item.description),
     ...unresolvedRelationships.map((item) => item.reason),
-  ])].slice(0, 5);
+  ])];
   const impactSummary = topImpactChains.length
     ? ` The reasoning layer identified ${topImpactChains.length} governed potential impact chain(s) for review.`
     : " No governed potential impact chain was available in the reasoning package; this is not proof that no downstream impact exists.";
@@ -1210,15 +1127,13 @@ export function buildEngineeringBrief(
         strengthScore(right.strength) - strengthScore(left.strength) ||
         right.evidenceCitationIds.length - left.evidenceCitationIds.length ||
         left.relationshipId.localeCompare(right.relationshipId);
-    })
-    .slice(0, 5);
+    });
   const evidenceByCitationId = new Map(evidence.map((item) => [item.citationId, item]));
   const relationshipEvidence = [...new Set(majorRelationships.flatMap((relationship) => relationship.evidenceCitationIds))]
     .flatMap((citationId) => {
       const item = evidenceByCitationId.get(citationId);
       return item ? [item] : [];
-    })
-    .slice(0, 5);
+    });
   const briefEvidenceCount = new Set([
     ...strongestEvidence.map((item) => item.citationId),
     ...relationshipEvidence.map((item) => item.citationId),
@@ -1252,7 +1167,7 @@ export function buildEngineeringBrief(
     ...diverseBusinessEntities,
     ...businessBriefEntities.filter((entity) => !diverseBusinessEntities.some((selected) => selected.entityId === entity.entityId)),
     ...rankedBriefEntities.filter((entity) => businessWeight(entity) <= 0.2),
-  ].slice(0, 5);
+  ];
 
   return {
     executiveSummary: `${reasoningPackage.investigationSummary.relationshipSummary}${impactSummary}`,
@@ -1343,7 +1258,7 @@ export function ensureEngineeringAnswerCoverage(
       kind: "fact" as const,
     }))
     .filter((item) => item.citationIds.length > 0);
-  const relationshipLines = [...relationLines, ...uncoveredRelationships].slice(0, 5);
+  const relationshipLines = [...relationLines, ...uncoveredRelationships];
   const missingRelationshipLines = relationshipLines.filter((item) => !originalText.includes(item.text));
   if (missingRelationshipLines.length) {
     sections.push(["Governed relationships", ...missingRelationshipLines.map((item) => `- ${item.text}`)].join("\n"));
@@ -1393,8 +1308,7 @@ export function ensureEngineeringAnswerCoverage(
       text: narrative.text,
       citationIds: narrative.citationIds.filter((id) => knownCitationIds.has(id)),
     }))
-    .filter((item) => item.citationIds.length > 0)
-    .slice(0, 3);
+    .filter((item) => item.citationIds.length > 0);
   const missingImpactLines = impactLines.filter((item) => !originalText.includes(item.text));
   if (missingImpactLines.length) {
     sections.push(["Potential impact relationships", ...missingImpactLines.map((item) => `- ${item.text}`)].join("\n"));
@@ -1414,23 +1328,7 @@ export function ensureEngineeringAnswerCoverage(
 
 export function engineeringPromptPayload(question: string, contextPacket: CopilotContextPacket) {
   const { reasoningPackage, engineeringBrief, ...supportingContext } = contextPacket;
-  const promptSupportingContext = contextPacket.questionIntent === "summary"
-    ? {
-        ...supportingContext,
-        entities: contextPacket.entities.map((entity) => ({
-          entityId: entity.entityId,
-          citationId: entity.citationId,
-          displayName: entity.displayName,
-          kind: entity.kind,
-          importanceScore: entity.importanceScore,
-          identityQuality: entity.identityQuality,
-          ...(entity.source ? { source: entity.source } : {}),
-          ...(entity.nativeId ? { nativeId: entity.nativeId } : {}),
-          freshness: entity.freshness,
-        })),
-        conflicts: [],
-      }
-    : supportingContext;
+  const promptSupportingContext = supportingContext;
   const promptRelationshipFlow = {
     ...contextPacket.relationshipFlow,
     promptPayload: {
@@ -1481,11 +1379,9 @@ export function buildInvestigationContext(
   userMessage: string,
   options: ContextBuilderOptions = {},
 ): CopilotContextPacket {
-  const maxContextChars = Math.max(2_048, Math.min(80_000, Math.floor(options.maxContextChars ?? DEFAULT_MAX_CHARS)));
-  const maxItems = Math.max(1, Math.min(200, Math.floor(options.maxItemsPerCategory ?? DEFAULT_MAX_ITEMS)));
-  const message = short(userMessage.trim(), MAX_MESSAGE_CHARS);
+  const message = userMessage.trim();
   const canonical = isCanonical(snapshot.canonical?.value) ? snapshot.canonical.value : undefined;
-  const selectedSources = sourceContext(snapshot, canonical).slice(0, 60);
+  const selectedSources = sourceContext(snapshot, canonical);
   const allEntityContexts = (canonical?.entities ?? []).map(normalizedEntity);
   const entityById = new Map(allEntityContexts.map((entity) => [entity.entityId, entity]));
   const questionIntent = classifyQuestion(message);
@@ -1503,7 +1399,6 @@ export function buildInvestigationContext(
         businessWeight(right.entity) - businessWeight(left.entity) ||
         left.entity.entityId.localeCompare(right.entity.entityId),
       )
-      .slice(0, 10)
       .map(({ entity, score }) => ({
         entityId: entity.entityId,
         label: entity.displayName,
@@ -1548,18 +1443,13 @@ export function buildInvestigationContext(
       ).length > 1,
     );
   const highestPrecedenceMatches = exactIdentifierCandidates.length ? exactIdentifierCandidates : governedPropertyCandidates;
-  const ambiguous = entityCandidates.length > 1 &&
-    entityCandidates[0].score - entityCandidates[1].score < COPILOT_RETRIEVAL_CONFIG.ambiguityMargin;
-  const requiresEntity = !investigationScoped;
-  const clarificationRequired = requiresEntity && (
-    hasAmbiguousExplicitMatch ||
-    (highestPrecedenceMatches.length === 0 && entityConfidence < COPILOT_RETRIEVAL_CONFIG.lowConfidenceThreshold)
-  );
+  const ambiguous = hasAmbiguousExplicitMatch;
+  const clarificationRequired = hasAmbiguousExplicitMatch;
   const ambiguityNotice = ambiguous
-    ? `Multiple entities matched this question. Analysis uses the strongest match, ${entityCandidates[0].label} (rank score ${entityCandidates[0].score.toFixed(2)}); other candidates were retained because their scores were within ${COPILOT_RETRIEVAL_CONFIG.ambiguityMargin.toFixed(2)}.`
+    ? `Multiple entities matched this question. Candidate evidence is retained for each match; no single entity is assumed.`
     : undefined;
   const selectedEntityIds = clarificationRequired || investigationScoped && questionIntent !== "summary" ? [] : questionIntent === "summary"
-    ? entityCandidates.slice(0, 3).map((candidate) => candidate.entityId)
+    ? entityCandidates.map((candidate) => candidate.entityId)
     : highestPrecedenceMatches.length
       ? [...new Set(highestPrecedenceMatches.map((candidate) => candidate.entityId))]
     : entityCandidates.length
@@ -1580,7 +1470,6 @@ export function buildInvestigationContext(
     const rightScore = relevance(message, [right.findingId, right.title, right.summary, right.kind]);
     return rightScore - leftScore || left.findingId.localeCompare(right.findingId);
   });
-  const direction = relationshipDirection(message);
   const scoredRelationships = relationshipList(canonical).map((relation) => ({
     relation,
     score: relevance(message, [
@@ -1610,16 +1499,9 @@ export function buildInvestigationContext(
         .filter((entity) => entity.nativeId && containsExactIdentifier(message, entity.nativeId))
         .sort((left, right) => (right.nativeId?.length ?? 0) - (left.nativeId?.length ?? 0) || left.entityId.localeCompare(right.entityId))[0];
   const focalEntityId = focusEntity?.entityId;
-  const requestedTraversalDepth = options.maxTraversalDepth ?? COPILOT_RETRIEVAL_CONFIG.maxTraversalDepth;
-  const traversalDepth = Number.isFinite(requestedTraversalDepth) && requestedTraversalDepth > 0
-    ? Math.floor(requestedTraversalDepth)
-    : COPILOT_RETRIEVAL_CONFIG.maxTraversalDepth;
-  const allRelationships = orderRelationshipsFromFocus(
-    scoredRelationships,
-    focalEntityId,
-    direction,
-    traversalDepth,
-  ).sort((left, right) => {
+  const allRelationships = scoredRelationships
+    .map((item) => ({ ...item, distance: 0 }))
+    .sort((left, right) => {
     const applicationCrossing = (item: typeof left) => {
       const source = entityById.get(item.relation.sourceEntityId)?.source;
       const target = entityById.get(item.relation.targetEntityId)?.source;
@@ -1634,12 +1516,7 @@ export function buildInvestigationContext(
   });
   const relationshipSections = parseRelationshipGuidance(options.relationshipDocument ?? "");
   const documentedPairs = new Set(relationshipSections.map((section) => applicationPairKey(section.sourceApplication, section.targetApplication)));
-  const relevantUnresolvedEvaluations = unresolvedEvaluations(canonical, documentedPairs)
-    .filter((evaluation) => (
-      !focalEntityId ||
-      evaluation.sourceEntityIds.includes(focalEntityId) ||
-      evaluation.targetEntityIds.includes(focalEntityId)
-    ));
+  const relevantUnresolvedEvaluations = unresolvedEvaluations(canonical, documentedPairs);
   const guidancePairs: RelationshipApplicationPair[] = [
     ...allRelationships.flatMap(({ relation }) => {
       const source = entityById.get(relation.sourceEntityId)?.source;
@@ -1663,10 +1540,8 @@ export function buildInvestigationContext(
   const pathPool = questionIntent === "impact" || questionIntent === "dependency"
     ? allImpactPaths
     : allRelationshipPaths;
-  const relevantPathCandidates = clarificationRequired ? [] : pathPool
-    .filter((path) => !focalEntityId || path.sourceEntityId === focalEntityId);
-  const relevantImpactPathCandidates = clarificationRequired ? [] : allImpactPaths
-    .filter((path) => !focalEntityId || path.sourceEntityId === focalEntityId);
+  const relevantPathCandidates = pathPool;
+  const relevantImpactPathCandidates = allImpactPaths;
   const allEvidenceById = new Map(allEvidence.map((item) => [item.evidenceId, item]));
   const allRelationshipContexts = scoredRelationships.flatMap(({ relation }) => {
     const normalized = normalizedRelationship(
@@ -1686,7 +1561,6 @@ export function buildInvestigationContext(
       left.path.relationshipIds.length - right.path.relationshipIds.length ||
       left.path.id.localeCompare(right.path.id),
     )
-    .slice(0, maxItems)
     .map((item) => item.path);
   const allRelevantPaths = rankPaths(relevantPathCandidates);
   const allRelevantImpactPaths = rankPaths(relevantImpactPathCandidates);
@@ -1706,8 +1580,7 @@ export function buildInvestigationContext(
     ...relevantUnresolvedEvaluations.map((evaluation) => evaluation.ruleId),
   ]);
   const relationshipDefinitions = (canonical?.knowledgeGraph?.ontology.relationshipDefinitions ?? [])
-    .filter((definition) => relevantDefinitionIds.has(definition.id))
-    .slice(0, maxItems);
+    .filter((definition) => relevantDefinitionIds.has(definition.id));
   const directEvidenceIds = new Set((canonical?.findings ?? [])
     .filter((finding) => !focalEntityId || finding.subjectEntityIds.includes(focalEntityId))
     .flatMap((finding) => finding.evidenceIds.map((id) => stableCitationId("evidence", id))));
@@ -1834,7 +1707,7 @@ export function buildInvestigationContext(
     snapshotRevision: snapshot.identity.revision,
     lifecycle: snapshot.lifecycle,
     subject: short(snapshot.subjectLabel, 300),
-    userMessage: message,
+    userMessage,
     questionIntent,
     entityCandidates,
     selectedEntityIds,
@@ -1857,124 +1730,18 @@ export function buildInvestigationContext(
     grounding: { hasCanonicalEvidence, partialSources, staleSources, unsupportedIdentifiers },
   };
 
-  const counts = {
-    entities: Math.min(maxItems, entitiesByRelevance.length),
-    relationships: Math.min(maxItems, allRelationships.length),
-    evidence: Math.min(maxItems, allEvidence.length),
-    findings: Math.min(maxItems, allFindings.length),
-    unresolvedEvaluations: Math.min(maxItems, allUnresolved.length),
-    paths: Math.min(maxItems, allRelevantPaths.length),
-    reasoningPrimaryEntities: fullReasoningPackage.primaryEntities.length,
-    reasoningKeyDependencies: fullReasoningPackage.keyDependencies.length,
-    reasoningImpactChains: fullReasoningPackage.impactChains.length,
-    reasoningStrongestEvidence: fullReasoningPackage.strongestEvidence.length,
-    reasoningFindings: fullReasoningPackage.engineeringFindings.length,
-    reasoningRelationshipNarratives: fullReasoningPackage.relationshipNarratives.length,
-    reasoningImpactNarratives: fullReasoningPackage.impactNarratives.length,
-    reasoningUnresolvedRelationships: fullReasoningPackage.unresolvedRelationships.length,
-    reasoningMissingEvidence: fullReasoningPackage.missingEvidence.length,
-    ontologyDefinitions: Math.min(maxItems, relationshipDefinitions.length),
-    sourceSelections: selectedSources.length,
-    relationshipGuidance: Math.min(maxItems, relationshipGuidance.length),
-  };
-  const isCompleteRelationshipGroup = (relation: RelationshipLike): boolean => {
-    const source = entityById.get(relation.sourceEntityId);
-    const target = entityById.get(relation.targetEntityId);
-    const evidenceIds = [...new Set([...(relation.evidenceIds ?? []), ...(relation.evidenceId ? [relation.evidenceId] : [])])];
-    return Boolean(
-      source &&
-      target &&
-      source.entityId !== target.entityId &&
-      evidenceIds.length > 0 &&
-      evidenceIds.length <= maxItems &&
-      evidenceIds.every((id) => allEvidence.some((item) => item.evidenceId === id)),
-    );
-  };
-  const protectedCandidate = allRelationships.find(({ relation }) =>
-    allRelevantImpactPaths.some((path) => path.relationshipIds.includes(relation.id)) &&
-    isCompleteRelationshipGroup(relation),
-  ) ?? allRelationships.find(({ relation }) => isCompleteRelationshipGroup(relation));
-  const protectedImpactPath = protectedCandidate
-    ? allRelevantImpactPaths.find((path) => path.relationshipIds.includes(protectedCandidate.relation.id))
-    : undefined;
-  const protectedEntityIds = protectedCandidate
-    ? [...new Set([protectedCandidate.relation.sourceEntityId, protectedCandidate.relation.targetEntityId])]
-    : [];
-  const protectedEvidenceIds = protectedCandidate
-    ? [...new Set([
-        ...(protectedCandidate.relation.evidenceIds ?? []),
-        ...(protectedCandidate.relation.evidenceId ? [protectedCandidate.relation.evidenceId] : []),
-      ])]
-    : [];
-  const protectedMinimums = {
-    entities: protectedEntityIds.length,
-    relationships: protectedCandidate ? 1 : 0,
-    evidence: protectedEvidenceIds.length,
-    paths: protectedImpactPath || allRelevantImpactPaths.length ? 1 : 0,
-    reasoningRelationshipNarratives: fullReasoningPackage.relationshipNarratives.length ? 1 : 0,
-    reasoningImpactNarratives: fullReasoningPackage.impactNarratives.length ? 1 : 0,
-    reasoningImpactChains: fullReasoningPackage.impactChains.length ? 1 : 0,
-  };
-  counts.entities = Math.max(counts.entities, protectedMinimums.entities);
-  counts.relationships = Math.max(counts.relationships, protectedMinimums.relationships);
-  counts.evidence = Math.max(counts.evidence, protectedMinimums.evidence);
-  counts.paths = Math.max(counts.paths, protectedMinimums.paths);
-  const beforeBudgetCounts = {
-    entities: allEntityContexts.length,
-    relationships: allRelationships.length,
-    evidence: allEvidence.length,
-    paths: allRelevantPaths.length,
-    impactPaths: allRelevantImpactPaths.length,
-    impactChains: fullReasoningPackage.impactChains.length,
-    reasoningNarratives: fullReasoningPackage.relationshipNarratives.length + fullReasoningPackage.impactNarratives.length,
-  };
-  const trimOrder: (keyof typeof counts)[] = [
-    "reasoningFindings",
-    "reasoningStrongestEvidence",
-    "reasoningKeyDependencies",
-    "reasoningPrimaryEntities",
-    "reasoningMissingEvidence",
-    "reasoningUnresolvedRelationships",
-    "ontologyDefinitions",
-    "sourceSelections",
-    "relationships",
-    "paths",
-    "evidence",
-    "unresolvedEvaluations",
-    "findings",
-    "entities",
-    "reasoningImpactNarratives",
-    "reasoningRelationshipNarratives",
-    "reasoningImpactChains",
-    "relationshipGuidance",
-  ];
-
   const compose = (): CopilotContextPacket => {
-    const prioritizedPaths = protectedImpactPath
-      ? [protectedImpactPath, ...allRelevantPaths.filter((path) => path !== protectedImpactPath)]
-      : allRelevantPaths;
-    const prioritizedImpactPaths = protectedImpactPath
-      ? [protectedImpactPath, ...allRelevantImpactPaths.filter((path) => path !== protectedImpactPath)]
-      : allRelevantImpactPaths;
-    const relevantPaths = prioritizedPaths.slice(0, counts.paths);
+    const relevantPaths = allRelevantPaths;
     const selectedRelationshipCandidates: typeof allRelationships = [];
     const requiredEntityIds = new Set<string>();
     const requiredEvidenceIds = new Set<string>();
-    const prioritizedRelationships = protectedCandidate
-      ? [protectedCandidate, ...allRelationships.filter((candidate) => candidate !== protectedCandidate)]
-      : allRelationships;
-    for (const candidate of prioritizedRelationships) {
-      if (selectedRelationshipCandidates.length >= counts.relationships) break;
+    for (const candidate of allRelationships) {
       const { relation } = candidate;
       const source = entityById.get(relation.sourceEntityId);
       const target = entityById.get(relation.targetEntityId);
       if (!source || !target) continue;
       const relationshipEvidenceIds = [...new Set([...(relation.evidenceIds ?? []), ...(relation.evidenceId ? [relation.evidenceId] : [])])]
         .filter((id) => allEvidence.some((item) => item.evidenceId === id));
-      const additionalEntities = [source.entityId, target.entityId].filter((id) => !requiredEntityIds.has(id));
-      const additionalEvidence = relationshipEvidenceIds.filter((id) => !requiredEvidenceIds.has(id));
-      if (requiredEntityIds.size + additionalEntities.length > counts.entities) continue;
-      if (requiredEvidenceIds.size + additionalEvidence.length > counts.evidence) continue;
       selectedRelationshipCandidates.push(candidate);
       for (const id of [source.entityId, target.entityId]) requiredEntityIds.add(id);
       for (const id of relationshipEvidenceIds) requiredEvidenceIds.add(id);
@@ -1989,7 +1756,7 @@ export function buildInvestigationContext(
       ...priorityEntityIds.map((id) => entityById.get(id)).filter((entity): entity is CopilotEntityContext => Boolean(entity)),
       ...entitiesByRelevance.filter((entity) => !priorityEntityIds.includes(entity.entityId)),
     ];
-    const entities = prioritizedEntities.slice(0, counts.entities).map((entity) => ({
+    const entities = prioritizedEntities.map((entity) => ({
       ...entity,
       importanceScore: fullReasoningPackage.entityImportance[entity.entityId]?.score ?? 0,
     }));
@@ -1998,9 +1765,9 @@ export function buildInvestigationContext(
       ...[...requiredEvidenceIds].map((id) => allEvidence.find((item) => item.evidenceId === id)!).filter(Boolean),
       ...allEvidence.filter((item) => !requiredEvidenceIds.has(item.evidenceId)),
     ];
-    const evidence = prioritizedEvidence.slice(0, counts.evidence);
+    const evidence = prioritizedEvidence;
     const evidenceMap = new Map(evidence.map((item) => [item.evidenceId, item]));
-    const selectedGuidance = relationshipGuidance.slice(0, counts.relationshipGuidance);
+    const selectedGuidance = relationshipGuidance;
     const selectedGuidancePairs = new Set(selectedGuidance.map((section) => applicationPairKey(section.sourceApplication, section.targetApplication)));
     const relationships: CopilotRelationshipContext[] = selectedRelationshipCandidates
       .flatMap(({ relation }) => {
@@ -2015,8 +1782,8 @@ export function buildInvestigationContext(
         const normalized = normalizedRelationship(relation, entitiesMap, evidenceMap, semanticGuidanceAvailable);
         return normalized ? [normalized] : [];
       });
-    const findings = allFindings.slice(0, counts.findings);
-    const unresolved = allUnresolved.slice(0, counts.unresolvedEvaluations).map((evaluation) => ({
+    const findings = allFindings;
+    const unresolved = allUnresolved.map((evaluation) => ({
       ...evaluation,
       evidenceCitationIds: evaluation.evidenceCitationIds.filter((citationId) => evidenceMap.has(citationId)),
       semanticGuidanceAvailable: Boolean(
@@ -2039,7 +1806,7 @@ export function buildInvestigationContext(
     dependency: [...dependencyEvidenceIds].filter((id) => selectedEvidenceIds.has(id)).sort(),
     impact: [...impactEvidenceIds].filter((id) => selectedEvidenceIds.has(id)).sort(),
     };
-    const impactPaths = prioritizedImpactPaths.slice(0, counts.paths);
+    const impactPaths = allRelevantImpactPaths;
     const impactedEntityIds = [...new Set(impactPaths.map((path) => path.targetEntityId))]
       .filter((entityId) => entityId !== focalEntityId)
       .sort();
@@ -2060,15 +1827,15 @@ export function buildInvestigationContext(
     const reasoningPackage: ReasoningPackage = {
       ...fullReasoningPackage,
       entityImportance: selectedImportance,
-      primaryEntities: fullReasoningPackage.primaryEntities.slice(0, counts.reasoningPrimaryEntities),
-      keyDependencies: fullReasoningPackage.keyDependencies.slice(0, counts.reasoningKeyDependencies),
-      impactChains: fullReasoningPackage.impactChains.slice(0, counts.reasoningImpactChains),
-      strongestEvidence: fullReasoningPackage.strongestEvidence.slice(0, counts.reasoningStrongestEvidence),
-      engineeringFindings: fullReasoningPackage.engineeringFindings.slice(0, counts.reasoningFindings),
-      relationshipNarratives: fullReasoningPackage.relationshipNarratives.slice(0, counts.reasoningRelationshipNarratives),
-      impactNarratives: fullReasoningPackage.impactNarratives.slice(0, counts.reasoningImpactNarratives),
-      unresolvedRelationships: fullReasoningPackage.unresolvedRelationships.slice(0, counts.reasoningUnresolvedRelationships),
-      missingEvidence: fullReasoningPackage.missingEvidence.slice(0, counts.reasoningMissingEvidence),
+      primaryEntities: fullReasoningPackage.primaryEntities,
+      keyDependencies: fullReasoningPackage.keyDependencies,
+      impactChains: fullReasoningPackage.impactChains,
+      strongestEvidence: fullReasoningPackage.strongestEvidence,
+      engineeringFindings: fullReasoningPackage.engineeringFindings,
+      relationshipNarratives: fullReasoningPackage.relationshipNarratives,
+      impactNarratives: fullReasoningPackage.impactNarratives,
+      unresolvedRelationships: fullReasoningPackage.unresolvedRelationships,
+      missingEvidence: fullReasoningPackage.missingEvidence,
     };
     const reasoningCitationIds = new Set([
       ...reasoningPackage.primaryEntities.map((entity) => entity.citationId),
@@ -2096,7 +1863,7 @@ export function buildInvestigationContext(
     ]);
     const reasoningCitations = allReasoningCitations.filter((citation) => reasoningCitationIds.has(citation.citationId));
     const citations = [...new Map([
-      ...citationsFor(selectedSources.slice(0, counts.sourceSelections), unresolved, entities, relationships, findings, evidence),
+      ...citationsFor(selectedSources, unresolved, entities, relationships, findings, evidence),
       ...reasoningCitations,
       ...candidateCitations,
     ].map((citation) => [citation.citationId, citation])).values()]
@@ -2119,20 +1886,19 @@ export function buildInvestigationContext(
       unresolvedEvaluations: allUnresolved.length - unresolved.length,
       paths: allRelevantPaths.length - relevantPaths.length,
       reasoningArtifacts: reasoningOmittedCount,
-      ontologyDefinitions: relationshipDefinitions.length - counts.ontologyDefinitions,
-      sourceSelections: sourceContext(snapshot, canonical).length - counts.sourceSelections,
-      relationshipGuidance: relationshipGuidance.length - selectedGuidance.length,
     };
     const categories = Object.entries(omittedCounts).filter(([, count]) => count > 0).map(([category]) => category).sort();
     const uncertainties = buildUncertainties(hasCanonicalEvidence, partialSources, staleSources, conflicts, unsupportedIdentifiers);
     if (ambiguityNotice) uncertainties.push(ambiguityNotice);
-    if (clarificationRequired) {
-      uncertainties.push(`No entity candidate reached the configured confidence threshold of ${COPILOT_RETRIEVAL_CONFIG.lowConfidenceThreshold.toFixed(2)}. Ask the engineer to clarify before making entity-specific claims.`);
+    if (categories.length) uncertainties.push(`The context projection did not include items from: ${categories.join(", ")}; omitted content is unknown, not evidence of absence.`);
+    if (impactPaths.length || relationships.some((relationship) =>
+      relationship.assertion === "hypothesis" || relationship.kind.toLocaleLowerCase().includes("impact"),
+    )) {
+      uncertainties.push("PLM Brain impact paths describe potential impact and do not by themselves establish causation.");
     }
-    if (categories.length) uncertainties.push(`Context limit omitted items from: ${categories.join(", ")}; omitted content is unknown, not evidence of absence.`);
     const omittedRelationshipCount = allRelationships.length - relationships.length;
     if (omittedRelationshipCount > 0) {
-      uncertainties.push(`Context limit omitted ${omittedRelationshipCount} relationship path(s); omitted relationship content is unknown.`);
+      uncertainties.push(`The context projection could not represent ${omittedRelationshipCount} relationship(s); omitted relationship content is unknown.`);
     }
     for (const relationship of relationships) {
       if (!relationship.identitySupported) {
@@ -2175,7 +1941,7 @@ export function buildInvestigationContext(
       ...base,
       relationshipPaths: relevantPaths,
       impactPaths,
-      relationshipDefinitions: relationshipDefinitions.slice(0, counts.ontologyDefinitions),
+      relationshipDefinitions,
       reasoningPackage,
       engineeringBrief: boundedEngineeringBrief,
       relationshipFlow,
@@ -2186,7 +1952,7 @@ export function buildInvestigationContext(
         entitiesByKind,
         entitiesByApplication,
       },
-      sourceSelections: selectedSources.slice(0, counts.sourceSelections),
+      sourceSelections: selectedSources,
       entities,
       relationships,
       relationshipGuidance: selectedGuidance,
@@ -2200,235 +1966,9 @@ export function buildInvestigationContext(
       omissions: {
         categories,
         omittedCounts,
-        maxContextChars,
-        budgetTrace: {
-          before: beforeBudgetCounts,
-          after: {
-            entities: entities.length,
-            relationships: relationships.length,
-            evidence: evidence.length,
-            paths: relevantPaths.length,
-            impactPaths: impactPaths.length,
-            impactChains: reasoningPackage.impactChains.length,
-            reasoningNarratives: reasoningPackage.relationshipNarratives.length + reasoningPackage.impactNarratives.length,
-          },
-          ...(protectedCandidate ? { protectedRelationshipId: protectedCandidate.relation.id } : {}),
-        },
       },
     };
   };
 
-  const canTrim = (key: keyof typeof counts): boolean => {
-    const minimum = key === "entities" ? protectedMinimums.entities
-      : key === "relationships" ? protectedMinimums.relationships
-      : key === "evidence" ? protectedMinimums.evidence
-      : key === "paths" ? protectedMinimums.paths
-      : key === "reasoningRelationshipNarratives" ? protectedMinimums.reasoningRelationshipNarratives
-      : key === "reasoningImpactNarratives" ? protectedMinimums.reasoningImpactNarratives
-      : key === "reasoningImpactChains" ? protectedMinimums.reasoningImpactChains
-      : 0;
-    return counts[key] > minimum;
-  };
-  const hasProtectedReasoning =
-    protectedMinimums.reasoningRelationshipNarratives > 0 ||
-    protectedMinimums.reasoningImpactNarratives > 0 ||
-    protectedMinimums.reasoningImpactChains > 0;
-  let packet = compose();
-  while (JSON.stringify(packet).length > maxContextChars && trimOrder.some(canTrim)) {
-    const key = trimOrder.find(canTrim);
-    if (!key) break;
-    counts[key]--;
-    packet = compose();
-  }
-  if (JSON.stringify(packet).length > maxContextChars) {
-    const fallbackEntities = packet.entities.filter((entity) => protectedEntityIds.includes(entity.entityId));
-    const fallbackRelationships = packet.relationships.slice(0, protectedMinimums.relationships);
-    const fallbackEvidence = packet.evidence.filter((item) => protectedEvidenceIds.includes(item.evidenceId));
-    const fallbackCitationIds = new Set([
-      ...fallbackEntities.map((entity) => entity.citationId),
-      ...fallbackRelationships.flatMap((relationship) => [
-        relationship.citationId,
-        relationship.sourceCitationId,
-        relationship.targetCitationId,
-        ...relationship.evidenceCitationIds,
-      ]),
-      ...fallbackEvidence.map((item) => item.citationId),
-      ...packet.reasoningPackage.relationshipNarratives.flatMap((item) => item.citationIds),
-      ...packet.reasoningPackage.impactNarratives.flatMap((item) => item.citationIds),
-      ...packet.reasoningPackage.impactChains.flatMap((item) => item.citationIds),
-    ]);
-    packet = {
-      ...packet,
-      knowledgeGraphSummary: undefined,
-      subject: "",
-      userMessage: "",
-      conflicts: [],
-      retrievalConfidence: {
-        ...packet.retrievalConfidence,
-        components: {
-          evidenceSupport: 0,
-          relationshipSupport: 0,
-          retrievalCoverage: 0,
-          groundingAvailability: 0,
-        },
-      },
-      entityCandidates: [],
-      selectedEntityIds: [],
-      knowledgeGraph: undefined,
-      grounding: {
-        hasCanonicalEvidence: packet.grounding.hasCanonicalEvidence,
-        partialSources: packet.grounding.partialSources,
-        staleSources: packet.grounding.staleSources,
-        unsupportedIdentifiers: packet.grounding.unsupportedIdentifiers,
-      },
-      uncertainties: [
-        `Context limit omitted ${beforeBudgetCounts.relationships - protectedMinimums.relationships} relationship path(s); omitted content is unknown.`,
-      ],
-      ambiguity: { detected: false, clarificationRequired: false },
-      sourceSelections: [],
-      entities: fallbackEntities,
-      relationships: fallbackRelationships,
-      relationshipPaths: [],
-      impactPaths: packet.impactPaths.slice(0, protectedMinimums.paths),
-      relationshipDefinitions: [],
-      relationshipGuidance: [],
-      findings: [],
-      unresolvedEvaluations: [],
-      evidence: fallbackEvidence,
-      evidenceGroups: { direct: [], relationship: [], dependency: [], impact: [] },
-      reasoningPackage: {
-        ...packet.reasoningPackage,
-        investigationSummary: {
-          crossSystemSummary: "",
-          relationshipCount: 0,
-          relationshipSummary: "",
-          applicationCoverage: {},
-          keyDependencies: [],
-          mostConnectedEntities: [],
-          highestValueRelationships: [],
-          strongestEvidence: [],
-          strongestImpactChains: [],
-        },
-        entityImportance: {},
-        primaryEntities: [],
-        keyDependencies: [],
-        impactChains: packet.reasoningPackage.impactChains,
-        strongestEvidence: [],
-        engineeringFindings: [],
-        relationshipNarratives: packet.reasoningPackage.relationshipNarratives,
-        impactNarratives: packet.reasoningPackage.impactNarratives,
-        unresolvedRelationships: [],
-        missingEvidence: [],
-      },
-      engineeringBrief: {
-        ...packet.engineeringBrief,
-        executiveSummary: "",
-        crossSystemSummary: "",
-        primaryEntities: [],
-        majorRelationships: packet.relationships.slice(0, protectedMinimums.relationships),
-        relationshipNarratives: packet.reasoningPackage.relationshipNarratives,
-        impactNarratives: packet.reasoningPackage.impactNarratives,
-        relationshipEvidence: packet.engineeringBrief.relationshipEvidence
-          .filter((item) => protectedEvidenceIds.includes(item.evidenceId)),
-        engineeringInsights: [],
-        topFindings: [],
-        topImpactChains: packet.reasoningPackage.impactChains,
-        strongestEvidence: [],
-        missingEvidence: [],
-        unresolvedRelationships: [],
-        recommendedInvestigationAreas: [],
-        relationshipFlow: packet.engineeringBrief.relationshipFlow,
-      },
-      citations: packet.citations
-        .filter((citation) => fallbackCitationIds.has(citation.citationId))
-        .map((citation) => ({
-          citationId: citation.citationId,
-          kind: citation.kind,
-          label: citation.label,
-          ...(citation.source ? { source: citation.source } : {}),
-          ...(citation.nativeId ? { nativeId: citation.nativeId } : {}),
-        })),
-      impactSummary: {
-        classification: "potential",
-        pathCount: packet.impactPaths.slice(0, protectedMinimums.paths).length,
-        impactedEntityIds: [],
-        entitiesByKind: {},
-        entitiesByApplication: {},
-      },
-      relationshipFlow: packet.relationshipFlow,
-    } as CopilotContextPacket;
-    const afterFallbackCounts = {
-      entities: packet.entities.length,
-      relationships: packet.relationships.length,
-      evidence: packet.evidence.length,
-      paths: packet.relationshipPaths.length,
-      impactPaths: packet.impactPaths.length,
-      impactChains: packet.reasoningPackage.impactChains.length,
-      reasoningNarratives: packet.reasoningPackage.relationshipNarratives.length + packet.reasoningPackage.impactNarratives.length,
-    };
-    const fallbackOmittedCounts = {
-      ...packet.omissions.omittedCounts,
-      entities: beforeBudgetCounts.entities - afterFallbackCounts.entities,
-      relationships: beforeBudgetCounts.relationships - afterFallbackCounts.relationships,
-      evidence: beforeBudgetCounts.evidence - afterFallbackCounts.evidence,
-      paths: beforeBudgetCounts.paths - afterFallbackCounts.paths,
-      impactPaths: beforeBudgetCounts.impactPaths - afterFallbackCounts.impactPaths,
-      impactChains: beforeBudgetCounts.impactChains - afterFallbackCounts.impactChains,
-      reasoningNarratives: beforeBudgetCounts.reasoningNarratives - afterFallbackCounts.reasoningNarratives,
-    };
-    packet = {
-      ...packet,
-      omissions: {
-        ...packet.omissions,
-        categories: Object.entries(fallbackOmittedCounts)
-          .filter(([, count]) => count > 0)
-          .map(([category]) => category)
-          .sort(),
-        omittedCounts: fallbackOmittedCounts,
-        budgetTrace: {
-          ...packet.omissions.budgetTrace,
-          after: afterFallbackCounts,
-        },
-      },
-    };
-    if (JSON.stringify(packet).length > maxContextChars && !hasProtectedReasoning) {
-      packet = {
-        ...packet,
-        citations: [],
-        reasoningPackage: undefined,
-        engineeringBrief: undefined,
-        relationshipFlow: undefined,
-      } as unknown as CopilotContextPacket;
-    };
-    if (JSON.stringify(packet).length > maxContextChars) {
-      const protectedCategories: string[] = [];
-      if (protectedMinimums.entities > 0) protectedCategories.push("relationship endpoint entities");
-      if (protectedMinimums.relationships > 0) protectedCategories.push("relationships");
-      if (protectedMinimums.evidence > 0) protectedCategories.push("evidence records");
-      if (protectedMinimums.paths > 0) protectedCategories.push("impact paths");
-      if (protectedMinimums.reasoningRelationshipNarratives > 0) protectedCategories.push("relationship narratives (1)");
-      if (protectedMinimums.reasoningImpactNarratives > 0) protectedCategories.push("impact narratives (1)");
-      if (protectedMinimums.reasoningImpactChains > 0) protectedCategories.push("impact chains (1)");
-      const packetSize = JSON.stringify(packet).length;
-      const largestFields = Object.entries(packet)
-        .map(([field, value]) => [field, JSON.stringify(value)?.length ?? 0] as const)
-        .sort((left, right) => right[1] - left[1])
-        .map(([field, size]) => `${field}=${size}`)
-        .join(", ");
-      const largestBriefFields = packet.engineeringBrief
-        ? Object.entries(packet.engineeringBrief)
-        .map(([field, value]) => [field, JSON.stringify(value)?.length ?? 0] as const)
-        .sort((left, right) => right[1] - left[1])
-        .slice(0, 3)
-        .map(([field, size]) => `${field}=${size}`)
-        .join(", ")
-        : "none";
-      const error = new Error(
-        `Context budget exceeded: protected categories preventing fit: ${protectedCategories.join(", ") || "none"}; packet size ${packetSize} characters exceeds configured budget ${maxContextChars}. Largest fields: ${largestFields}. Largest brief fields: ${largestBriefFields}.`,
-      );
-      error.name = "ContextBudgetExceededError";
-      throw error;
-    }
-  }
-  return packet;
+  return compose();
 }

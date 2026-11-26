@@ -34,6 +34,10 @@ export interface ImpactEvidenceService {
     scope: PlmBrainImpactEvidenceRequest["scope"],
     authorization: ImpactEvidenceAuthorization,
   ): Promise<ImpactEvidenceResponseV1>;
+  retrieveInvestigationEvidence(
+    investigationId: string,
+    authorization: ImpactEvidenceAuthorization,
+  ): Promise<ImpactEvidenceResponseV1>;
 }
 
 type SnapshotLoader = (investigationId: InvestigationId) => Promise<InvestigationSnapshot | undefined>;
@@ -130,21 +134,7 @@ export function createImpactEvidenceService(
           evidenceIds.has(observation.id) &&
           observationAllowed(observation, scope),
         )
-        .map((observation) => ({
-          evidenceId: observation.id,
-          sourceType: "ontology-observation",
-          sourceSystem: observation.application ?? observation.provider,
-          recordId: observation.entityId,
-          revision: String(graph.snapshotRevision),
-          location: observation.path,
-          deepLink: null,
-          provenanceId: observation.id,
-          authorizationDecisionId: authorization.decisionId,
-          citationId: observation.citationId,
-          authority: observation.authority,
-          provider: observation.provider,
-          observedAt: observation.observedAt,
-        }));
+        .map((observation) => sourceReference(observation, graph.snapshotRevision, authorization));
 
       const sourceEvidenceIds = new Set(sources.map((source) => source.evidenceId));
       if (
@@ -203,6 +193,82 @@ export function createImpactEvidenceService(
         traceId: authorization.traceId,
       };
     },
+
+    async retrieveInvestigationEvidence(investigationId, authorization) {
+      const graph = await loadGraph(investigationId);
+      return {
+        investigationId,
+        relationships: graph.resolvedRelationships.map((relationship) => ({
+          id: relationship.id,
+          sourceEntityId: relationship.sourceEntityId,
+          targetEntityId: relationship.targetEntityId,
+          forwardType: relationship.forwardType,
+          forwardMeaning: relationship.forwardMeaning,
+          inverseMeaning: relationship.inverseMeaning,
+          status: relationship.status,
+          strength: relationship.strength,
+          evidenceIds: relationship.evidenceIds,
+          citationIds: relationship.citationIds,
+        })),
+        paths: graph.impactPaths.map((path) => ({
+          id: path.id,
+          sourceEntityId: path.sourceEntityId,
+          targetEntityId: path.targetEntityId,
+          entityIds: [path.sourceEntityId, ...path.steps.map((step) => step.toEntityId)],
+          relationshipIds: path.relationshipIds,
+          steps: path.steps,
+          meanings: path.meanings,
+          status: path.status,
+          strength: path.strength,
+          impactEligible: path.impactEligible,
+          citationIds: path.citationIds,
+        })),
+        chains: (graph.impactChains ?? []).map((chain) => ({
+          id: chain.id,
+          sourceEntityId: chain.sourceEntityId,
+          impactedEntityId: chain.impactedEntityId,
+          relationshipIds: chain.relationshipIds,
+          relationshipSequence: chain.relationshipSequence,
+          supportingEvidenceIds: chain.supportingEvidenceIds,
+          citationIds: chain.citationIds,
+          engineeringExplanation: chain.engineeringExplanation,
+          confidence: chain.confidence,
+          impactRationale: chain.impactRationale,
+          status: chain.status,
+          strength: chain.strength,
+        })),
+        sources: graph.relationshipEvidence.map((observation) =>
+          sourceReference(observation, graph.snapshotRevision, authorization),
+        ),
+        sourceVersion: String(graph.snapshotRevision),
+        ontologyVersion: graph.ontologyVersion,
+        authorizationDecisionId: authorization.decisionId,
+        requestId: authorization.requestId,
+        traceId: authorization.traceId,
+      };
+    },
+  };
+}
+
+function sourceReference(
+  observation: InvestigationKnowledgeGraph["relationshipEvidence"][number],
+  snapshotRevision: number,
+  authorization: ImpactEvidenceAuthorization,
+): ImpactEvidenceResponseV1["sources"][number] {
+  return {
+    evidenceId: observation.id,
+    sourceType: "ontology-observation",
+    sourceSystem: observation.application ?? observation.provider ?? "unknown",
+    recordId: observation.entityId,
+    revision: String(snapshotRevision),
+    location: observation.path ?? null,
+    deepLink: null,
+    provenanceId: observation.id,
+    authorizationDecisionId: authorization.decisionId,
+    citationId: observation.citationId ?? null,
+    authority: observation.authority ?? "",
+    provider: observation.provider ?? "",
+    observedAt: observation.observedAt ?? "",
   };
 }
 

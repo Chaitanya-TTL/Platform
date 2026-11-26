@@ -9,4 +9,6 @@ public sealed record ImpactAnswerRequest(
 {
     public ConversationState? PreviousConversationState { get; init; }
     public string? ParentTurnId { get; init; }
+    public IReadOnlyList<ConversationHistoryTurn> ConversationHistory { get; init; } =
+        Array.Empty<ConversationHistoryTurn>();
 }

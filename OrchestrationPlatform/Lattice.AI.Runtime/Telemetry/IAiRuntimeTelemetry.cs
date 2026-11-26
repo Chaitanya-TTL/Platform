@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using Lattice.AI.Runtime.Contracts.Answers;
 using Lattice.AI.Runtime.Contracts.Conversation;
+using Lattice.AI.Runtime.Contracts.Evidence;
 using Lattice.AI.Runtime.Contracts.Requests;
 
 namespace Lattice.AI.Runtime.Telemetry;
@@ -61,6 +62,12 @@ public interface IAiRuntimeTelemetry
 
     void RecordContextQuality(int omissionCount, bool budgetExhausted);
 
+    void RecordSourceEvidenceOmissions(int omissionCount);
+
+    void RecordSourceEvidenceIndexStatus(SourceEvidenceIndexState status);
+
+    void RecordSourceEvidenceIndexRevision();
+
     void RecordAnswerQuality(AnswerQualitySummary summary);
 
     void RecordConversationTurn(ConversationTurnTelemetry summary);
@@ -112,6 +119,18 @@ public sealed class NullAiRuntimeTelemetry : IAiRuntimeTelemetry
     }
 
     public void RecordContextQuality(int omissionCount, bool budgetExhausted)
+    {
+    }
+
+    public void RecordSourceEvidenceOmissions(int omissionCount)
+    {
+    }
+
+    public void RecordSourceEvidenceIndexStatus(SourceEvidenceIndexState status)
+    {
+    }
+
+    public void RecordSourceEvidenceIndexRevision()
     {
     }
 

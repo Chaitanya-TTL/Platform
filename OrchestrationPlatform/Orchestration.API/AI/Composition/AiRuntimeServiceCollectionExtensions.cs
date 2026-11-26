@@ -3,16 +3,19 @@ using Azure.Identity;
 using Azure.Monitor.OpenTelemetry.AspNetCore;
 using Lattice.AI.Runtime.Application;
 using Lattice.AI.Runtime.Authorization;
+using Lattice.AI.Runtime.ApplicationContext;
 using Lattice.AI.Runtime.Azure.Models;
 using Lattice.AI.Runtime.ContextCompilation;
 using Lattice.AI.Runtime.Contracts.Authorization;
 using Lattice.AI.Runtime.Contracts.Generation;
 using Lattice.AI.Runtime.EntityResolution;
 using Lattice.AI.Runtime.Evidence;
+using Lattice.AI.Runtime.FactEvidence;
 using Lattice.AI.Runtime.Generation;
 using Lattice.AI.Runtime.Prompts;
 using Lattice.AI.Runtime.QuestionUnderstanding;
 using Lattice.AI.Runtime.ScopePlanning;
+using Lattice.AI.Runtime.SourceEvidence;
 using Lattice.AI.Runtime.Telemetry;
 using Lattice.AI.Runtime.Validation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -40,8 +43,21 @@ public static class AiRuntimeServiceCollectionExtensions
 
         services.Configure<PlmBrainServiceOptions>(configuration.GetSection("AiRuntime:PlmBrain"));
         services.Configure<AiRuntimeTelemetryOptions>(configuration.GetSection("AiRuntime:Telemetry"));
+        services.AddOptions<CopilotExecutionTraceOptions>()
+            .Bind(configuration.GetSection("AiRuntime:Diagnostics"))
+            .Validate(
+                options => !options.FullPayloadTraceEnabled || !environment.IsProduction(),
+                "Full Copilot payload tracing is not permitted in Production.")
+            .ValidateOnStart();
         services.TryAddSingleton<TimeProvider>(TimeProvider.System);
         services.AddSingleton<IAiRuntimeTelemetry, AiRuntimeTelemetry>();
+        services.AddSingleton<ICopilotExecutionTrace>(provider =>
+        {
+            var options = provider.GetRequiredService<IOptions<CopilotExecutionTraceOptions>>().Value;
+            return options.Enabled
+                ? ActivatorUtilities.CreateInstance<CopilotExecutionTraceLogger>(provider)
+                : CopilotExecutionTraceNoOp.Instance;
+        });
         services.TryAddSingleton<IResourceAuthorizationDecisionProvider, UnavailableResourceAuthorizationDecisionProvider>();
         services.AddSingleton<TokenCredential, DefaultAzureCredential>();
         services.Configure<AiRuntimeOptions>(configuration.GetSection("AiRuntime"));
@@ -92,6 +108,9 @@ public static class AiRuntimeServiceCollectionExtensions
             .AddStandardResilienceHandler();
         services.AddTransient<IEngineeringEntityResolver, PlmBrainEntityResolver>();
         services.AddTransient<IEngineeringEvidenceSource, PlmBrainEngineeringEvidenceSource>();
+        services.AddTransient<ISourceEvidenceRetriever, PlmBrainSourceEvidenceRetriever>();
+        services.AddTransient<IFactEvidenceRetriever, PlmBrainFactEvidenceRetriever>();
+        services.AddTransient<IApplicationContextRetriever, PlmBrainApplicationContextRetriever>();
 
         var authority = configuration["AiRuntime:Authentication:Authority"];
         var audience = configuration["AiRuntime:Authentication:Audience"];

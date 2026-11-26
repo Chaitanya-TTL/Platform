@@ -14,15 +14,27 @@ public sealed class ModelGatewayTests
         var response = new ChatResponse(new ChatMessage(ChatRole.Assistant, """{"schemaVersion":"answer-v1"}"""));
         var chatClient = new FakeChatClient((_, _, _) => Task.FromResult(response));
         var gateway = new AzureOpenAiModelGateway(chatClient, Options.Create(CreateOptions()));
-        var request = Request();
+        var request = Request() with
+        {
+            Messages =
+            [
+                new ModelMessage("system", "system policy"),
+                new ModelMessage("user", "prior user question"),
+                new ModelMessage("assistant", "prior assistant answer"),
+                new ModelMessage("user", "current question")
+            ]
+        };
 
         var modelResponse = await gateway.GenerateAsync(request, CancellationToken.None);
 
         Assert.Same(request.RequestContext, modelResponse.RequestContext);
         Assert.Same(response, chatClient.Response);
-        Assert.Equal(2, chatClient.Messages!.Count);
-        Assert.Equal(ChatRole.System, chatClient.Messages[0].Role);
-        Assert.Equal(ChatRole.User, chatClient.Messages[1].Role);
+        Assert.Equal(
+            new[] { ChatRole.System, ChatRole.User, ChatRole.Assistant, ChatRole.User },
+            chatClient.Messages!.Select(message => message.Role));
+        Assert.Equal(
+            new[] { "system policy", "prior user question", "prior assistant answer", "current question" },
+            chatClient.Messages!.Select(message => message.Text));
         Assert.Equal("deployment-v1", modelResponse.Model);
         Assert.Equal("""{"schemaVersion":"answer-v1"}""", modelResponse.Content);
         Assert.Equal(256, chatClient.Options!.MaxOutputTokens);

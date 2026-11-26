@@ -7,6 +7,7 @@ vi.mock("../usage-ledger", () => ({ recordCopilotUsage }));
 
 import { getCopilotConfig } from "../config";
 import { AzureOpenAIError, completeCopilotTurn } from "../azure-openai-client";
+import { createCopilotTraceContext } from "../copilot-execution-trace";
 
 const configValues = {
   AZURE_OPENAI_LIVE_CALLS_ENABLED: "true",
@@ -32,6 +33,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
   vi.restoreAllMocks();
@@ -152,12 +154,61 @@ describe("Azure OpenAI transport", () => {
     ]);
   });
 
-  it("stops after the bounded number of transient attempts", async () => {
+  it("traces each observed provider attempt, retry decision, response usage, and targeted prompt/output payload", async () => {
+    vi.stubEnv("NODE_ENV", "test");
+    vi.stubEnv("LATTICE_COPILOT_DIAGNOSTICS_ENABLED", "true");
+    vi.stubEnv("LATTICE_COPILOT_DIAGNOSTICS_FULL_PAYLOAD_TRACE", "true");
+    const traceContext = createCopilotTraceContext(new Request("https://local.test/copilot", {
+      headers: { "x-copilot-diagnostic-detail": "full" },
+    }));
+    const log = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(new Response("busy", { status: 503 }))
+      .mockResolvedValueOnce(successResponse("Recovered"));
+
+    await completeCopilotTurn({
+      requestId: "trace-attempt-request",
+      traceContext,
+      investigationId: "trace-investigation",
+      snapshotRevision: 7,
+      messages: [{ role: "user", content: "Question with evidence" }],
+    });
+
+    const events = log.mock.calls.map(([line]) => JSON.parse(String(line)) as Record<string, unknown>);
+    const attemptEvents = events.filter((event) => String(event.event).startsWith("model.attempt."));
+    expect(attemptEvents.map((event) => [event.event, event.outcome])).toEqual([
+      ["model.attempt.started", "started"],
+      ["model.attempt.completed", "provider-http-error"],
+      ["model.attempt.started", "started"],
+      ["model.attempt.completed", "success"],
+    ]);
+    expect(events.filter((event) => event.event === "model.retry.scheduled")).toHaveLength(1);
+    expect(attemptEvents[1]).toMatchObject({
+      investigationId: "trace-investigation",
+      snapshotRevision: 7,
+      output: { httpStatus: 503, retryScheduled: true },
+    });
+    expect(attemptEvents[3]).toMatchObject({
+      output: { promptTokens: 12, completionTokens: 8, totalTokens: 20 },
+      fullPayload: { response: { content: "Recovered" } },
+    });
+    expect(attemptEvents[0]).toMatchObject({
+      fullPayload: { messages: [{ role: "user", content: "Question with evidence" }] },
+    });
+    expect(JSON.stringify(events)).not.toContain("unit-test-secret-key");
+  });
+
+  it("stops after the configured number of transient attempts", async () => {
+    vi.useFakeTimers();
     vi.mocked(fetch).mockResolvedValue(new Response("busy", { status: 503 }));
 
-    await expect(completeCopilotTurn({ messages: [{ role: "user", content: "Question" }] }))
+    const request = completeCopilotTurn({ messages: [{ role: "user", content: "Question" }] });
+    const rejection = expect(request)
       .rejects.toMatchObject({ code: "provider-http-error", status: 503 });
-    expect(fetch).toHaveBeenCalledTimes(3);
+    await vi.runAllTimersAsync();
+    await rejection;
+    expect(fetch).toHaveBeenCalledTimes(300);
+    expect(recordCopilotUsage).toHaveBeenCalledTimes(300);
   });
 
   it("does not retry permanent provider errors", async () => {

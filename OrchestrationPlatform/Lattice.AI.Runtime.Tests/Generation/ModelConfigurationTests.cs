@@ -3,6 +3,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
+using Lattice.AI.Runtime.SourceEvidence;
+using Orchestration.API.AI.Adapters;
 using Orchestration.API.AI.Composition;
 
 namespace Lattice.AI.Runtime.Tests.Generation;
@@ -29,6 +31,8 @@ public sealed class ModelConfigurationTests
 
         Assert.Equal(1536, modelConfiguration.MaxOutputTokens);
         Assert.Equal(12288, modelConfiguration.MaxInputTokens);
+        Assert.IsType<PlmBrainSourceEvidenceRetriever>(
+            provider.GetRequiredService<ISourceEvidenceRetriever>());
     }
 
     private sealed class TestHostEnvironment : IHostEnvironment

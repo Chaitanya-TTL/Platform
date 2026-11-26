@@ -30,7 +30,6 @@ export interface CopilotEvaluationCase {
   category: CopilotEvaluationCategory;
   question: string;
   snapshot: InvestigationSnapshot<EngineeringIntelligenceInvestigationV1>;
-  maxContextChars?: number;
   expectedEntityIds?: readonly string[];
   expectedUncertainty?: boolean;
   expectedInsight?: string;
@@ -130,6 +129,15 @@ const windchillChangeNotice: IntelligenceEntity = {
     ...fixture.entities.find((entity) => entity.provenance.source === "windchill")!.provenance,
     nativeId: "CN-9001",
   },
+};
+
+const potentialImpactEvidence = {
+  id: "eval:evidence:change-impact",
+  kind: "validated-relationship-evidence",
+  summary: "Windchill change notice CN-9001 references SAP material MAT-200 as a potential impact.",
+  source: "windchill",
+  provenance: windchillChangeNotice.provenance,
+  temporal: fixture.temporal,
 };
 
 const teamcenterPart: IntelligenceEntity = {
@@ -268,7 +276,6 @@ export const COPILOT_EVALUATION_CASES: readonly CopilotEvaluationCase[] = [
     category: "oversized-context",
     question: "List all synthetic components.",
     snapshot: withCanonical({ ...fixture, entities: manyEntities }),
-    maxContextChars: 6_000,
   },
   {
     id: "supported-cross-system-consequence",
@@ -291,7 +298,11 @@ export const COPILOT_EVALUATION_CASES: readonly CopilotEvaluationCase[] = [
     snapshot: withCanonical({
       ...fixture,
       entities: [...fixture.entities, windchillChangeNotice],
-      relationships: [relationshipFor("eval:relationship:change-impact", "MAY_IMPACT", "wc:change-notice", "sap:material")],
+      relationships: [{
+        ...relationshipFor("eval:relationship:change-impact", "MAY_IMPACT", "wc:change-notice", "sap:material"),
+        evidenceIds: [potentialImpactEvidence.id],
+      }],
+      evidence: [potentialImpactEvidence],
     }),
     expectedEntityIds: ["wc:change-notice", "sap:material"],
     expectedUncertainty: true,
@@ -322,9 +333,13 @@ export const COPILOT_EVALUATION_CASES: readonly CopilotEvaluationCase[] = [
       ...fixture,
       entities: [...fixture.entities, windchillChangeNotice],
       relationships: [
-        relationshipFor("eval:relationship:change-impact-target", "MAY_IMPACT", "wc:change-notice", "sap:material"),
+        {
+          ...relationshipFor("eval:relationship:change-impact-target", "MAY_IMPACT", "wc:change-notice", "sap:material"),
+          evidenceIds: [potentialImpactEvidence.id],
+        },
         relationshipFor("eval:relationship:windchill-sap-change-impact-distractor", "specified-by", "configit:model", "cb:req"),
       ],
+      evidence: [potentialImpactEvidence],
     }),
     expectedEntityIds: ["wc:change-notice", "sap:material"],
     expectedUncertainty: true,

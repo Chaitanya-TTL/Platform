@@ -6,6 +6,7 @@ import { isEngineeringIntelligenceInvestigationV1 } from "@/features/lattice-nex
 import { loadRelationshipOntology } from "@/features/lattice-next/plm-brain/universal/relationship-ontology-runtime";
 import { enrichInvestigationWithOntology } from "@/features/lattice-next/plm-brain/universal/ontology-evaluator";
 import { ensureInvestigationKnowledgeGraph } from "@/features/lattice-next/plm-brain/universal/ensure-investigation-knowledge-graph";
+import { projectSourceEvidence } from "@/features/lattice-next/kernel/application/source-evidence-projection";
 
 export const dynamic = "force-dynamic";
 type Context = { params: Promise<{ investigationId: string }> };
@@ -13,9 +14,22 @@ type Context = { params: Promise<{ investigationId: string }> };
 export async function GET(_: Request, context: Context) {
   const { investigationId } = await context.params;
   const snapshot = await serverKernel.load(investigationId as InvestigationId);
-  return snapshot
-    ? NextResponse.json(ensureInvestigationKnowledgeGraph(snapshot))
-    : NextResponse.json({ message: "Investigation was not found." }, { status: 404 });
+  if (!snapshot) return NextResponse.json({ message: "Investigation was not found." }, { status: 404 });
+
+  if (
+    process.env.NODE_ENV === "development" &&
+    process.env.LATTICE_SOURCE_EVIDENCE_DIAGNOSTICS === "true"
+  ) {
+    const projection = projectSourceEvidence(snapshot);
+    console.info("[lattice.source-evidence.projection]", {
+      snapshotRevision: projection.snapshotRevision,
+      snapshotLifecycle: projection.snapshotLifecycle,
+      snapshotCompleteness: projection.snapshotCompleteness,
+      ...projection.diagnostics,
+    });
+  }
+
+  return NextResponse.json(ensureInvestigationKnowledgeGraph(snapshot));
 }
 
 export async function POST(request: Request, context: Context) {

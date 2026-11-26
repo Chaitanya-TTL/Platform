@@ -22,6 +22,11 @@ public sealed class ScopePlanner : IScopePlanner
             "Empty relationship-type and source-system filters add no additional narrowing; the planner does not infer either filter.",
             "Empty filters do not authorize access across investigations or sources: the service remains bound to the active investigation, resolved canonical subject, authorization decision, and provenance checks."
         });
+    private static readonly IReadOnlyList<string> InvestigationDiagnostics = Array.AsReadOnly(
+        new[]
+        {
+            "The request is scoped to the authorized active investigation and retains its complete returned graph evidence."
+        });
 
     public ScopePlanningResult Plan(
         ConversationTurnInterpretation turn,
@@ -47,19 +52,31 @@ public sealed class ScopePlanner : IScopePlanner
                     : ["The follow-up does not identify one validated engineering reference."]);
         }
 
-        if (turn.FilterDelta.RequestedTargetApplications is { Count: > 0 } ||
-            turn.FilterDelta.RequestedSourceApplications is { Count: > 0 } ||
-            turn.FilterDelta.RequestedRelationshipTerms is { Count: > 0 } ||
+        if (turn.FilterDelta.RequestedRelationshipTerms is { Count: > 0 } ||
             turn.FilterDelta.MaxHops is not null ||
             turn.FilterDelta.AsOf is not null)
         {
             return new ScopePlanningResult(
                 ScopePlanningDisposition.Unsupported,
                 null,
-                ["Requested application or relationship filter semantics are not supported by the current PLM evidence contract."]);
+                ["Requested relationship-filter semantics are not supported by the current PLM evidence contract."]);
         }
 
-        if (!ReusableImpactTurns.Contains(turn.Type))
+        var sourceApplications = (turn.FilterDelta.RequestedSourceApplications ?? [])
+            .Concat(turn.FilterDelta.RequestedTargetApplications ?? [])
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        if (sourceApplications.Any(string.IsNullOrWhiteSpace))
+        {
+            return new ScopePlanningResult(
+                ScopePlanningDisposition.Unsupported,
+                null,
+                ["The requested source-application filter contains an empty value."]);
+        }
+
+        var hasSourceApplicationFilter = sourceApplications.Length > 0;
+        if (!ReusableImpactTurns.Contains(turn.Type) &&
+            !(turn.Type == ConversationTurnType.FollowUpFilter && hasSourceApplicationFilter))
         {
             return new ScopePlanningResult(
                 ScopePlanningDisposition.Unsupported,
@@ -84,28 +101,28 @@ public sealed class ScopePlanner : IScopePlanner
                 ["The resolved follow-up subject is not present in the immediately preceding structured conversation state."]);
         }
 
-        var interpretation = new QuestionInterpretation(
-            ImpactQuestionType.EngineeringImpact,
-            string.Empty,
-            null,
-            subject.CanonicalId,
-            null,
-            []);
-        return Plan(interpretation, subject, authorization.Scope, requestContext);
+        return CreateReadyPlan(
+            subject,
+            ReadyDiagnostics,
+            sourceApplications,
+            turn.ExplicitIdentifiers,
+            hasSourceApplicationFilter ? "source-application-context" : "impact-source-evidence",
+            turn.RequestedFactFieldIds,
+            turn.ApplicationContextRequested || hasSourceApplicationFilter,
+            requestFactEvidence: false);
     }
 
     public ScopePlanningResult Plan(
         QuestionInterpretation interpretation,
-        ResolvedEntity subject,
+        ResolvedEntity? subject,
         AuthorizationScope authorization,
         RuntimeRequestContext requestContext)
     {
         ArgumentNullException.ThrowIfNull(interpretation);
-        ArgumentNullException.ThrowIfNull(subject);
         ArgumentNullException.ThrowIfNull(authorization);
         ArgumentNullException.ThrowIfNull(requestContext);
 
-        if (interpretation.Type != ImpactQuestionType.EngineeringImpact ||
+        if (interpretation.Type is not (ImpactQuestionType.EngineeringImpact or ImpactQuestionType.InvestigationQuestion) ||
             interpretation.ClarificationReasons.Count > 0)
         {
             return new ScopePlanningResult(
@@ -114,10 +131,110 @@ public sealed class ScopePlanner : IScopePlanner
                 interpretation.ClarificationReasons);
         }
 
+        return CreateReadyPlan(
+            subject,
+            subject is null ? InvestigationDiagnostics : ReadyDiagnostics,
+            interpretation.RequestedSourceApplications,
+            interpretation.CandidateEntityId is { Length: > 0 } candidateEntityId
+                ? [candidateEntityId]
+                : [],
+            "impact-source-evidence",
+            interpretation.RequestedFactFieldIds,
+            interpretation.ApplicationContextRequested,
+            requestFactEvidence: interpretation.Type == ImpactQuestionType.InvestigationQuestion);
+    }
+
+    private static ScopePlanningResult CreateReadyPlan(
+        ResolvedEntity? subject,
+        IReadOnlyList<string> diagnostics,
+        IReadOnlyList<string>? requestedSourceApplications,
+        IReadOnlyList<string>? exactIdentifiers,
+        string reasonCode,
+        IReadOnlyList<string>? requestedFactFieldIds = null,
+        bool requestApplicationContext = false,
+        bool requestFactEvidence = false)
+    {
+        var sourceApplications = requestedSourceApplications is null
+            ? []
+            : requestedSourceApplications
+                .Select(application => application.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+        var exactIds = exactIdentifiers is null
+            ? []
+            : exactIdentifiers
+                .Where(identifier => !string.IsNullOrWhiteSpace(identifier))
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
+        var factSourceApplications = sourceApplications.Length > 0
+            ? sourceApplications
+            : FieldIdsSourceApplications(requestedFactFieldIds);
+        var linkedEntityIds = subject is null
+            ? Array.Empty<string>()
+            : new[] { subject.CanonicalId };
+        var sourceEvidencePlan = subject is null && !requestFactEvidence
+            ? null
+            : new SourceEvidencePlan(
+                true,
+                Array.AsReadOnly(linkedEntityIds),
+                Array.AsReadOnly(sourceApplications),
+                Array.AsReadOnly(exactIds),
+                reasonCode);
+        var fieldIds = requestedFactFieldIds is null
+            ? []
+            : requestedFactFieldIds
+                .Where(fieldId => !string.IsNullOrWhiteSpace(fieldId))
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
+        var factEvidencePlan = fieldIds.Length == 0 && !requestFactEvidence && subject is not null
+            ? null
+            : new FactEvidencePlan(
+                true,
+                Array.AsReadOnly(linkedEntityIds),
+                Array.AsReadOnly(factSourceApplications),
+                Array.AsReadOnly(fieldIds),
+                Array.AsReadOnly(exactIds),
+                "resolvable-structured-field-need");
+        var applicationContextPlan = requestApplicationContext
+            ? new ApplicationContextPlan(
+                true,
+                Array.AsReadOnly(linkedEntityIds),
+                Array.AsReadOnly(sourceApplications),
+                "explicit-source-application-or-cross-application-intent")
+            : null;
+
         return new ScopePlanningResult(
             ScopePlanningDisposition.Ready,
-            new ImpactScope(new HashSet<string>(StringComparer.Ordinal), MaximumImpactHops,
-                new HashSet<string>(StringComparer.Ordinal), null),
-            ReadyDiagnostics);
+            new ImpactScope(
+                new HashSet<string>(StringComparer.Ordinal),
+                subject is null ? null : MaximumImpactHops,
+                new HashSet<string>(StringComparer.Ordinal),
+                null),
+            diagnostics,
+            sourceEvidencePlan,
+            factEvidencePlan,
+            requestApplicationContext || subject is null
+                ? applicationContextPlan ?? new ApplicationContextPlan(
+                    true,
+                    Array.AsReadOnly(linkedEntityIds),
+                    Array.AsReadOnly(sourceApplications),
+                    "investigation-wide-application-coverage")
+                : applicationContextPlan);
+    }
+
+    private static string[] FieldIdsSourceApplications(IReadOnlyList<string>? fieldIds)
+    {
+        if (fieldIds is null) return [];
+        return fieldIds
+            .Select(fieldId => fieldId.StartsWith("windchill.", StringComparison.Ordinal)
+                ? "windchill"
+                : fieldId.StartsWith("configit.", StringComparison.Ordinal)
+                    ? "configit"
+                    : fieldId.StartsWith("requirement.", StringComparison.Ordinal)
+                        ? "codebeamer"
+                        : null)
+            .OfType<string>()
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
     }
 }

@@ -1,0 +1,10 @@
+{
+  "schemaVersion": "few-shot-prompt-set/v1",
+  "id": "engineering-impact-few-shot",
+  "version": "v1",
+  "basePromptId": "engineering-impact",
+  "basePromptVersion": "v2",
+  "classification": "synthetic-fixture-only",
+  "examplesFile": "examples.json",
+  "exampleCount": 3
+}

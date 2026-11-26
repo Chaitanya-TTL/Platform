@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "few-shot-evaluation/v1",
+  "datasetId": "lattice-few-shot-prompt-synthetic-v1",
+  "version": "v1",
+  "classification": "synthetic-fixture-only",
+  "caseCount": 5,
+  "casesFile": "cases.jsonl",
+  "requiredScenarioTags": [
+    "direct-impact",
+    "why-follow-up",
+    "source-evidence-explanation",
+    "abstention",
+    "clarification",
+    "valid-reference",
+    "uncertainty",
+    "stale-assistant-claim",
+    "prompt-injection"
+  ]
+}

@@ -1,41 +1,76 @@
 {
-  "version": 1,
+  "version": 2,
   "skills": {
     "browser-use": {
       "source": "browser-use/browser-use",
       "sourceType": "github",
       "skillPath": "skills/browser-use/SKILL.md",
-      "computedHash": "6a1bfb5049a851c4c4dae9fc6b586d9801865c79d87595d8bddbec21c41c8b5d"
+      "computedHash": "6e9753e32ed7b6b6b9adea42bf003aefed4b6ebbf5c97ca3c09572e2c2e126a0"
+    },
+    "evaluate-rag": {
+      "source": "hamelsmu/evals-skills",
+      "commit": "22418da2bfb159f28a1b0dcf64e969e14ae56c99",
+      "sourceType": "github",
+      "skillPath": "skills/evaluate-rag/SKILL.md",
+      "computedHash": "92f3314f027c313c303987dddda76c26597f0cd387a4cbaf32b20cbff41103dd"
     },
     "frontend-ui-engineering": {
       "source": "addyosmani/agent-skills",
       "sourceType": "github",
       "skillPath": "skills/frontend-ui-engineering/SKILL.md",
-      "computedHash": "49bb6ccfc41753bdd679f368ce75629ae9d424c5b8abc33faf949a4a55f919a1"
+      "computedHash": ""
     },
     "impeccable": {
       "source": "pbakaus/impeccable",
       "sourceType": "github",
       "skillPath": ".agents/skills/impeccable/SKILL.md",
-      "computedHash": "11ccdc26fba1f9b424ba142e88102e7cad54625c315210a6b890b8d8192321af"
+      "computedHash": "9d6e791c006ad3b6f350e1441cac73923dd99ee602f014e1c64360ce86103425"
+    },
+    "llm": {
+      "source": "Mindrally/skills",
+      "commit": "7682ca77710e0971eab4e0ae5dddfa281aea0ba5",
+      "sourceType": "github",
+      "skillPath": "llm/SKILL.md",
+      "computedHash": "a544268dc719e2d9cf5b0734262705843c8b4272cd61fa20d01d6443fab91777"
+    },
+    "llm-app-patterns": {
+      "source": "sickn33/agentic-awesome-skills",
+      "commit": "a99b3d3bb6db184e75020f26714bce1951629356",
+      "sourceType": "github",
+      "skillPath": "skills/llm-app-patterns/SKILL.md",
+      "computedHash": "6031a3b83f237e980d766ed6303a5f329f7ca5a1966e65bdefed8bf3ce8cbf21"
     },
     "pick-ui-library": {
       "source": "emilkowalski/skills",
       "sourceType": "github",
       "skillPath": "skills/pick-ui-library/SKILL.md",
-      "computedHash": "95f37cddc1c5f7cf5c60c8f8f07c938f2ddd1a70dd45f50c37e7e522fcde5bb9"
+      "computedHash": ""
+    },
+    "rag-blueprint": {
+      "source": "NVIDIA/skills",
+      "commit": "252ba53487b73eaafbfcccf3e750c7b350b93db9",
+      "sourceType": "github",
+      "skillPath": "skills/rag-blueprint/SKILL.md",
+      "computedHash": "595b2e3f6acc8faf86f42151642c1c10eb4e3a2d9d8f9a94236874fc314ca5e5"
+    },
+    "review-animations": {
+      "source": "emilkowalski/skills",
+      "commit": "64eb3deb9a5fbfa041faf783e0bc3fd635872e9c",
+      "sourceType": "github",
+      "skillPath": "skills/review-animations/SKILL.md",
+      "computedHash": "50f1de2394b88bb3433eca1e30da6866a4e310963d872a66af20ca77fd77f07d"
     },
     "simple": {
       "source": "roin-orca/skills",
       "sourceType": "github",
       "skillPath": "skills/simple/SKILL.md",
-      "computedHash": "33c6d82002c7d88bc5a29e647d847f6546e13786a9030bfc0e330e3731939c6c"
+      "computedHash": "b384967cd6996b0c0d9f7d8cdef52b678f1f8c312bb2bbce423d4e6069b8e364"
     },
     "tailwind-design-system": {
       "source": "wshobson/agents",
       "sourceType": "github",
       "skillPath": "plugins/frontend-mobile-development/skills/tailwind-design-system/SKILL.md",
-      "computedHash": "9e60f9fad6a645b173f076102b76f67d2dc4a1c0867e26c4bff9b9c7dd7f99cd"
+      "computedHash": "c807f0c9619e8c389879f55846c2e395956f1073ab6d01a93fbb30b340015ab1"
     }
   }
 }

@@ -22,13 +22,27 @@ afterEach(async () => {
 });
 
 const answer = {
-  answer: "The selected source record is available.",
-  claims: [{ text: "The record is available.", kind: "fact" as const, citationIds: ["cite:entity:part%3A1"] }],
+  answer: "The selected source record is available and includes the required thermal-cycle validation.",
+  claims: [{
+    text: "The record is available and requires thermal-cycle validation.",
+    kind: "fact" as const,
+    citationIds: ["cite:entity:part%3A1", "cite:evidence:SYNTH-PASSAGE-001"],
+  }],
   recommendations: [],
   uncertainties: [],
   followUpQuestions: [],
   snapshotRevision: 3,
-  citations: [{ citationId: "cite:entity:part%3A1", kind: "entity" as const, label: "Part 1" }],
+  citations: [
+    { citationId: "cite:entity:part%3A1", kind: "entity" as const, label: "Part 1" },
+    {
+      citationId: "cite:evidence:SYNTH-PASSAGE-001",
+      kind: "evidence" as const,
+      label: "Windchill SYNTH-NATIVE-RECORD-001",
+      nativeId: "SYNTH-NATIVE-RECORD-001",
+      summary: "requirements[0].verification",
+      deepLink: "https://plm.example/records/SYNTH-NATIVE-RECORD-001",
+    },
+  ],
 };
 
 async function collect(events$: { subscribe(observer: { next(event: BaseEvent): void; error(error: unknown): void; complete(): void }): { unsubscribe(): void } }): Promise<BaseEvent[]> {
@@ -64,7 +78,21 @@ describe("CopilotKit conversation runner", () => {
       type: "MESSAGES_SNAPSHOT",
       messages: [
         { role: "user", content: "Explain this record" },
-        { role: "assistant", content: answer.answer, metadata: { latticeAnswer: answer } },
+        {
+          role: "assistant",
+          content: answer.answer,
+          metadata: {
+            latticeAnswer: {
+              citations: expect.arrayContaining([
+                expect.objectContaining({
+                  citationId: "cite:evidence:SYNTH-PASSAGE-001",
+                  kind: "evidence",
+                  deepLink: "https://plm.example/records/SYNTH-NATIVE-RECORD-001",
+                }),
+              ]),
+            },
+          },
+        },
       ],
     });
   });
