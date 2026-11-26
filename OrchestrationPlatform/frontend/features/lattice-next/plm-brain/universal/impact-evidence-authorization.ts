@@ -29,6 +29,7 @@ export interface DecisionRevocationChecker {
 }
 
 export interface ImpactEvidenceAuthorizationConfiguration {
+  localDevelopmentMode?: boolean;
   serviceIssuer: string;
   serviceAudience: string;
   serviceJwksUrl: string;
@@ -81,6 +82,22 @@ export async function authorizeImpactEvidenceRequest(
   const traceId = traceParent?.match(/^00-([0-9a-f]{32})-[0-9a-f]{16}-[0-9a-f]{2}$/i)?.[1];
   if (!decisionToken || !requestId || !traceId || /^0+$/.test(traceId)) {
     throw new ImpactEvidenceAuthorizationError(403, "An authorization decision is required.");
+  }
+
+  if (configuration.localDevelopmentMode) {
+    if (serviceToken !== "lattice-local-development") {
+      throw new ImpactEvidenceAuthorizationError(401, "Service identity is invalid.");
+    }
+    if (decisionToken !== "lattice-local-development") {
+      throw new ImpactEvidenceAuthorizationError(403, "Authorization decision is invalid.");
+    }
+    return {
+      tenantId: "local-development",
+      subjectId: "local-development",
+      decisionId: "local-development",
+      requestId,
+      traceId,
+    };
   }
 
   let serviceClaims: JWTPayload;
@@ -178,6 +195,20 @@ export async function authorizeImpactEvidenceRequest(
 export function loadImpactEvidenceAuthorizationConfiguration(
   environment: NodeJS.ProcessEnv = process.env,
 ): ImpactEvidenceAuthorizationConfiguration {
+  if (environment.NODE_ENV === "development") {
+    return {
+      localDevelopmentMode: true,
+      serviceIssuer: "local-development",
+      serviceAudience: "local-development",
+      serviceJwksUrl: "http://localhost",
+      requiredServiceRole: "local-development",
+      decisionIssuer: "local-development",
+      decisionAudience: "local-development",
+      trustedDecisionJwks: { keys: [] },
+      maximumTicketLifetimeSeconds: 60,
+    };
+  }
+
   const required = (name: string) => {
     const value = environment[name]?.trim();
     if (!value) throw new Error(`Missing protected PLM service configuration: ${name}`);

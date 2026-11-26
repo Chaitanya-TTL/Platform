@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import type { InvestigationSnapshot } from "../kernel/contracts/investigation-snapshot";
 import type { InvestigationKnowledgeGraph } from "../plm-brain/contracts/relationship-ontology";
-import { createImpactEvidenceService } from "../plm-brain/universal/impact-evidence-service";
+import {
+  createImpactEvidenceService,
+  ImpactEvidenceServiceError,
+} from "../plm-brain/universal/impact-evidence-service";
 import type { ImpactEvidenceAuthorization } from "../plm-brain/universal/impact-evidence-authorization";
 
 vi.mock("server-only", () => ({}));
@@ -270,6 +273,29 @@ describe("private PLM impact evidence service", () => {
     expect(evidence.paths.map((path) => path.id)).toEqual(["path-11"]);
     expect(evidence.chains.map((chain) => chain.id)).toEqual(["chain-5"]);
     expect(evidence.authorizationDecisionId).toBe(authorization.decisionId);
+  });
+
+  it("returns a conflict when the graph identity does not match the requested investigation", async () => {
+    const canonicalValue = snapshot.canonical?.value as Record<string, unknown>;
+    const mismatchedSnapshot = {
+      ...snapshot,
+      canonical: {
+        ...snapshot.canonical,
+        value: {
+          ...canonicalValue,
+          investigationId: "another-investigation",
+          knowledgeGraph: { ...graph, investigationId: "another-investigation" },
+        },
+      },
+    } as InvestigationSnapshot;
+    const service = createImpactEvidenceService(async () => mismatchedSnapshot, (value) => value);
+
+    await expect(service.retrieveInvestigationEvidence("investigation-1", authorization))
+      .rejects.toMatchObject({
+        name: "ImpactEvidenceServiceError",
+        status: 409,
+        message: "Authoritative impact evidence is unavailable.",
+      } satisfies Partial<ImpactEvidenceServiceError>);
   });
 
   it("does not resolve an entity by substring or load another investigation", async () => {

@@ -426,6 +426,23 @@ function parseRuntimeResponse(value: unknown): EngineeringImpactRuntimeResponse 
   };
 }
 
+function logInvalidRuntimeResponse(
+  request: EngineeringImpactRuntimeRequest,
+  response: Response,
+  reason: "invalid-json" | "invalid-shape",
+  responseBody: unknown,
+): void {
+  if (request.traceContext?.payloadDetail !== "full") return;
+
+  console.warn("[engineering-impact-runtime] Response parsing failed.", {
+    requestId: request.traceContext.requestId,
+    reason,
+    status: response.status,
+    contentType: response.headers.get("content-type"),
+    responseBody,
+  });
+}
+
 export function runtimeResponseCitations(
   response: EngineeringImpactRuntimeResponse,
 ): { citations: readonly CopilotCitation[]; sourceCitationIds: ReadonlyMap<string, string> } {
@@ -483,7 +500,8 @@ function safeDeepLink(value: string | null | undefined): string | undefined {
 
 function defaultEndpoint(): string | undefined {
   return process.env.ORCHESTRATION_API_URL?.trim() ||
-    process.env.NEXT_PUBLIC_API_URL?.trim();
+    process.env.NEXT_PUBLIC_API_URL?.trim() ||
+    (process.env.NODE_ENV === "development" ? "http://localhost:5212" : undefined);
 }
 
 export class EngineeringImpactRuntimeClient {
@@ -582,10 +600,19 @@ export class EngineeringImpactRuntimeClient {
     if (response.status === 401) return { status: "failed", code: "runtime-credential-rejected" };
     if (response.status === 403) return { status: "denied" };
 
+    let responseBody: string;
+    try {
+      responseBody = await response.text();
+    } catch {
+      if (response.status === 503) return { status: "unavailable", code: "runtime-authorization-unavailable" };
+      return { status: "failed", code: "runtime-response-invalid" };
+    }
+
     let body: unknown;
     try {
-      body = await response.json();
+      body = JSON.parse(responseBody);
     } catch {
+      logInvalidRuntimeResponse(request, response, "invalid-json", responseBody);
       if (response.status === 503) return { status: "unavailable", code: "runtime-authorization-unavailable" };
       return { status: "failed", code: "runtime-response-invalid" };
     }
@@ -596,10 +623,10 @@ export class EngineeringImpactRuntimeClient {
         return { status: "failed", code: "runtime-investigation-mismatch" };
       }
       if (result.disposition === "Deny") return { status: "denied" };
-      if (result.disposition === "Failed") return { status: "failed", code: "runtime-failed" };
       return { status: "response", response: result };
     }
 
+    logInvalidRuntimeResponse(request, response, "invalid-shape", body);
     if (response.status === 503) return { status: "unavailable", code: "runtime-authorization-unavailable" };
     return { status: "failed", code: response.ok ? "runtime-response-invalid" : "runtime-request-failed" };
   }

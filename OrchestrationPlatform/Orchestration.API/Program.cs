@@ -2,6 +2,8 @@ using Orchestration.API.Models;
 using Orchestration.API.Services;
 using Orchestration.API.AI.Composition;
 using Lattice.AI.Runtime.Authorization;
+using Lattice.AI.Runtime.Azure.Models;
+using Microsoft.Extensions.Options;
 using System.Text.Json.Serialization;
 var builder=WebApplication.CreateBuilder(args);
 builder.Services.AddControllers().AddJsonOptions(options=>
@@ -56,12 +58,25 @@ app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
-app.MapGet("/health/ready", (IResourceAuthorizationDecisionProvider authorizationProvider) =>
+app.MapGet("/health/ready", (
+    IResourceAuthorizationDecisionProvider authorizationProvider,
+    IOptions<AiRuntimeOptions> modelOptions) =>
 {
     if (authorizationProvider is UnavailableResourceAuthorizationDecisionProvider)
     {
         return Results.Json(
             new { status = "not-ready", code = "AI_RUNTIME_AUTHORIZATION_PROVIDER_NOT_CONFIGURED" },
+            statusCode: StatusCodes.Status503ServiceUnavailable);
+    }
+
+    try
+    {
+        modelOptions.Value.Validate();
+    }
+    catch (InvalidOperationException)
+    {
+        return Results.Json(
+            new { status = "not-ready", code = "AI_RUNTIME_MODEL_CONFIGURATION_NOT_CONFIGURED" },
             statusCode: StatusCodes.Status503ServiceUnavailable);
     }
 

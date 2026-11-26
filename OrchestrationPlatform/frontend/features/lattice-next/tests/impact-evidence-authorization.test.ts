@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createLocalJWKSet,
   exportJWK,
@@ -94,6 +94,10 @@ async function setup() {
 }
 
 describe("PLM internal service authorization", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it("accepts a correctly signed, scoped decision and returns only sanitized metadata", async () => {
     const test = await setup();
     const decisionTicket = await test.ticket();
@@ -235,5 +239,34 @@ describe("PLM internal service authorization", () => {
 
   it("rejects missing deployment trust configuration", () => {
     expect(() => loadImpactEvidenceAuthorizationConfiguration({} as NodeJS.ProcessEnv)).toThrow();
+  });
+
+  it("accepts the local development runtime identity without production signing configuration", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    const configuration = loadImpactEvidenceAuthorizationConfiguration({
+      NODE_ENV: "development",
+    } as NodeJS.ProcessEnv);
+    const localRequest = new Request("http://localhost/api/internal", {
+      method: "POST",
+      headers: {
+        authorization: "Bearer lattice-local-development",
+        "x-lattice-authorization-decision": "lattice-local-development",
+        "x-lattice-request-id": requestId,
+        traceparent: "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+      },
+    });
+
+    await expect(authorizeImpactEvidenceRequest(
+      localRequest,
+      investigationId,
+      "investigation:read-impact-evidence",
+      { configuration },
+    )).resolves.toEqual({
+      tenantId: "local-development",
+      subjectId: "local-development",
+      decisionId: "local-development",
+      requestId,
+      traceId: "4bf92f3577b34da6a3ce929d0e0e4736",
+    });
   });
 });

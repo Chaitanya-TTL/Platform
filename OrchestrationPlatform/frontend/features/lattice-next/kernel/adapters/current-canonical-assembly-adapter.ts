@@ -64,9 +64,13 @@ export class CurrentCanonicalAssemblyAdapter
         return leftSource.localeCompare(rightSource) || left.investigationId.localeCompare(right.investigationId);
       });
     const native = intelligence;
-    if (native.length) return mergeSourceIntelligence(native);
-    const handoff = structureHandoff(snapshot, evidence);
-    if (handoff) return mergeSourceIntelligence([legacyHandoffToIntelligence(handoff)]);
-    throw new Error("No accepted evidence is available for current canonical assembly.");
+    const handoff = native.length ? undefined : structureHandoff(snapshot, evidence);
+    const canonical = native.length
+      ? mergeSourceIntelligence(native)
+      : handoff
+        ? mergeSourceIntelligence([legacyHandoffToIntelligence(handoff)])
+        : undefined;
+    if (!canonical) throw new Error("No accepted evidence is available for current canonical assembly.");
+    return { ...canonical, investigationId: String(snapshot.identity.investigationId) };
   }
 }

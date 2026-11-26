@@ -1,0 +1,39 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v10.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v10.0": {
+      "Lattice.AI.Runtime/1.0.0": {
+        "dependencies": {
+          "Lattice.AI.Runtime.Contracts": "1.0.0"
+        },
+        "runtime": {
+          "Lattice.AI.Runtime.dll": {}
+        }
+      },
+      "Lattice.AI.Runtime.Contracts/1.0.0": {
+        "runtime": {
+          "Lattice.AI.Runtime.Contracts.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "Lattice.AI.Runtime/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "Lattice.AI.Runtime.Contracts/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}

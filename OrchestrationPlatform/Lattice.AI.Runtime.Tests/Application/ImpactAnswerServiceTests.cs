@@ -23,6 +23,8 @@ using Lattice.AI.Runtime.Tests.SourceEvidence;
 using Lattice.AI.Runtime.Tests.ApplicationContext;
 using Lattice.AI.Runtime.Tests.FactEvidence;
 using Lattice.AI.Runtime.Validation;
+using Microsoft.Extensions.Logging.Abstractions;
+using Orchestration.API.AI.Adapters;
 
 namespace Lattice.AI.Runtime.Tests.Application;
 
@@ -533,60 +535,193 @@ public sealed class ImpactAnswerServiceTests
             source.CitationId == "participation-citation-1");
     }
 
-    [Fact]
-    public async Task AnswerAsync_PreservesGraphAnswerWhenFactAndApplicationProvidersAreUnavailable()
+    [Theory]
+    [InlineData("source", "unavailable")]
+    [InlineData("fact", "unavailable")]
+    [InlineData("application", "unavailable")]
+    [InlineData("source", "timeout")]
+    [InlineData("fact", "timeout")]
+    [InlineData("application", "timeout")]
+    [InlineData("source", "failed")]
+    [InlineData("fact", "failed")]
+    [InlineData("application", "failed")]
+    public async Task AnswerAsync_ContinuesToModelWhenRequestedRetrieverFails(
+        string retrievalKind,
+        string failureKind)
     {
-        var fixture = new Fixture(
-            factEvidenceRetriever: new FakeFactEvidenceRetriever(
-                new FactEvidenceUnavailableException("synthetic unavailable")),
-            applicationContextRetriever: new FakeApplicationContextRetriever(
-                new ApplicationContextUnavailableException("synthetic unavailable")));
-        var request = new ImpactAnswerRequest(
-            "investigation-1",
-            "What is the weight of REQ-123 and what impacts are represented in Windchill?",
-            "conversation-1");
+        var compiler = new TrackingContextCompiler();
+        Exception exception = (retrievalKind, failureKind) switch
+        {
+            ("source", "unavailable") => new SourceEvidenceUnavailableException("synthetic unavailable"),
+            ("fact", "unavailable") => new FactEvidenceUnavailableException("synthetic unavailable"),
+            ("application", "unavailable") => new ApplicationContextUnavailableException("synthetic unavailable"),
+            (_, "timeout") => new OperationCanceledException("synthetic timeout"),
+            (_, "failed") => new HttpRequestException("synthetic provider failure"),
+            _ => throw new ArgumentOutOfRangeException(nameof(failureKind))
+        };
+        var fixture = retrievalKind switch
+        {
+            "source" => new Fixture(
+                contextCompiler: compiler,
+                sourceEvidenceRetriever: new FakeSourceEvidenceRetriever(failure: exception),
+                answerValidator: new DevelopmentAnswerPassThroughValidator(
+                    NullLogger<DevelopmentAnswerPassThroughValidator>.Instance)),
+            "fact" => new Fixture(
+                contextCompiler: compiler,
+                factEvidenceRetriever: new FakeFactEvidenceRetriever(exception),
+                answerValidator: new DevelopmentAnswerPassThroughValidator(
+                    NullLogger<DevelopmentAnswerPassThroughValidator>.Instance)),
+            "application" => new Fixture(
+                contextCompiler: compiler,
+                applicationContextRetriever: new FakeApplicationContextRetriever(exception),
+                answerValidator: new DevelopmentAnswerPassThroughValidator(
+                    NullLogger<DevelopmentAnswerPassThroughValidator>.Instance)),
+            _ => throw new ArgumentOutOfRangeException(nameof(retrievalKind))
+        };
+        var question = retrievalKind switch
+        {
+            "source" => "What is impacted if REQ-123 changes?",
+            "fact" => "What is the weight of REQ-123?",
+            _ => "What impacts are represented in Windchill?"
+        };
 
         var result = await fixture.Service.AnswerAsync(
-            request,
+            new ImpactAnswerRequest("investigation-1", question, "conversation-1"),
             Authorization(),
             RequestContext(),
             CancellationToken.None);
 
         Assert.Equal(AnswerDisposition.Answer, result.Disposition);
-        Assert.Single(result.Impacts);
-        Assert.Equal("REQ-123 affects P-1.", result.Summary);
+        Assert.Equal(1, compiler.CallCount);
         Assert.Equal(1, fixture.Gateway.CallCount);
+        var prompt = string.Join(
+            Environment.NewLine,
+            fixture.Gateway.LastRequest!.Messages.Select(message => message.Content));
+        Assert.DoesNotContain("synthetic", prompt, StringComparison.OrdinalIgnoreCase);
+
+        var expectedStage = retrievalKind switch
+        {
+            "source" => "source-evidence-retrieval",
+            "fact" => "fact-evidence-retrieval",
+            _ => "application-context-retrieval"
+        };
+        var expectedFailure = (retrievalKind, failureKind) switch
+        {
+            ("source", "unavailable") => "source-evidence-unavailable",
+            ("fact", "unavailable") => "fact-evidence-unavailable",
+            ("application", "unavailable") => "application-context-unavailable",
+            ("source", "timeout") => "source-evidence-retrieval-timeout",
+            ("fact", "timeout") => "fact-evidence-retrieval-timeout",
+            ("application", "timeout") => "application-context-retrieval-timeout",
+            ("source", "failed") => "source-evidence-retrieval-failed",
+            ("fact", "failed") => "fact-evidence-retrieval-failed",
+            _ => "application-context-retrieval-failed"
+        };
         Assert.Contains(fixture.Telemetry.StageFailures, failure =>
-            failure.Stage == "fact-evidence-retrieval" &&
-            failure.Failure == "fact-evidence-unavailable");
+            failure.Stage == expectedStage &&
+            failure.Failure == expectedFailure);
+    }
+
+    [Theory]
+    [InlineData("timeout")]
+    [InlineData("failed")]
+    public async Task AnswerAsync_ContinuesWithAvailableSourceEvidenceWhenPlmRetrievalFails(
+        string failureKind)
+    {
+        Exception exception = failureKind == "timeout"
+            ? new OperationCanceledException("synthetic PLM timeout")
+            : new HttpRequestException("synthetic PLM provider failure");
+        const string modelContent =
+            """{"schemaVersion":"answer-v2","summary":"A retrieved source passage describes a verification detail.","impacts":[],"facts":[],"applicationContexts":[],"sourceEvidence":[{"passageId":"SYNTH-PASSAGE-001","explanation":"The source passage describes a verification detail.","evidenceIds":["SYNTH-EVIDENCE-001"],"sourceIds":["SYNTH-PASSAGE-001"]}],"warnings":[]}""";
+        var fixture = new Fixture(
+            evidenceFailure: exception,
+            evidence: EmptyEvidence(),
+            modelContent: modelContent,
+            sourceEvidenceRetriever: new FakeSourceEvidenceRetriever(
+                [SourcePassage("SYNTH-PASSAGE-001", "Verification requires thermal-cycle testing.")]),
+            answerValidator: new DevelopmentAnswerPassThroughValidator(
+                NullLogger<DevelopmentAnswerPassThroughValidator>.Instance));
+
+        var result = await fixture.Service.AnswerAsync(
+            Request(),
+            Authorization(),
+            RequestContext(),
+            CancellationToken.None);
+
+        Assert.Equal(AnswerDisposition.Answer, result.Disposition);
+        Assert.Equal(1, fixture.Gateway.CallCount);
+        var prompt = string.Join(
+            Environment.NewLine,
+            fixture.Gateway.LastRequest!.Messages.Select(message => message.Content));
+        Assert.Contains("Verification requires thermal-cycle testing.", prompt, StringComparison.Ordinal);
+        Assert.DoesNotContain("synthetic PLM", prompt, StringComparison.OrdinalIgnoreCase);
+        var expectedFailure = failureKind == "timeout"
+            ? "plm-retrieval-timeout"
+            : "plm-retrieval-failed";
         Assert.Contains(fixture.Telemetry.StageFailures, failure =>
-            failure.Stage == "application-context-retrieval" &&
-            failure.Failure == "application-context-unavailable");
+            failure.Stage == "plm-retrieval" &&
+            failure.Failure == expectedFailure);
     }
 
     [Fact]
-    public async Task AnswerAsync_DoesNotPassFactOrApplicationResultsBoundToAnotherRequest()
+    public async Task AnswerAsync_PreservesGraphAnswerWhenRequestedFactAndApplicationResultsAreEmpty()
     {
+        var compiler = new TrackingContextCompiler();
         var fixture = new Fixture(
-            factEvidenceRetriever: new FakeFactEvidenceRetriever(result: new FactEvidenceRetrievalResult(
+            contextCompiler: compiler,
+            factEvidenceRetriever: new FakeFactEvidenceRetriever(),
+            applicationContextRetriever: new FakeApplicationContextRetriever());
+
+        var result = await fixture.Service.AnswerAsync(
+            new ImpactAnswerRequest(
                 "investigation-1",
-                1,
-                "stale-source-v0",
-                "ontology-v1",
-                "decision-1",
-                "request-1",
-                "trace-1",
-                [])),
-            applicationContextRetriever: new FakeApplicationContextRetriever(
-                result: new ApplicationContextRetrievalResult(
+                "What is the weight of REQ-123 and what impacts are represented in Windchill?",
+                "conversation-1"),
+            Authorization(),
+            RequestContext(),
+            CancellationToken.None);
+
+        Assert.Equal(AnswerDisposition.Answer, result.Disposition);
+        Assert.Equal("REQ-123 affects P-1.", result.Summary);
+        Assert.Equal(1, compiler.CallCount);
+        Assert.Equal(1, fixture.Gateway.CallCount);
+    }
+
+    [Theory]
+    [InlineData("fact")]
+    [InlineData("application")]
+    public async Task AnswerAsync_ContinuesWithoutUnboundFactOrApplicationResults(
+        string retrievalKind)
+    {
+        var fixture = retrievalKind switch
+        {
+            "fact" => new Fixture(
+                answerValidator: new DevelopmentAnswerPassThroughValidator(
+                    NullLogger<DevelopmentAnswerPassThroughValidator>.Instance),
+                factEvidenceRetriever: new FakeFactEvidenceRetriever(result: new FactEvidenceRetrievalResult(
                     "investigation-1",
                     1,
-                    "source-v1",
+                    "stale-source-v0",
                     "ontology-v1",
-                    "another-decision",
+                    "decision-1",
                     "request-1",
                     "trace-1",
-                    [])));
+                    []))),
+            "application" => new Fixture(
+                answerValidator: new DevelopmentAnswerPassThroughValidator(
+                    NullLogger<DevelopmentAnswerPassThroughValidator>.Instance),
+                applicationContextRetriever: new FakeApplicationContextRetriever(
+                    result: new ApplicationContextRetrievalResult(
+                        "investigation-1",
+                        1,
+                        "source-v1",
+                        "ontology-v1",
+                        "another-decision",
+                        "request-1",
+                        "trace-1",
+                        []))),
+            _ => throw new ArgumentOutOfRangeException(nameof(retrievalKind))
+        };
         var request = new ImpactAnswerRequest(
             "investigation-1",
             "What is the weight of REQ-123 and what impacts are represented in Windchill?",
@@ -599,13 +734,22 @@ public sealed class ImpactAnswerServiceTests
             CancellationToken.None);
 
         Assert.Equal(AnswerDisposition.Answer, result.Disposition);
-        Assert.Single(result.Impacts);
+        Assert.Equal(1, Assert.IsType<TrackingContextCompiler>(fixture.ContextCompiler).CallCount);
+        Assert.Equal(1, fixture.Gateway.CallCount);
+        var prompt = string.Join(
+            Environment.NewLine,
+            fixture.Gateway.LastRequest!.Messages.Select(message => message.Content));
+        Assert.DoesNotContain("stale-source-v0", prompt, StringComparison.Ordinal);
+        Assert.DoesNotContain("another-decision", prompt, StringComparison.Ordinal);
+        var expectedStage = retrievalKind == "fact"
+            ? "fact-evidence-retrieval"
+            : "application-context-retrieval";
+        var expectedFailure = retrievalKind == "fact"
+            ? "fact-evidence-retrieval-failed"
+            : "application-context-retrieval-failed";
         Assert.Contains(fixture.Telemetry.StageFailures, failure =>
-            failure.Stage == "fact-evidence-retrieval" &&
-            failure.Failure == "fact-evidence-retrieval-failed");
-        Assert.Contains(fixture.Telemetry.StageFailures, failure =>
-            failure.Stage == "application-context-retrieval" &&
-            failure.Failure == "application-context-retrieval-failed");
+            failure.Stage == expectedStage &&
+            failure.Failure == expectedFailure);
     }
 
     [Fact]
@@ -865,28 +1009,6 @@ public sealed class ImpactAnswerServiceTests
         Assert.Equal("source-evidence-passage", source.SourceType);
         Assert.Equal("SYNTH-PASSAGE-001", source.CitationId);
         Assert.DoesNotContain("Verification requires thermal-cycle testing.", JsonSerializer.Serialize(result));
-    }
-
-    [Fact]
-    public async Task AnswerAsync_ContinuesGraphAnswerAndRecordsUnavailableSourceEvidence()
-    {
-        var telemetry = new RecordingTelemetry();
-        var fixture = new Fixture(
-            sourceEvidenceRetriever: new FakeSourceEvidenceRetriever(
-                failure: new SourceEvidenceUnavailableException("fixture unavailable")),
-            telemetry: telemetry);
-
-        var result = await fixture.Service.AnswerAsync(
-            Request(),
-            Authorization(),
-            RequestContext(),
-            CancellationToken.None);
-
-        Assert.Equal(AnswerDisposition.Answer, result.Disposition);
-        Assert.Equal(1, fixture.EvidenceSource.CallCount);
-        Assert.Contains(
-            ("source-evidence-retrieval", "source-evidence-unavailable"),
-            telemetry.StageFailures);
     }
 
     [Fact]
@@ -1283,6 +1405,64 @@ public sealed class ImpactAnswerServiceTests
     }
 
     [Fact]
+    public async Task AnswerAsync_UsesInvestigationContextForWhyAfterBroadAnswerWithoutEntitySubjects()
+    {
+        var fixture = new Fixture(
+            conversationTurnInterpreter: new DevelopmentConversationTurnInterpreter(
+                new ConversationTurnInterpreter()));
+        var authorization = Authorization();
+        var now = DateTimeOffset.UtcNow;
+        var state = new ConversationState(
+            1,
+            "conversation-1",
+            "investigation-1",
+            1,
+            [],
+            [],
+            new ConversationApplicationFilters([], []),
+            [],
+            new ImpactScope(new HashSet<string>(), 3, new HashSet<string>(), null),
+            ConversationOutputDimension.Explanation,
+            "turn-1",
+            "context-1",
+            1,
+            "source-v1",
+            "ontology-v1",
+            ConversationStateOwnerFingerprint.Create(authorization.Scope),
+            null,
+            ConversationTurnDisposition.Answer,
+            now.AddMinutes(-2),
+            now.AddMinutes(-1),
+            now.AddHours(1));
+        var request = new ImpactAnswerRequest("investigation-1", "Why?", "conversation-1")
+        {
+            ParentTurnId = "turn-1",
+            PreviousConversationState = state,
+            ConversationHistory =
+            [
+                new ConversationHistoryTurn(
+                    "turn-1",
+                    "Which applications contributed?",
+                    "Configit, Codebeamer, and Windchill contributed.",
+                    ConversationTurnDisposition.Answer)
+            ]
+        };
+
+        var result = await fixture.Service.AnswerAsync(
+            request,
+            authorization,
+            RequestContext() with { TurnId = "turn-2" },
+            CancellationToken.None);
+
+        Assert.Equal(AnswerDisposition.Answer, result.Disposition);
+        Assert.Equal(1, fixture.Gateway.CallCount);
+        Assert.Contains(
+            "Configit, Codebeamer, and Windchill contributed.",
+            string.Join(Environment.NewLine, fixture.Gateway.LastRequest!.Messages.Select(message => message.Content)),
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task AnswerAsync_DoesNotUseContinuationStateFromAnotherAuthorizedOwner()
     {
         var fixture = new Fixture();
@@ -1481,11 +1661,14 @@ public sealed class ImpactAnswerServiceTests
             TimeSpan? conversationStateLifetime = null,
             Func<ModelRequest, string>? modelContentFactory = null,
             Func<int, Exception?>? modelFailureFactory = null,
-            RecordingExecutionTrace? executionTrace = null)
+            RecordingExecutionTrace? executionTrace = null,
+            IConversationTurnInterpreter? conversationTurnInterpreter = null,
+            IAnswerValidator? answerValidator = null,
+            Exception? evidenceFailure = null)
         {
             Resolver = new StubEntityResolver(resolution);
             ScopePlanner = new TrackingScopePlanner();
-            EvidenceSource = new StubEvidenceSource(evidence ?? Evidence());
+            EvidenceSource = new StubEvidenceSource(evidence ?? Evidence(), evidenceFailure);
             SourceEvidenceRetriever = sourceEvidenceRetriever ?? new FakeSourceEvidenceRetriever();
             FactEvidenceRetriever = factEvidenceRetriever ?? new FakeFactEvidenceRetriever();
             ApplicationContextRetriever = applicationContextRetriever ?? new FakeApplicationContextRetriever();
@@ -1498,7 +1681,7 @@ public sealed class ImpactAnswerServiceTests
             Telemetry = telemetry ?? new RecordingTelemetry();
             Service = new ImpactAnswerService(
                 new QuestionInterpreter(),
-                new ConversationTurnInterpreter(),
+                conversationTurnInterpreter ?? new ConversationTurnInterpreter(),
                 Resolver,
                 ScopePlanner,
                 EvidenceSource,
@@ -1510,7 +1693,7 @@ public sealed class ImpactAnswerServiceTests
                 promptAssembler ?? new PromptAssembler(),
                 Gateway,
                 new AnswerCandidateParser(),
-                new AnswerValidator(),
+                answerValidator ?? new AnswerValidator(),
                 modelConfiguration ?? new ModelConfiguration(
                     "model-1", "test", "test-model", "test-deployment", 256, 8192),
                 telemetry: Telemetry,
@@ -2102,7 +2285,9 @@ public sealed class ImpactAnswerServiceTests
         }
     }
 
-    private sealed class StubEvidenceSource(EvidenceRetrievalResult result) : IEngineeringEvidenceSource
+    private sealed class StubEvidenceSource(
+        EvidenceRetrievalResult result,
+        Exception? failure = null) : IEngineeringEvidenceSource
     {
         public int CallCount { get; private set; }
         public int InvestigationCallCount { get; private set; }
@@ -2117,6 +2302,11 @@ public sealed class ImpactAnswerServiceTests
             CallCount++;
             Authorization = query.Authorization;
             LastQuery = query;
+            if (failure is not null)
+            {
+                return Task.FromException<EvidenceRetrievalResult>(failure);
+            }
+
             return Task.FromResult(result);
         }
 
@@ -2127,6 +2317,11 @@ public sealed class ImpactAnswerServiceTests
             InvestigationCallCount++;
             Authorization = query.Authorization;
             LastInvestigationQuery = query;
+            if (failure is not null)
+            {
+                return Task.FromException<EvidenceRetrievalResult>(failure);
+            }
+
             return Task.FromResult(result with
             {
                 InvestigationId = query.InvestigationId,

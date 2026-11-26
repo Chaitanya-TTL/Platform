@@ -9,9 +9,16 @@ using Lattice.AI.Runtime.Contracts.Evidence;
 using Lattice.AI.Runtime.Contracts.Generation;
 using Lattice.AI.Runtime.Contracts.Requests;
 using Lattice.AI.Runtime.Contracts.Scope;
+using Lattice.AI.Runtime.ApplicationContext;
+using Lattice.AI.Runtime.Azure.Models;
 using Lattice.AI.Runtime.EntityResolution;
 using Lattice.AI.Runtime.Evidence;
+using Lattice.AI.Runtime.FactEvidence;
 using Lattice.AI.Runtime.Generation;
+using Lattice.AI.Runtime.SourceEvidence;
+using Lattice.AI.Runtime.Tests.ApplicationContext;
+using Lattice.AI.Runtime.Tests.FactEvidence;
+using Lattice.AI.Runtime.Tests.SourceEvidence;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -78,6 +85,72 @@ public sealed class ImpactAnswerAuthorizationTests
         Assert.Equal(0, factory.DecisionProvider.CallCount);
         Assert.Equal(0, factory.EntityResolver.CallCount);
         Assert.Equal(0, factory.EvidenceSource.CallCount);
+    }
+
+    [Fact]
+    public async Task PostImpactAnswer_LocalDevelopmentIdentityRunsTheRuntimePipeline()
+    {
+        using var factory = new ImpactAnswerFactory(useDevelopmentIdentity: true);
+        using var client = CreateClient(factory);
+        client.DefaultRequestHeaders.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue(
+                "Bearer",
+                LocalDevelopmentAuthenticationHandler.Token);
+
+        var response = await PostAsync(client, ValidRequest);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.IsType<LocalDevelopmentResourceAuthorizationDecisionProvider>(
+            factory.Services.GetRequiredService<IResourceAuthorizationDecisionProvider>());
+        Assert.Equal(0, factory.DecisionProvider.CallCount);
+        Assert.Equal(0, factory.TokenIssuer.CallCount);
+        Assert.Equal(1, factory.EntityResolver.CallCount);
+        Assert.Equal(1, factory.EvidenceSource.CallCount);
+        Assert.Equal(1, factory.ModelGateway.CallCount);
+
+        using var responseJson = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal("REQ-123 affects P-1.", responseJson.RootElement.GetProperty("summary").GetString());
+        Assert.False(string.IsNullOrWhiteSpace(
+            responseJson.RootElement.GetProperty("contextPackageId").GetString()));
+    }
+
+    [Fact]
+    public async Task PostImpactAnswer_WithConversationHistoryRunsTheRuntimePipeline()
+    {
+        using var factory = new ImpactAnswerFactory(useDevelopmentIdentity: true);
+        using var client = CreateClient(factory);
+        client.DefaultRequestHeaders.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue(
+                "Bearer",
+                LocalDevelopmentAuthenticationHandler.Token);
+        const string requestWithHistory = """
+            {
+              "investigationId": "investigation-1",
+              "question": "Summarize this investigation in 5 bullet points.",
+              "conversationId": "conversation-1",
+              "turnId": "turn-2",
+              "conversationHistory": [
+                {
+                  "turnId": "turn-1",
+                  "userMessage": "Which applications contributed to this investigation?",
+                  "assistantMessage": "The investigation involved Configit, Codebeamer, and Windchill.",
+                  "disposition": 0
+                }
+              ]
+            }
+            """;
+
+        var response = await PostAsync(client, requestWithHistory);
+        var responseBody = await response.Content.ReadAsStringAsync();
+
+        Assert.True(
+            response.StatusCode == HttpStatusCode.OK,
+            $"Expected OK, got {(int)response.StatusCode}: {responseBody}");
+        Assert.Equal(0, factory.EntityResolver.CallCount);
+        Assert.Equal(1, factory.EvidenceSource.CallCount);
+        Assert.Equal(1, factory.FactEvidenceRetriever.CallCount);
+        Assert.Equal(1, factory.ApplicationContextRetriever.CallCount);
+        Assert.Equal(1, factory.ModelGateway.CallCount);
     }
 
     [Fact]
@@ -214,41 +287,63 @@ public sealed class ImpactAnswerAuthorizationTests
     private sealed class ImpactAnswerFactory(
         bool denyDecision = false,
         bool failDecision = false,
-        bool useDefaultDecisionProvider = false) : WebApplicationFactory<Program>
+        bool useDefaultDecisionProvider = false,
+        bool useDevelopmentIdentity = false) : WebApplicationFactory<Program>
     {
         public RecordingDecisionProvider DecisionProvider { get; } = new(denyDecision, failDecision);
         public RecordingTokenIssuer TokenIssuer { get; } = new();
         public RecordingEntityResolver EntityResolver { get; } = new();
         public RecordingEvidenceSource EvidenceSource { get; } = new();
+        public FakeFactEvidenceRetriever FactEvidenceRetriever { get; } = new();
+        public FakeApplicationContextRetriever ApplicationContextRetriever { get; } = new();
         public RecordingModelGateway ModelGateway { get; } = new();
 
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
-            builder.UseEnvironment("Production");
+            builder.UseEnvironment(useDevelopmentIdentity ? "Development" : "Production");
             builder.ConfigureTestServices(services =>
             {
-                services.AddAuthentication(options =>
-                    {
-                        options.DefaultAuthenticateScheme = TestAuthenticationHandler.TestSchemeName;
-                        options.DefaultChallengeScheme = TestAuthenticationHandler.TestSchemeName;
-                        options.DefaultForbidScheme = TestAuthenticationHandler.TestSchemeName;
-                    })
-                    .AddScheme<AuthenticationSchemeOptions, TestAuthenticationHandler>(
-                        TestAuthenticationHandler.TestSchemeName,
-                        _ => { });
+                if (!useDevelopmentIdentity)
+                {
+                    services.AddAuthentication(options =>
+                        {
+                            options.DefaultAuthenticateScheme = TestAuthenticationHandler.TestSchemeName;
+                            options.DefaultChallengeScheme = TestAuthenticationHandler.TestSchemeName;
+                            options.DefaultForbidScheme = TestAuthenticationHandler.TestSchemeName;
+                        })
+                        .AddScheme<AuthenticationSchemeOptions, TestAuthenticationHandler>(
+                            TestAuthenticationHandler.TestSchemeName,
+                            _ => { });
+                }
 
-                if (!useDefaultDecisionProvider)
+                services.Configure<AiRuntimeOptions>(options =>
+                {
+                    options.Endpoint = "https://runtime.example.test";
+                    options.DeploymentName = "test-deployment";
+                    options.MaxInputTokens = 4096;
+                });
+
+                if (!useDevelopmentIdentity && !useDefaultDecisionProvider)
                 {
                     services.RemoveAll<IResourceAuthorizationDecisionProvider>();
                     services.AddSingleton<IResourceAuthorizationDecisionProvider>(DecisionProvider);
                 }
 
-                services.RemoveAll<IAuthorizationDecisionTokenIssuer>();
-                services.AddSingleton<IAuthorizationDecisionTokenIssuer>(TokenIssuer);
+                if (!useDevelopmentIdentity)
+                {
+                    services.RemoveAll<IAuthorizationDecisionTokenIssuer>();
+                    services.AddSingleton<IAuthorizationDecisionTokenIssuer>(TokenIssuer);
+                }
                 services.RemoveAll<IEngineeringEntityResolver>();
                 services.AddSingleton<IEngineeringEntityResolver>(EntityResolver);
                 services.RemoveAll<IEngineeringEvidenceSource>();
                 services.AddSingleton<IEngineeringEvidenceSource>(EvidenceSource);
+                services.RemoveAll<ISourceEvidenceRetriever>();
+                services.AddSingleton<ISourceEvidenceRetriever>(new FakeSourceEvidenceRetriever());
+                services.RemoveAll<IFactEvidenceRetriever>();
+                services.AddSingleton<IFactEvidenceRetriever>(FactEvidenceRetriever);
+                services.RemoveAll<IApplicationContextRetriever>();
+                services.AddSingleton<IApplicationContextRetriever>(ApplicationContextRetriever);
                 services.RemoveAll<ModelConfiguration>();
                 services.AddSingleton(new ModelConfiguration(
                     "test-model-config",

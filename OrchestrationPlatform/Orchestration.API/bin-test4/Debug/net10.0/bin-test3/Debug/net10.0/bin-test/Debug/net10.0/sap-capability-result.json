@@ -1,0 +1,265 @@
+﻿{
+    "success":  true,
+    "report":  {
+                   "materialId":  "PLM001008",
+                   "plant":  "1001",
+                   "systemId":  "S4H",
+                   "client":  "800",
+                   "generatedAt":  "2026-07-31T07:38:51.694Z",
+                   "capabilities":  [
+                                        {
+                                            "function":  "BAPI_MATERIAL_AVAILABILITY",
+                                            "purpose":  "Material availability / ATP",
+                                            "available":  true,
+                                            "imports":  [
+                                                            "BATCH",
+                                                            "CHECK_RULE",
+                                                            "CUSTOMER",
+                                                            "DEC_FOR_ROUNDING",
+                                                            "DEC_FOR_ROUNDING_X",
+                                                            "DOC_NUMBER",
+                                                            "ITM_NUMBER",
+                                                            "MATERIAL",
+                                                            "MATERIAL_EVG",
+                                                            "MATERIAL_LONG",
+                                                            "PLANT",
+                                                            "READ_ATP_LOCK",
+                                                            "READ_ATP_LOCK_X",
+                                                            "REQ_SEG_LONG",
+                                                            "SGT_RCAT",
+                                                            "STGE_LOC",
+                                                            "STOCK_IND",
+                                                            "UNIT",
+                                                            "WBS_ELEM"
+                                                        ],
+                                            "exports":  [
+                                                            "AV_QTY_PLT",
+                                                            "DIALOGFLAG",
+                                                            "ENDLEADTME",
+                                                            "RETURN"
+                                                        ],
+                                            "tables":  [
+                                                           "WMDVEX",
+                                                           "WMDVSX"
+                                                       ],
+                                            "structures":  [
+
+                                                           ],
+                                            "message":  "Repository metadata available"
+                                        },
+                                        {
+                                            "function":  "BAPI_MATERIAL_GET_DETAIL",
+                                            "purpose":  "Material master detail",
+                                            "available":  true,
+                                            "imports":  [
+                                                            "MATERIAL",
+                                                            "MATERIAL_EVG",
+                                                            "MATERIAL_LONG",
+                                                            "PLANT",
+                                                            "VALUATIONAREA",
+                                                            "VALUATIONTYPE"
+                                                        ],
+                                            "exports":  [
+                                                            "MATERIALPLANTDATA",
+                                                            "MATERIALVALUATIONDATA",
+                                                            "MATERIAL_GENERAL_DATA",
+                                                            "RETURN"
+                                                        ],
+                                            "tables":  [
+
+                                                       ],
+                                            "structures":  [
+
+                                                           ],
+                                            "message":  "Repository metadata available"
+                                        },
+                                        {
+                                            "function":  "BAPI_MATERIAL_GET_ALL",
+                                            "purpose":  "Material master and valuation detail",
+                                            "available":  true,
+                                            "imports":  [
+                                                            "COMP_CODE",
+                                                            "DISTR_CHAN",
+                                                            "KZRFB_ALL",
+                                                            "LIFO_VALUATION_LEVEL",
+                                                            "MATERIAL",
+                                                            "MATERIAL_LONG",
+                                                            "PLANT",
+                                                            "SALESORG",
+                                                            "STGE_LOC",
+                                                            "STGE_TYPE",
+                                                            "VAL_AREA",
+                                                            "VAL_TYPE",
+                                                            "WHSENUMBER"
+                                                        ],
+                                            "exports":  [
+                                                            "CLIENTDATA",
+                                                            "FORECASTPARAMETERS",
+                                                            "IS_MP_CLIENTDATA",
+                                                            "LIFOVALUATIONDATA",
+                                                            "MARC_APS_EXTDATA",
+                                                            "MATPLSTADATA",
+                                                            "PLANNINGDATA",
+                                                            "PLANTDATA",
+                                                            "PRTDATA",
+                                                            "SALESDATA",
+                                                            "STORAGELOCATIONDATA",
+                                                            "STORAGETYPEDATA",
+                                                            "VALUATIONDATA",
+                                                            "WAREHOUSENUMBERDATA"
+                                                        ],
+                                            "tables":  [
+                                                           "DEMAND_PENALTYDATA",
+                                                           "EXTENSIONOUT",
+                                                           "INTERNATIONALARTNOS",
+                                                           "MATERIALDESCRIPTION",
+                                                           "MATERIALLONGTEXT",
+                                                           "NFMCHARGEWEIGHTS",
+                                                           "NFMSTRUCTURALWEIGHTS",
+                                                           "RETURN",
+                                                           "TAXCLASSIFICATIONS",
+                                                           "UNITSOFMEASURE"
+                                                       ],
+                                            "structures":  [
+
+                                                           ],
+                                            "message":  "Repository metadata available"
+                                        },
+                                        {
+                                            "function":  "MB_READ_MATERIAL_STOCKS",
+                                            "purpose":  "Material stock quantities",
+                                            "available":  true,
+                                            "imports":  [
+                                                            "INVENTUR",
+                                                            "IS_NO_LOCK_FOR",
+                                                            "I_FB_CALL",
+                                                            "I_XMIGO",
+                                                            "I_XRUEM",
+                                                            "KZDZV",
+                                                            "MBEQU",
+                                                            "MBVAL",
+                                                            "MKPF",
+                                                            "MTCOM",
+                                                            "REFRESH",
+                                                            "SHKZG",
+                                                            "TRTYP",
+                                                            "XAENP",
+                                                            "XENQU",
+                                                            "XMBWL",
+                                                            "XNEUP",
+                                                            "XWERT"
+                                                        ],
+                                            "exports":  [
+                                                            "MBEFU",
+                                                            "MTCOR",
+                                                            "MTPER"
+                                                        ],
+                                            "tables":  [
+                                                           "X156M",
+                                                           "X156W",
+                                                           "XMARC",
+                                                           "XMARD",
+                                                           "XMCHB",
+                                                           "XMCSD",
+                                                           "XMKOL",
+                                                           "XMSCD",
+                                                           "XMSFD",
+                                                           "XMSID",
+                                                           "XMSKA",
+                                                           "XMSKU",
+                                                           "XMSLB",
+                                                           "XMSPR",
+                                                           "XMSRD",
+                                                           "XMSTB",
+                                                           "XMSTE",
+                                                           "XMSTQ",
+                                                           "XSTRU"
+                                                       ],
+                                            "structures":  [
+                                                               "DM07M",
+                                                               "MSEG",
+                                                               "VM07M"
+                                                           ],
+                                            "message":  "Repository metadata available"
+                                        },
+                                        {
+                                            "function":  "MARD_SINGLE_READ",
+                                            "purpose":  "Storage-location stock",
+                                            "available":  true,
+                                            "imports":  [
+                                                            "KZRFB",
+                                                            "LGORT",
+                                                            "MATNR",
+                                                            "MAXTZ",
+                                                            "WERKS"
+                                                        ],
+                                            "exports":  [
+                                                            "O_MARD",
+                                                            "WMARD"
+                                                        ],
+                                            "tables":  [
+
+                                                       ],
+                                            "structures":  [
+
+                                                           ],
+                                            "message":  "Repository metadata available"
+                                        },
+                                        {
+                                            "function":  "MBEW_SINGLE_READ",
+                                            "purpose":  "Material valuation",
+                                            "available":  true,
+                                            "imports":  [
+                                                            "BWKEY",
+                                                            "BWTAR",
+                                                            "KZRFB",
+                                                            "MATNR",
+                                                            "MAXTZ",
+                                                            "SPERRMODUS",
+                                                            "STD_SPERRMODUS"
+                                                        ],
+                                            "exports":  [
+                                                            "O_MBEW",
+                                                            "WMBEW"
+                                                        ],
+                                            "tables":  [
+
+                                                       ],
+                                            "structures":  [
+
+                                                           ],
+                                            "message":  "Repository metadata available"
+                                        },
+                                        {
+                                            "function":  "RFC_READ_TABLE",
+                                            "purpose":  "Controlled table-read fallback",
+                                            "available":  true,
+                                            "imports":  [
+                                                            "DELIMITER",
+                                                            "GET_SORTED",
+                                                            "NO_DATA",
+                                                            "QUERY_TABLE",
+                                                            "ROWCOUNT",
+                                                            "ROWSKIPS",
+                                                            "USE_ET_DATA_4_RETURN"
+                                                        ],
+                                            "exports":  [
+                                                            "ET_DATA"
+                                                        ],
+                                            "tables":  [
+                                                           "DATA",
+                                                           "FIELDS",
+                                                           "OPTIONS"
+                                                       ],
+                                            "structures":  [
+
+                                                           ],
+                                            "message":  "Repository metadata available"
+                                        }
+                                    ],
+                   "warnings":  [
+                                    "Availability confirms repository visibility only. Execute authorization and business-field usability must be validated before Phase 2."
+                                ]
+               },
+    "outputFilePath":  "C:\\Users\\skk932045\\OneDrive - Tata Technologies\\Desktop\\Platform\\SAP-BOM-Extractor\\runtime\\probe\\probe_20260731_073837_169ae51d0e8a4009\\sap_material_impact_probe.json"
+}

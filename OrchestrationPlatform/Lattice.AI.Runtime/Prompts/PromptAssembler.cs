@@ -209,6 +209,7 @@ public sealed class PromptAssembler : IPromptAssembler
                             ModelInputTokenBudget.EstimateInputTokens(currentMessages);
         var historyMessages = SelectConversationHistory(
             request.ConversationHistory,
+            request.ParentTurnId,
             request.Question,
             context.Subject,
             (int)Math.Clamp(historyBudget, 0, int.MaxValue));
@@ -296,6 +297,7 @@ public sealed class PromptAssembler : IPromptAssembler
 
     private static IReadOnlyList<ModelMessage> SelectConversationHistory(
         IReadOnlyList<ConversationHistoryTurn> history,
+        string? parentTurnId,
         string question,
         ResolvedEntity? subject,
         int tokenBudget)
@@ -304,7 +306,6 @@ public sealed class PromptAssembler : IPromptAssembler
 
         var subjectContext = subject is null ? string.Empty : $" {subject.CanonicalId} {subject.DisplayName}";
         var relevanceTerms = ExtractRelevanceTerms($"{question}{subjectContext}");
-        if (relevanceTerms.Count == 0) return Array.Empty<ModelMessage>();
 
         var candidates = new List<ConversationHistoryCandidate>();
         for (var index = 0; index < history.Count; index++)
@@ -313,21 +314,29 @@ public sealed class PromptAssembler : IPromptAssembler
             if (turn.Disposition is not (ConversationTurnDisposition.Answer or ConversationTurnDisposition.Clarify))
                 continue;
 
+            var isParentAnswer = turn.Disposition == ConversationTurnDisposition.Answer &&
+                string.Equals(turn.TurnId, parentTurnId, StringComparison.Ordinal);
             var userMessage = new ModelMessage("user", turn.UserMessage);
             var assistantMessage = new ModelMessage("assistant", turn.AssistantMessage);
             var score = ScoreOverlap(relevanceTerms, turn.UserMessage) * 2 +
                         ScoreOverlap(relevanceTerms, turn.AssistantMessage);
-            if (score == 0) continue;
+            if (score == 0 && !isParentAnswer) continue;
 
             var messages = Array.AsReadOnly(new[] { userMessage, assistantMessage });
             var estimatedTokens = ModelInputTokenBudget.EstimateInputTokens(messages);
-            candidates.Add(new ConversationHistoryCandidate(index, score, messages, estimatedTokens));
+            candidates.Add(new ConversationHistoryCandidate(
+                index,
+                score,
+                messages,
+                estimatedTokens,
+                isParentAnswer));
         }
 
         var selected = new List<ConversationHistoryCandidate>();
         var remainingBudget = tokenBudget;
         foreach (var candidate in candidates
-                     .OrderByDescending(candidate => candidate.RelevanceScore)
+                     .OrderByDescending(candidate => candidate.IsParentAnswer)
+                     .ThenByDescending(candidate => candidate.RelevanceScore)
                      .ThenByDescending(candidate => candidate.Index))
         {
             if (candidate.EstimatedTokens > remainingBudget) continue;
@@ -354,7 +363,8 @@ public sealed class PromptAssembler : IPromptAssembler
         int Index,
         int RelevanceScore,
         IReadOnlyList<ModelMessage> Messages,
-        int EstimatedTokens);
+        int EstimatedTokens,
+        bool IsParentAnswer);
 
     private static void ValidatePrompt(PromptBundle prompt)
     {

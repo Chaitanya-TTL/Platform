@@ -19,8 +19,10 @@ using Lattice.AI.Runtime.SourceEvidence;
 using Lattice.AI.Runtime.Telemetry;
 using Lattice.AI.Runtime.Validation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using OpenTelemetry.Metrics;
@@ -33,6 +35,8 @@ namespace Orchestration.API.AI.Composition;
 
 public static class AiRuntimeServiceCollectionExtensions
 {
+    private const int DevelopmentInputTokenAllowanceFallback = int.MaxValue;
+
     public static IServiceCollection AddAiRuntime(
         this IServiceCollection services,
         IConfiguration configuration,
@@ -58,12 +62,54 @@ public static class AiRuntimeServiceCollectionExtensions
                 ? ActivatorUtilities.CreateInstance<CopilotExecutionTraceLogger>(provider)
                 : CopilotExecutionTraceNoOp.Instance;
         });
-        services.TryAddSingleton<IResourceAuthorizationDecisionProvider, UnavailableResourceAuthorizationDecisionProvider>();
+        if (environment.IsDevelopment())
+        {
+            services.Replace(ServiceDescriptor.Singleton<
+                IResourceAuthorizationDecisionProvider,
+                LocalDevelopmentResourceAuthorizationDecisionProvider>());
+            services.Replace(ServiceDescriptor.Singleton<
+                IAuthorizationDecisionTokenIssuer,
+                LocalDevelopmentAuthorizationDecisionTokenIssuer>());
+        }
+        else
+        {
+            services.TryAddSingleton<IResourceAuthorizationDecisionProvider, UnavailableResourceAuthorizationDecisionProvider>();
+        }
+
         services.AddSingleton<TokenCredential, DefaultAzureCredential>();
         services.Configure<AiRuntimeOptions>(configuration.GetSection("AiRuntime"));
+        services.PostConfigure<AiRuntimeOptions>(options =>
+        {
+            var endpoint = configuration["AZURE_OPENAI_ENDPOINT"];
+            if (!string.IsNullOrWhiteSpace(endpoint))
+            {
+                options.Endpoint = endpoint.Trim();
+            }
+
+            var deploymentName = configuration["AZURE_OPENAI_DEPLOYMENT"];
+            if (!string.IsNullOrWhiteSpace(deploymentName))
+            {
+                options.DeploymentName = deploymentName.Trim();
+            }
+        });
+        if (environment.IsDevelopment())
+        {
+            services.PostConfigure<AiRuntimeOptions>(options =>
+            {
+                options.MaxInputTokens = DevelopmentInputTokenAllowanceFallback;
+            });
+        }
+
         services.AddSingleton<ModelConfiguration>(provider =>
         {
             var options = provider.GetRequiredService<Microsoft.Extensions.Options.IOptions<AiRuntimeOptions>>().Value;
+            provider.GetRequiredService<ILoggerFactory>()
+                .CreateLogger(nameof(AiRuntimeServiceCollectionExtensions))
+                .LogInformation(
+                    "AI runtime token allowances: MaxInputTokens={MaxInputTokens}, MaxOutputTokens={MaxOutputTokens}, DevelopmentInputTokenFallbackApplied={DevelopmentInputTokenFallbackApplied}",
+                    options.MaxInputTokens,
+                    options.MaxOutputTokens,
+                    environment.IsDevelopment());
             return new ModelConfiguration(
                 "azure-openai",
                 "azure-openai",
@@ -72,7 +118,12 @@ public static class AiRuntimeServiceCollectionExtensions
                 options.MaxOutputTokens,
                 options.MaxInputTokens);
         });
-        services.AddTransient<AzureOpenAiModelGateway>();
+        services.AddTransient<AzureOpenAiModelGateway>(provider =>
+            new AzureOpenAiModelGateway(
+                provider.GetRequiredService<IOptions<AiRuntimeOptions>>(),
+                configuration,
+                environment,
+                provider.GetRequiredService<ILogger<AzureOpenAiModelGateway>>()));
         services.AddTransient<IModelGateway>(provider =>
             new DeferredModelGateway(provider.GetRequiredService<AzureOpenAiModelGateway>));
         services.TryAddSingleton<IContextCompiler, ContextCompiler>();
@@ -80,22 +131,50 @@ public static class AiRuntimeServiceCollectionExtensions
         services.TryAddSingleton<IPromptAssembler, PromptAssembler>();
         services.TryAddSingleton<IAnswerCandidateParser, AnswerCandidateParser>();
         services.TryAddSingleton<IAnswerValidator, AnswerValidator>();
+        if (environment.IsDevelopment())
+        {
+            services.Replace(ServiceDescriptor.Singleton<
+                IAnswerCandidateParser,
+                DevelopmentAnswerCandidateParser>());
+            services.Replace(ServiceDescriptor.Singleton<
+                IAnswerValidator,
+                DevelopmentAnswerPassThroughValidator>());
+        }
         services.AddScoped<IImpactAnswerService, ImpactAnswerService>();
         services.AddSingleton<PlmBrainWorkloadTokenProvider>();
-        services.AddSingleton<IAuthorizationDecisionTokenSigner, KeyVaultAuthorizationDecisionTokenIssuer>();
-        services.AddSingleton<IAuthorizationDecisionTokenIssuer>(provider =>
+        if (!environment.IsDevelopment())
         {
-            var serviceOptions = provider.GetRequiredService<Microsoft.Extensions.Options.IOptions<PlmBrainServiceOptions>>().Value;
-            return new AuthorizationDecisionTokenIssuer(
-                provider.GetRequiredService<IAuthorizationDecisionTokenSigner>(),
-                new AuthorizationDecisionTicketOptions
+            services.AddSingleton<IAuthorizationDecisionTokenSigner, KeyVaultAuthorizationDecisionTokenIssuer>();
+            services.AddSingleton<IAuthorizationDecisionTokenIssuer>(provider =>
+            {
+                var serviceOptions = provider.GetRequiredService<Microsoft.Extensions.Options.IOptions<PlmBrainServiceOptions>>().Value;
+                return new AuthorizationDecisionTokenIssuer(
+                    provider.GetRequiredService<IAuthorizationDecisionTokenSigner>(),
+                    new AuthorizationDecisionTicketOptions
+                    {
+                        Issuer = serviceOptions.TicketIssuer ?? string.Empty,
+                        Audience = serviceOptions.TicketAudience ?? string.Empty,
+                        MaximumLifetimeSeconds = serviceOptions.MaximumAuthorizationTicketLifetimeSeconds
+                    },
+                    provider.GetRequiredService<TimeProvider>());
+            });
+        }
+
+        services.PostConfigure<PlmBrainServiceOptions>(options =>
+        {
+            if (environment.IsDevelopment())
+            {
+                if (string.IsNullOrWhiteSpace(options.BaseAddress))
                 {
-                    Issuer = serviceOptions.TicketIssuer ?? string.Empty,
-                    Audience = serviceOptions.TicketAudience ?? string.Empty,
-                    MaximumLifetimeSeconds = serviceOptions.MaximumAuthorizationTicketLifetimeSeconds
-                },
-                provider.GetRequiredService<TimeProvider>());
+                    options.BaseAddress = "http://localhost:3000";
+                }
+                if (string.IsNullOrWhiteSpace(options.WorkloadScope))
+                {
+                    options.WorkloadScope = "local-development";
+                }
+            }
         });
+
         services.AddScoped<IAuthorizationContextProvider, AspNetAuthorizationContextProvider>();
         services.Configure<ConversationStateRetentionOptions>(
             configuration.GetSection("AiRuntime:ConversationState"));
@@ -103,6 +182,11 @@ public static class AiRuntimeServiceCollectionExtensions
             provider.GetRequiredService<Microsoft.Extensions.Options.IOptions<ConversationStateRetentionOptions>>().Value);
         services.AddSingleton<IQuestionInterpreter, QuestionInterpreter>();
         services.AddSingleton<IConversationTurnInterpreter, ConversationTurnInterpreter>();
+        if (environment.IsDevelopment())
+        {
+            services.Replace(ServiceDescriptor.Singleton<IConversationTurnInterpreter>(
+                _ => new DevelopmentConversationTurnInterpreter(new ConversationTurnInterpreter())));
+        }
         services.AddSingleton<IScopePlanner, ScopePlanner>();
         services.AddHttpClient<IPlmBrainClient, PlmBrainClient>()
             .AddStandardResilienceHandler();
@@ -112,26 +196,38 @@ public static class AiRuntimeServiceCollectionExtensions
         services.AddTransient<IFactEvidenceRetriever, PlmBrainFactEvidenceRetriever>();
         services.AddTransient<IApplicationContextRetriever, PlmBrainApplicationContextRetriever>();
 
-        var authority = configuration["AiRuntime:Authentication:Authority"];
-        var audience = configuration["AiRuntime:Authentication:Audience"];
-        services
-            .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-            .AddJwtBearer(options =>
-            {
-                options.Authority = authority;
-                options.Audience = audience;
-                options.MapInboundClaims = false;
-                options.TokenValidationParameters = new TokenValidationParameters
+        if (environment.IsDevelopment())
+        {
+            services
+                .AddAuthentication(LocalDevelopmentAuthenticationHandler.SchemeName)
+                .AddScheme<AuthenticationSchemeOptions, LocalDevelopmentAuthenticationHandler>(
+                    LocalDevelopmentAuthenticationHandler.SchemeName,
+                    _ => { });
+        }
+        else
+        {
+            var authority = configuration["AiRuntime:Authentication:Authority"];
+            var audience = configuration["AiRuntime:Authentication:Audience"];
+            services
+                .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+                .AddJwtBearer(options =>
                 {
-                    ValidateIssuer = true,
-                    ValidateAudience = true,
-                    ValidateIssuerSigningKey = true,
-                    ValidateLifetime = true,
-                    ClockSkew = TimeSpan.Zero,
-                    NameClaimType = "sub",
-                    RoleClaimType = "roles"
-                };
-            });
+                    options.Authority = authority;
+                    options.Audience = audience;
+                    options.MapInboundClaims = false;
+                    options.TokenValidationParameters = new TokenValidationParameters
+                    {
+                        ValidateIssuer = true,
+                        ValidateAudience = true,
+                        ValidateIssuerSigningKey = true,
+                        ValidateLifetime = true,
+                        ClockSkew = TimeSpan.Zero,
+                        NameClaimType = "sub",
+                        RoleClaimType = "roles"
+                    };
+                });
+        }
+
         services.AddAuthorization(options =>
         {
             options.AddPolicy("AiRuntime", policy => policy.RequireAuthenticatedUser());

@@ -6,7 +6,7 @@ This is a provisioning checklist, not a deployment script. Exact resource names,
 
 | Resource or decision | Required configuration / behavior | Platform value still required |
 | --- | --- | --- |
-| Azure AI Foundry / Azure OpenAI | Approve and deploy the model for the intended engineering-impact workload. The runtime calls the fixed Azure OpenAI provider using `AiRuntime:Endpoint` and `AiRuntime:DeploymentName`; the endpoint must use HTTPS. The model and `engineering-impact/v1` prompt are not runtime-selectable settings. | Approved model/deployment, resource endpoint, deployment name, region, data-handling and retention approval. |
+| Azure AI Foundry / Azure OpenAI | Approve and deploy the model for the intended engineering-impact workload. The runtime calls the fixed Azure OpenAI provider using `AZURE_OPENAI_ENDPOINT` and `AZURE_OPENAI_DEPLOYMENT`; the endpoint must use HTTPS. The model and `engineering-impact/v1` prompt are not runtime-selectable settings. | Approved model/deployment, resource endpoint, deployment name, region, data-handling and retention approval. |
 | Entra identity for API ingress | Configure the API's `AiRuntime:Authentication:Authority` and `AiRuntime:Authentication:Audience`. The API validates issuer, audience, signing key, and token lifetime with zero clock skew. | Tenant/issuer, API audience, token-issuance arrangement, and required incoming identity claim names. |
 | Server-side authorization decision provider | Replace the default unavailable provider with the approved production policy integration. The provider must derive tenant, subject, investigation access, required grants, decision ID, policy version, and decision expiry on the server. Missing provider/decision denies access. | Provider implementation/endpoint, policy owner, claim mapping, grant semantics, and failure/availability requirements. |
 | API managed identity for PLM calls | Give the API workload identity the approved access needed to obtain a token for the private PLM service. Configure `AiRuntime:PlmBrain:WorkloadScope`, `BaseAddress`, and the service issuer/audience values. The API obtains the workload token with `DefaultAzureCredential`. | Managed identity, resource scope/audience, issuer, private service address, and role assignment. |
@@ -31,8 +31,9 @@ The API uses the Key Vault key to sign; the PLM service receives only trusted pu
 API settings use standard .NET environment-variable overrides:
 
 ```text
-AiRuntime__Endpoint
-AiRuntime__DeploymentName
+AZURE_OPENAI_ENDPOINT
+AZURE_OPENAI_DEPLOYMENT
+AZURE_OPENAI_API_KEY
 AiRuntime__TimeoutSeconds
 AiRuntime__MaxOutputTokens
 AiRuntime__MaxInputTokens
@@ -56,7 +57,7 @@ AzureMonitor__ConnectionString
 APPLICATIONINSIGHTS_CONNECTION_STRING
 ```
 
-`AiRuntime:TimeoutSeconds` defaults to `45` and must be `1`–`120`; `AiRuntime:MaxOutputTokens` defaults to `1024` and must be `1`–`8192`. `AiRuntime:MaxInputTokens` is required, must be greater than zero, and must exceed `MaxOutputTokens`; select it for the actual deployment context window, without assuming provider support or imposing a generic model-specific ceiling. The runtime reserves the configured output, a 15% input safety margin, and estimated fixed prompt/question overhead before compiling context, then checks the complete assembled prompt estimate before model invocation. UTF-8 bytes divided by four is only a heuristic estimate and is not provider/tokenizer accounting. `AiRuntime:Endpoint` must be an absolute HTTPS URI, and `DeploymentName` is required. These endpoint/deployment values are configuration, not credentials.
+`AiRuntime:TimeoutSeconds` defaults to `45` and must be `1`–`120`; `AiRuntime:MaxOutputTokens` defaults to `1024` and must be `1`–`8192`. Production requires `AiRuntime:MaxInputTokens` to be positive and greater than `MaxOutputTokens`. In Development, the configured input allowance is overridden with `Int32.MaxValue`, allowing retrieval, context compilation, and model invocation to proceed without estimated input-budget preflight blocking the request; effective values are logged. The deployed model can still reject inputs beyond its actual context window. The API reads its HTTPS endpoint from `AZURE_OPENAI_ENDPOINT` and required deployment from `AZURE_OPENAI_DEPLOYMENT`; the development API key is `AZURE_OPENAI_API_KEY`. These endpoint/deployment values are configuration, not credentials.
 
 Telemetry identifier options default to `false`. Enable the investigation, entity, tenant, or Context Package identifier only with explicit security approval; subject IDs, authorization decision IDs, credentials, URL query values, and request payload text are always excluded.
 

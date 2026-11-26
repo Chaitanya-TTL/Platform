@@ -135,10 +135,11 @@ export function createCopilotTraceContext(request?: Request): CopilotTraceContex
   const traceId = randomBytes(16).toString("hex");
   const spanId = randomBytes(8).toString("hex");
   const requestedFullPayload = request?.headers.get("x-copilot-diagnostic-detail") === "full";
-  const payloadDetail = requestedFullPayload && fullPayloadTraceAllowed()
+  const fullPayloadAllowed = fullPayloadTraceAllowed();
+  const payloadDetail = fullPayloadAllowed
     ? "full"
     : "summary";
-  if (requestedFullPayload && payloadDetail !== "full") reportFullPayloadConfigurationError();
+  if (requestedFullPayload && !fullPayloadAllowed) reportFullPayloadConfigurationError();
   return {
     requestId: randomUUID(),
     traceId,

@@ -43,6 +43,12 @@ export interface ImpactEvidenceService {
 type SnapshotLoader = (investigationId: InvestigationId) => Promise<InvestigationSnapshot | undefined>;
 type SnapshotEnricher = (snapshot: InvestigationSnapshot) => InvestigationSnapshot;
 
+function logInvestigationEvidenceDiagnostic(event: string, details: Record<string, unknown>): void {
+  if (process.env.NODE_ENV === "development") {
+    console.info(`[lattice.investigation-evidence.${event}]`, details);
+  }
+}
+
 export function createImpactEvidenceService(
   loadSnapshot: SnapshotLoader,
   enrichSnapshot: SnapshotEnricher = ensureInvestigationKnowledgeGraph,
@@ -50,8 +56,32 @@ export function createImpactEvidenceService(
   async function loadGraph(investigationId: string): Promise<InvestigationKnowledgeGraph> {
     if (!investigationId.trim()) throw new ImpactEvidenceServiceError(400, "Investigation ID is required.");
     const snapshot = await loadSnapshot(investigationId as InvestigationId);
-    if (!snapshot || snapshot.identity.investigationId !== investigationId || !snapshot.canonical ||
-        !isEngineeringIntelligenceInvestigationV1(snapshot.canonical.value)) {
+    const snapshotMatches = snapshot?.identity.investigationId === investigationId;
+    const canonicalValue = snapshot?.canonical?.value;
+    const canonicalIsValid = isEngineeringIntelligenceInvestigationV1(canonicalValue);
+    const canonicalInvestigationId = canonicalIsValid ? canonicalValue.investigationId : undefined;
+    const storedGraph = canonicalIsValid ? canonicalValue.knowledgeGraph : undefined;
+    logInvestigationEvidenceDiagnostic("snapshot-prerequisites", {
+      requestedInvestigationId: investigationId,
+      snapshotFound: Boolean(snapshot),
+      snapshotInvestigationId: snapshot?.identity.investigationId,
+      snapshotMatches,
+      snapshotRevision: snapshot?.identity.revision,
+      snapshotLifecycle: snapshot?.lifecycle,
+      acceptedEvidenceCount: snapshot?.acceptedEvidenceIds?.length,
+      canonicalPresent: Boolean(snapshot?.canonical),
+      canonicalIsValid,
+      canonicalRevision: snapshot?.canonical?.revision,
+      canonicalInvestigationId,
+      canonicalEntityCount: canonicalIsValid ? canonicalValue.entities.length : undefined,
+      canonicalRelationshipCount: canonicalIsValid ? canonicalValue.relationships.length : undefined,
+      canonicalEvidenceCount: canonicalIsValid ? canonicalValue.evidence.length : undefined,
+      canonicalSourceCount: canonicalIsValid ? canonicalValue.sources.length : undefined,
+      storedGraphPresent: Boolean(storedGraph),
+      storedGraphInvestigationId: storedGraph?.investigationId,
+      storedGraphRevision: storedGraph?.snapshotRevision,
+    });
+    if (!snapshot || !snapshotMatches || !canonicalIsValid) {
       throw new ImpactEvidenceServiceError(404, "Investigation was not found.");
     }
 
@@ -60,7 +90,34 @@ export function createImpactEvidenceService(
     const graph = isEngineeringIntelligenceInvestigationV1(canonical)
       ? canonical.knowledgeGraph
       : undefined;
+    const graphGenerationPath = graph?.derivedOnRead
+      ? "derived-on-read"
+      : storedGraph
+        ? "reused-stored-graph"
+        : graph
+          ? "enriched-canonical"
+          : "unavailable";
+    logInvestigationEvidenceDiagnostic("graph-prepared", {
+      requestedInvestigationId: investigationId,
+      graphGenerationPath,
+      graphPresent: Boolean(graph),
+      graphInvestigationId: graph?.investigationId,
+      graphSnapshotRevision: graph?.snapshotRevision,
+      graphEntityCount: graph?.entities.length,
+      graphCanonicalRelationshipCount: graph?.canonicalRelationships.length,
+      graphResolvedRelationshipCount: graph?.resolvedRelationships.length,
+      graphRelationshipEvidenceCount: graph?.relationshipEvidence.length,
+      graphImpactPathCount: graph?.impactPaths.length,
+      graphImpactChainCount: graph?.impactChains?.length,
+    });
     if (!graph || graph.investigationId !== investigationId) {
+      logInvestigationEvidenceDiagnostic("conflict", {
+        requestedInvestigationId: investigationId,
+        conflictReason: !graph ? "authoritative-graph-unavailable" : "graph-investigation-id-mismatch",
+        canonicalInvestigationId,
+        graphInvestigationId: graph?.investigationId,
+        responseBody: { message: "Authoritative impact evidence is unavailable." },
+      });
       throw new ImpactEvidenceServiceError(409, "Authoritative impact evidence is unavailable.");
     }
     return graph;

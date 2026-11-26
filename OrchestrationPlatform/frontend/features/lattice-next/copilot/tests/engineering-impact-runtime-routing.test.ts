@@ -31,6 +31,22 @@ describe("engineering impact runtime routing", () => {
     });
   });
 
+  it("enables runtime routing by default in development", () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("LATTICE_AI_RUNTIME_ENGINEERING_IMPACT_ANSWERS_ENABLED", "");
+
+    const configuration = readEngineeringImpactRuntimeRoutingConfiguration({
+      endpointConfigured: true,
+      credentialProviderConfigured: true,
+    });
+
+    expect(configuration.enabled).toBe(true);
+    expect(routeEngineeringImpactAnswer(
+      { question: "Summarize this investigation.", investigationId: "INV-123" },
+      configuration,
+    )).toEqual({ route: "runtime" });
+  });
+
   it("keeps a supported explicit impact question on the existing path when disabled", () => {
     const route = routeEngineeringImpactAnswer(
       { question: "What is impacted if Requirement R-123 changes?", investigationId: "INV-123" },
@@ -234,6 +250,36 @@ describe("engineering impact runtime routing", () => {
       disposition: "Clarify",
       issues: [],
     }).assistantMessage.content).toBe("Please identify the requirement or item you want to assess.");
+  });
+
+  it("shows a runtime retrieval failure message without converting it into an investigation answer", () => {
+    const answer = mapEngineeringImpactRuntimeCall({
+      status: "response",
+      response: {
+        investigationId: "INV-123",
+        requestContext: { requestId: "request-1", traceId: "trace-1" },
+        disposition: "Failed",
+        summary: null,
+        impacts: [],
+        facts: [],
+        applicationContexts: [],
+        sourceEvidence: [],
+        sources: [],
+        issues: [{
+          code: "source-evidence-unavailable",
+          message: "Source evidence retrieval is unavailable.",
+        }],
+      },
+    }, 7);
+
+    expect(answer).toMatchObject({
+      answer: "Source evidence retrieval is unavailable.",
+      claims: [],
+      runtime: {
+        disposition: "Failed",
+        issues: [{ code: "source-evidence-unavailable" }],
+      },
+    });
   });
 
   it("maps detailed runtime impacts and source links into the existing Copilot answer contract", () => {

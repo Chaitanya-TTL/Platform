@@ -1,0 +1,29 @@
+{
+  "datasetId": "synthetic-source-evidence-v1",
+  "corpusClassification": "synthetic-fixture-only",
+  "queries": [
+    {
+      "queryId": "SYNTH-QUERY-001",
+      "question": "In the synthetic fixture, what pressure and temperature must the demo pump sustain?",
+      "expectedRecordIds": [
+        "SYNTH-REQ-001-DESC",
+        "SYNTH-REQ-001-DESC-COPY",
+        "SYNTH-REQ-001-DESC-FORMAT"
+      ]
+    },
+    {
+      "queryId": "SYNTH-QUERY-002",
+      "question": "In the synthetic fixture, what axial load and duration apply to the test fixture?",
+      "expectedRecordIds": [
+        "SYNTH-REQ-002-TEXT"
+      ]
+    },
+    {
+      "queryId": "SYNTH-QUERY-003",
+      "question": "In the synthetic fixture, what clearance does RULE-003 require?",
+      "expectedRecordIds": [
+        "SYNTH-RULE-003-TEXT"
+      ]
+    }
+  ]
+}

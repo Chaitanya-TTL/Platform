@@ -1,9 +1,12 @@
 using Azure.Core;
 using System.Collections.Concurrent;
+using Microsoft.Extensions.Hosting;
 
 namespace Orchestration.API.AI.Adapters;
 
-public sealed class PlmBrainWorkloadTokenProvider(TokenCredential credential)
+public sealed class PlmBrainWorkloadTokenProvider(
+    TokenCredential credential,
+    IHostEnvironment? hostEnvironment = null)
 {
     private readonly SemaphoreSlim _tokenLock = new(1, 1);
     private readonly ConcurrentDictionary<string, RequestToken> _requestTokens = new(StringComparer.Ordinal);
@@ -18,6 +21,11 @@ public sealed class PlmBrainWorkloadTokenProvider(TokenCredential credential)
         if (now >= decisionExpiresAt)
         {
             throw new InvalidOperationException("The authorization decision expired before the PLM request.");
+        }
+
+        if (hostEnvironment?.IsDevelopment() == true)
+        {
+            return LocalDevelopmentAuthenticationHandler.Token;
         }
 
         foreach (var cachedRequest in _requestTokens)

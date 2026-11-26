@@ -43,7 +43,8 @@ export type EngineeringImpactRuntimeOutcome =
       issues: readonly { message: string }[];
       contextPackageId?: string;
     }
-  | { disposition: "Deny" | "Failed" | "Unavailable"; diagnosticCode?: string };
+  | { disposition: "Failed"; issues?: readonly { message: string }[]; diagnosticCode?: string }
+  | { disposition: "Deny" | "Unavailable"; diagnosticCode?: string };
 
 export type EngineeringImpactCopilotStatus =
   | "answer"
@@ -148,6 +149,15 @@ export function mapEngineeringImpactRuntimeOutcome(
         citations: [],
       };
     case "Failed":
+      return {
+        status: "unavailable",
+        assistantMessage: {
+          role: "assistant",
+          content: outcome.issues?.map((issue) => issue.message.trim()).filter(Boolean).join("\n\n") ||
+            "Engineering impact answers are temporarily unavailable.",
+        },
+        citations: [],
+      };
     case "Unavailable":
       return {
         status: "unavailable",
@@ -251,7 +261,9 @@ function mapRuntimeResponse(
       ? issues.join("\n\n") || "Which engineering item should I assess?"
       : disposition === "Abstain"
         ? issues.join("\n\n") || "The available evidence does not support a reliable impact answer."
-        : "Engineering impact answers are temporarily unavailable.");
+        : disposition === "Failed"
+          ? issues.join("\n\n") || "Engineering impact answers are temporarily unavailable."
+          : "Engineering impact answers are temporarily unavailable.");
 
   return {
     answer,
@@ -322,8 +334,13 @@ export function readEngineeringImpactRuntimeRoutingConfiguration(
     credentialProviderConfigured: false,
   },
 ): EngineeringImpactRuntimeRoutingConfiguration {
+  const configuredFlag = process.env.LATTICE_AI_RUNTIME_ENGINEERING_IMPACT_ANSWERS_ENABLED
+    ?.trim()
+    .toLowerCase();
   return {
-    enabled: process.env.LATTICE_AI_RUNTIME_ENGINEERING_IMPACT_ANSWERS_ENABLED?.trim().toLowerCase() === "true",
+    enabled: configuredFlag
+      ? configuredFlag === "true"
+      : process.env.NODE_ENV === "development",
     runtimeEndpointAvailable: readiness.endpointConfigured,
     runtimeCredentialProviderAvailable: readiness.credentialProviderConfigured,
   };

@@ -150,6 +150,39 @@ public sealed class PromptAssemblerTests
     }
 
     [Fact]
+    public void Assemble_IncludesParentAnswerForWhyWithoutRelevanceTerms()
+    {
+        var request = new ImpactAnswerRequest("investigation-1", "Why?")
+        {
+            ParentTurnId = "turn-1",
+            ConversationHistory =
+            [
+                new ConversationHistoryTurn(
+                    "turn-1",
+                    "Which applications contributed?",
+                    "Configit, Codebeamer, and Windchill contributed.",
+                    ConversationTurnDisposition.Answer)
+            ]
+        };
+        var modelRequest = new PromptAssembler().Assemble(
+            request,
+            ContextPackage() with { Subject = null },
+            PromptBundle(),
+            new ModelConfiguration("model-config", "azure-openai", "gpt", "deployment", 256, 100_000));
+
+        Assert.Equal(
+            new[] { "system", "user", "assistant", "user" },
+            modelRequest.Messages.Select(message => message.Role));
+        Assert.Contains("Which applications contributed?", modelRequest.Messages[1].Content, StringComparison.Ordinal);
+        Assert.Contains(
+            "Configit, Codebeamer, and Windchill contributed.",
+            modelRequest.Messages[2].Content,
+            StringComparison.Ordinal);
+        using var currentQuestion = JsonDocument.Parse(modelRequest.Messages[^1].Content);
+        Assert.Equal("Why?", currentQuestion.RootElement.GetProperty("question").GetString());
+    }
+
+    [Fact]
     public void Assemble_RendersApprovedFactsAndParticipationWithoutAuthorizationMaterial()
     {
         var fact = Fact();

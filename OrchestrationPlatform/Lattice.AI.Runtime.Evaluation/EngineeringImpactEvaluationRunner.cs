@@ -655,9 +655,9 @@ public sealed class EngineeringImpactEvaluationRunner : IEngineeringImpactEvalua
             resolver,
             scopePlanner,
             evidenceSource,
-            new EvaluationUnavailableSourceEvidenceRetriever(),
-            new Lattice.AI.Runtime.FactEvidence.UnavailableFactEvidenceRetriever(),
-            new Lattice.AI.Runtime.ApplicationContext.UnavailableApplicationContextRetriever(),
+            new EvaluationEmptySourceEvidenceRetriever(),
+            new EvaluationEmptyFactEvidenceRetriever(),
+            new EvaluationEmptyApplicationContextRetriever(),
             new RecordingContextCompiler(new ContextCompiler()),
             new SourceControlledPromptCatalog(),
             new PromptAssembler(),
@@ -751,9 +751,9 @@ public sealed class EngineeringImpactEvaluationRunner : IEngineeringImpactEvalua
             resolver,
             scopePlanner,
             evidenceSource,
-            new EvaluationUnavailableSourceEvidenceRetriever(),
-            new Lattice.AI.Runtime.FactEvidence.UnavailableFactEvidenceRetriever(),
-            new Lattice.AI.Runtime.ApplicationContext.UnavailableApplicationContextRetriever(),
+            new EvaluationEmptySourceEvidenceRetriever(),
+            new EvaluationEmptyFactEvidenceRetriever(),
+            new EvaluationEmptyApplicationContextRetriever(),
             contextCompiler,
             new SourceControlledPromptCatalog(),
             new PromptAssembler(),
@@ -2123,7 +2123,7 @@ public sealed class EngineeringImpactEvaluationRunner : IEngineeringImpactEvalua
         }
     }
 
-    private sealed class EvaluationUnavailableSourceEvidenceRetriever : ISourceEvidenceRetriever
+    private sealed class EvaluationEmptySourceEvidenceRetriever : ISourceEvidenceRetriever
     {
         public Task<SourceEvidenceRetrievalResult> RetrieveAsync(
             SourceEvidenceQuery query,
@@ -2131,8 +2131,55 @@ public sealed class EngineeringImpactEvaluationRunner : IEngineeringImpactEvalua
         {
             ArgumentNullException.ThrowIfNull(query);
             cancellationToken.ThrowIfCancellationRequested();
-            throw new SourceEvidenceUnavailableException(
-                "The offline evaluation runner has no source-evidence retrieval adapter.");
+            return Task.FromResult(new SourceEvidenceRetrievalResult(
+                query.InvestigationId,
+                1,
+                "evaluation-source-evidence-v1",
+                query.Authorization.Scope.DecisionId,
+                query.RequestContext.RequestId,
+                query.RequestContext.TraceId,
+                []));
+        }
+    }
+
+    private sealed class EvaluationEmptyFactEvidenceRetriever : Lattice.AI.Runtime.FactEvidence.IFactEvidenceRetriever
+    {
+        public Task<FactEvidenceRetrievalResult> RetrieveAsync(
+            FactEvidenceQuery query,
+            CancellationToken cancellationToken)
+        {
+            ArgumentNullException.ThrowIfNull(query);
+            cancellationToken.ThrowIfCancellationRequested();
+            return Task.FromResult(new FactEvidenceRetrievalResult(
+                query.InvestigationId,
+                1,
+                query.SourceVersion,
+                query.OntologyVersion,
+                query.Authorization.Scope.DecisionId,
+                query.RequestContext.RequestId,
+                query.RequestContext.TraceId,
+                []));
+        }
+    }
+
+    private sealed class EvaluationEmptyApplicationContextRetriever
+        : Lattice.AI.Runtime.ApplicationContext.IApplicationContextRetriever
+    {
+        public Task<ApplicationContextRetrievalResult> RetrieveAsync(
+            ApplicationContextQuery query,
+            CancellationToken cancellationToken)
+        {
+            ArgumentNullException.ThrowIfNull(query);
+            cancellationToken.ThrowIfCancellationRequested();
+            return Task.FromResult(new ApplicationContextRetrievalResult(
+                query.InvestigationId,
+                1,
+                query.SourceVersion,
+                query.OntologyVersion,
+                query.Authorization.Scope.DecisionId,
+                query.RequestContext.RequestId,
+                query.RequestContext.TraceId,
+                []));
         }
     }
 

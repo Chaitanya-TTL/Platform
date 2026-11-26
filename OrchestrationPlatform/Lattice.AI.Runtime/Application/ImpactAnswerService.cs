@@ -554,6 +554,7 @@ public sealed class ImpactAnswerService(
         }
 
         EvidenceRetrievalResult evidence;
+        var plmRetrievalSucceeded = true;
         var plmRetrievalStarted = Stopwatch.GetTimestamp();
         WriteTrace(
             requestContext,
@@ -593,6 +594,7 @@ public sealed class ImpactAnswerService(
                             authorization,
                             requestContext),
                         cancellationToken).ConfigureAwait(false);
+                plmRetrievalSucceeded = true;
                 retrievalStage.SetDisposition("completed");
                 if (priorConversationState is not null &&
                     !string.Equals(priorConversationState.SourceVersion, evidence.SourceVersion, StringComparison.Ordinal))
@@ -627,11 +629,7 @@ public sealed class ImpactAnswerService(
                     durationMs: (long)Stopwatch.GetElapsedTime(plmRetrievalStarted).TotalMilliseconds,
                     diagnostics: new { reasonCode = "PLM_RETRIEVAL_TIMEOUT" });
                 retrievalStage.SetFailure("plm-retrieval-timeout");
-                return CreateResult(
-                    request.InvestigationId,
-                    requestContext,
-                    AnswerDisposition.Failed,
-                    issues: [new ValidationIssue("evidence-retrieval-timeout", "PLM evidence retrieval timed out.")]);
+                evidence = EmptyEvidenceAfterRetrievalFailure(request.InvestigationId, authorization, requestContext);
             }
             catch (Exception exception) when (
                 exception is HttpRequestException or TimeoutException or InvalidOperationException)
@@ -645,11 +643,7 @@ public sealed class ImpactAnswerService(
                     durationMs: (long)Stopwatch.GetElapsedTime(plmRetrievalStarted).TotalMilliseconds,
                     diagnostics: new { reasonCode = "PLM_RETRIEVAL_FAILED", errorType = exception.GetType().Name });
                 retrievalStage.SetFailure("plm-retrieval-failed");
-                return CreateResult(
-                    request.InvestigationId,
-                    requestContext,
-                    AnswerDisposition.Failed,
-                    issues: [new ValidationIssue("evidence-retrieval-failed", "PLM evidence could not be retrieved.")]);
+                evidence = EmptyEvidenceAfterRetrievalFailure(request.InvestigationId, authorization, requestContext);
             }
         }
         WriteTrace(
@@ -657,7 +651,7 @@ public sealed class ImpactAnswerService(
             "retrieval.completed",
             "plm-retrieval",
             request.InvestigationId,
-            outcome: "completed",
+            outcome: plmRetrievalSucceeded ? "completed" : "failed",
             durationMs: (long)Stopwatch.GetElapsedTime(plmRetrievalStarted).TotalMilliseconds,
             input: new
             {
@@ -2579,6 +2573,22 @@ public sealed class ImpactAnswerService(
             yield return source.EvidenceId;
         }
     }
+
+    private static EvidenceRetrievalResult EmptyEvidenceAfterRetrievalFailure(
+        string investigationId,
+        AuthorizationContext authorization,
+        RuntimeRequestContext requestContext) =>
+        new(
+            investigationId,
+            [],
+            [],
+            [],
+            [],
+            string.Empty,
+            string.Empty,
+            authorization.Scope.DecisionId,
+            requestContext.RequestId,
+            requestContext.TraceId);
 
     private static ImpactAnswerResult CreateResult(
         string investigationId,

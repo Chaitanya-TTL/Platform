@@ -93,4 +93,11 @@ describe("Copilot execution trace writer", () => {
     expect(context.traceparent).toMatch(/^00-[0-9a-f]{32}-[0-9a-f]{16}-01$/);
     expect(context).toMatchObject({ routeSource: "Unknown", payloadDetail: "summary" });
   });
+
+  it("requests full payload diagnostics for Development when explicitly enabled", () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("LATTICE_COPILOT_DIAGNOSTICS_FULL_PAYLOAD_TRACE", "true");
+
+    expect(createCopilotTraceContext()).toMatchObject({ payloadDetail: "full" });
+  });
 });

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
@@ -97,6 +97,10 @@ const traceContext: CopilotTraceContext = {
   payloadDetail: "summary",
 };
 
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
 describe("EngineeringImpactRuntimeClient", () => {
   it("uses the server-side credential provider and forwards only server-loaded structured state", async () => {
     const fetcher = vi.fn().mockResolvedValue(response(200, runtimeResponse));
@@ -133,6 +137,36 @@ describe("EngineeringImpactRuntimeClient", () => {
       previousConversationState: priorState,
     });
     expect(init.body).not.toContain("accessToken");
+  });
+
+  it("preserves structured runtime retrieval failures instead of replacing their messages", async () => {
+    const failedResponse: EngineeringImpactRuntimeResponse = {
+      ...runtimeResponse,
+      disposition: "Failed",
+      summary: null,
+      impacts: [],
+      issues: [{
+        code: "source-evidence-unavailable",
+        message: "Source evidence retrieval is unavailable.",
+      }],
+    };
+    const fetcher = vi.fn().mockResolvedValue(response(502, failedResponse));
+    const client = new EngineeringImpactRuntimeClient({
+      endpoint: "https://orchestration.example/api",
+      accessTokenProvider: provider({ status: "available", accessToken: "server-token" }),
+      fetcher,
+    });
+
+    await expect(client.answer(request)).resolves.toMatchObject({
+      status: "response",
+      response: {
+        disposition: "Failed",
+        issues: [{
+          code: "source-evidence-unavailable",
+          message: "Source evidence retrieval is unavailable.",
+        }],
+      },
+    });
   });
 
   it("propagates server-generated trace context without forwarding caller credentials", async () => {
@@ -196,6 +230,19 @@ describe("EngineeringImpactRuntimeClient", () => {
     });
     expect(tokenProvider.getAccessToken).not.toHaveBeenCalled();
     expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it("uses the local API and development credential when running the frontend in development", () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("ORCHESTRATION_API_URL", "");
+    vi.stubEnv("NEXT_PUBLIC_API_URL", "");
+
+    const client = new EngineeringImpactRuntimeClient();
+
+    expect(client.readiness()).toEqual({
+      endpointConfigured: true,
+      credentialProviderConfigured: true,
+    });
   });
 
   it("distinguishes unavailable and failed credential acquisition", async () => {

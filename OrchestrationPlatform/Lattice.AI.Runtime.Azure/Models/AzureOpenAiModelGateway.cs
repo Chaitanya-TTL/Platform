@@ -1,9 +1,13 @@
 using System.Diagnostics;
+using Azure;
 using Azure.AI.OpenAI;
 using Azure.Identity;
 using Lattice.AI.Runtime.Contracts.Generation;
 using Lattice.AI.Runtime.Generation;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace Lattice.AI.Runtime.Azure.Models;
@@ -15,6 +19,15 @@ public sealed class AzureOpenAiModelGateway : IModelGateway
 
     public AzureOpenAiModelGateway(IOptions<AiRuntimeOptions> options)
         : this(CreateChatClient(options), options)
+    {
+    }
+
+    public AzureOpenAiModelGateway(
+        IOptions<AiRuntimeOptions> options,
+        IConfiguration configuration,
+        IHostEnvironment environment,
+        ILogger<AzureOpenAiModelGateway> logger)
+        : this(CreateChatClient(options, configuration, environment, logger), options)
     {
     }
 
@@ -93,6 +106,41 @@ public sealed class AzureOpenAiModelGateway : IModelGateway
         options.Value.Validate();
         var endpoint = new Uri(options.Value.Endpoint, UriKind.Absolute);
         var azureClient = new AzureOpenAIClient(endpoint, new DefaultAzureCredential());
+        return azureClient.GetChatClient(options.Value.DeploymentName).AsIChatClient();
+    }
+
+    private static IChatClient CreateChatClient(
+        IOptions<AiRuntimeOptions> options,
+        IConfiguration configuration,
+        IHostEnvironment environment,
+        ILogger<AzureOpenAiModelGateway> logger)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(configuration);
+        ArgumentNullException.ThrowIfNull(environment);
+        ArgumentNullException.ThrowIfNull(logger);
+        options.Value.Validate();
+
+        var endpoint = new Uri(options.Value.Endpoint, UriKind.Absolute);
+        var apiKey = environment.IsDevelopment()
+            ? configuration["AZURE_OPENAI_API_KEY"]?.Trim()
+            : null;
+        AzureOpenAIClient azureClient;
+        if (!string.IsNullOrWhiteSpace(apiKey))
+        {
+            logger.LogInformation(
+                "Azure OpenAI credential provider path: {CredentialProviderPath}",
+                "DevelopmentApiKey");
+            azureClient = new AzureOpenAIClient(endpoint, new AzureKeyCredential(apiKey));
+        }
+        else
+        {
+            logger.LogInformation(
+                "Azure OpenAI credential provider path: {CredentialProviderPath}",
+                "DefaultAzureCredential");
+            azureClient = new AzureOpenAIClient(endpoint, new DefaultAzureCredential());
+        }
+
         return azureClient.GetChatClient(options.Value.DeploymentName).AsIChatClient();
     }
 
