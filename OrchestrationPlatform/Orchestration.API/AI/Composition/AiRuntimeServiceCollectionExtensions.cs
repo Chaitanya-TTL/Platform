@@ -35,7 +35,7 @@ namespace Orchestration.API.AI.Composition;
 
 public static class AiRuntimeServiceCollectionExtensions
 {
-    private const int DevelopmentInputTokenAllowanceFallback = int.MaxValue;
+    private const int DevelopmentInputTokenAllowanceFallback = 128_000;
 
     public static IServiceCollection AddAiRuntime(
         this IServiceCollection services,
@@ -92,11 +92,16 @@ public static class AiRuntimeServiceCollectionExtensions
                 options.DeploymentName = deploymentName.Trim();
             }
         });
+        var developmentInputTokenFallbackApplied = false;
         if (environment.IsDevelopment())
         {
             services.PostConfigure<AiRuntimeOptions>(options =>
             {
-                options.MaxInputTokens = DevelopmentInputTokenAllowanceFallback;
+                if (options.MaxInputTokens == 0)
+                {
+                    options.MaxInputTokens = DevelopmentInputTokenAllowanceFallback;
+                    developmentInputTokenFallbackApplied = true;
+                }
             });
         }
 
@@ -109,14 +114,17 @@ public static class AiRuntimeServiceCollectionExtensions
                     "AI runtime token allowances: MaxInputTokens={MaxInputTokens}, MaxOutputTokens={MaxOutputTokens}, DevelopmentInputTokenFallbackApplied={DevelopmentInputTokenFallbackApplied}",
                     options.MaxInputTokens,
                     options.MaxOutputTokens,
-                    environment.IsDevelopment());
+                    developmentInputTokenFallbackApplied);
             return new ModelConfiguration(
                 "azure-openai",
                 "azure-openai",
                 string.IsNullOrWhiteSpace(options.DeploymentName) ? "unconfigured" : options.DeploymentName,
                 options.DeploymentName,
                 options.MaxOutputTokens,
-                options.MaxInputTokens);
+                options.MaxInputTokens)
+            {
+                TokenizerModelName = options.TokenizerModelName
+            };
         });
         services.AddTransient<AzureOpenAiModelGateway>(provider =>
             new AzureOpenAiModelGateway(

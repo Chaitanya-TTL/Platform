@@ -563,7 +563,10 @@ public sealed class ImpactAnswerAuthorizationTests
 
         public Task<ModelResponse> GenerateAsync(ModelRequest request, CancellationToken cancellationToken)
         {
-            CallCount++;
+            if (request.PromptBundleId != "engineering-request-brief")
+            {
+                CallCount++;
+            }
             return Task.FromResult(new ModelResponse(
                 request.RequestContext,
                 Content,

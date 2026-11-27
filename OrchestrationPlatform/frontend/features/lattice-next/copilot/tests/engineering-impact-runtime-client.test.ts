@@ -518,6 +518,19 @@ describe("EngineeringImpactRuntimeClient", () => {
     });
   });
 
+  it("does not impose a fixed end-to-end timeout on multi-stage runtime requests", async () => {
+    const fetcher = vi.fn().mockResolvedValue(response(200, runtimeResponse));
+    const client = new EngineeringImpactRuntimeClient({
+      endpoint: "https://orchestration.example",
+      accessTokenProvider: provider({ status: "available", accessToken: "server-token" }),
+      fetcher,
+    });
+
+    await client.answer(request);
+
+    expect(fetcher.mock.calls[0][1]?.signal).toBeUndefined();
+  });
+
   it("bounds the runtime request and reports its timeout as unavailable", async () => {
     const fetcher = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) =>
       new Promise<Response>((_resolve, reject) => {

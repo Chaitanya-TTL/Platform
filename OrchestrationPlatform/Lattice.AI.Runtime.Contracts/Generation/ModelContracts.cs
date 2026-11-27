@@ -8,7 +8,10 @@ public sealed record ModelConfiguration(
     string ModelName,
     string DeploymentName,
     int MaxOutputTokens,
-    int MaxInputTokens);
+    int MaxInputTokens)
+{
+    public string? TokenizerModelName { get; init; }
+}
 
 public sealed record ModelMessage(string Role, string Content);
 

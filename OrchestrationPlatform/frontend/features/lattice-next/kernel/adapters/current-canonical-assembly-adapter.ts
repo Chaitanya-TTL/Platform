@@ -6,6 +6,7 @@ import {
 import type { ResolvedStructure } from "../../discovery/structure-resolver";
 import { legacyHandoffToIntelligence } from "../../engines/legacy-handoff-to-intelligence";
 import { mergeSourceIntelligence } from "../../infrastructure/merge-source-intelligence";
+import { projectSourceFieldLineage } from "../application/source-field-lineage";
 import type { EvidenceEnvelope } from "../contracts/evidence-envelope";
 import type { InvestigationSnapshot } from "../contracts/investigation-snapshot";
 import type { CanonicalAssemblyPort } from "../ports/canonical-assembly-port";
@@ -71,6 +72,9 @@ export class CurrentCanonicalAssemblyAdapter
         ? mergeSourceIntelligence([legacyHandoffToIntelligence(handoff)])
         : undefined;
     if (!canonical) throw new Error("No accepted evidence is available for current canonical assembly.");
-    return { ...canonical, investigationId: String(snapshot.identity.investigationId) };
+    return projectSourceFieldLineage(
+      { ...canonical, investigationId: String(snapshot.identity.investigationId) },
+      String(snapshot.identity.investigationId),
+    );
   }
 }

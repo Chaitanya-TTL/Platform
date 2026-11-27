@@ -308,7 +308,12 @@ export function mapEngineeringImpactRuntimeCall(
   const answer = result.status === "denied"
     ? "You are not authorized to access this investigation."
     : result.status === "unavailable"
-      ? "Engineering impact answers are temporarily unavailable while the runtime connection is being configured."
+      ? result.code === "runtime-request-timeout"
+        ? "The engineering impact runtime request timed out before it returned an answer."
+        : result.code === "runtime-endpoint-not-configured" ||
+            result.code === "runtime-credential-not-configured"
+          ? "Engineering impact answers are temporarily unavailable while the runtime connection is being configured."
+          : "The engineering impact runtime is temporarily unavailable."
       : result.code === "runtime-credential-rejected"
         ? "The engineering impact runtime rejected its configured credential."
         : "The engineering impact runtime could not complete this answer.";

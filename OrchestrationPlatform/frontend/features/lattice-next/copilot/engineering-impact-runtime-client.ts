@@ -112,8 +112,6 @@ export interface EngineeringImpactRuntimeClientOptions {
   timeoutMs?: number;
 }
 
-const REQUEST_TIMEOUT_MS = 30_000;
-
 function configuredEndpoint(value: string | undefined): string | undefined {
   if (!value?.trim()) return undefined;
   try {
@@ -508,16 +506,15 @@ export class EngineeringImpactRuntimeClient {
   private readonly endpoint: string | undefined;
   private readonly tokenProvider: RuntimeAccessTokenProvider;
   private readonly fetcher: typeof fetch;
-  private readonly timeoutMs: number;
+  private readonly timeoutMs: number | undefined;
 
   constructor(options: EngineeringImpactRuntimeClientOptions = {}) {
     this.endpoint = configuredEndpoint(options.endpoint ?? defaultEndpoint());
     this.tokenProvider = options.accessTokenProvider ?? runtimeAccessTokenProvider;
     this.fetcher = options.fetcher ?? fetch;
-    const timeoutMs = options.timeoutMs ?? REQUEST_TIMEOUT_MS;
-    this.timeoutMs = Number.isFinite(timeoutMs)
-      ? Math.min(Math.max(timeoutMs, 1), REQUEST_TIMEOUT_MS)
-      : REQUEST_TIMEOUT_MS;
+    this.timeoutMs = options.timeoutMs !== undefined && Number.isFinite(options.timeoutMs)
+      ? Math.max(options.timeoutMs, 1)
+      : undefined;
   }
 
   readiness(): EngineeringImpactRuntimeReadiness {
@@ -532,8 +529,10 @@ export class EngineeringImpactRuntimeClient {
     if (!this.endpoint) return { status: "unavailable", code: "runtime-endpoint-not-configured" };
     if (!this.tokenProvider.isConfigured()) return { status: "unavailable", code: "runtime-credential-not-configured" };
 
-    const timeoutSignal = AbortSignal.timeout(this.timeoutMs);
-    const signal = request.signal ? AbortSignal.any([request.signal, timeoutSignal]) : timeoutSignal;
+    const timeoutSignal = this.timeoutMs === undefined ? undefined : AbortSignal.timeout(this.timeoutMs);
+    const signal = request.signal && timeoutSignal
+      ? AbortSignal.any([request.signal, timeoutSignal])
+      : request.signal ?? timeoutSignal;
     let credential;
     try {
       credential = await this.tokenProvider.getAccessToken(signal);
@@ -542,7 +541,7 @@ export class EngineeringImpactRuntimeClient {
       return { status: "failed", code: "runtime-credential-acquisition-failed" };
     }
     if (request.signal?.aborted) throw new DOMException("The operation was aborted.", "AbortError");
-    if (timeoutSignal.aborted) {
+    if (timeoutSignal?.aborted) {
       return { status: "failed", code: "runtime-credential-acquisition-failed" };
     }
     if (credential.status === "unavailable") {
@@ -593,7 +592,7 @@ export class EngineeringImpactRuntimeClient {
       if (request.signal?.aborted) throw new DOMException("The operation was aborted.", "AbortError");
       return {
         status: "unavailable",
-        code: timeoutSignal.aborted ? "runtime-request-timeout" : "runtime-request-unavailable",
+        code: timeoutSignal?.aborted ? "runtime-request-timeout" : "runtime-request-unavailable",
       };
     }
 

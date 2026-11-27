@@ -11,6 +11,7 @@ namespace Orchestration.API.AI.Adapters;
 
 public sealed class DevelopmentAnswerCandidateParser : IAnswerCandidateParser
 {
+    private static readonly AnswerCandidateParser StructuredParser = new();
     private static readonly Regex SummaryPropertyPattern = new(
         """(?:"summary")\s*:\s*(?<value>"(?:\\.|[^"\\])*")""",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
@@ -25,7 +26,26 @@ public sealed class DevelopmentAnswerCandidateParser : IAnswerCandidateParser
 
         try
         {
-            using var document = JsonDocument.Parse(UnwrapMarkdownJsonFence(content));
+            var json = UnwrapMarkdownJsonFence(content);
+            using var document = JsonDocument.Parse(json);
+            if (document.RootElement.ValueKind == JsonValueKind.Object &&
+                document.RootElement.TryGetProperty("schemaVersion", out var schemaVersion) &&
+                schemaVersion.ValueKind == JsonValueKind.String &&
+                string.Equals(
+                    schemaVersion.GetString(),
+                    AnswerCandidateParser.SupportedSchemaVersion,
+                    StringComparison.Ordinal))
+            {
+                try
+                {
+                    return StructuredParser.Parse(json);
+                }
+                catch (JsonException)
+                {
+                    // Keep the existing Development summary fallback for incomplete responses.
+                }
+            }
+
             if (document.RootElement.ValueKind == JsonValueKind.Object &&
                 document.RootElement.TryGetProperty("summary", out var summary) &&
                 summary.ValueKind == JsonValueKind.String &&

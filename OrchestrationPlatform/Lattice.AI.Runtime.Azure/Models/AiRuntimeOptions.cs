@@ -6,6 +6,8 @@ public sealed class AiRuntimeOptions
 
     public string DeploymentName { get; set; } = string.Empty;
 
+    public string TokenizerModelName { get; set; } = "gpt-4o";
+
     public int TimeoutSeconds { get; set; } = 45;
 
     public int MaxOutputTokens { get; set; } = 1024;
@@ -23,6 +25,11 @@ public sealed class AiRuntimeOptions
         if (string.IsNullOrWhiteSpace(DeploymentName))
         {
             throw new InvalidOperationException("AiRuntime:DeploymentName is required.");
+        }
+
+        if (string.IsNullOrWhiteSpace(TokenizerModelName))
+        {
+            throw new InvalidOperationException("AiRuntime:TokenizerModelName is required.");
         }
 
         if (TimeoutSeconds is < 1 or > 120)

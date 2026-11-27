@@ -14,18 +14,36 @@ namespace Lattice.AI.Runtime.Tests.Generation;
 public sealed class DevelopmentAnswerPipelineTests
 {
     [Fact]
-    public void DevelopmentParser_ExtractsSummaryWithoutRequiringCitationArrays()
+    public void DevelopmentParser_PreservesStructuredFactsAndSourceEvidence()
     {
         const string response = """
             {
               "schemaVersion": "answer-v2",
               "summary": "The investigation includes Configit, Codebeamer, and Windchill.",
               "impacts": [],
-              "facts": [],
-              "applicationContexts": [
-                { "candidateId": "configit", "evidenceIds": [], "sourceIds": [] }
+              "facts": [
+                {
+                  "factId": "FACT-1",
+                  "exactValue": 2.5,
+                  "evidenceIds": ["EVIDENCE-1"],
+                  "sourceIds": ["SOURCE-1"]
+                }
               ],
-              "sourceEvidence": [],
+              "applicationContexts": [
+                {
+                  "candidateId": "configit",
+                  "evidenceIds": ["EVIDENCE-2"],
+                  "sourceIds": ["SOURCE-2"]
+                }
+              ],
+              "sourceEvidence": [
+                {
+                  "passageId": "PASSAGE-1",
+                  "explanation": "The source record states the requirement.",
+                  "evidenceIds": ["EVIDENCE-3"],
+                  "sourceIds": ["PASSAGE-1"]
+                }
+              ],
               "warnings": []
             }
             """;
@@ -35,8 +53,13 @@ public sealed class DevelopmentAnswerPipelineTests
         Assert.Equal(
             "The investigation includes Configit, Codebeamer, and Windchill.",
             candidate.Summary);
-        Assert.Empty(candidate.ApplicationContexts);
-        Assert.Empty(candidate.SourceEvidence);
+        var fact = Assert.Single(candidate.Facts);
+        Assert.Equal("FACT-1", fact.FactId);
+        Assert.Equal("2.5", fact.ExactValueJson);
+        Assert.Equal(["EVIDENCE-1"], fact.EvidenceIds);
+        Assert.Equal(["SOURCE-1"], fact.SourceIds);
+        Assert.Equal("configit", Assert.Single(candidate.ApplicationContexts).CandidateId);
+        Assert.Equal("PASSAGE-1", Assert.Single(candidate.SourceEvidence).PassageId);
     }
 
     [Fact]

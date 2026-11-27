@@ -49,6 +49,16 @@ public sealed class ImpactAnswerService(
     private const string ReadImpactEvidenceGrant = "investigation:read-impact-evidence";
     private const string PromptId = "engineering-impact";
     private const string PromptVersion = "v2";
+    private const string RequestBriefPromptId = "engineering-request-brief";
+    private const string RequestBriefPromptVersion = "v1";
+    private const string RequestBriefOutputSchemaVersion = "request-brief-v1";
+    private const string RequestBriefInstructions =
+        "Prepare an engineering request brief for later pipeline stages; do not answer the question. " +
+        "Use the original request and all preceding user/assistant messages as conversational context. " +
+        "Describe the engineer's request, points to cover, explicitly mentioned item names or identifiers, " +
+        "useful alternate search phrasings, and a helpful answer shape. Preserve the user's terminology and uncertainty. " +
+        "Do not invent facts, canonical identities, relationships, permissions, or source records. " +
+        "Return a concise JSON object with descriptive text and lists, not closed intent labels.";
     private static readonly HashSet<string> UnsupportedAssertionIssueCodes =
     [
         "unknown-claim",
@@ -143,6 +153,14 @@ public sealed class ImpactAnswerService(
                     "model-input-budget-not-configured",
                     "The answer model input budget is not configured.")]);
         }
+
+        var hasConversationHistory = request.ConversationHistory is { Count: > 0 };
+        var requestBrief = hasConversationHistory
+            ? await GenerateRequestBriefAsync(
+                request,
+                requestContext,
+                cancellationToken).ConfigureAwait(false)
+            : null;
 
         var stateInvalidationReason = GetConversationStateInvalidationReason(
             request.PreviousConversationState,
@@ -303,7 +321,10 @@ public sealed class ImpactAnswerService(
             try
             {
                 prompt = promptCatalog.GetRequired(PromptId, PromptVersion);
-                var fixedPromptTokens = promptAssembler.EstimateFixedPromptTokens(request, prompt);
+                var fixedPromptTokens = promptAssembler.EstimateFixedPromptTokens(
+                    request,
+                    prompt,
+                    modelConfiguration.TokenizerModelName);
                 contextTokenAllowance = ModelInputTokenBudget.CalculateContextAllowance(
                     modelConfiguration.MaxInputTokens,
                     modelConfiguration.MaxOutputTokens,
@@ -675,11 +696,13 @@ public sealed class ImpactAnswerService(
                 evidence.OntologyVersion
             },
             fullPayload: evidence,
-            itemsAdded: evidence.Relationships.Select(relationship => $"relationship:{relationship.RelationshipId}")
-                .Concat(evidence.Paths.Select(path => $"path:{path.PathId}"))
-                .Concat(evidence.Chains.Select(chain => chain.ChainId))
-                .Concat(evidence.Sources.Select(source => source.EvidenceId))
-                .ToArray());
+            itemsAdded: requestContext.FullPayloadTraceEnabled
+                ? evidence.Relationships.Select(relationship => $"relationship:{relationship.RelationshipId}")
+                    .Concat(evidence.Paths.Select(path => $"path:{path.PathId}"))
+                    .Concat(evidence.Chains.Select(chain => chain.ChainId))
+                    .Concat(evidence.Sources.Select(source => source.EvidenceId))
+                    .ToArray()
+                : []);
 
         SourceEvidenceRetrievalResult? sourceEvidence = null;
         if (plannedScope.SourceEvidencePlan is { Requested: true } sourceEvidencePlan)
@@ -691,13 +714,21 @@ public sealed class ImpactAnswerService(
                 "source-evidence-retrieval",
                 request.InvestigationId,
                 outcome: "started",
-                input: new
-                {
-                    sourceEvidencePlan.LinkedEntityIds,
-                    sourceEvidencePlan.SourceApplications,
-                    sourceEvidencePlan.ExactIdentifiers,
-                    sourceEvidencePlan.ReasonCode
-                });
+                input: requestContext.FullPayloadTraceEnabled
+                    ? (object)new
+                    {
+                        sourceEvidencePlan.LinkedEntityIds,
+                        sourceEvidencePlan.SourceApplications,
+                        sourceEvidencePlan.ExactIdentifiers,
+                        sourceEvidencePlan.ReasonCode
+                    }
+                    : new
+                    {
+                        linkedEntityCount = sourceEvidencePlan.LinkedEntityIds.Count,
+                        sourceEvidencePlan.SourceApplications,
+                        exactIdentifierCount = sourceEvidencePlan.ExactIdentifiers.Count,
+                        sourceEvidencePlan.ReasonCode
+                    });
             using var sourceEvidenceStage = Telemetry.StartStage(
                 "source-evidence-retrieval",
                 requestContext,
@@ -751,12 +782,19 @@ public sealed class ImpactAnswerService(
                     request.InvestigationId,
                     outcome: retrievedSourceEvidence.Passages.Count == 0 ? "empty" : "completed",
                     durationMs: (long)Stopwatch.GetElapsedTime(sourceEvidenceStarted).TotalMilliseconds,
-                    input: new
-                    {
-                        linkedEntityIds = relevantEntityIds,
-                        sourceEvidencePlan.SourceApplications,
-                        sourceEvidencePlan.ExactIdentifiers
-                    },
+                    input: requestContext.FullPayloadTraceEnabled
+                        ? (object)new
+                        {
+                            linkedEntityIds = relevantEntityIds,
+                            sourceEvidencePlan.SourceApplications,
+                            sourceEvidencePlan.ExactIdentifiers
+                        }
+                        : new
+                        {
+                            linkedEntityCount = relevantEntityIds.Length,
+                            sourceEvidencePlan.SourceApplications,
+                            exactIdentifierCount = sourceEvidencePlan.ExactIdentifiers.Count
+                        },
                     output: new
                     {
                         retrievedSourceEvidence.SnapshotRevision,
@@ -767,12 +805,16 @@ public sealed class ImpactAnswerService(
                             .Distinct(StringComparer.Ordinal)
                             .Order(StringComparer.Ordinal)
                             .ToArray(),
-                        passageIds = retrievedSourceEvidence.Passages.Select(passage => passage.PassageId).ToArray(),
+                        passageIds = requestContext.FullPayloadTraceEnabled
+                            ? retrievedSourceEvidence.Passages.Select(passage => passage.PassageId).ToArray()
+                            : Array.Empty<string>(),
                         retrievedSourceEvidence.Diagnostics
                     },
                     fullPayload: retrievedSourceEvidence,
                     snapshotRevision: retrievedSourceEvidence.SnapshotRevision,
-                    itemsAdded: retrievedSourceEvidence.Passages.Select(passage => passage.PassageId).ToArray());
+                    itemsAdded: requestContext.FullPayloadTraceEnabled
+                        ? retrievedSourceEvidence.Passages.Select(passage => passage.PassageId).ToArray()
+                        : []);
             }
             catch (SourceEvidenceUnavailableException exception)
             {
@@ -853,14 +895,23 @@ public sealed class ImpactAnswerService(
                 "fact-retrieval",
                 request.InvestigationId,
                 outcome: "started",
-                input: new
-                {
-                    factEvidencePlan.LinkedEntityIds,
-                    factEvidencePlan.SourceApplications,
-                    factEvidencePlan.FieldIds,
-                    factEvidencePlan.ExactIdentifiers,
-                    factEvidencePlan.ReasonCode
-                });
+                input: requestContext.FullPayloadTraceEnabled
+                    ? (object)new
+                    {
+                        factEvidencePlan.LinkedEntityIds,
+                        factEvidencePlan.SourceApplications,
+                        factEvidencePlan.FieldIds,
+                        factEvidencePlan.ExactIdentifiers,
+                        factEvidencePlan.ReasonCode
+                    }
+                    : new
+                    {
+                        linkedEntityCount = factEvidencePlan.LinkedEntityIds.Count,
+                        factEvidencePlan.SourceApplications,
+                        fieldCount = factEvidencePlan.FieldIds.Count,
+                        exactIdentifierCount = factEvidencePlan.ExactIdentifiers.Count,
+                        factEvidencePlan.ReasonCode
+                    });
             using var factEvidenceStage = Telemetry.StartStage(
                 "fact-evidence-retrieval",
                 requestContext,
@@ -894,11 +945,20 @@ public sealed class ImpactAnswerService(
                     request.InvestigationId,
                     outcome: retrieved.Facts.Count == 0 ? "empty" : "completed",
                     durationMs: (long)Stopwatch.GetElapsedTime(factEvidenceStarted).TotalMilliseconds,
-                    input: new
-                    {
-                        plan = factEvidencePlan,
-                        entityId = subject?.CanonicalId
-                    },
+                    input: requestContext.FullPayloadTraceEnabled
+                        ? (object)new
+                        {
+                            plan = factEvidencePlan,
+                            entityId = subject?.CanonicalId
+                        }
+                        : new
+                        {
+                            linkedEntityCount = factEvidencePlan.LinkedEntityIds.Count,
+                            sourceApplicationCount = factEvidencePlan.SourceApplications.Count,
+                            fieldCount = factEvidencePlan.FieldIds.Count,
+                            exactIdentifierCount = factEvidencePlan.ExactIdentifiers.Count,
+                            entityId = subject?.CanonicalId
+                        },
                     output: new
                     {
                         retrieved.SnapshotRevision,
@@ -910,12 +970,19 @@ public sealed class ImpactAnswerService(
                             .Distinct(StringComparer.Ordinal)
                             .Order(StringComparer.Ordinal)
                             .ToArray(),
-                        fields = retrieved.Facts.Select(fact => fact.FieldId).Distinct(StringComparer.Ordinal).ToArray(),
-                        factIds = retrieved.Facts.Select(fact => fact.FactId).ToArray()
+                        fieldCount = retrieved.Facts.Select(fact => fact.FieldId).Distinct(StringComparer.Ordinal).Count(),
+                        fields = requestContext.FullPayloadTraceEnabled
+                            ? retrieved.Facts.Select(fact => fact.FieldId).Distinct(StringComparer.Ordinal).ToArray()
+                            : Array.Empty<string>(),
+                        factIds = requestContext.FullPayloadTraceEnabled
+                            ? retrieved.Facts.Select(fact => fact.FactId).ToArray()
+                            : Array.Empty<string>()
                     },
                     fullPayload: retrieved,
                     snapshotRevision: retrieved.SnapshotRevision,
-                    itemsAdded: retrieved.Facts.Select(fact => fact.FactId).ToArray());
+                    itemsAdded: requestContext.FullPayloadTraceEnabled
+                        ? retrieved.Facts.Select(fact => fact.FactId).ToArray()
+                        : []);
             }
             catch (FactEvidenceUnavailableException exception)
             {
@@ -996,12 +1063,19 @@ public sealed class ImpactAnswerService(
                 "application-digest-retrieval",
                 request.InvestigationId,
                 outcome: "started",
-                input: new
-                {
-                    applicationContextPlan.LinkedEntityIds,
-                    applicationContextPlan.SourceApplications,
-                    applicationContextPlan.ReasonCode
-                });
+                input: requestContext.FullPayloadTraceEnabled
+                    ? (object)new
+                    {
+                        applicationContextPlan.LinkedEntityIds,
+                        applicationContextPlan.SourceApplications,
+                        applicationContextPlan.ReasonCode
+                    }
+                    : new
+                    {
+                        linkedEntityCount = applicationContextPlan.LinkedEntityIds.Count,
+                        applicationContextPlan.SourceApplications,
+                        applicationContextPlan.ReasonCode
+                    });
             using var applicationContextStage = Telemetry.StartStage(
                 "application-context-retrieval",
                 requestContext,
@@ -1038,11 +1112,18 @@ public sealed class ImpactAnswerService(
                     request.InvestigationId,
                     outcome: retrieved.Participations.Count == 0 ? "empty" : "completed",
                     durationMs: (long)Stopwatch.GetElapsedTime(applicationContextStarted).TotalMilliseconds,
-                    input: new
-                    {
-                        plan = applicationContextPlan,
-                        entityId = subject?.CanonicalId
-                    },
+                    input: requestContext.FullPayloadTraceEnabled
+                        ? (object)new
+                        {
+                            plan = applicationContextPlan,
+                            entityId = subject?.CanonicalId
+                        }
+                        : new
+                        {
+                            linkedEntityCount = applicationContextPlan.LinkedEntityIds.Count,
+                            sourceApplicationCount = applicationContextPlan.SourceApplications.Count,
+                            entityId = subject?.CanonicalId
+                        },
                     output: new
                     {
                         retrieved.SnapshotRevision,
@@ -1054,11 +1135,15 @@ public sealed class ImpactAnswerService(
                             .Distinct(StringComparer.Ordinal)
                             .Order(StringComparer.Ordinal)
                             .ToArray(),
-                        candidateIds = retrieved.Participations.Select(participation => participation.CandidateId).ToArray()
+                        candidateIds = requestContext.FullPayloadTraceEnabled
+                            ? retrieved.Participations.Select(participation => participation.CandidateId).ToArray()
+                            : Array.Empty<string>()
                     },
                     fullPayload: retrieved,
                     snapshotRevision: retrieved.SnapshotRevision,
-                    itemsAdded: retrieved.Participations.Select(participation => participation.CandidateId).ToArray());
+                    itemsAdded: requestContext.FullPayloadTraceEnabled
+                        ? retrieved.Participations.Select(participation => participation.CandidateId).ToArray()
+                        : []);
             }
             catch (ApplicationContextUnavailableException exception)
             {
@@ -1129,6 +1214,13 @@ public sealed class ImpactAnswerService(
                 });
         }
 
+        var sourceApplicationsRequested = (plannedScope.SourceEvidencePlan?.SourceApplications ?? Array.Empty<string>())
+            .Concat(plannedScope.FactEvidencePlan?.SourceApplications ?? Array.Empty<string>())
+            .Concat(plannedScope.ApplicationContextPlan?.SourceApplications ?? Array.Empty<string>())
+            .Where(application => !string.IsNullOrWhiteSpace(application))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
         ContextCompilationResult compilation;
         var contextCompilationStarted = Stopwatch.GetTimestamp();
         using (var compilationStage = Telemetry.StartStage(
@@ -1144,10 +1236,14 @@ public sealed class ImpactAnswerService(
                     plannedScope.Scope,
                     authorization.Scope,
                     evidence,
-                    new ContextBudget(contextTokenAllowance),
+                    new ContextBudget(contextTokenAllowance, modelConfiguration.TokenizerModelName),
                     sourceEvidence,
                     factEvidence,
-                    applicationContext));
+                    applicationContext)
+                {
+                    RequestedFactCountPerApplication = RequestsSingleFactPerApplication(request.Question) ? 1 : null,
+                    RequestedSourceApplications = sourceApplicationsRequested
+                });
             var omissions = compilation.Package?.Omissions ?? Array.Empty<ContextOmission>();
             Telemetry.RecordContextQuality(
                 omissions.Count,
@@ -1175,12 +1271,6 @@ public sealed class ImpactAnswerService(
             }
         }
         var contextPackage = compilation.Package;
-        var sourceApplicationsRequested = (plannedScope.SourceEvidencePlan?.SourceApplications ?? Array.Empty<string>())
-            .Concat(plannedScope.FactEvidencePlan?.SourceApplications ?? Array.Empty<string>())
-            .Concat(plannedScope.ApplicationContextPlan?.SourceApplications ?? Array.Empty<string>())
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Order(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
         var candidateApplications = evidence.Sources.Select(source => source.SourceSystem)
             .Concat(sourceEvidence?.Passages.Select(passage => passage.SourceApplication) ?? Array.Empty<string>())
             .Concat(factEvidence?.Facts.Select(fact => fact.SourceApplication) ?? Array.Empty<string>())
@@ -1215,8 +1305,9 @@ public sealed class ImpactAnswerService(
         var approvedPassageIds = contextPackage?.SourceEvidencePassages
             .Select(passage => passage.PassageId)
             .ToHashSet(StringComparer.Ordinal) ?? new HashSet<string>(StringComparer.Ordinal);
-        var candidateDecisions = new
-        {
+        var candidateDecisions = requestContext.FullPayloadTraceEnabled
+            ? new
+            {
             graphRelationships = evidence.Relationships.Select(relationship =>
             {
                 var claimId = $"relationship:{relationship.RelationshipId}";
@@ -1381,110 +1472,118 @@ public sealed class ImpactAnswerService(
                     reason = omission?.Reason
                 };
             }).ToArray() ?? []
-        };
+            }
+            : null;
         var applicationCandidateOutcomes = new List<(string Application, string CandidateId, bool Approved, string? Reason)>();
-        foreach (var relationship in evidence.Relationships)
+        if (requestContext.FullPayloadTraceEnabled)
         {
-            var claimId = $"relationship:{relationship.RelationshipId}";
-            var omission = compilerOmissions.FirstOrDefault(item =>
-                string.Equals(item.ClaimId, claimId, StringComparison.Ordinal));
-            foreach (var application in evidence.Sources
-                         .Where(source => relationship.EvidenceIds.Contains(source.EvidenceId, StringComparer.Ordinal))
-                         .Select(source => source.SourceSystem)
-                         .Distinct(StringComparer.OrdinalIgnoreCase))
+            foreach (var relationship in evidence.Relationships)
             {
+                var claimId = $"relationship:{relationship.RelationshipId}";
+                var omission = compilerOmissions.FirstOrDefault(item =>
+                    string.Equals(item.ClaimId, claimId, StringComparison.Ordinal));
+                foreach (var application in evidence.Sources
+                             .Where(source => relationship.EvidenceIds.Contains(source.EvidenceId, StringComparer.Ordinal))
+                             .Select(source => source.SourceSystem)
+                             .Distinct(StringComparer.OrdinalIgnoreCase))
+                {
+                    applicationCandidateOutcomes.Add((
+                        application,
+                        claimId,
+                        approvedClaimIds.Contains(claimId),
+                        omission?.Reason));
+                }
+            }
+            foreach (var path in evidence.Paths)
+            {
+                var claimId = $"path:{path.PathId}";
+                var omission = compilerOmissions.FirstOrDefault(item =>
+                    string.Equals(item.ClaimId, claimId, StringComparison.Ordinal));
+                var pathEvidenceIds = path.RelationshipIds
+                    .SelectMany(id => evidence.Relationships
+                        .Where(relationship => string.Equals(relationship.RelationshipId, id, StringComparison.Ordinal))
+                        .SelectMany(relationship => relationship.EvidenceIds))
+                    .ToHashSet(StringComparer.Ordinal);
+                foreach (var application in evidence.Sources
+                             .Where(source => pathEvidenceIds.Contains(source.EvidenceId))
+                             .Select(source => source.SourceSystem)
+                             .Distinct(StringComparer.OrdinalIgnoreCase))
+                {
+                    applicationCandidateOutcomes.Add((
+                        application,
+                        claimId,
+                        approvedClaimIds.Contains(claimId),
+                        omission?.Reason));
+                }
+            }
+            foreach (var chain in evidence.Chains)
+            {
+                var omission = compilerOmissions.FirstOrDefault(item =>
+                    string.Equals(item.ClaimId, chain.ChainId, StringComparison.Ordinal));
+                foreach (var application in evidence.Sources
+                             .Where(source => chain.SupportingEvidenceIds.Contains(source.EvidenceId, StringComparer.Ordinal))
+                             .Select(source => source.SourceSystem)
+                             .Distinct(StringComparer.OrdinalIgnoreCase))
+                {
+                    applicationCandidateOutcomes.Add((
+                        application,
+                        chain.ChainId,
+                        approvedClaimIds.Contains(chain.ChainId),
+                        omission?.Reason));
+                }
+            }
+            foreach (var fact in factEvidence?.Facts ?? Array.Empty<EngineeringFactEvidence>())
+            {
+                var omission = compilerOmissions.FirstOrDefault(item =>
+                    item.Kind == ContextOmissionKind.EngineeringFact &&
+                    string.Equals(item.ClaimId, fact.FactId, StringComparison.Ordinal));
                 applicationCandidateOutcomes.Add((
-                    application,
-                    claimId,
-                    approvedClaimIds.Contains(claimId),
+                    fact.SourceApplication,
+                    fact.FactId,
+                    approvedFactIds.Contains(fact.FactId),
+                    omission?.Reason));
+            }
+            foreach (var participation in applicationContext?.Participations ?? Array.Empty<ApplicationParticipationEvidence>())
+            {
+                var omission = compilerOmissions.FirstOrDefault(item =>
+                    item.Kind == ContextOmissionKind.ApplicationParticipation &&
+                    string.Equals(item.ClaimId, participation.CandidateId, StringComparison.Ordinal));
+                applicationCandidateOutcomes.Add((
+                    participation.SourceApplication,
+                    participation.CandidateId,
+                    approvedParticipationIds.Contains(participation.CandidateId),
+                    omission?.Reason));
+            }
+            foreach (var passage in sourceEvidence?.Passages ?? Array.Empty<SourceEvidencePassage>())
+            {
+                var omission = compilerOmissions.FirstOrDefault(item =>
+                    item.Kind == ContextOmissionKind.SourceEvidencePassage &&
+                    string.Equals(item.ClaimId, passage.PassageId, StringComparison.Ordinal));
+                applicationCandidateOutcomes.Add((
+                    passage.SourceApplication,
+                    passage.PassageId,
+                    approvedPassageIds.Contains(passage.PassageId),
                     omission?.Reason));
             }
         }
-        foreach (var path in evidence.Paths)
-        {
-            var claimId = $"path:{path.PathId}";
-            var omission = compilerOmissions.FirstOrDefault(item =>
-                string.Equals(item.ClaimId, claimId, StringComparison.Ordinal));
-            var pathEvidenceIds = path.RelationshipIds
-                .SelectMany(id => evidence.Relationships
-                    .Where(relationship => string.Equals(relationship.RelationshipId, id, StringComparison.Ordinal))
-                    .SelectMany(relationship => relationship.EvidenceIds))
-                .ToHashSet(StringComparer.Ordinal);
-            foreach (var application in evidence.Sources
-                         .Where(source => pathEvidenceIds.Contains(source.EvidenceId))
-                         .Select(source => source.SourceSystem)
-                         .Distinct(StringComparer.OrdinalIgnoreCase))
-            {
-                applicationCandidateOutcomes.Add((
-                    application,
-                    claimId,
-                    approvedClaimIds.Contains(claimId),
-                    omission?.Reason));
-            }
-        }
-        foreach (var chain in evidence.Chains)
-        {
-            var omission = compilerOmissions.FirstOrDefault(item =>
-                string.Equals(item.ClaimId, chain.ChainId, StringComparison.Ordinal));
-            foreach (var application in evidence.Sources
-                         .Where(source => chain.SupportingEvidenceIds.Contains(source.EvidenceId, StringComparer.Ordinal))
-                         .Select(source => source.SourceSystem)
-                         .Distinct(StringComparer.OrdinalIgnoreCase))
-            {
-                applicationCandidateOutcomes.Add((
-                    application,
-                    chain.ChainId,
-                    approvedClaimIds.Contains(chain.ChainId),
-                    omission?.Reason));
-            }
-        }
-        foreach (var fact in factEvidence?.Facts ?? Array.Empty<EngineeringFactEvidence>())
-        {
-            var omission = compilerOmissions.FirstOrDefault(item =>
-                item.Kind == ContextOmissionKind.EngineeringFact &&
-                string.Equals(item.ClaimId, fact.FactId, StringComparison.Ordinal));
-            applicationCandidateOutcomes.Add((
-                fact.SourceApplication,
-                fact.FactId,
-                approvedFactIds.Contains(fact.FactId),
-                omission?.Reason));
-        }
-        foreach (var participation in applicationContext?.Participations ?? Array.Empty<ApplicationParticipationEvidence>())
-        {
-            var omission = compilerOmissions.FirstOrDefault(item =>
-                item.Kind == ContextOmissionKind.ApplicationParticipation &&
-                string.Equals(item.ClaimId, participation.CandidateId, StringComparison.Ordinal));
-            applicationCandidateOutcomes.Add((
-                participation.SourceApplication,
-                participation.CandidateId,
-                approvedParticipationIds.Contains(participation.CandidateId),
-                omission?.Reason));
-        }
-        foreach (var passage in sourceEvidence?.Passages ?? Array.Empty<SourceEvidencePassage>())
-        {
-            var omission = compilerOmissions.FirstOrDefault(item =>
-                item.Kind == ContextOmissionKind.SourceEvidencePassage &&
-                string.Equals(item.ClaimId, passage.PassageId, StringComparison.Ordinal));
-            applicationCandidateOutcomes.Add((
-                passage.SourceApplication,
-                passage.PassageId,
-                approvedPassageIds.Contains(passage.PassageId),
-                omission?.Reason));
-        }
-        var retrievedCandidateIds = evidence.Relationships.Select(relationship => $"relationship:{relationship.RelationshipId}")
-            .Concat(evidence.Paths.Select(path => $"path:{path.PathId}"))
-            .Concat(evidence.Chains.Select(chain => chain.ChainId))
-            .Concat(evidence.Sources.Select(source => source.EvidenceId))
-            .Concat(factEvidence?.Facts.Select(fact => fact.FactId) ?? Array.Empty<string>())
-            .Concat(applicationContext?.Participations.Select(participation => participation.CandidateId) ?? Array.Empty<string>())
-            .Concat(sourceEvidence?.Passages.Select(passage => passage.PassageId) ?? Array.Empty<string>())
-            .ToHashSet(StringComparer.Ordinal);
-        var contextCandidateIds = approvedClaimIds
-            .Concat(approvedFactIds)
-            .Concat(approvedParticipationIds)
-            .Concat(approvedPassageIds)
-            .Concat(contextPackage?.Sources.Select(source => source.EvidenceId) ?? Array.Empty<string>())
-            .ToHashSet(StringComparer.Ordinal);
+        var retrievedCandidateIds = requestContext.FullPayloadTraceEnabled
+            ? evidence.Relationships.Select(relationship => $"relationship:{relationship.RelationshipId}")
+                .Concat(evidence.Paths.Select(path => $"path:{path.PathId}"))
+                .Concat(evidence.Chains.Select(chain => chain.ChainId))
+                .Concat(evidence.Sources.Select(source => source.EvidenceId))
+                .Concat(factEvidence?.Facts.Select(fact => fact.FactId) ?? Array.Empty<string>())
+                .Concat(applicationContext?.Participations.Select(participation => participation.CandidateId) ?? Array.Empty<string>())
+                .Concat(sourceEvidence?.Passages.Select(passage => passage.PassageId) ?? Array.Empty<string>())
+                .ToHashSet(StringComparer.Ordinal)
+            : null;
+        var contextCandidateIds = requestContext.FullPayloadTraceEnabled
+            ? approvedClaimIds
+                .Concat(approvedFactIds)
+                .Concat(approvedParticipationIds)
+                .Concat(approvedPassageIds)
+                .Concat(contextPackage?.Sources.Select(source => source.EvidenceId) ?? Array.Empty<string>())
+                .ToHashSet(StringComparer.Ordinal)
+            : null;
         var requestedButUnobservedApplications = sourceApplicationsRequested
             .Except(candidateApplications, StringComparer.OrdinalIgnoreCase)
             .ToArray();
@@ -1522,46 +1621,58 @@ public sealed class ImpactAnswerService(
                 applicationParticipationCount = contextPackage?.ApplicationParticipation.Count ?? 0,
                 applicationsIncludedInContext = contextApplications,
                 applicationsObservedButAbsentFromContext = omittedApplications,
+                candidateDecisionCount = compilation.CandidateDecisions.Count,
+                omissionCount = compilerOmissions.Count,
                 candidateDecisions,
-                compilerCandidateDecisions = compilation.CandidateDecisions,
-                omissions = contextPackage?.Omissions.Select(omission => new
-                {
-                    omission.Kind,
-                    candidateId = omission.ClaimId,
-                    omission.Reason
-                }).ToArray() ?? [],
-                compilation.Diagnostics
+                compilerCandidateDecisions = requestContext.FullPayloadTraceEnabled
+                    ? compilation.CandidateDecisions
+                    : Array.Empty<ContextCandidateDecision>(),
+                omissions = requestContext.FullPayloadTraceEnabled
+                    ? (object)(contextPackage?.Omissions.Select(omission => new
+                    {
+                        omission.Kind,
+                        candidateId = omission.ClaimId,
+                        omission.Reason
+                    }).ToArray() ?? [])
+                    : Array.Empty<object>(),
+                diagnostics = requestContext.FullPayloadTraceEnabled
+                    ? compilation.Diagnostics
+                    : Array.Empty<string>()
             },
             diagnostics: new
             {
                 applicationCoverageBasis = "Applications observed in actual retrieval results; this is not a claim about all systems configured in the investigation.",
-                applicationsObservedButAbsentFromContext = omittedApplications
-                    .Select(application =>
-                    {
-                        var appCandidates = applicationCandidateOutcomes
-                            .Where(candidate => string.Equals(candidate.Application, application, StringComparison.OrdinalIgnoreCase))
-                            .ToArray();
-                        return new
+                applicationsObservedButAbsentFromContext = requestContext.FullPayloadTraceEnabled
+                    ? (object)omittedApplications
+                        .Select(application =>
+                        {
+                            var appCandidates = applicationCandidateOutcomes
+                                .Where(candidate => string.Equals(candidate.Application, application, StringComparison.OrdinalIgnoreCase))
+                                .ToArray();
+                            return new
+                            {
+                                application,
+                                candidateIds = appCandidates.Select(candidate => candidate.CandidateId).ToArray(),
+                                rejectionReasons = appCandidates
+                                    .Where(candidate => !candidate.Approved && candidate.Reason is not null)
+                                    .Select(candidate => candidate.Reason)
+                                    .Distinct(StringComparer.Ordinal)
+                                    .ToArray(),
+                                candidatesWithoutRecordedReason = appCandidates
+                                    .Where(candidate => !candidate.Approved && candidate.Reason is null)
+                                    .Select(candidate => candidate.CandidateId)
+                                    .ToArray()
+                            };
+                        }).ToArray()
+                    : omittedApplications,
+                requestedApplicationsWithNoObservedCandidates = requestContext.FullPayloadTraceEnabled
+                    ? (object)requestedButUnobservedApplications
+                        .Select(application => new
                         {
                             application,
-                            candidateIds = appCandidates.Select(candidate => candidate.CandidateId).ToArray(),
-                            rejectionReasons = appCandidates
-                                .Where(candidate => !candidate.Approved && candidate.Reason is not null)
-                                .Select(candidate => candidate.Reason)
-                                .Distinct(StringComparer.Ordinal)
-                                .ToArray(),
-                            candidatesWithoutRecordedReason = appCandidates
-                                .Where(candidate => !candidate.Approved && candidate.Reason is null)
-                                .Select(candidate => candidate.CandidateId)
-                                .ToArray()
-                        };
-                    }).ToArray(),
-                requestedApplicationsWithNoObservedCandidates = requestedButUnobservedApplications
-                    .Select(application => new
-                    {
-                        application,
-                        reason = "The requested retrieval returned no candidates for this application."
-                    }).ToArray()
+                            reason = "The requested retrieval returned no candidates for this application."
+                        }).ToArray()
+                    : requestedButUnobservedApplications
             },
             fullPayload: new
             {
@@ -1571,9 +1682,13 @@ public sealed class ImpactAnswerService(
                 applicationContext,
                 compilation
             },
-            itemsAdded: contextCandidateIds.ToArray(),
-            itemsRemoved: retrievedCandidateIds.Except(contextCandidateIds, StringComparer.Ordinal).ToArray(),
-            rejectionReasons: compilerOmissions.Select(omission => omission.Reason).Distinct(StringComparer.Ordinal).ToArray());
+            itemsAdded: contextCandidateIds?.ToArray(),
+            itemsRemoved: retrievedCandidateIds is null || contextCandidateIds is null
+                ? []
+                : retrievedCandidateIds.Except(contextCandidateIds, StringComparer.Ordinal).ToArray(),
+            rejectionReasons: requestContext.FullPayloadTraceEnabled
+                ? compilerOmissions.Select(omission => omission.Reason).Distinct(StringComparer.Ordinal).ToArray()
+                : []);
         if (compilation.Disposition == CompilationDisposition.Denied)
         {
             return CreateResult(
@@ -1665,7 +1780,12 @@ public sealed class ImpactAnswerService(
                 promptStage.SetTag("context.stage", stage.Sequence);
                 try
                 {
-                    modelRequest = promptAssembler.Assemble(request, stage.Package, prompt, modelConfiguration);
+                    modelRequest = promptAssembler.Assemble(
+                        request,
+                        stage.Package,
+                        prompt,
+                        modelConfiguration,
+                        requestBrief);
                     promptStage.SetDisposition("ready");
                     promptStage.SetTag("prompt.id", prompt.Id);
                     promptStage.SetTag("prompt.version", prompt.Version);
@@ -2134,6 +2254,146 @@ public sealed class ImpactAnswerService(
             },
             fullPayload: finalResult);
         return finalResult;
+    }
+
+    private async Task<string?> GenerateRequestBriefAsync(
+        ImpactAnswerRequest request,
+        RuntimeRequestContext requestContext,
+        CancellationToken cancellationToken)
+    {
+        var conversationHistory = request.ConversationHistory ?? Array.Empty<ConversationHistoryTurn>();
+        var messages = new List<ModelMessage>
+        {
+            new("system", RequestBriefInstructions)
+        };
+        foreach (var turn in conversationHistory)
+        {
+            if (turn is null)
+            {
+                continue;
+            }
+            messages.Add(new ModelMessage("user", turn.UserMessage ?? string.Empty));
+            messages.Add(new ModelMessage("assistant", turn.AssistantMessage ?? string.Empty));
+        }
+        messages.Add(new ModelMessage(
+            "user",
+            JsonSerializer.Serialize(new { question = request.Question })));
+
+        var readonlyMessages = Array.AsReadOnly(messages.ToArray());
+        var modelRequest = new ModelRequest(
+            requestContext,
+            RequestBriefPromptId,
+            RequestBriefPromptVersion,
+            $"request-brief-{requestContext.RequestId}",
+            modelConfiguration.Id,
+            readonlyMessages,
+            RequestBriefOutputSchemaVersion)
+        {
+            EstimatedInputTokens = ModelInputTokenBudget.EstimateInputTokens(
+                readonlyMessages,
+                modelConfiguration.TokenizerModelName)
+        };
+        var started = Stopwatch.GetTimestamp();
+        using var stage = Telemetry.StartStage(
+            "request-brief",
+            requestContext,
+            request.InvestigationId);
+        stage.SetTag("prompt.id", RequestBriefPromptId);
+        stage.SetTag("prompt.version", RequestBriefPromptVersion);
+        stage.SetTag("model.configuration_id", modelConfiguration.Id);
+        try
+        {
+            var response = await modelGateway.GenerateAsync(modelRequest, cancellationToken)
+                .ConfigureAwait(false);
+            Telemetry.RecordModelUsage(
+                modelConfiguration.Provider,
+                modelConfiguration.Id,
+                response.InputTokens,
+                response.OutputTokens);
+            stage.SetDisposition("completed");
+            WriteTrace(
+                requestContext,
+                "request-brief.completed",
+                "request-brief",
+                request.InvestigationId,
+                outcome: "completed",
+                durationMs: (long)Stopwatch.GetElapsedTime(started).TotalMilliseconds,
+                input: new
+                {
+                    questionCharacters = request.Question.Length,
+                    conversationTurnCount = conversationHistory.Count,
+                    modelRequest.EstimatedInputTokens
+                },
+                output: new
+                {
+                    response.Provider,
+                    response.Model,
+                    response.InputTokens,
+                    response.OutputTokens,
+                    briefCharacters = response.Content?.Length ?? 0
+                });
+            return string.IsNullOrWhiteSpace(response.Content) ? null : response.Content;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            stage.SetFailure("other");
+            stage.SetDisposition("cancelled");
+            WriteTrace(
+                requestContext,
+                "request-brief.cancelled",
+                "request-brief",
+                request.InvestigationId,
+                outcome: "cancelled",
+                durationMs: (long)Stopwatch.GetElapsedTime(started).TotalMilliseconds);
+            throw;
+        }
+        catch (OperationCanceledException)
+        {
+            stage.SetFailure("request-brief-timeout");
+            stage.SetDisposition("unavailable");
+            WriteTrace(
+                requestContext,
+                "request-brief.unavailable",
+                "request-brief",
+                request.InvestigationId,
+                outcome: "timeout",
+                durationMs: (long)Stopwatch.GetElapsedTime(started).TotalMilliseconds,
+                diagnostics: new { reasonCode = "REQUEST_BRIEF_TIMEOUT" });
+            return null;
+        }
+        catch (Exception exception) when (
+            exception is HttpRequestException or TimeoutException or InvalidOperationException or ArgumentException)
+        {
+            stage.SetFailure("request-brief-unavailable");
+            stage.SetDisposition("unavailable");
+            WriteTrace(
+                requestContext,
+                "request-brief.unavailable",
+                "request-brief",
+                request.InvestigationId,
+                outcome: "failed",
+                durationMs: (long)Stopwatch.GetElapsedTime(started).TotalMilliseconds,
+                diagnostics: new
+                {
+                    reasonCode = "REQUEST_BRIEF_UNAVAILABLE",
+                    errorType = exception.GetType().Name
+                });
+            return null;
+        }
+    }
+
+    private static bool RequestsSingleFactPerApplication(string question)
+    {
+        var asksForOneFact =
+            question.Contains("one concrete fact", StringComparison.OrdinalIgnoreCase) ||
+            question.Contains("one fact", StringComparison.OrdinalIgnoreCase) ||
+            question.Contains("1 concrete fact", StringComparison.OrdinalIgnoreCase) ||
+            question.Contains("1 fact", StringComparison.OrdinalIgnoreCase);
+        var asksForEachSource =
+            question.Contains("for each", StringComparison.OrdinalIgnoreCase) ||
+            question.Contains("per application", StringComparison.OrdinalIgnoreCase) ||
+            question.Contains("per source", StringComparison.OrdinalIgnoreCase);
+        return asksForOneFact && asksForEachSource;
     }
 
     private void WriteTrace(

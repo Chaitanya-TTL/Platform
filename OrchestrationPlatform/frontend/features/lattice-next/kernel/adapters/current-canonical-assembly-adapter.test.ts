@@ -92,4 +92,51 @@ describe("CurrentCanonicalAssemblyAdapter", () => {
     expect(singleSourceCanonical.investigationId).toBe(investigationId);
     expect(canonical.investigationId).toBe(investigationId);
   });
+
+  it("adds source-field lineage to raw properties without changing their exact values", async () => {
+    const investigationId = asInvestigationId("lattice-investigation-1");
+    const snapshot = {
+      identity: { investigationId, revision: 1, executionEpoch: 0 },
+    } as InvestigationSnapshot;
+    const payload = sourceIntelligence("configit");
+    const entityId = "configit-rule-17";
+    const exactExpression = "if STYPE.LCSTYPE then not ORIENTATION.[05]";
+    payload.entities = [{
+      id: entityId,
+      kind: "configuration-rule",
+      displayName: "Steering rule",
+      identityQuality: "native",
+      assertion: "fact",
+      properties: {
+        expression: { type: "text", text: exactExpression },
+      },
+      provenance: {
+        source: "configit",
+        provider: "configit-connector",
+        nativeId: "RULE-17",
+        nativeRevision: "R2",
+        artifactReference: entityId,
+        observedAt: temporal.assembledAt,
+        authority: "source-authoritative",
+      },
+      temporal,
+    }];
+
+    const canonical = await new CurrentCanonicalAssemblyAdapter().assemble(snapshot, [
+      acceptedEvidence(String(investigationId), "configit", payload),
+    ]);
+
+    expect(canonical.entities[0].properties.expression).toEqual({
+      type: "text",
+      text: exactExpression,
+    });
+    expect(canonical.entities[0].sourceFieldMetadata?.expression).toEqual([
+      expect.objectContaining({
+        sourceValue: exactExpression,
+        sourceFieldName: "expression",
+        sourceAuthority: "source-authoritative",
+        citationIds: [expect.stringMatching(/^source-evidence:/)],
+      }),
+    ]);
+  });
 });

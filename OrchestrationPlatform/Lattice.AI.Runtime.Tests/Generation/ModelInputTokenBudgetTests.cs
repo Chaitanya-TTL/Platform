@@ -1,4 +1,5 @@
 using Lattice.AI.Runtime.Generation;
+using Lattice.AI.Runtime.Contracts.Generation;
 
 namespace Lattice.AI.Runtime.Tests.Generation;
 
@@ -58,5 +59,18 @@ public sealed class ModelInputTokenBudgetTests
             int.MaxValue,
             maxInputTokens: int.MaxValue,
             maxOutputTokens: 1));
+    }
+
+    [Fact]
+    public void EstimateInputTokens_UsesConfiguredModelTokenizer()
+    {
+        const string content = "Exact model tokenization keeps evidence stages within the provider window.";
+        var messages = new[] { new ModelMessage("user", content) };
+
+        var actual = ModelInputTokenBudget.EstimateInputTokens(messages, "gpt-4o");
+
+        Assert.Equal(
+            Microsoft.ML.Tokenizers.TiktokenTokenizer.CreateForModel("gpt-4o").CountTokens(content) + 4,
+            actual);
     }
 }

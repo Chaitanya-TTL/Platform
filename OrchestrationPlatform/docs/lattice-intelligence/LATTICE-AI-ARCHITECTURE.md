@@ -165,6 +165,25 @@ explicitly governed evidence. The model receives only the question-relevant
 projection that survives selection and context-budget rules; it does not
 receive an unrestricted dump of every source record.
 
+For an explicit request for one fact and citation per named application,
+ContextCompiler selects one representative fact per requested application,
+preferring measures and transaction values over identity-only fields, and
+includes the matching source passages and application participation. This
+selection is specific to the requested answer shape; it does not alter the
+investigation snapshot or remove facts from later queries.
+
+- **Risk prevented:** unrelated field-level records can overwhelm the model
+  request and trigger provider token-rate limits, delaying or failing an answer.
+- **Why the risk is real:** the observed request contained 2,354 candidates
+  (about 888,401 estimated input tokens), spent about 14 seconds compiling
+  context, and received Azure OpenAI `429 rate_limit_exceeded`.
+- **Why this is necessary:** the user requested one fact per named application;
+  sending every field from every record cannot improve that requested answer
+  and exceeds the deployment's measured operating limit.
+- **User-value tradeoff:** this answer returns one cited fact per requested
+  application rather than an exhaustive inventory; the remaining evidence stays
+  available for follow-up questions.
+
 #### Runtime model flow
 
 ```text

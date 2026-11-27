@@ -91,6 +91,7 @@ public sealed class ModelGatewayTests
     {
         yield return [new global::Azure.RequestFailedException(500, "AZURE_PRIVATE_MARKER")];
         yield return [new global::Azure.Identity.AuthenticationFailedException("AZURE_PRIVATE_MARKER")];
+        yield return [new global::System.ClientModel.ClientResultException("AZURE_PRIVATE_MARKER", null!, null)];
     }
 
     [Fact]

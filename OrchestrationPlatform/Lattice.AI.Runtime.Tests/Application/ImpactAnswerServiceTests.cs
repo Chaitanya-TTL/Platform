@@ -68,14 +68,131 @@ public sealed class ImpactAnswerServiceTests
             modelEvent.Output!.Value.GetProperty("candidateModelDelivery").EnumerateArray(),
             delivery => Assert.True(delivery.GetProperty("reachedModel").GetBoolean()));
         var compiledEvent = Assert.Single(trace.Events, item => item.Event == "context.compiled");
-        Assert.True(compiledEvent.Output!.Value.GetProperty("claimCount").GetInt32() > 0);
-        Assert.Contains(
-            compiledEvent.Output.Value.GetProperty("compilerCandidateDecisions").EnumerateArray(),
-            decision => decision.GetProperty("approved").GetBoolean());
+        var compiledOutput = compiledEvent.Output!.Value;
+        Assert.True(compiledOutput.GetProperty("claimCount").GetInt32() > 0);
+        Assert.Empty(compiledOutput.GetProperty("compilerCandidateDecisions").EnumerateArray());
+        Assert.Equal(
+            JsonValueKind.Null,
+            compiledOutput.GetProperty("candidateDecisions").ValueKind);
+        Assert.Empty(compiledOutput.GetProperty("omissions").EnumerateArray());
+        Assert.Empty(compiledEvent.ItemsAdded);
+        Assert.Empty(compiledEvent.ItemsRemoved);
+        Assert.Empty(compiledEvent.RejectionReasons);
+        Assert.All(
+            trace.Events.Where(item => item.Event == "retrieval.completed"),
+            retrievalEvent => Assert.Empty(retrievalEvent.ItemsAdded));
         var validationEvent = Assert.Single(trace.Events, item => item.Event == "answer.validation.completed");
         var validatedAssertion = Assert.Single(validationEvent.Output!.Value.GetProperty("assertions").EnumerateArray());
         Assert.True(validatedAssertion.GetProperty("supported").GetBoolean());
         Assert.Equal("relationship:relationship-1", validatedAssertion.GetProperty("assertionId").GetString());
+    }
+
+    [Fact]
+    public async Task AnswerAsync_IncludesCandidateDecisionsWhenFullTraceIsEnabled()
+    {
+        var trace = new RecordingExecutionTrace();
+        var fixture = new Fixture(executionTrace: trace);
+
+        var result = await fixture.Service.AnswerAsync(
+            Request(),
+            Authorization(),
+            RequestContext() with { FullPayloadTraceEnabled = true },
+            CancellationToken.None);
+
+        Assert.Equal(AnswerDisposition.Answer, result.Disposition);
+        var compiledEvent = Assert.Single(trace.Events, item => item.Event == "context.compiled");
+        var compiledOutput = compiledEvent.Output!.Value;
+        Assert.Equal("full", compiledEvent.PayloadDetail);
+        Assert.Contains(
+            compiledOutput.GetProperty("compilerCandidateDecisions").EnumerateArray(),
+            decision => decision.GetProperty("approved").GetBoolean());
+        Assert.NotEmpty(
+            compiledOutput.GetProperty("candidateDecisions")
+                .GetProperty("graphRelationships")
+                .EnumerateArray());
+        Assert.NotEmpty(compiledEvent.ItemsAdded);
+        Assert.Contains(
+            trace.Events,
+            item => item.Event == "retrieval.completed" && item.ItemsAdded.Count > 0);
+        Assert.NotNull(compiledEvent.FullPayload);
+    }
+
+    [Fact]
+    public async Task AnswerAsync_UsesAllConversationTurnsForRequestBriefAndContinuesWhenBriefFails()
+    {
+        var request = Request() with
+        {
+            ConversationHistory =
+            [
+                new ConversationHistoryTurn(
+                    "turn-1",
+                    "Which application contributed?",
+                    "Configit contributed.",
+                    ConversationTurnDisposition.Answer),
+                new ConversationHistoryTurn(
+                    "turn-2",
+                    "An unrelated earlier question.",
+                    "An earlier answer.",
+                    ConversationTurnDisposition.Failed)
+            ]
+        };
+        var fixture = new Fixture(requestBriefFailure: new HttpRequestException("brief unavailable"));
+
+        var result = await fixture.Service.AnswerAsync(
+            request,
+            Authorization(),
+            RequestContext(),
+            CancellationToken.None);
+
+        Assert.Equal(AnswerDisposition.Answer, result.Disposition);
+        Assert.Equal(1, fixture.Gateway.BriefCallCount);
+        Assert.Equal(1, fixture.Gateway.CallCount);
+        var briefRequest = Assert.Single(fixture.Gateway.Requests, modelRequest =>
+            modelRequest.PromptBundleId == "engineering-request-brief");
+        Assert.Equal(
+            new[] { "system", "user", "assistant", "user", "assistant", "user" },
+            briefRequest.Messages.Select(message => message.Role));
+        Assert.Contains("An unrelated earlier question.", briefRequest.Messages[3].Content, StringComparison.Ordinal);
+        Assert.Contains("An earlier answer.", briefRequest.Messages[4].Content, StringComparison.Ordinal);
+        Assert.Contains(request.Question, briefRequest.Messages[^1].Content, StringComparison.Ordinal);
+        Assert.DoesNotContain("requestBrief", string.Join(
+            Environment.NewLine,
+            fixture.Gateway.LastRequest!.Messages.Select(message => message.Content)),
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task AnswerAsync_PassesGeneratedRequestBriefAlongsideOriginalContext()
+    {
+        var request = Request() with
+        {
+            ConversationHistory =
+            [
+                new ConversationHistoryTurn(
+                    "turn-1",
+                    "Which application contributed?",
+                    "Configit contributed.",
+                    ConversationTurnDisposition.Answer)
+            ]
+        };
+        var fixture = new Fixture();
+
+        var result = await fixture.Service.AnswerAsync(
+            request,
+            Authorization(),
+            RequestContext(),
+            CancellationToken.None);
+
+        Assert.Equal(AnswerDisposition.Answer, result.Disposition);
+        var finalRequest = fixture.Gateway.LastRequest!;
+        Assert.NotNull(finalRequest);
+        var finalUserMessage = Assert.Single(finalRequest.Messages, message => message.Role == "user");
+        using var finalPrompt = JsonDocument.Parse(finalUserMessage.Content);
+        Assert.Equal(request.Question, finalPrompt.RootElement.GetProperty("question").GetString());
+        Assert.Equal(
+            ValidModelContent,
+            finalPrompt.RootElement.GetProperty("requestBrief").GetString());
+        Assert.True(finalPrompt.RootElement.TryGetProperty("contextPackage", out _));
     }
 
     [Fact]
@@ -328,6 +445,119 @@ public sealed class ImpactAnswerServiceTests
         Assert.Contains(result.Sources, source => source.SourceSystem == "Codebeamer" && source.CitationId == "citation-fact-codebeamer-state");
         Assert.Contains(result.Sources, source => source.SourceSystem == "SAP" && source.CitationId == "citation-fact-sap-quantity");
         Assert.Contains(result.Sources, source => source.SourceSystem == "Windchill" && source.CitationId == "citation-fact-windchill-weight");
+    }
+
+    [Fact]
+    public async Task AnswerAsync_PassesOneCitationBackedFactPerRequestedApplicationToContextCompiler()
+    {
+        var observedAt = DateTimeOffset.Parse("2026-11-18T10:00:00Z");
+        var applications = new[] { "Windchill", "Configit", "Codebeamer", "SAP" };
+        var facts = applications
+            .SelectMany((application, index) =>
+            {
+                var prefix = application.ToLowerInvariant();
+                var identity = StageFact(
+                    $"fact-{prefix}-identity",
+                    application,
+                    $"{prefix}.record.id",
+                    JsonSerializer.Serialize($"record-{index + 1}"),
+                    EngineeringFactValueType.Identifier,
+                    observedAt) with
+                {
+                    FactRole = EngineeringFactRole.EntityIdentity,
+                    EvidenceIds = [$"SYNTH-EVIDENCE-{prefix}-identity"],
+                    CitationIds = [$"SYNTH-CITATION-{prefix}-identity"]
+                };
+                var metric = StageFact(
+                    $"fact-{prefix}-metric",
+                    application,
+                    $"{prefix}.measurement",
+                    (index + 1).ToString(),
+                    EngineeringFactValueType.Quantity,
+                    observedAt) with
+                {
+                    FactRole = EngineeringFactRole.Metric,
+                    EvidenceIds = [$"SYNTH-EVIDENCE-{prefix}-metric"],
+                    CitationIds = [$"SYNTH-CITATION-{prefix}-metric"]
+                };
+                return new[] { identity, metric };
+            })
+            .ToArray();
+        var participations = applications
+            .SelectMany((application, index) =>
+            {
+                var participation = StageParticipation(application, index + 1, observedAt);
+                return new[]
+                {
+                    participation,
+                    participation with
+                    {
+                        CandidateId = $"{participation.CandidateId}-unrelated",
+                        CanonicalEntityIds = ["OTHER-ENTITY"]
+                    }
+                };
+            })
+            .ToArray();
+        var factRetriever = new FakeFactEvidenceRetriever(result: new FactEvidenceRetrievalResult(
+            "investigation-1",
+            1,
+            "source-v1",
+            "ontology-v1",
+            "decision-1",
+            "request-1",
+            "trace-1",
+            facts));
+        var applicationRetriever = new FakeApplicationContextRetriever(result: new ApplicationContextRetrievalResult(
+            "investigation-1",
+            1,
+            "source-v1",
+            "ontology-v1",
+            "decision-1",
+            "request-1",
+            "trace-1",
+            participations));
+        var passages = facts.Select(SourcePassageForFact).ToArray();
+        var sourceRetriever = new FakeSourceEvidenceRetriever(passages);
+        var compiler = new TrackingContextCompiler();
+        var fixture = new Fixture(
+            contextCompiler: compiler,
+            sourceEvidenceRetriever: sourceRetriever,
+            factEvidenceRetriever: factRetriever,
+            applicationContextRetriever: applicationRetriever,
+            modelContentFactory: CreateTypedStageAnswer);
+
+        var result = await fixture.Service.AnswerAsync(
+            new ImpactAnswerRequest(
+                "investigation-1",
+                "Which applications contributed evidence to this investigation? Give one concrete fact and citation for each: Windchill, Configit, Codebeamer, and SAP.",
+                "conversation-1"),
+            Authorization(),
+            RequestContext(),
+            CancellationToken.None);
+
+        Assert.Equal(AnswerDisposition.Answer, result.Disposition);
+        var input = Assert.IsType<TrackingContextCompiler>(fixture.ContextCompiler).LastInput;
+        var compilerResult = Assert.IsType<ContextCompilationResult>(
+            Assert.IsType<TrackingContextCompiler>(fixture.ContextCompiler).LastResult);
+        Assert.Equal(
+            facts.Select(fact => fact.FactId).Order(StringComparer.Ordinal),
+            input?.FactEvidence?.Facts.Select(fact => fact.FactId).Order(StringComparer.Ordinal));
+        Assert.Equal(facts.Length, input?.SourceEvidence?.Passages.Count);
+        Assert.Equal(participations.Length, input?.ApplicationContext?.Participations.Count);
+        var package = Assert.IsType<ContextPackage>(compilerResult.Package);
+        Assert.Equal(
+            applications.Select(application => $"fact-{application.ToLowerInvariant()}-metric").Order(StringComparer.Ordinal),
+            package.EngineeringFacts.Select(fact => fact.FactId).Order(StringComparer.Ordinal));
+        Assert.Equal(4, package.SourceEvidencePassages.Count);
+        Assert.Equal(4, package.ApplicationParticipation.Count);
+        Assert.Contains(package.Omissions, omission =>
+            omission.Kind == ContextOmissionKind.EngineeringFact &&
+            omission.Reason.Contains("per-application fact set", StringComparison.Ordinal));
+        Assert.Equal(4, result.Facts.Count);
+        Assert.All(applications, application =>
+            Assert.Contains(result.Sources, source =>
+                string.Equals(source.SourceSystem, application, StringComparison.OrdinalIgnoreCase) &&
+                source.CitationId.StartsWith("SYNTH-CITATION-", StringComparison.Ordinal)));
     }
 
     [Fact]
@@ -1228,6 +1458,22 @@ public sealed class ImpactAnswerServiceTests
     }
 
     [Fact]
+    public async Task AnswerAsync_SkipsRequestBriefWhenThereIsNoConversationHistory()
+    {
+        var fixture = new Fixture();
+
+        var result = await fixture.Service.AnswerAsync(
+            Request() with { ConversationHistory = [] },
+            Authorization(),
+            RequestContext(),
+            CancellationToken.None);
+
+        Assert.Equal(AnswerDisposition.Answer, result.Disposition);
+        Assert.Equal(0, fixture.Gateway.BriefCallCount);
+        Assert.Equal(1, fixture.Gateway.CallCount);
+    }
+
+    [Fact]
     public async Task AnswerAsync_SanitizesPromptCatalogAndAssemblerErrors()
     {
         var catalogFailure = new Fixture(promptCatalog: new StubPromptCatalog(
@@ -1664,7 +1910,8 @@ public sealed class ImpactAnswerServiceTests
             RecordingExecutionTrace? executionTrace = null,
             IConversationTurnInterpreter? conversationTurnInterpreter = null,
             IAnswerValidator? answerValidator = null,
-            Exception? evidenceFailure = null)
+            Exception? evidenceFailure = null,
+            Exception? requestBriefFailure = null)
         {
             Resolver = new StubEntityResolver(resolution);
             ScopePlanner = new TrackingScopePlanner();
@@ -1676,7 +1923,8 @@ public sealed class ImpactAnswerServiceTests
                 modelContent ?? ValidModelContent,
                 modelFailure,
                 modelContentFactory,
-                modelFailureFactory);
+                modelFailureFactory,
+                requestBriefFailure);
             ContextCompiler = contextCompiler ?? new TrackingContextCompiler();
             Telemetry = telemetry ?? new RecordingTelemetry();
             Service = new ImpactAnswerService(
@@ -1875,13 +2123,17 @@ public sealed class ImpactAnswerServiceTests
 
     private sealed class ThrowingPromptAssembler : IPromptAssembler
     {
-        public int EstimateFixedPromptTokens(ImpactAnswerRequest request, PromptBundle prompt) => 0;
+        public int EstimateFixedPromptTokens(
+            ImpactAnswerRequest request,
+            PromptBundle prompt,
+            string? tokenizerModelName = null) => 0;
 
         public ModelRequest Assemble(
             ImpactAnswerRequest request,
             ContextPackage context,
             PromptBundle prompt,
-            ModelConfiguration configuration) =>
+            ModelConfiguration configuration,
+            string? requestBrief = null) =>
             throw new ArgumentException("private assembler detail");
     }
 
@@ -1889,15 +2141,19 @@ public sealed class ImpactAnswerServiceTests
     {
         private readonly PromptAssembler _inner = new();
 
-        public int EstimateFixedPromptTokens(ImpactAnswerRequest request, PromptBundle prompt) =>
-            _inner.EstimateFixedPromptTokens(request, prompt);
+        public int EstimateFixedPromptTokens(
+            ImpactAnswerRequest request,
+            PromptBundle prompt,
+            string? tokenizerModelName = null) =>
+            _inner.EstimateFixedPromptTokens(request, prompt, tokenizerModelName);
 
         public ModelRequest Assemble(
             ImpactAnswerRequest request,
             ContextPackage context,
             PromptBundle prompt,
-            ModelConfiguration configuration) =>
-            _inner.Assemble(request, context, prompt, configuration) with
+            ModelConfiguration configuration,
+            string? requestBrief = null) =>
+            _inner.Assemble(request, context, prompt, configuration, requestBrief) with
             {
                 EstimatedInputTokens = int.MaxValue
             };
@@ -2261,6 +2517,30 @@ public sealed class ImpactAnswerServiceTests
             "source-index-v1",
             "synthetic-embedding-v1");
 
+    private static SourceEvidencePassage SourcePassageForFact(EngineeringFactEvidence fact) =>
+        new(
+            $"SYNTH-PASSAGE-{fact.FactId}",
+            $"SYNTH-RECORD-{fact.FactId}",
+            fact.InvestigationId,
+            fact.SnapshotRevision,
+            fact.SourceApplication,
+            $"SYNTH-NATIVE-{fact.FactId}",
+            [fact.SubjectId ?? fact.SourceEntityId],
+            "revision-1",
+            fact.SourceFieldName,
+            $"{fact.DisplayLabel}: {fact.ExactSourceValue.GetRawText()}",
+            fact.EvidenceIds,
+            $"SYNTH-PROVENANCE-{fact.FactId}",
+            "decision-1",
+            "current",
+            "hybrid",
+            1,
+            "source-index-v1",
+            "synthetic-embedding-v1")
+        {
+            CitationIds = fact.CitationIds
+        };
+
     private sealed class StubEntityResolver(EntityResolutionResult? result = null) : IEngineeringEntityResolver
     {
         public int CallCount { get; private set; }
@@ -2336,18 +2616,35 @@ public sealed class ImpactAnswerServiceTests
         string content,
         Exception? failure,
         Func<ModelRequest, string>? contentFactory,
-        Func<int, Exception?>? failureFactory) : IModelGateway
+        Func<int, Exception?>? failureFactory,
+        Exception? requestBriefFailure) : IModelGateway
     {
         public int CallCount { get; private set; }
+        public int BriefCallCount { get; private set; }
         public ModelRequest? LastRequest { get; private set; }
         public List<ModelRequest> Requests { get; } = [];
 
         public Task<ModelResponse> GenerateAsync(ModelRequest request, CancellationToken cancellationToken)
         {
-            CallCount++;
-            LastRequest = request;
             Requests.Add(request);
-            var currentFailure = failureFactory?.Invoke(CallCount) ?? failure;
+            var isRequestBrief = request.PromptBundleId == "engineering-request-brief";
+            if (isRequestBrief)
+            {
+                BriefCallCount++;
+                if (requestBriefFailure is not null)
+                {
+                    return Task.FromException<ModelResponse>(requestBriefFailure);
+                }
+            }
+            else
+            {
+                CallCount++;
+                LastRequest = request;
+            }
+
+            var currentFailure = isRequestBrief
+                ? null
+                : failureFactory?.Invoke(CallCount) ?? failure;
             if (currentFailure is not null)
             {
                 throw currentFailure;
@@ -2355,7 +2652,7 @@ public sealed class ImpactAnswerServiceTests
 
             return Task.FromResult(new ModelResponse(
                 request.RequestContext,
-                contentFactory?.Invoke(request) ?? content,
+                isRequestBrief ? content : contentFactory?.Invoke(request) ?? content,
                 "test",
                 "test-model",
                 null,

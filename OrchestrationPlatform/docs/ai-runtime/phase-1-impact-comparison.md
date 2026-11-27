@@ -28,3 +28,11 @@ The deterministic synthetic-fixture evaluation passed 34 of 34 cases with zero f
 Provide an approved non-production seeded investigation, registered authorization decision provider, validated user identity flow, approved service identity and ticket verification, approved Azure deployment and network access, and data-handling approval. Then run the same approved questions and fixture through both paths, capture the metrics above, and obtain human review. Keep prompts, answers, and evidence payloads out of general telemetry.
 
 Until that evidence exists, the measured product impact remains unknown.
+
+## Conversation context and request brief
+
+The runtime now sends the current question and every conversation-history turn it receives to a best-effort request-brief model call, with prior turns represented as `user` and `assistant` messages. The brief is an interpretation aid only; if that call is unavailable, the existing answer-generation path continues with the original question and compiled Context Package. The final prompt includes the brief only when it fits the configured input budget without replacing its existing messages.
+
+The final-answer prompt still uses the established conversation-history selection: successful answer and clarification turns are considered, with parent-turn and relevance ordering constrained by the remaining model-token budget. Therefore, the brief sees all history delivered to the runtime, while the final answer model may see only the selected subset. Neither behavior establishes a measured improvement in answer quality.
+
+The brief-fit rule prevents the optional enrichment from making an otherwise unchanged final prompt exceed the configured model input window; the provider's finite input limit makes this a demonstrated operational constraint. It is necessary to preserve delivery of the existing question, history selection, and compiled evidence. The tradeoff is that an oversized brief is omitted while the baseline prompt remains unchanged.

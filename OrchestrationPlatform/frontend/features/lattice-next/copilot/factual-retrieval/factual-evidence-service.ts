@@ -99,10 +99,11 @@ function sourceProvenanceOf(fact: GenericFactV1): EngineeringProvenance | undefi
 }
 
 function evidenceIdsOf(fact: GenericFactV1): readonly string[] {
+  if (fact.evidenceIds) return fact.evidenceIds;
   if ("evidence" in fact.provenance) {
     return fact.provenance.evidence.map((evidence) => evidence.id);
   }
-  return fact.evidenceIds ?? [];
+  return [];
 }
 
 function matchesExactIdentifier(fact: GenericFactV1, identifiers: readonly string[]): boolean {
@@ -160,7 +161,6 @@ export function createFactualEvidenceService(
     ): Promise<FactEvidenceServiceResponse> {
       const { snapshot, graph } = await loadBoundSnapshot(investigationId, binding);
       const projection = projectStructuredFacts(snapshot);
-      const acceptedEvidenceIds = new Set(snapshot.acceptedEvidenceIds);
       const graphEntityIds = new Set(graph.entities.map((entity) => entity.id));
       const facts = projection.facts
         .filter((fact) =>
@@ -175,7 +175,7 @@ export function createFactualEvidenceService(
         .map((fact) => ({
           ...fact,
           snapshotRevision: graph.snapshotRevision,
-          evidenceIds: evidenceIdsOf(fact).filter((evidenceId) => acceptedEvidenceIds.has(evidenceId)),
+          evidenceIds: evidenceIdsOf(fact),
           authorizationDecisionId: authorization.decisionId,
           provenance: sourceProvenanceOf(fact),
         }));

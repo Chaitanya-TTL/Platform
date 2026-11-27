@@ -1,4 +1,6 @@
+using System.ClientModel;
 using System.Diagnostics;
+using System.Net;
 using Azure;
 using Azure.AI.OpenAI;
 using Azure.Identity;
@@ -68,6 +70,17 @@ public sealed class AzureOpenAiModelGateway : IModelGateway
         try
         {
             response = await _chatClient.GetResponseAsync(messages, chatOptions, linked.Token).ConfigureAwait(false);
+        }
+        catch (ClientResultException exception)
+        {
+            HttpStatusCode? statusCode = exception.Status is >= 100 and <= 599
+                ? (HttpStatusCode)exception.Status
+                : null;
+            throw new HttpRequestException(
+                HttpRequestError.Unknown,
+                "Azure OpenAI returned a provider error.",
+                exception,
+                statusCode);
         }
         catch (global::Azure.RequestFailedException exception)
         {

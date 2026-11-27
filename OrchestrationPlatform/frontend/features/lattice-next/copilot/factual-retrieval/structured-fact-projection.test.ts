@@ -498,6 +498,109 @@ function crossSystemSnapshot(): InvestigationSnapshot<EngineeringIntelligenceInv
   };
 }
 
+function rawSourcePropertySnapshot(): InvestigationSnapshot<EngineeringIntelligenceInvestigationV1> {
+  const base = snapshot();
+  if (!base.canonical) throw new Error("Fixture requires a canonical snapshot.");
+
+  const sourceEntity = (
+    id: string,
+    source: NonNullable<EngineeringProvenance["source"]>,
+    kind: string,
+    nativeId: string,
+    properties: IntelligenceEntity["properties"],
+  ): IntelligenceEntity => ({
+    id,
+    kind,
+    displayName: `Synthetic ${kind}`,
+    identityQuality: "native",
+    assertion: "fact",
+    properties,
+    provenance: {
+      source,
+      provider: `${source}-raw-property-fixture`,
+      nativeId,
+      nativeRevision: "R7",
+      artifactReference: id,
+      observedAt: capturedAt,
+      authority: "source-authoritative",
+    },
+    temporal: { assembledAt, capturedAt, freshness: "current" },
+  });
+
+  const entities = [
+    sourceEntity("windchill-weight", "windchill", "physical-attribute", "WT-PART-17", {
+      attributeKey: { type: "text", text: "weight" },
+      value: { type: "text", text: "2.50 KG" },
+    }),
+    sourceEntity("configit-rule", "configit", "configuration-rule", "RULE-17", {
+      expression: { type: "text", text: "if STYPE.LCSTYPE then not ORIENTATION.[05]" },
+    }),
+    sourceEntity("codebeamer-parent", "codebeamer", "requirement", "1187", {
+      title: { type: "text", text: "Steering requirement" },
+    }),
+    sourceEntity("codebeamer-detail", "codebeamer", "requirement-detail", "1187", {
+      ownerRequirementId: { type: "text", text: "codebeamer-parent" },
+      fieldKey: { type: "text", text: "description" },
+      value: { type: "text", text: "Steering system shall support the specified load." },
+    }),
+    sourceEntity("sap-stock", "sap", "inventory-balance", "MAT-42", {
+      availableQuantity: { type: "number", number: 5000 },
+      unit: { type: "text", text: "EA" },
+    }),
+  ];
+  entities[3].provenance.nativeId = undefined;
+
+  const sources = [...new Set(entities
+    .map((entity) => entity.provenance.source)
+    .filter((source): source is NonNullable<EngineeringProvenance["source"]> =>
+      Boolean(source)))];
+  const priorExecution = base.executions["codebeamer:gather-intelligence"];
+  const executions = Object.fromEntries(sources.map((source) => [
+    `${source}:gather-intelligence`,
+    {
+      ...priorExecution,
+      identity: {
+        ...priorExecution.identity,
+        source,
+        executionId: asExecutionId(`exec-${source}-gather`),
+        correlationId: asCorrelationId(`corr-${source}-gather`),
+      },
+    },
+  ]));
+
+  return {
+    ...base,
+    executions,
+    acceptedEvidenceIds: ["exec-windchill-gather", "exec-configit-gather"],
+    completeness: {
+      ...base.completeness,
+      requestedSources: sources,
+      successfulSources: sources,
+      partialSources: [],
+    },
+    canonical: {
+      ...base.canonical,
+      value: {
+        ...base.canonical.value,
+        entities,
+        evidence: [],
+        sources: entities.map((entity) => ({
+          entityId: entity.id,
+          source: entity.provenance.source!,
+          status: "available",
+          provenance: entity.provenance,
+        })),
+        summary: {
+          ...base.canonical.value.summary,
+          entityCount: entities.length,
+          evidenceCount: 0,
+          availableSourceCount: sources.length,
+        },
+      },
+    },
+  };
+}
+
 describe("structured snapshot projection", () => {
   it("preserves exact fact values, lineage, dimensions, and accepted revision", () => {
     const input = snapshot();
@@ -520,7 +623,10 @@ describe("structured snapshot projection", () => {
         dimensionId: "source-revision",
         exactValue: "R7",
       }],
-      citationIds: ["evidence-42"],
+      citationIds: expect.arrayContaining([
+        "evidence-42",
+        expect.stringMatching(/^source-evidence:/),
+      ]),
       citationEligible: true,
       completeness: "partial",
       freshness: "current",
@@ -545,8 +651,14 @@ describe("structured snapshot projection", () => {
       sourceOperation: "gather-intelligence",
       sourceOperationStatus: "partial",
       completeness: "partial",
-      evidenceIds: ["evidence-42"],
-      citationIds: ["evidence-42"],
+      evidenceIds: expect.arrayContaining([
+        "evidence-42",
+        expect.stringMatching(/^source-evidence:/),
+      ]),
+      citationIds: expect.arrayContaining([
+        "evidence-42",
+        expect.stringMatching(/^source-evidence:/),
+      ]),
       citationEligible: true,
     });
     expect(candidates[0]).not.toHaveProperty("authorizationDecisionId");
@@ -565,7 +677,10 @@ describe("structured snapshot projection", () => {
         dimensionId: "plant",
         exactValue: "plant-7",
       }],
-      citationIds: ["evidence-17"],
+      citationIds: expect.arrayContaining([
+        "evidence-17",
+        expect.stringMatching(/^source-evidence:/),
+      ]),
       citationEligible: true,
     });
   });
@@ -578,12 +693,18 @@ describe("structured snapshot projection", () => {
       sourceApplication: "configit",
       exactSourceValue: "Product model description",
       fieldId: "configit.product-model.description",
-      evidenceIds: ["evidence-configit-17"],
+      evidenceIds: expect.arrayContaining([
+        "evidence-configit-17",
+        expect.stringMatching(/^source-evidence:/),
+      ]),
       dimensions: [{
         dimensionId: "product-line",
         exactValue: "industrial",
       }],
-      citationIds: ["evidence-configit-17"],
+      citationIds: expect.arrayContaining([
+        "evidence-configit-17",
+        expect.stringMatching(/^source-evidence:/),
+      ]),
       citationEligible: true,
     });
   });
@@ -664,7 +785,7 @@ describe("structured snapshot projection", () => {
     );
   });
 
-  it("retains operation status and leaves unaccepted evidence uncited", () => {
+  it("retains operation status and cites source fields from the accepted canonical snapshot", () => {
     const input = snapshot({
       operationStatus: "empty",
       acceptedEvidenceIds: [],
@@ -673,12 +794,18 @@ describe("structured snapshot projection", () => {
     const fact = projectStructuredFacts(input).facts[0];
 
     expect(candidate.sourceOperationStatus).toBe("empty");
-    expect(candidate.evidenceIds).toEqual([]);
-    expect(candidate.citationIds).toEqual([]);
-    expect(candidate.citationEligible).toBe(false);
+    expect(candidate.evidenceIds).toEqual([
+      expect.stringMatching(/^source-evidence:/),
+    ]);
+    expect(candidate.citationIds).toEqual([
+      expect.stringMatching(/^source-evidence:/),
+    ]);
+    expect(candidate.citationEligible).toBe(true);
     expect(fact.exactSourceValue).toBe(" Exact source title ");
-    expect(fact.citationIds).toEqual([]);
-    expect(fact.citationEligible).toBe(false);
+    expect(fact.citationIds).toEqual([
+      expect.stringMatching(/^source-evidence:/),
+    ]);
+    expect(fact.citationEligible).toBe(true);
   });
 
   it("does not project facts from an unaccepted snapshot revision", () => {
@@ -750,7 +877,10 @@ describe("structured snapshot projection", () => {
         exactValue: "metric",
         valueType: "text",
       }],
-      citationIds: ["evidence-42"],
+      citationIds: expect.arrayContaining([
+        "evidence-42",
+        expect.stringMatching(/^source-evidence:/),
+      ]),
       citationEligible: true,
       sourceAuthority: "source-authoritative",
       freshness: "stale",
@@ -797,12 +927,15 @@ describe("structured snapshot projection", () => {
         exactValue: "EA",
         unit: "EA",
       }],
-      citationIds: ["evidence-sap-42"],
+      citationIds: expect.arrayContaining([
+        "evidence-sap-42",
+        expect.stringMatching(/^source-evidence:/),
+      ]),
       citationEligible: true,
     });
   });
 
-  it("keeps an uncited metadata-backed fact but marks it citation-ineligible", () => {
+  it("keeps field-level citations when operation-level evidence IDs do not match", () => {
     const input = sapSnapshot();
     const result = projectStructuredFacts({
       ...input,
@@ -812,8 +945,8 @@ describe("structured snapshot projection", () => {
     expect(result.facts).toHaveLength(1);
     expect(result.facts[0]).toMatchObject({
       exactSourceValue: 0,
-      citationIds: [],
-      citationEligible: false,
+      citationIds: [expect.stringMatching(/^source-evidence:/)],
+      citationEligible: true,
     });
   });
 
@@ -837,8 +970,8 @@ describe("structured snapshot projection", () => {
 
     const fact = projectStructuredFacts(changedSnapshot).facts[0];
 
-    expect(fact.citationIds).toEqual([]);
-    expect(fact.citationEligible).toBe(false);
+    expect(fact.citationIds).toEqual([expect.stringMatching(/^source-evidence:/)]);
+    expect(fact.citationEligible).toBe(true);
   });
 
   it("serves exact facts only from the accepted, request-bound snapshot provenance", async () => {
@@ -870,7 +1003,10 @@ describe("structured snapshot projection", () => {
     expect(response.evidence.facts[0]).toMatchObject({
       exactSourceValue: "Product model description",
       sourceNativeId: "PM-17",
-      evidenceIds: ["evidence-configit-17"],
+      evidenceIds: expect.arrayContaining([
+        "evidence-configit-17",
+        expect.stringMatching(/^source-evidence:/),
+      ]),
       authorizationDecisionId: "decision-42",
       provenance: {
         source: "configit",
@@ -960,8 +1096,14 @@ describe("structured snapshot projection", () => {
     expect(response.evidence.participations[0]).toMatchObject({
       sourceApplication: "configit",
       canonicalEntityIds: ["configit-product-model-17"],
-      evidenceIds: ["evidence-configit-17"],
-      citationIds: ["evidence-configit-17"],
+      evidenceIds: expect.arrayContaining([
+        "evidence-configit-17",
+        expect.stringMatching(/^source-evidence:/),
+      ]),
+      citationIds: expect.arrayContaining([
+        "evidence-configit-17",
+        expect.stringMatching(/^source-evidence:/),
+      ]),
       authorizationDecisionId: "decision-42",
     });
     expect(response.evidence.authoritativeEntityIds).toEqual(["configit-product-model-17"]);
@@ -1018,5 +1160,75 @@ describe("structured snapshot projection", () => {
     expect(new Set(applicationResponse.evidence.participations.map((item) => item.sourceApplication))).toEqual(
       new Set(["codebeamer", "configit", "sap", "windchill"]),
     );
+  });
+
+  it("serves exact raw source-property facts and citations from all four applications", async () => {
+    const acceptedSnapshot = rawSourcePropertySnapshot();
+    const enriched = ensureInvestigationKnowledgeGraph(acceptedSnapshot);
+    const canonical = enriched.canonical?.value;
+    if (!isEngineeringIntelligenceInvestigationV1(canonical) || !canonical.knowledgeGraph) {
+      throw new Error("Fixture requires a graph-bound accepted snapshot.");
+    }
+
+    const service = createFactualEvidenceService(async () => acceptedSnapshot);
+    const binding = {
+      sourceVersion: String(canonical.knowledgeGraph.snapshotRevision),
+      ontologyVersion: canonical.knowledgeGraph.ontologyVersion,
+    };
+    const authorization = {
+      decisionId: "decision-42",
+      requestId: "request-42",
+      traceId: "trace-42",
+    };
+    const [factResponse, applicationResponse] = await Promise.all([
+      service.retrieveFacts(
+        String(investigationId),
+        {
+          requested: true,
+          linkedEntityIds: [],
+          sourceApplications: [],
+          fieldIds: [],
+          exactIdentifiers: [],
+          reasonCode: "broad-overview",
+        },
+        binding,
+        authorization,
+      ),
+      service.retrieveApplicationContext(
+        String(investigationId),
+        {
+          requested: true,
+          linkedEntityIds: [],
+          sourceApplications: [],
+          reasonCode: "broad-overview",
+        },
+        binding,
+        authorization,
+      ),
+    ]);
+
+    const expectedFacts = [
+      ["windchill", "weight", "2.50 KG"],
+      ["configit", "expression", "if STYPE.LCSTYPE then not ORIENTATION.[05]"],
+      ["codebeamer", "description", "Steering system shall support the specified load."],
+      ["sap", "availableQuantity", 5000],
+      ["sap", "unit", "EA"],
+    ] as const;
+    for (const [source, fieldName, value] of expectedFacts) {
+      expect(factResponse.evidence.facts).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          sourceApplication: source,
+          sourceFieldName: fieldName,
+          exactSourceValue: value,
+          citationIds: expect.arrayContaining([expect.any(String)]),
+          citationEligible: true,
+        }),
+      ]));
+    }
+    expect(new Set(applicationResponse.evidence.participations.map((item) => item.sourceApplication))).toEqual(
+      new Set(["codebeamer", "configit", "sap", "windchill"]),
+    );
+    expect(applicationResponse.evidence.participations.every((item) =>
+      item.evidenceIds.length > 0 && item.citationIds.length > 0)).toBe(true);
   });
 });

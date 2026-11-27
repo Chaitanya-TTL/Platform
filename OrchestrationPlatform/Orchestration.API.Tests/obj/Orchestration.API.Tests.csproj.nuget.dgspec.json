@@ -94,6 +94,8 @@
             "Microsoft.Extensions.AI": "10.11.0",
             "Microsoft.Extensions.AI.OpenAI": "10.11.0",
             "Microsoft.Extensions.Http.Resilience": "10.11.0",
+            "Microsoft.ML.Tokenizers": "3.0.0",
+            "Microsoft.ML.Tokenizers.Data.O200kBase": "3.0.0",
             "Microsoft.NET.Test.Sdk": "17.14.1",
             "Newtonsoft.Json": "13.0.4",
             "Swashbuckle.AspNetCore": "10.3.1",
@@ -451,6 +453,8 @@
             "Microsoft.Extensions.AI": "10.11.0",
             "Microsoft.Extensions.AI.OpenAI": "10.11.0",
             "Microsoft.Extensions.Http.Resilience": "10.11.0",
+            "Microsoft.ML.Tokenizers": "3.0.0",
+            "Microsoft.ML.Tokenizers.Data.O200kBase": "3.0.0",
             "Microsoft.NET.Test.Sdk": "17.14.1",
             "Newtonsoft.Json": "13.0.4",
             "Swashbuckle.AspNetCore": "10.3.1",
@@ -799,6 +803,18 @@
         "net10.0": {
           "framework": "net10.0",
           "targetAlias": "net10.0",
+          "dependencies": {
+            "Microsoft.ML.Tokenizers": {
+              "target": "Package",
+              "version": "[3.0.0, )",
+              "versionCentrallyManaged": true
+            },
+            "Microsoft.ML.Tokenizers.Data.O200kBase": {
+              "target": "Package",
+              "version": "[3.0.0, )",
+              "versionCentrallyManaged": true
+            }
+          },
           "centralPackageVersions": {
             "Azure.AI.OpenAI": "2.1.0",
             "Azure.Identity": "1.21.0",
@@ -812,6 +828,8 @@
             "Microsoft.Extensions.AI": "10.11.0",
             "Microsoft.Extensions.AI.OpenAI": "10.11.0",
             "Microsoft.Extensions.Http.Resilience": "10.11.0",
+            "Microsoft.ML.Tokenizers": "3.0.0",
+            "Microsoft.ML.Tokenizers.Data.O200kBase": "3.0.0",
             "Microsoft.NET.Test.Sdk": "17.14.1",
             "Newtonsoft.Json": "13.0.4",
             "Swashbuckle.AspNetCore": "10.3.1",
@@ -1195,6 +1213,8 @@
             "Microsoft.Extensions.AI": "10.11.0",
             "Microsoft.Extensions.AI.OpenAI": "10.11.0",
             "Microsoft.Extensions.Http.Resilience": "10.11.0",
+            "Microsoft.ML.Tokenizers": "3.0.0",
+            "Microsoft.ML.Tokenizers.Data.O200kBase": "3.0.0",
             "Microsoft.NET.Test.Sdk": "17.14.1",
             "Newtonsoft.Json": "13.0.4",
             "Swashbuckle.AspNetCore": "10.3.1",
@@ -1609,6 +1629,8 @@
             "Microsoft.Extensions.AI": "10.11.0",
             "Microsoft.Extensions.AI.OpenAI": "10.11.0",
             "Microsoft.Extensions.Http.Resilience": "10.11.0",
+            "Microsoft.ML.Tokenizers": "3.0.0",
+            "Microsoft.ML.Tokenizers.Data.O200kBase": "3.0.0",
             "Microsoft.NET.Test.Sdk": "17.14.1",
             "Newtonsoft.Json": "13.0.4",
             "Swashbuckle.AspNetCore": "10.3.1",

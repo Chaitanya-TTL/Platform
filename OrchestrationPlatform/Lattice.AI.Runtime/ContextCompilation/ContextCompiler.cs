@@ -1,10 +1,10 @@
 using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
 using Lattice.AI.Runtime.Contracts.Context;
 using Lattice.AI.Runtime.Contracts.Evidence;
 using Lattice.AI.Runtime.Contracts.Requests;
 using Lattice.AI.Runtime.Contracts.Scope;
+using Lattice.AI.Runtime.Generation;
 
 namespace Lattice.AI.Runtime.ContextCompilation;
 
@@ -316,10 +316,21 @@ public sealed class ContextCompiler : IContextCompiler
                     }
                 }
 
+                var selectedFactIds = SelectRequestedFactIds(
+                    validFacts.Where(fact => !omittedFacts.ContainsKey(fact.FactId)),
+                    input);
                 foreach (var fact in validFacts
                              .Where(fact => !omittedFacts.ContainsKey(fact.FactId))
                              .OrderBy(fact => fact.FactId, StringComparer.Ordinal))
                 {
+                    if (selectedFactIds is not null && !selectedFactIds.Contains(fact.FactId))
+                    {
+                        OmitFact(
+                            fact.FactId,
+                            "Fact omitted from this context because the request asks for a smaller per-application fact set.");
+                        continue;
+                    }
+
                     acceptedFacts.Add(fact);
                 }
             }
@@ -387,6 +398,7 @@ public sealed class ContextCompiler : IContextCompiler
                     OmitParticipation(null, "Application participation omitted because its stable candidate ID is missing.");
                 }
 
+                var validParticipations = new List<ApplicationParticipationEvidence>();
                 foreach (var participation in uniqueParticipations
                              .Where(participation =>
                                  !omittedParticipation.ContainsKey(participation.CandidateId))
@@ -401,6 +413,24 @@ public sealed class ContextCompiler : IContextCompiler
                         OmitParticipation(
                             participation.CandidateId,
                             "Application participation omitted because its identity, source lineage, citation, or authorization binding is incomplete.");
+                        continue;
+                    }
+
+                    validParticipations.Add(participation);
+                }
+
+                var selectedParticipationIds = SelectRequestedParticipationIds(
+                    validParticipations,
+                    acceptedFacts,
+                    input);
+                foreach (var participation in validParticipations)
+                {
+                    if (selectedParticipationIds is not null &&
+                        !selectedParticipationIds.Contains(participation.CandidateId))
+                    {
+                        OmitParticipation(
+                            participation.CandidateId,
+                            "Application participation omitted from this context because the request asks for one fact per named application.");
                         continue;
                     }
 
@@ -525,6 +555,48 @@ public sealed class ContextCompiler : IContextCompiler
                 }
             }
         }
+        if (input.RequestedFactCountPerApplication is > 0 &&
+            input.RequestedSourceApplications is { Count: > 0 })
+        {
+            var requestedApplications = input.RequestedSourceApplications
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var selectedFactApplications = acceptedFacts
+                .Select(fact => fact.SourceApplication)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var selectedFactEvidenceIds = acceptedFacts
+                .SelectMany(fact => fact.EvidenceIds)
+                .ToHashSet(StringComparer.Ordinal);
+            var selectedPassageIds = new HashSet<string>(StringComparer.Ordinal);
+
+            foreach (var application in requestedApplications)
+            {
+                var applicationPassages = acceptedPassages
+                    .Where(passage => string.Equals(
+                        passage.SourceApplication,
+                        application,
+                        StringComparison.OrdinalIgnoreCase))
+                    .ToArray();
+                var applicationFactsExist = selectedFactApplications.Contains(application);
+                var selectedPassages = applicationFactsExist
+                    ? applicationPassages.Where(passage =>
+                        passage.EvidenceIds.Any(selectedFactEvidenceIds.Contains))
+                    : applicationPassages
+                        .OrderByDescending(passage => passage.RetrievalScore)
+                        .ThenBy(passage => passage.PassageId, StringComparer.Ordinal)
+                        .Take(input.RequestedFactCountPerApplication.Value);
+                selectedPassageIds.UnionWith(selectedPassages.Select(passage => passage.PassageId));
+            }
+
+            foreach (var passage in acceptedPassages.Where(passage => !selectedPassageIds.Contains(passage.PassageId)))
+            {
+                var reason = requestedApplications.Contains(passage.SourceApplication)
+                    ? "Source passage omitted from this context because it does not support a selected fact for the requested answer shape."
+                    : "Source passage omitted from this context because its application was not requested.";
+                OmitSourcePassage(passage.PassageId, reason);
+            }
+
+            acceptedPassages.RemoveAll(passage => !selectedPassageIds.Contains(passage.PassageId));
+        }
 
         var sourceEvidenceDiagnostics = input.SourceEvidence is { } sourceEvidenceResult &&
             IsSourceEvidenceResultBoundToInput(sourceEvidenceResult, input)
@@ -579,7 +651,10 @@ public sealed class ContextCompiler : IContextCompiler
             SourceEvidenceDiagnostics = sourceEvidenceDiagnostics
         };
 
-        var plan = CreateApprovedPlan(package, input.Budget.MaxEstimatedContextTokens);
+        var plan = CreateApprovedPlan(
+            package,
+            input.Budget.MaxEstimatedContextTokens,
+            input.Budget.TokenizerModelName);
         package = plan.Ledger;
         var disposition = plan.OversizedCandidateIds.Count > 0
             ? CompilationDisposition.ContextWindowExceeded
@@ -932,6 +1007,93 @@ public sealed class ContextCompiler : IContextCompiler
         return null;
     }
 
+    private static HashSet<string>? SelectRequestedFactIds(
+        IEnumerable<EngineeringFactEvidence> facts,
+        ContextCompilationInput input)
+    {
+        if (input.RequestedFactCountPerApplication is not > 0 ||
+            input.RequestedSourceApplications is not { Count: > 0 })
+        {
+            return null;
+        }
+
+        var requestedApplications = input.RequestedSourceApplications
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return facts
+            .Where(fact => requestedApplications.Contains(fact.SourceApplication))
+            .GroupBy(fact => fact.SourceApplication, StringComparer.OrdinalIgnoreCase)
+            .SelectMany(group => group
+                .OrderByDescending(FactRoleSelectionPriority)
+                .ThenByDescending(FactValueSelectionPriority)
+                .ThenBy(fact => fact.FieldId, StringComparer.Ordinal)
+                .ThenBy(fact => fact.FactId, StringComparer.Ordinal)
+                .Take(input.RequestedFactCountPerApplication.Value))
+            .Select(fact => fact.FactId)
+            .ToHashSet(StringComparer.Ordinal);
+    }
+
+    private static HashSet<string>? SelectRequestedParticipationIds(
+        IReadOnlyList<ApplicationParticipationEvidence> participations,
+        IReadOnlyList<EngineeringFactEvidence> selectedFacts,
+        ContextCompilationInput input)
+    {
+        if (input.RequestedFactCountPerApplication is not > 0 ||
+            input.RequestedSourceApplications is not { Count: > 0 })
+        {
+            return null;
+        }
+
+        var requestedApplications = input.RequestedSourceApplications
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return participations
+            .Where(participation => requestedApplications.Contains(participation.SourceApplication))
+            .GroupBy(participation => participation.SourceApplication, StringComparer.OrdinalIgnoreCase)
+            .SelectMany(group =>
+            {
+                var relevantEntityIds = selectedFacts
+                    .Where(fact => string.Equals(
+                        fact.SourceApplication,
+                        group.Key,
+                        StringComparison.OrdinalIgnoreCase))
+                    .SelectMany(fact => new[] { fact.SubjectId, fact.SourceEntityId })
+                    .Where(entityId => !string.IsNullOrWhiteSpace(entityId))
+                    .ToHashSet(StringComparer.Ordinal);
+                var entityMatches = group
+                    .Where(participation => participation.CanonicalEntityIds.Any(relevantEntityIds.Contains))
+                    .ToArray();
+                IEnumerable<ApplicationParticipationEvidence> candidates =
+                    entityMatches.Length > 0 ? entityMatches : group;
+                return candidates
+                    .OrderByDescending(participation =>
+                        participation.SourceOperationStatus == SourceOperationStatus.Succeeded)
+                    .ThenBy(participation => participation.CandidateId, StringComparer.Ordinal)
+                    .Take(input.RequestedFactCountPerApplication.Value);
+            })
+            .Select(participation => participation.CandidateId)
+            .ToHashSet(StringComparer.Ordinal);
+    }
+
+    private static int FactRoleSelectionPriority(EngineeringFactEvidence fact) =>
+        fact.FactRole switch
+        {
+            EngineeringFactRole.Metric => 5,
+            EngineeringFactRole.TransactionDelta => 4,
+            EngineeringFactRole.SnapshotBalance => 3,
+            EngineeringFactRole.Transaction => 2,
+            EngineeringFactRole.EntityAttribute => 1,
+            EngineeringFactRole.DerivedValue => 0,
+            EngineeringFactRole.EntityIdentity => -1,
+            _ => 0
+        };
+
+    private static int FactValueSelectionPriority(EngineeringFactEvidence fact) =>
+        fact.ValueType switch
+        {
+            EngineeringFactValueType.Quantity or EngineeringFactValueType.Money or EngineeringFactValueType.Scalar => 2,
+            EngineeringFactValueType.Boolean or EngineeringFactValueType.Date or EngineeringFactValueType.Status => 1,
+            _ => 0
+        };
+
     private static bool IsApplicationContextResultBoundToInput(
         ApplicationContextRetrievalResult result,
         ContextCompilationInput input) =>
@@ -1088,7 +1250,10 @@ public sealed class ContextCompiler : IContextCompiler
         ApplicationParticipationEvidence right) =>
         string.Equals(JsonSerializer.Serialize(left), JsonSerializer.Serialize(right), StringComparison.Ordinal);
 
-    private static ApprovedContextPlan CreateApprovedPlan(ContextPackage ledger, int maxEstimatedContextTokens)
+    private static ApprovedContextPlan CreateApprovedPlan(
+        ContextPackage ledger,
+        int maxEstimatedContextTokens,
+        string? tokenizerModelName)
     {
         var candidates = ledger.Claims
             .OrderBy(claim => claim.ClaimId, StringComparer.Ordinal)
@@ -1109,9 +1274,15 @@ public sealed class ContextCompiler : IContextCompiler
         foreach (var candidate in candidates)
         {
             if (candidate.Passage is { } passage &&
-                EstimateContextPackage(CreateStagePackage(ledger, [candidate], 1)) > maxEstimatedContextTokens)
+                EstimateContextPackage(
+                    CreateStagePackage(ledger, [candidate], 1),
+                    tokenizerModelName) > maxEstimatedContextTokens)
             {
-                items.AddRange(SplitOversizedPassage(passage, ledger, maxEstimatedContextTokens));
+                items.AddRange(SplitOversizedPassage(
+                    passage,
+                    ledger,
+                    maxEstimatedContextTokens,
+                    tokenizerModelName));
             }
             else
             {
@@ -1121,38 +1292,38 @@ public sealed class ContextCompiler : IContextCompiler
 
         var stages = new List<ContextStage>();
         var oversizedCandidateIds = new List<string>();
-        var current = new List<StageItem>();
-        foreach (var item in items)
+        var nextItemIndex = 0;
+        while (nextItemIndex < items.Count)
         {
-            var candidateStage = current.Append(item).ToArray();
-            var candidatePackage = CreateStagePackage(ledger, candidateStage, stages.Count + 1);
-            var candidateTokens = EstimateContextPackage(candidatePackage);
-            if (candidateTokens <= maxEstimatedContextTokens)
+            var sequence = stages.Count + 1;
+            var low = nextItemIndex + 1;
+            var high = items.Count;
+            var bestEnd = nextItemIndex;
+            while (low <= high)
             {
-                current.Add(item);
+                var middle = low + (high - low) / 2;
+                var candidateItems = items.GetRange(nextItemIndex, middle - nextItemIndex);
+                var candidatePackage = CreateStagePackage(ledger, candidateItems, sequence);
+                if (EstimateContextPackage(candidatePackage, tokenizerModelName) <= maxEstimatedContextTokens)
+                {
+                    bestEnd = middle;
+                    low = middle + 1;
+                }
+                else
+                {
+                    high = middle - 1;
+                }
+            }
+
+            if (bestEnd == nextItemIndex)
+            {
+                oversizedCandidateIds.Add(items[nextItemIndex].CandidateId);
+                nextItemIndex++;
                 continue;
             }
 
-            if (current.Count > 0)
-            {
-                AddStage(current);
-                current.Clear();
-            }
-
-            var singlePackage = CreateStagePackage(ledger, [item], stages.Count + 1);
-            var singleTokens = EstimateContextPackage(singlePackage);
-            if (singleTokens > maxEstimatedContextTokens)
-            {
-                oversizedCandidateIds.Add(item.CandidateId);
-                continue;
-            }
-
-            current.Add(item);
-        }
-
-        if (current.Count > 0)
-        {
-            AddStage(current);
+            AddStage(items.GetRange(nextItemIndex, bestEnd - nextItemIndex));
+            nextItemIndex = bestEnd;
         }
 
         var approvedLedger = ledger with
@@ -1175,7 +1346,7 @@ public sealed class ContextCompiler : IContextCompiler
                 sequence,
                 Array.AsReadOnly(stageItems.Select(stageItem => stageItem.CandidateId).ToArray()),
                 stagePackage,
-                EstimateContextPackage(stagePackage)));
+                EstimateContextPackage(stagePackage, tokenizerModelName)));
         }
     }
 
@@ -1211,7 +1382,8 @@ public sealed class ContextCompiler : IContextCompiler
     private static IReadOnlyList<StageItem> SplitOversizedPassage(
         SourceEvidencePassage passage,
         ContextPackage ledger,
-        int maxEstimatedContextTokens)
+        int maxEstimatedContextTokens,
+        string? tokenizerModelName)
     {
         var pending = new Stack<string>();
         var chunks = new List<string>();
@@ -1227,7 +1399,9 @@ public sealed class ContextCompiler : IContextCompiler
                 SegmentCount = int.MaxValue
             };
             var candidate = new StageItem($"passage:{candidatePassage.PassageId}", Passage: candidatePassage);
-            if (EstimateContextPackage(CreateStagePackage(ledger, [candidate], 1)) <= maxEstimatedContextTokens)
+            if (EstimateContextPackage(
+                    CreateStagePackage(ledger, [candidate], 1),
+                    tokenizerModelName) <= maxEstimatedContextTokens)
             {
                 chunks.Add(text);
                 continue;
@@ -1270,8 +1444,8 @@ public sealed class ContextCompiler : IContextCompiler
         }).ToArray();
     }
 
-    private static int EstimateContextPackage(ContextPackage package) =>
-        EstimateTokens(JsonSerializer.Serialize(package));
+    private static int EstimateContextPackage(ContextPackage package, string? tokenizerModelName) =>
+        ModelInputTokenBudget.EstimateTextTokens(JsonSerializer.Serialize(package), tokenizerModelName);
 
     private static bool IsSourcePassageBoundToInput(
         SourceEvidencePassage passage,
@@ -1434,10 +1608,6 @@ public sealed class ContextCompiler : IContextCompiler
 
     private static string RelationshipKey(RelationshipEvidence relationship) =>
         JsonSerializer.Serialize(relationship);
-
-    // UTF-8 bytes divided by four is a heuristic estimate, not tokenizer output.
-    private static int EstimateTokens(string value) =>
-        Math.Max(1, (Encoding.UTF8.GetByteCount(value) + 3) / 4);
 
     private sealed record StageItem(
         string CandidateId,

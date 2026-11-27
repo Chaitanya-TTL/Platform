@@ -213,12 +213,77 @@ describe("projectSourceEvidence", () => {
       expect(record.searchableText).toContain(record.sourceApplication);
       expect(record.evidenceIds).toEqual([record.recordId]);
       expect(record.sourceFieldName).toBe("description");
-      expect(record.citationIds).toEqual([`cite:evidence:${record.sourceRecordId}:description`]);
+      expect(record.citationIds).toEqual(expect.arrayContaining([
+        `cite:evidence:${record.sourceRecordId}:description`,
+        record.recordId,
+      ]));
       expect(record.authority).toBe("source-authoritative");
     }
   });
 
-  it("keeps identifier-only source values and reports candidates missing field lineage", () => {
+  it("projects raw typed properties from Windchill, Configit, Codebeamer, and SAP with field citations", () => {
+    const codebeamerParent = entity(
+      "codebeamer-parent",
+      "codebeamer",
+      "requirement",
+      { title: text("Steering requirement") },
+      { nativeId: "1187" },
+    );
+    const codebeamerDetail = entity(
+      "codebeamer-detail",
+      "codebeamer",
+      "requirement-detail",
+      {
+        ownerRequirementId: text("codebeamer-parent"),
+        fieldKey: text("description"),
+        value: text("Steering system shall support the specified load."),
+      },
+    );
+    codebeamerDetail.provenance.nativeId = undefined;
+
+    const result = projectSourceEvidence(snapshot([
+      entity("windchill-weight", "windchill", "physical-attribute", {
+        attributeKey: text("weight"),
+        value: text("2.50 KG"),
+      }, { nativeId: "WT-PART-17" }),
+      entity("configit-rule", "configit", "configuration-rule", {
+        expression: text("if STYPE.LCSTYPE then not ORIENTATION.[05]"),
+      }, { nativeId: "RULE-17" }),
+      codebeamerParent,
+      codebeamerDetail,
+      entity("sap-stock", "sap", "inventory-balance", {
+        availableQuantity: { type: "number", number: 5000 },
+        unit: text("EA"),
+        emptyNote: text(""),
+      }, { nativeId: "MAT-42" }),
+    ]));
+    const expectedFields = [
+      ["windchill", "weight", "2.50 KG", "WT-PART-17"],
+      ["configit", "expression", "if STYPE.LCSTYPE then not ORIENTATION.[05]", "RULE-17"],
+      ["codebeamer", "description", "Steering system shall support the specified load.", "1187"],
+      ["sap", "availableQuantity", "5000", "MAT-42"],
+      ["sap", "unit", "EA", "MAT-42"],
+      ["sap", "emptyNote", '""', "MAT-42"],
+    ] as const;
+
+    for (const [source, fieldName, value, sourceRecordId] of expectedFields) {
+      const record = result.records.find((candidate) =>
+        candidate.sourceApplication === source &&
+        candidate.sourceFieldName === fieldName);
+
+      expect(record).toMatchObject({
+        sourceApplication: source,
+        sourceFieldName: fieldName,
+        searchableText: value,
+        sourceRecordId,
+        authority: "source-authoritative",
+      });
+      expect(record?.evidenceIds).toEqual([record?.recordId]);
+      expect(record?.citationIds).toEqual([record?.recordId]);
+    }
+  });
+
+  it("projects raw text fields even when the source did not provide separate field metadata", () => {
     const identified = lineagedEntity("identified", "sap", "material", {
       materialId: text("MAT-123"),
     });
@@ -228,11 +293,14 @@ describe("projectSourceEvidence", () => {
 
     const result = projectSourceEvidence(snapshot([identified, unlineaged]));
 
-    expect(result.records.map((record) => record.searchableText)).toEqual(["MAT-123"]);
-    expect(result.diagnostics.excludedByReason.missingFieldLineage).toBeGreaterThan(0);
+    expect(result.records.map((record) => record.searchableText).sort()).toEqual([
+      "MAT-123",
+      "Synthetic text without field-level provenance.",
+    ]);
+    expect(result.diagnostics.excludedByReason.missingFieldLineage).toBe(0);
   });
 
-  it("projects only source-specific descriptive fields from the accepted snapshot shape", () => {
+  it("projects raw properties from the accepted snapshot shape without a source-field allowlist", () => {
     const result = projectSourceEvidence(snapshot([
       entity("windchill-spec", "windchill", "requirement", {
         recordKind: text("specification"),
@@ -267,26 +335,30 @@ describe("projectSourceEvidence", () => {
     }));
 
     expect(result.schemaVersion).toBe("1.0");
-    expect(result.records.map(({ sourceApplication, recordType, searchableText }) => [
+    expect(result.records.map(({ sourceApplication, sourceFieldName, searchableText }) => [
       sourceApplication,
-      recordType,
+      sourceFieldName,
       searchableText,
-    ])).toEqual([
-      ["windchill", "requirement", "Synthetic specification summary."],
-      ["codebeamer", "requirement", "Synthetic requirement description."],
-      ["configit", "configuration-rule", "temperature <= 72 °C"],
-      ["configit", "localization-translation", "Synthetic translated label"],
-    ]);
-    expect(result.records.map((record) => record.location)).toEqual([
-      "entities/windchill-spec/properties/description",
-      "entities/codebeamer-req/properties/description",
-      "entities/configit-rule/properties/expression",
-      "entities/configit-translation/properties/translatedText",
-    ]);
+    ])).toEqual(expect.arrayContaining([
+      ["windchill", "recordKind", "specification"],
+      ["windchill", "description", "Synthetic specification summary."],
+      ["windchill", "number", "SPEC-123"],
+      ["codebeamer", "description", "Synthetic requirement description."],
+      ["codebeamer", "codebeamer.description", "Synthetic requirement description."],
+      ["configit", "expression", "temperature <= 72 °C"],
+      ["configit", "enabled", "true"],
+      ["configit", "sourceText", "Synthetic source label"],
+      ["configit", "translatedText", "Synthetic translated label"],
+      ["sap", "recordKind", "sap-field"],
+      ["sap", "value", "Synthetic source field value"],
+      ["codebeamer", "fieldKey", "description"],
+      ["codebeamer", "presentationRole", "description"],
+      ["codebeamer", "description", "Synthetic requirement description."],
+    ]));
     expect(JSON.stringify(result.diagnostics)).not.toContain("Synthetic");
   });
 
-  it("preserves source identifiers and diagnoses non-source or unlineaged fields", () => {
+  it("preserves source identities and excludes fields without source authority or source identity", () => {
     const missingIdentity = entity("missing-native-id", "windchill", "requirement", {
       recordKind: text("requirement"),
       description: text("Synthetic text without source identity."),
@@ -328,12 +400,22 @@ describe("projectSourceEvidence", () => {
       missingProvenance,
     ]));
 
-    expect(result.records.map((record) => record.searchableText)).toEqual(["REQ-123"]);
-    expect(result.diagnostics.excludedByReason).toMatchObject({
-      nonSourceAuthority: 2,
-      missingNativeIdentity: 1,
-      missingSourceApplication: 1,
-    });
+    expect(result.records.map((record) => record.searchableText)).toEqual(expect.arrayContaining([
+      "requirement",
+      "REQ-123",
+      "Synthetic description without a record kind.",
+      "Synthetic custom field.",
+      "description",
+      "Synthetic duplicate description.",
+      "Synthetic generic SAP field.",
+    ]));
+    expect(result.records.every((record) =>
+      !["generated", "graph-derived", "missing-native-id", "missing-provenance"].includes(
+        record.canonicalEntityIds[0],
+      ))).toBe(true);
+    expect(result.diagnostics.excludedByReason.nonSourceAuthority).toBeGreaterThan(0);
+    expect(result.diagnostics.excludedByReason.missingNativeIdentity).toBeGreaterThan(0);
+    expect(result.diagnostics.excludedByReason.missingSourceApplication).toBeGreaterThan(0);
   });
 
   it("preserves partial source status independently from freshness and retains stale records", () => {

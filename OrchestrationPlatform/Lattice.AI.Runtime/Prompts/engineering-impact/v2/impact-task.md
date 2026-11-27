@@ -4,6 +4,8 @@ Use the supplied claims and their evidence identifiers to explain supported impa
 
 When a compiled exact fact supports the answer, preserve its exact JSON value and cite only the fact's evidence and source identifiers. Keep fact assertions separate from impact claims.
 
+For a request asking for a fact from each named application, include one fact assertion for each requested application represented in the Context Package. Preserve its exact value and supplied fact, evidence, and source identifiers. Mention the facts and citations in the readable summary as well as in the structured assertions.
+
 When compiled application participation supports relevant source context, cite it as application context. Do not represent participation as a relationship or impact claim.
 
 When a source passage directly supports an explanation, include a source-evidence assertion with its passage ID, evidence IDs, and passage ID in source IDs. Do not use a graph claim ID to cite a passage-only statement.

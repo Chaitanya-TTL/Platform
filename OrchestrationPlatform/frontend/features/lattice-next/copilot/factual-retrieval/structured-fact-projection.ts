@@ -12,7 +12,11 @@ import { windchillPartFactAdapter } from "./windchill-part-fact-adapter";
 import type { GenericFactSourceAdapterV1 } from "./source-fact-adapter";
 import { mapMetadataBackedFacts } from "./metadata-backed-fact-adapter";
 import type { InvestigationSnapshot } from "../../kernel/contracts/investigation-snapshot";
-import { isAcceptedSnapshot } from "../../kernel/application/source-evidence-projection";
+import {
+  isAcceptedSnapshot,
+  projectSourceEvidence,
+} from "../../kernel/application/source-evidence-projection";
+import { projectSourceFieldLineage } from "../../kernel/application/source-field-lineage";
 
 const FACT_ADAPTERS: readonly GenericFactSourceAdapterV1[] = [
   codebeamerRequirementFactAdapter,
@@ -70,11 +74,48 @@ export function projectStructuredFacts(
     };
   }
 
-  const canonical = snapshot.canonical.value;
-  const acceptedEvidenceIds = new Set(snapshot.acceptedEvidenceIds);
+  const canonical = projectSourceFieldLineage(
+    snapshot.canonical.value,
+    result.investigationId,
+  );
+  const projectedSnapshot = {
+    ...snapshot,
+    canonical: { ...snapshot.canonical, value: canonical },
+  };
+  const sourceEvidence = projectSourceEvidence(projectedSnapshot);
+  const generatedEvidence = sourceEvidence.records
+    .filter((record) => record.citationIds.includes(record.recordId))
+    .flatMap((record) => {
+      const entity = canonical.entities.find((candidate) =>
+        record.canonicalEntityIds.includes(candidate.id));
+      const candidate = entity
+        ? Object.values(entity.sourceFieldMetadata ?? {})
+            .flat()
+            .find((field) => field.citationIds?.includes(record.recordId))
+        : undefined;
+      if (!entity || !candidate?.sourceProvenance) return [];
+      return [{
+        id: record.recordId,
+        kind: "source-field",
+        summary: record.searchableText,
+        source: record.sourceApplication,
+        provenance: candidate.sourceProvenance,
+        temporal: entity.temporal,
+        fieldId: `metadata.${record.sourceApplication}.${candidate.nativeRecordKind ?? entity.kind}.${record.sourceFieldName}`,
+        sourceFieldName: record.sourceFieldName,
+      }];
+    });
+  const acceptedEvidenceIds = new Set([
+    ...snapshot.acceptedEvidenceIds,
+    ...generatedEvidence.map((evidence) => evidence.id),
+  ]);
+  const existingEvidenceIds = new Set(canonical.evidence.map((evidence) => evidence.id));
   const investigation: EngineeringIntelligenceInvestigationV1 = {
     ...canonical,
-    evidence: canonical.evidence.filter((evidence) => acceptedEvidenceIds.has(evidence.id)),
+    evidence: [
+      ...canonical.evidence.filter((evidence) => acceptedEvidenceIds.has(evidence.id)),
+      ...generatedEvidence.filter((evidence) => !existingEvidenceIds.has(evidence.id)),
+    ],
   };
   const facts: GenericFactV1[] = [];
   const sourceCoverage: SourceCoverageStatementV1[] = [];
@@ -92,10 +133,32 @@ export function projectStructuredFacts(
       const evidenceIds = "evidence" in fact.provenance
         ? fact.provenance.evidence.map((evidence) => evidence.id)
         : fact.evidenceIds ?? [];
+      const sourceEntity = canonical.entities.find((entity) =>
+        entity.id === fact.sourceEntityId);
+      const matchingCandidates = sourceEntity
+        ? Object.values(sourceEntity.sourceFieldMetadata ?? {})
+            .flat()
+            .filter((candidate) =>
+              candidate.sourceFieldName === fact.sourceFieldName &&
+              JSON.stringify(candidate.sourceValue) === JSON.stringify(fact.exactSourceValue))
+        : [];
+      const fieldEvidenceIds = sourceEvidence.records
+        .filter((record) =>
+          record.sourceApplication === fact.sourceApplication &&
+          record.sourceFieldName === fact.sourceFieldName &&
+          record.canonicalEntityIds.includes(fact.sourceEntityId) &&
+          matchingCandidates.some((candidate) =>
+            candidate.citationIds?.includes(record.recordId)))
+        .map((record) => record.recordId);
       return {
         ...fact,
         investigationRevision: revision,
-        evidenceIds: evidenceIds.filter((evidenceId) => acceptedEvidenceIds.has(evidenceId)),
+        evidenceIds: [...new Set([
+          ...evidenceIds.filter((evidenceId) => acceptedEvidenceIds.has(evidenceId)),
+          ...fieldEvidenceIds,
+        ])],
+        citationIds: [...new Set([...fact.citationIds, ...fieldEvidenceIds])],
+        citationEligible: fact.citationEligible || fieldEvidenceIds.length > 0,
       };
     }));
     sourceCoverage.push(...mapped.sourceCoverage);
@@ -127,12 +190,26 @@ export function projectApplicationParticipation(
 ): readonly ApplicationParticipationCandidateV1[] {
   if (!isAcceptedSnapshot(snapshot)) return [];
 
-  const canonical = snapshot.canonical.value;
+  const canonical = projectSourceFieldLineage(
+    snapshot.canonical.value,
+    String(snapshot.identity.investigationId),
+  );
+  const projectedSnapshot = {
+    ...snapshot,
+    canonical: { ...snapshot.canonical, value: canonical },
+  };
+  const sourceEvidence = projectSourceEvidence(projectedSnapshot);
   const acceptedEvidenceIds = new Set(snapshot.acceptedEvidenceIds);
   const candidates: ApplicationParticipationCandidateV1[] = [];
 
   for (const entity of canonical.entities) {
-    const provenance = entity.provenance;
+    const fieldCandidates = Object.values(entity.sourceFieldMetadata ?? {}).flat();
+    const provenance = entity.provenance.nativeId
+      ? entity.provenance
+      : fieldCandidates.find((candidate) =>
+          candidate.sourceAuthority === "source-authoritative" &&
+          candidate.sourceProvenance?.source === entity.provenance.source &&
+          candidate.sourceProvenance?.nativeId)?.sourceProvenance ?? entity.provenance;
     const source = provenance.source;
     if (!source || !provenance.nativeId) {
       continue;
@@ -143,6 +220,8 @@ export function projectApplicationParticipation(
       item.source === source &&
       item.provenance.artifactReference === entity.id,
     );
+    const sourceRecords = sourceEvidence.records.filter((record) =>
+      record.canonicalEntityIds.includes(entity.id));
     const operations = Object.values(snapshot.executions).filter(
       (execution) => execution.identity.source === source,
     );
@@ -151,7 +230,14 @@ export function projectApplicationParticipation(
     for (const execution of participationOperations) {
       const sourceOperation = execution?.identity.operation ?? "not-observed";
       const sourceOperationStatus = execution?.status ?? "not-observed";
-      const evidenceIds = evidence.map((item) => item.id);
+      const evidenceIds = [...new Set([
+        ...evidence.map((item) => item.id),
+        ...sourceRecords.flatMap((record) => record.evidenceIds),
+      ])];
+      const citationIds = [...new Set([
+        ...evidence.map((item) => item.id),
+        ...sourceRecords.map((record) => record.recordId),
+      ])];
       candidates.push({
         contractVersion: "1.0",
         candidateId: [
@@ -171,7 +257,7 @@ export function projectApplicationParticipation(
         completeness: factCompleteness(snapshot.completeness.overall),
         ...(execution?.capturedAt ? { capturedAt: execution.capturedAt } : {}),
         evidenceIds,
-        citationIds: [...evidenceIds],
+        citationIds,
         citationEligible: evidenceIds.length > 0,
         sourceAuthority: provenance.authority,
         provenance,

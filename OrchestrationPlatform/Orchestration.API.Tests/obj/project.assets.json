@@ -936,6 +936,35 @@
           }
         }
       },
+      "Microsoft.ML.Tokenizers/3.0.0": {
+        "type": "package",
+        "compile": {
+          "lib/net8.0/Microsoft.ML.Tokenizers.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net8.0/Microsoft.ML.Tokenizers.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "Microsoft.ML.Tokenizers.Data.O200kBase/3.0.0": {
+        "type": "package",
+        "dependencies": {
+          "Microsoft.ML.Tokenizers": "3.0.0"
+        },
+        "compile": {
+          "lib/net8.0/Microsoft.ML.Tokenizers.Data.O200kBase.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net8.0/Microsoft.ML.Tokenizers.Data.O200kBase.dll": {
+            "related": ".xml"
+          }
+        }
+      },
       "Microsoft.NET.Test.Sdk/17.14.1": {
         "type": "package",
         "dependencies": {
@@ -1710,7 +1739,9 @@
         "type": "project",
         "framework": ".NETCoreApp,Version=v10.0",
         "dependencies": {
-          "Lattice.AI.Runtime.Contracts": "1.0.0"
+          "Lattice.AI.Runtime.Contracts": "1.0.0",
+          "Microsoft.ML.Tokenizers": "3.0.0",
+          "Microsoft.ML.Tokenizers.Data.O200kBase": "3.0.0"
         },
         "compile": {
           "bin/placeholder/Lattice.AI.Runtime.dll": {}
@@ -3465,6 +3496,44 @@
         "microsoft.identitymodel.tokens.nuspec"
       ]
     },
+    "Microsoft.ML.Tokenizers/3.0.0": {
+      "sha512": "0fee9Ydsd6zmq2ofM5cKeV/CzvEjzPbgwuqWyU3+imlDgbGA6DjnxTK13Gb0IyS9PPYdGphq+mILBcQvF+Z95A==",
+      "type": "package",
+      "path": "microsoft.ml.tokenizers/3.0.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "LICENSE",
+        "PACKAGE.md",
+        "THIRD-PARTY-NOTICES.TXT",
+        "lib/net8.0/Microsoft.ML.Tokenizers.dll",
+        "lib/net8.0/Microsoft.ML.Tokenizers.xml",
+        "lib/netstandard2.0/Microsoft.ML.Tokenizers.dll",
+        "lib/netstandard2.0/Microsoft.ML.Tokenizers.xml",
+        "microsoft.ml.tokenizers.3.0.0.nupkg.sha512",
+        "microsoft.ml.tokenizers.nuspec",
+        "mlnetlogo.png"
+      ]
+    },
+    "Microsoft.ML.Tokenizers.Data.O200kBase/3.0.0": {
+      "sha512": "x2+bw8YPxh81GvJnxsr+ctmENqL56o07foOWtspn8JUyhayVRf/D38YLXJcMTBVaUFSWrgydbY7I6o5Op7cmzw==",
+      "type": "package",
+      "path": "microsoft.ml.tokenizers.data.o200kbase/3.0.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "LICENSE",
+        "PACKAGE.md",
+        "THIRD-PARTY-NOTICES.TXT",
+        "lib/net8.0/Microsoft.ML.Tokenizers.Data.O200kBase.dll",
+        "lib/net8.0/Microsoft.ML.Tokenizers.Data.O200kBase.xml",
+        "lib/netstandard2.0/Microsoft.ML.Tokenizers.Data.O200kBase.dll",
+        "lib/netstandard2.0/Microsoft.ML.Tokenizers.Data.O200kBase.xml",
+        "microsoft.ml.tokenizers.data.o200kbase.3.0.0.nupkg.sha512",
+        "microsoft.ml.tokenizers.data.o200kbase.nuspec",
+        "mlnetlogo.png"
+      ]
+    },
     "Microsoft.NET.Test.Sdk/17.14.1": {
       "sha512": "HJKqKOE+vshXra2aEHpi2TlxYX7Z9VFYkr+E5rwEvHC8eIXiyO+K9kNm8vmNom3e2rA56WqxU+/N9NJlLGXsJQ==",
       "type": "package",
@@ -4562,6 +4631,8 @@
           "Microsoft.Extensions.AI": "10.11.0",
           "Microsoft.Extensions.AI.OpenAI": "10.11.0",
           "Microsoft.Extensions.Http.Resilience": "10.11.0",
+          "Microsoft.ML.Tokenizers": "3.0.0",
+          "Microsoft.ML.Tokenizers.Data.O200kBase": "3.0.0",
           "Microsoft.NET.Test.Sdk": "17.14.1",
           "Newtonsoft.Json": "13.0.4",
           "Swashbuckle.AspNetCore": "10.3.1",

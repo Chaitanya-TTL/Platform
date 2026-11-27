@@ -34,7 +34,7 @@ public sealed class ContextCompilerTests
 
         var result = new ContextCompiler().Compile(Input(
             evidence,
-            new ContextBudget(800)));
+            new ContextBudget(800, "gpt-4o")));
         var package = Assert.IsType<ContextPackage>(result.Package);
         var plan = Assert.IsType<ApprovedContextPlan>(result.ApprovedPlan);
 
@@ -48,6 +48,11 @@ public sealed class ContextCompilerTests
         Assert.All(plan.Stages, stage =>
         {
             Assert.True(stage.EstimatedContextTokens <= 800);
+            Assert.Equal(
+                Lattice.AI.Runtime.Generation.ModelInputTokenBudget.EstimateTextTokens(
+                    JsonSerializer.Serialize(stage.Package),
+                    "gpt-4o"),
+                stage.EstimatedContextTokens);
             Assert.All(stage.Package.Claims, claim =>
                 Assert.All(claim.EvidenceIds, evidenceId =>
                     Assert.Contains(stage.Package.Sources, source => source.EvidenceId == evidenceId)));

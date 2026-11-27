@@ -5,7 +5,6 @@ import type {
   EngineeringProvenance,
   IntelligenceEntity,
   IntelligenceAuthority,
-  IntelligenceProperty,
   SourceExtractionStatus,
 } from "../../contracts/intelligence-v1";
 import type {
@@ -16,6 +15,10 @@ import type {
   SourceOperationKind,
 } from "../contracts/investigation-identity";
 import type { SourceOperationStatus } from "../contracts/source-operation";
+import {
+  projectSourceFieldLineage,
+  sourceFieldEvidenceRecordId,
+} from "./source-field-lineage";
 
 type Source = NonNullable<EngineeringProvenance["source"]>;
 type Freshness = NonNullable<IntelligenceEntity["temporal"]["freshness"]>;
@@ -25,14 +28,6 @@ type SnapshotWithEngineeringCanonical =
       InvestigationSnapshot<EngineeringIntelligenceInvestigationV1>["canonical"]
     >;
   };
-
-interface SourceFieldRule {
-  property: string;
-  requiredMetadata?: {
-    property: string;
-    values: readonly string[];
-  };
-}
 
 export interface SourceEvidenceOperationStatus {
   operation: SourceOperationKind;
@@ -109,33 +104,6 @@ interface SourceFieldCandidate {
   freshness?: Freshness;
 }
 
-const fieldAllowlist: Partial<Record<Source, Readonly<Record<string, readonly SourceFieldRule[]>>>> = {
-  codebeamer: {
-    requirement: [{ property: "description" }],
-  },
-  configit: {
-    "configuration-rule": [{ property: "expression" }],
-    "localization-translation": [{ property: "translatedText" }],
-  },
-  windchill: {
-    requirement: [{
-      property: "description",
-      requiredMetadata: {
-        property: "recordKind",
-        values: ["requirement", "specification"],
-      },
-    }],
-    "change-notice": [{
-      property: "description",
-      requiredMetadata: { property: "recordKind", values: ["change-notice"] },
-    }],
-    "change-task": [{
-      property: "description",
-      requiredMetadata: { property: "recordKind", values: ["change-task"] },
-    }],
-  },
-};
-
 const exclusionReasons = [
   "snapshotNotAccepted",
   "fieldNotAllowlisted",
@@ -157,10 +125,11 @@ function digest(value: string): string {
   return createHash("sha256").update(value, "utf8").digest("hex");
 }
 
-function textValue(property: IntelligenceProperty | undefined): string | undefined {
-  return property?.type === "text" && typeof property.text === "string"
-    ? property.text
-    : undefined;
+function sourceValueText(value: unknown): string {
+  if (typeof value === "string") return value.length ? value : '""';
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  const serialized = JSON.stringify(value);
+  return serialized ?? String(value);
 }
 
 function hasEngineeringCanonical(
@@ -225,38 +194,6 @@ function sourceFieldCandidates(entity: IntelligenceEntity): SourceFieldCandidate
   return [...metadataCandidates, ...propertyCandidates];
 }
 
-function sourceFieldAllowlistCandidates(
-  entity: IntelligenceEntity,
-  source: Source,
-): SourceFieldCandidate[] {
-  const rules = fieldAllowlist[source]?.[entity.kind] ?? [];
-  return rules.flatMap((rule) => {
-    if (rule.requiredMetadata) {
-      const metadata = textValue(entity.properties?.[rule.requiredMetadata.property]);
-      if (!metadata || !rule.requiredMetadata.values.includes(metadata)) return [];
-    }
-
-    const property = entity.properties?.[rule.property];
-    if (!property) return [];
-    return [{
-      fieldKey: `properties/${rule.property}`,
-      sourceFieldName: rule.property,
-      sourceValue: property.type === "text" ? property.text : undefined,
-      sourceAuthority: entity.provenance.authority,
-      sourceProvenance: entity.provenance,
-      candidateId: property.candidateId,
-      citationIds: property.citationIds,
-      observedAt: property.observedAt ?? entity.provenance.observedAt,
-      extractedAt: property.extractedAt,
-      capturedAt: property.capturedAt ?? entity.temporal?.capturedAt,
-      effectiveAt: property.effectiveAt ?? entity.temporal?.effectiveAt,
-      validFrom: property.validFrom ?? entity.temporal?.validFrom,
-      validTo: property.validTo ?? entity.temporal?.validTo,
-      freshness: property.freshness ?? entity.temporal?.freshness,
-    }];
-  });
-}
-
 function operationStatuses(
   snapshot: InvestigationSnapshot<EngineeringIntelligenceInvestigationV1>,
   source: Source,
@@ -317,9 +254,16 @@ function createDiagnostics(
 export function projectSourceEvidence(
   snapshot: InvestigationSnapshot<unknown>,
 ): SourceEvidenceProjectionBatch {
-  const entities = hasEngineeringCanonical(snapshot)
+  const originalEntities = hasEngineeringCanonical(snapshot)
     ? snapshot.canonical.value.entities
     : [];
+  const canonical = isAcceptedSnapshot(snapshot)
+    ? projectSourceFieldLineage(
+        snapshot.canonical.value,
+        String(snapshot.identity.investigationId),
+      )
+    : undefined;
+  const entities = canonical?.entities ?? originalEntities;
   const records: SourceEvidenceProjection[] = [];
   const excludedByReason = Object.fromEntries(
     exclusionReasons.map((reason) => [reason, 0]),
@@ -334,7 +278,7 @@ export function projectSourceEvidence(
   if (!isAcceptedSnapshot(snapshot)) {
     excludedByReason.snapshotNotAccepted = entities.length || 1;
   } else {
-    for (const entity of snapshot.canonical.value.entities) {
+    for (const entity of canonical!.entities) {
       const entitySource = entity.provenance?.source;
       if (!entitySource) {
         excludedByReason.missingSourceApplication++;
@@ -347,23 +291,7 @@ export function projectSourceEvidence(
         excludedByReason.nonSourceAuthority++;
         continue;
       }
-      const allowlistCandidates = sourceFieldAllowlistCandidates(entity, entitySource);
-      for (const fallback of allowlistCandidates) {
-        const alreadyLineaged = candidates.some((candidate) =>
-          candidate.sourceFieldName === fallback.sourceFieldName);
-        if (!alreadyLineaged) candidates.push(fallback);
-      }
-      if (candidates.length === 0) {
-        const unlineagedFields = Object.values(entity.properties)
-          .filter((property) => property.type === "text" && Boolean(property.text?.trim()))
-          .length;
-        if (unlineagedFields > 0) {
-          excludedByReason.missingFieldLineage += unlineagedFields;
-        } else {
-          excludedByReason.fieldNotAllowlisted++;
-        }
-        continue;
-      }
+      if (candidates.length === 0) continue;
 
       const seenCandidates = new Set<string>();
       const recordIds = new Set<string>();
@@ -391,14 +319,11 @@ export function projectSourceEvidence(
           excludedByReason.missingNativeIdentity++;
           continue;
         }
-        if (typeof candidate.sourceValue !== "string") {
-          excludedByReason.nonTextField++;
+        if (candidate.sourceValue === undefined) {
+          excludedByReason.fieldNotPresent++;
           continue;
         }
-        if (!candidate.sourceValue.trim()) {
-          excludedByReason.emptyText++;
-          continue;
-        }
+        const searchableText = sourceValueText(candidate.sourceValue);
 
         const candidateKey = JSON.stringify([
           candidate.sourceFieldName,
@@ -415,14 +340,6 @@ export function projectSourceEvidence(
         seenCandidates.add(candidateKey);
 
         const location = `entities/${entity.id}/${candidate.fieldKey}`;
-        const sourceIdentity = [
-          snapshot.identity.investigationId,
-          source,
-          provenance.nativeId,
-          provenance.nativeRevision ?? "",
-          location,
-          candidate.candidateId ?? "",
-        ];
         const provenanceIdentity = [
           source,
           provenance.provider,
@@ -433,7 +350,13 @@ export function projectSourceEvidence(
           candidate.sourceFieldName,
           candidate.candidateId ?? "",
         ];
-        let recordId = `source-evidence:${digest(JSON.stringify(sourceIdentity))}`;
+        let recordId = sourceFieldEvidenceRecordId(
+          String(snapshot.identity.investigationId),
+          entity.id,
+          candidate.fieldKey,
+          provenance,
+          candidate.candidateId,
+        );
         if (recordIds.has(recordId)) {
           recordId = `${recordId}:${digest(candidateKey)}`;
         }
@@ -449,7 +372,7 @@ export function projectSourceEvidence(
           recordType: entity.kind,
           title: entity.displayName?.trim() ? entity.displayName : provenance.nativeId,
           sourceFieldName: candidate.sourceFieldName,
-          searchableText: candidate.sourceValue,
+          searchableText,
           location,
           sourceRevision: provenance.nativeRevision,
           sourceTimestamp: candidate.observedAt ?? provenance.observedAt,
@@ -462,9 +385,9 @@ export function projectSourceEvidence(
           snapshotCompleteness: snapshot.completeness.overall,
           sourceExtractionStatuses: recordExtractionStatuses(snapshot, source),
           sourceOperations: operationStatuses(snapshot, source),
-          contentHash: `sha256:${digest(candidate.sourceValue)}`,
+          contentHash: `sha256:${digest(searchableText)}`,
           evidenceIds: [recordId],
-          citationIds: candidate.citationIds ?? [],
+          citationIds: candidate.citationIds?.length ? candidate.citationIds : [recordId],
           provenanceId: `sha256:${digest(JSON.stringify(provenanceIdentity))}`,
           authority: "source-authoritative",
         });

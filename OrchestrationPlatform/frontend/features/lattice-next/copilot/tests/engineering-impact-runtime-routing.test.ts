@@ -282,6 +282,21 @@ describe("engineering impact runtime routing", () => {
     });
   });
 
+  it("reports a runtime request timeout accurately instead of implying configuration is pending", () => {
+    const answer = mapEngineeringImpactRuntimeCall({
+      status: "unavailable",
+      code: "runtime-request-timeout",
+    }, 7);
+
+    expect(answer).toMatchObject({
+      answer: "The engineering impact runtime request timed out before it returned an answer.",
+      runtime: {
+        disposition: "Unavailable",
+        diagnosticCode: "runtime-request-timeout",
+      },
+    });
+  });
+
   it("maps detailed runtime impacts and source links into the existing Copilot answer contract", () => {
     const answer = mapEngineeringImpactRuntimeCall({
       status: "response",

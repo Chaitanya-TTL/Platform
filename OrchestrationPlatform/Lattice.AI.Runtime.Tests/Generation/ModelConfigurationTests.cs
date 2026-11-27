@@ -39,6 +39,7 @@ public sealed class ModelConfigurationTests
 
         Assert.Equal(1536, modelConfiguration.MaxOutputTokens);
         Assert.Equal(12288, modelConfiguration.MaxInputTokens);
+        Assert.Equal("gpt-4o", modelConfiguration.TokenizerModelName);
         Assert.IsType<PlmBrainSourceEvidenceRetriever>(
             provider.GetRequiredService<ISourceEvidenceRetriever>());
     }
@@ -65,15 +66,17 @@ public sealed class ModelConfigurationTests
         Assert.Equal("https://runtime.example.test", options.Endpoint);
         Assert.Equal("existing-deployment", options.DeploymentName);
         Assert.Equal("existing-deployment", modelConfiguration.DeploymentName);
+        Assert.Equal("gpt-4o", modelConfiguration.TokenizerModelName);
     }
 
     [Theory]
-    [InlineData(null)]
-    [InlineData(0)]
-    [InlineData(512)]
-    [InlineData(12288)]
-    public void AddAiRuntime_UsesDevelopmentFallbackRegardlessOfConfiguredInputAllowance(
-        int? maxInputTokens)
+    [InlineData(null, 128000)]
+    [InlineData(0, 128000)]
+    [InlineData(2048, 2048)]
+    [InlineData(12288, 12288)]
+    public void AddAiRuntime_UsesDevelopmentFallbackOnlyWhenInputAllowanceIsUnset(
+        int? maxInputTokens,
+        int expectedMaxInputTokens)
     {
         var values = new Dictionary<string, string?>
         {
@@ -96,10 +99,10 @@ public sealed class ModelConfigurationTests
         using var provider = services.BuildServiceProvider();
 
         var options = provider.GetRequiredService<IOptions<AiRuntimeOptions>>().Value;
-        Assert.Equal(int.MaxValue, options.MaxInputTokens);
+        Assert.Equal(expectedMaxInputTokens, options.MaxInputTokens);
         options.Validate();
         Assert.Equal(
-            int.MaxValue,
+            expectedMaxInputTokens,
             provider.GetRequiredService<ModelConfiguration>().MaxInputTokens);
     }
 

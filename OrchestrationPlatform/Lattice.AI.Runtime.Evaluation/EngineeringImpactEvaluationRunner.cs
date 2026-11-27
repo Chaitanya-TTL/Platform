@@ -2190,10 +2190,14 @@ public sealed class EngineeringImpactEvaluationRunner : IEngineeringImpactEvalua
 
         public Task<ModelResponse> GenerateAsync(ModelRequest request, CancellationToken cancellationToken)
         {
-            CallCount++;
+            var isRequestBrief = request.PromptBundleId == "engineering-request-brief";
+            if (!isRequestBrief)
+            {
+                CallCount++;
+            }
             return Task.FromResult(new ModelResponse(
                 request.RequestContext,
-                Content ?? "{}",
+                isRequestBrief ? "{}" : Content ?? "{}",
                 "offline-fixture",
                 "deterministic-fake",
                 null,

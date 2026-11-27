@@ -15,4 +15,8 @@ public sealed record ContextCompilationInput(
     ContextBudget Budget,
     SourceEvidenceRetrievalResult? SourceEvidence = null,
     FactEvidenceRetrievalResult? FactEvidence = null,
-    ApplicationContextRetrievalResult? ApplicationContext = null);
+    ApplicationContextRetrievalResult? ApplicationContext = null)
+{
+    public int? RequestedFactCountPerApplication { get; init; }
+    public IReadOnlyList<string> RequestedSourceApplications { get; init; } = Array.Empty<string>();
+}
