@@ -193,7 +193,6 @@ function mapRuntimeResponse(
       text: `Fact ${fact.factId}: ${exactValue}`,
       kind: "fact" as const,
       citationIds,
-      display: `Fact ${fact.factId}: ${exactValue} ${citationIds.map(id => `(${id})`).join(" ")}`,
     }];
   });
   const applicationContextClaims = (response.applicationContexts ?? []).flatMap((applicationContext) => {
@@ -252,7 +251,6 @@ function mapRuntimeResponse(
   const answer = [
     summary,
     ...impacts.map((impact) => impact.display),
-    ...factClaims.map((claim) => claim.display),
     ...applicationContextClaims.map((claim) => claim.display),
     ...sourceEvidenceClaims.map((claim) => claim.display),
     ...(disposition === "Answer" ? issues : []),

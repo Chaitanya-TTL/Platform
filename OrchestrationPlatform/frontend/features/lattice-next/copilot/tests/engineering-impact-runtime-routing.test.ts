@@ -464,6 +464,8 @@ describe("engineering impact runtime routing", () => {
       }),
     ]));
     expect(answer.claims.some((claim) => claim.text.includes("unmapped-fact"))).toBe(false);
+    expect(answer.answer).not.toContain("Fact fact-weight-1:");
+    expect(answer.answer).toContain("Application participation: Windchill WT-123.");
     expect(answer.citations?.map((citation) => citation.citationId)).toEqual(expect.arrayContaining([
       "cite:source:fact-citation-1",
       "cite:source:participation-citation-1",

@@ -315,6 +315,12 @@ function answerContext(messageId: string, entityId: string): CopilotAnswerContex
   };
 }
 
+function selectCitation(context: CopilotAnswerContext) {
+  const citation = context.answer.citations?.[0];
+  if (!citation) throw new Error("Expected an answer citation.");
+  surfaceProbe.props?.onCitationSelect({ ...context, citation });
+}
+
 function dialog(tree: ReactNode) {
   const found = findElements(tree, (element) => element.props.role === "dialog")[0];
   if (!found) throw new Error("Expected the investigation copilot dialog.");
@@ -574,7 +580,7 @@ describe("investigation copilot panel", () => {
     const older = answerContext("assistant-older", "entity-two");
     const olderCitation = older.answer.citations?.[0];
     if (!olderCitation) throw new Error("Expected the older answer's graph citation.");
-    surfaceProbe.props?.onWhySelect(older);
+    selectCitation(older);
 
     tree = renderPanel({ onClose });
     expect(dialog(tree).props["data-context-open"]).toBe(true);
@@ -586,7 +592,7 @@ describe("investigation copilot panel", () => {
     )).toHaveLength(0);
     expect(onClose).not.toHaveBeenCalled();
 
-    (byLabel(tree, `Open entity reference: ${olderCitation.label}`).props.onClick as () => void)();
+    surfaceProbe.props?.onCitationSelect({ ...older, citation: olderCitation });
     tree = renderPanel({ onClose });
     expect(dialog(tree).props["data-context-destination"]).toBe("explanation");
     expect(dialog(tree).props["data-context-answer-message-id"]).toBe("assistant-older");
@@ -601,7 +607,7 @@ describe("investigation copilot panel", () => {
     )).toHaveLength(1);
   });
 
-  it("keeps_the_explanation_sidecar_closed_until_requested", async () => {
+  it("keeps_answer_support_closed_until_a_citation_is_selected", async () => {
     await resolvedPanel();
     const selected = answerContext("assistant-why", "entity-one");
     surfaceProbe.props?.onAnswerContextAvailable(selected);
@@ -613,7 +619,7 @@ describe("investigation copilot panel", () => {
       typeof element.type === "function" && element.type.name === "CopilotCitedGraph",
     )).toHaveLength(0);
 
-    surfaceProbe.props?.onWhySelect(selected);
+    selectCitation(selected);
     tree = renderPanel();
 
     expect(dialog(tree).props["data-context-open"]).toBe(true);
@@ -626,7 +632,7 @@ describe("investigation copilot panel", () => {
     await resolvedPanel();
     const selected = answerContext("assistant-phone", "entity-one");
     surfaceProbe.props?.onAnswerContextAvailable(selected);
-    surfaceProbe.props?.onWhySelect(selected);
+    selectCitation(selected);
     let tree = renderPanel();
 
     expect(dialog(tree).props["data-context-open"]).toBe(true);
@@ -645,7 +651,7 @@ describe("investigation copilot panel", () => {
     )).toHaveLength(1);
   });
 
-    it("returns_focus_to_the_why_control_when_the_explanation_closes", async () => {
+    it("returns_focus_to_the_selected_citation_when_answer_support_closes", async () => {
       await resolvedPanel();
       const focus = vi.fn();
       const trigger = Object.assign(new HTMLElement(), {
@@ -654,12 +660,12 @@ describe("investigation copilot panel", () => {
       }) as unknown as HTMLElement;
       (document as unknown as { activeElement: HTMLElement | null }).activeElement = trigger;
 
-      surfaceProbe.props?.onWhySelect(answerContext("assistant-focus", "entity-one"));
+      selectCitation(answerContext("assistant-focus", "entity-one"));
       let tree = renderPanel();
       expect(dialog(tree).props["data-context-open"]).toBe(true);
 
       focus.mockClear();
-      (byText(tree, "Close explanation").props.onClick as () => void)();
+      (byText(tree, "Close support").props.onClick as () => void)();
       expect(focus).toHaveBeenCalledOnce();
       tree = renderPanel();
 
@@ -689,6 +695,10 @@ describe("investigation copilot panel", () => {
             text: "The inspection passed.",
             kind: "fact",
             citationIds: [claimCitation.citationId],
+          }, {
+            text: "Fact fact-weight-1: 2.50",
+            kind: "fact",
+            citationIds: [claimCitation.citationId],
           }],
           recommendations: [{
             text: "Review the release package.",
@@ -706,7 +716,7 @@ describe("investigation copilot panel", () => {
       surfaceProbe.props?.onAnswerContextAvailable(answer);
       let tree = renderPanel();
       expect(dialog(tree).props["data-context-open"]).toBe(false);
-      surfaceProbe.props?.onWhySelect(answer);
+      surfaceProbe.props?.onCitationSelect({ ...answer, citation: claimCitation });
       tree = renderPanel();
 
       const claimSection = findElements(tree, (element) =>
@@ -719,12 +729,12 @@ describe("investigation copilot panel", () => {
         element.type === "section" && element.props["aria-label"] === "Cited sources",
       )[0];
       expect(textContent(claimSection)).toContain("The inspection passed.");
+      expect(textContent(claimSection)).not.toContain("Fact fact-weight-1: 2.50");
       expect(textContent(recommendationSection)).toContain("Approval remains.");
       expect(textContent(recommendationSection)).not.toContain("Review the release package.");
       expect(textContent(recommendationSection)).toContain("Approval required");
-      expect(textContent(citationSection)).toContain("Inspection record");
-      expect(textContent(citationSection)).toContain("Teamcenter");
-      expect(textContent(citationSection)).toContain("IR-19");
+      expect(citationSection).toBeUndefined();
+      expect(textContent(tree)).not.toContain("Cited sources");
       expect(textContent(tree)).not.toContain("The assembly is ready for review.");
       expect(textContent(tree)).not.toContain("Explore relationships");
     });
@@ -743,7 +753,7 @@ describe("investigation copilot panel", () => {
 
     const selected = answerContext("assistant-cue", "entity-one");
     surfaceProbe.props?.onAnswerContextAvailable(selected);
-    surfaceProbe.props?.onWhySelect(selected);
+    selectCitation(selected);
     const explanationTree = renderPanel(props);
     expect(textContent(explanationTree)).not.toContain(cue.title);
     expect(textContent(explanationTree)).not.toContain("Review suggestions");

@@ -323,7 +323,7 @@ describe("executeCopilotTurn engineering impact routing", () => {
       },
     });
     expect(outcome.ok && outcome.answer.answer).toContain("thermal-cycle validation");
-    expect(outcome.ok && outcome.answer.answer).toContain("Fact fact-weight-1: 2.50");
+    expect(outcome.ok && outcome.answer.answer).not.toContain("Fact fact-weight-1: 2.50");
     expect(outcome.ok && outcome.answer.answer).toContain("Application participation: Windchill WT-REQ-123");
     expect(outcome.ok && outcome.answer.claims).toContainEqual(expect.objectContaining({
       text: "Fact fact-weight-1: 2.50",
@@ -376,7 +376,7 @@ describe("executeCopilotTurn engineering impact routing", () => {
       citationId: "cite:evidence:SYNTH-PASSAGE-001",
       kind: "evidence",
     }));
-    expect(replay.ok && replay.answer.answer).toContain("Fact fact-weight-1: 2.50");
+    expect(replay.ok && replay.answer.answer).not.toContain("Fact fact-weight-1: 2.50");
     expect(replay.ok && replay.answer.citations).toContainEqual(expect.objectContaining({
       citationId: "cite:source:fact-citation-1",
     }));

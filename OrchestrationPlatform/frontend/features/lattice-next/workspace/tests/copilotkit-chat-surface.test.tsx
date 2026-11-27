@@ -204,7 +204,6 @@ const defaultProps = {
   isArchived: false,
   cues: [cue],
   onAnswerContextAvailable: vi.fn(),
-  onWhySelect: vi.fn(),
   onCitationSelect: vi.fn(),
   onSubmitMessageAvailable: vi.fn(),
   onRunStateChange: vi.fn(),
@@ -233,7 +232,6 @@ describe("CopilotKit investigation chat surface", () => {
     mocks.copilotkit = { runAgent: vi.fn().mockResolvedValue(undefined) };
     defaultProps.onCitationSelect.mockClear();
     defaultProps.onAnswerContextAvailable.mockClear();
-    defaultProps.onWhySelect.mockClear();
     defaultProps.onSubmitMessageAvailable.mockClear();
     defaultProps.onRunStateChange.mockClear();
     defaultProps.onFailure.mockClear();
@@ -354,7 +352,7 @@ describe("CopilotKit investigation chat surface", () => {
     expect(markup).toContain(answer.answer);
     const assistantMarkup =
       markup.match(/<article class="lattice-assistant-message[^"]*">[\s\S]*?<\/article>/)?.[0] ?? "";
-    expect(assistantMarkup).toContain("Why?");
+    expect(assistantMarkup).not.toContain("Why?");
     expect(assistantMarkup).not.toContain("Evidence and details");
     expect(assistantMarkup).not.toContain("The inspection passed.");
     expect(assistantMarkup).not.toContain("Review the release package.");
@@ -388,11 +386,7 @@ describe("CopilotKit investigation chat surface", () => {
     });
   });
 
-  it("passes_the_exact_answer_context_when_why_is_selected", () => {
-    const expectedAnswerContext = {
-      messageId: "assistant-why",
-      answer,
-    };
+  it("does_not_render_a_why_action", () => {
     const message = {
       id: "assistant-why",
       role: "assistant",
@@ -402,7 +396,6 @@ describe("CopilotKit investigation chat surface", () => {
     mocks.messages = [message];
     const assistantElement = LatticeAssistantMessage({
       message: message as never,
-      onWhySelect: defaultProps.onWhySelect,
       onCitationSelect: defaultProps.onCitationSelect,
     }) as React.ReactElement<{ children?: React.ReactNode }>;
     const whyButton = React.Children.toArray(assistantElement.props.children).find(
@@ -412,10 +405,7 @@ describe("CopilotKit investigation chat surface", () => {
       "aria-label"?: string;
     }> | undefined;
 
-    expect(whyButton?.props["aria-label"]).toBe("Why this answer?");
-    whyButton?.props.onClick?.();
-    expect(defaultProps.onWhySelect).toHaveBeenCalledOnce();
-    expect(defaultProps.onWhySelect).toHaveBeenCalledWith(expectedAnswerContext);
+    expect(whyButton).toBeUndefined();
   });
 
   it("keeps the assistant message slot stable when citation handlers change", () => {

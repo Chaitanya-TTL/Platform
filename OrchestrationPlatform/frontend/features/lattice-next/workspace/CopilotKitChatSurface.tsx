@@ -54,7 +54,6 @@ export interface CopilotKitChatSurfaceProps {
   isArchived: boolean;
   cues: readonly InvestigationReviewCue[];
   onAnswerContextAvailable(context: CopilotAnswerContext): void;
-  onWhySelect(answerContext: CopilotAnswerContext): void;
   onCitationSelect(selection: CopilotCitationSelection): void;
   onSubmitMessageAvailable(submitMessage: SafeSubmitMessage | undefined): void;
   onRunStateChange(isRunning: boolean): void;
@@ -67,7 +66,6 @@ interface ChatSurfaceContextValue {
   isRunning: boolean;
   isConnecting: boolean;
   onAnswerContextAvailable: CopilotKitChatSurfaceProps["onAnswerContextAvailable"];
-  onWhySelect: CopilotKitChatSurfaceProps["onWhySelect"];
   onCitationSelect: CopilotKitChatSurfaceProps["onCitationSelect"];
   cues: readonly InvestigationReviewCue[];
   onDismissCue: CopilotKitChatSurfaceProps["onDismissCue"];
@@ -212,13 +210,11 @@ export function filterUnparsedAssistantMessages<T extends {
 }
 
 type LatticeAssistantMessageProps = CopilotChatAssistantMessageProps & {
-  onWhySelect: CopilotKitChatSurfaceProps["onWhySelect"];
   onCitationSelect: CopilotKitChatSurfaceProps["onCitationSelect"];
 };
 
 export function LatticeAssistantMessage({
   message,
-  onWhySelect,
   onCitationSelect,
   className,
 }: LatticeAssistantMessageProps) {
@@ -244,14 +240,6 @@ export function LatticeAssistantMessage({
         answerContext={answerContext}
         onCitationSelect={onCitationSelect}
       />
-      <button
-        type="button"
-        className="mt-1 inline-flex min-h-11 items-center rounded-sm px-1 text-sm font-medium text-cyan-800 underline decoration-cyan-700/60 underline-offset-4 transition-colors hover:text-cyan-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500 dark:text-cyan-200 dark:decoration-cyan-300/60 dark:hover:text-cyan-100"
-        aria-label="Why this answer?"
-        onClick={() => onWhySelect(answerContext)}
-      >
-        Why?
-      </button>
     </article>
   );
 }
@@ -261,7 +249,6 @@ function LatticeAssistantMessageSlot(props: CopilotChatAssistantMessageProps) {
   return (
     <LatticeAssistantMessage
       {...props}
-      onWhySelect={context?.onWhySelect ?? (() => undefined)}
       onCitationSelect={context?.onCitationSelect ?? (() => undefined)}
     />
   );
@@ -587,7 +574,6 @@ function CopilotKitChatContents(props: CopilotKitChatSurfaceProps) {
     previousAssistantMessageIds: EMPTY_MESSAGE_ID_SET,
     threadToken: `${props.investigationId}${THREAD_SEPARATOR}${props.threadId}`,
     onAnswerContextAvailable: props.onAnswerContextAvailable,
-    onWhySelect: props.onWhySelect,
     onCitationSelect: props.onCitationSelect,
     cues: props.cues,
     onDismissCue: props.onDismissCue,
@@ -600,7 +586,6 @@ function CopilotKitChatContents(props: CopilotKitChatSurfaceProps) {
     props.investigationId,
     props.threadId,
     props.onAnswerContextAvailable,
-    props.onWhySelect,
     props.onCitationSelect,
     props.cues,
     props.onDismissCue,

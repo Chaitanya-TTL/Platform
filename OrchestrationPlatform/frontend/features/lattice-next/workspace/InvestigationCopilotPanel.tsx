@@ -106,17 +106,6 @@ function InvestigationCopilotPanelContent({
     focusReturnRef.current = activeElement instanceof HTMLElement ? activeElement : null;
   }, []);
 
-  const handleWhySelect = useCallback((answerContext: CopilotAnswerContext) => {
-    rememberFocusReturn();
-    setSelectedAnswerContext(answerContext);
-    setSelectedCitedGraph(projectCitedGraph(domain, core, answerContext.answer.citations ?? []));
-    setSelectedCitation(undefined);
-    setSidecarView("explanation");
-    setContextExpanded(true);
-    setPhoneMode("context");
-    focusSidecarOnOpenRef.current = true;
-  }, [core, domain, rememberFocusReturn]);
-
   const handleCitationSelect = useCallback((selection: CopilotCitationSelection) => {
     if (!contextExpanded) rememberFocusReturn();
     const answerContext = {
@@ -318,62 +307,12 @@ function InvestigationCopilotPanelContent({
     [cues, dismissedCueIds, isArchived],
   );
   const activeAnswer = selectedAnswerContext?.answer;
+  const explanationClaims = activeAnswer?.claims.filter((claim) => !claim.text.startsWith("Fact ")) ?? [];
   const citations = [
     ...new Map((activeAnswer?.citations ?? []).map((citation) => [citation.citationId, citation])).values(),
   ];
   const focusedGraphTarget = selectedCitation ? parseNavigableCitationId(selectedCitation) : undefined;
   const canExploreRelationships = citations.some((citation) => parseNavigableCitationId(citation));
-
-  const renderEvidenceCitation = (citation: CopilotCitation) => (
-    <li key={citation.citationId} className="min-w-0 py-2">
-      <button
-        type="button"
-        className={`min-h-11 max-w-full rounded-sm text-left text-sm font-medium text-cyan-200 underline decoration-cyan-300/60 underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 ${
-          selectedCitation?.citationId === citation.citationId ? "rounded-sm bg-slate-800 px-2" : ""
-        }`}
-        aria-label={`Open ${citation.kind} reference: ${citation.label}`}
-        onClick={() => {
-          if (selectedAnswerContext)
-            handleCitationSelect({ ...selectedAnswerContext, citation });
-        }}
-      >
-        {citation.label}
-      </button>
-      <p className="text-xs text-slate-400">{citation.kind} reference</p>
-      {citation.source || citation.nativeId || citation.summary ? (
-        <dl className="mt-1 grid min-w-0 gap-x-3 gap-y-1 text-xs text-slate-300 sm:grid-cols-[auto_minmax(0,1fr)]">
-          {citation.source ? (
-            <>
-              <dt className="text-slate-400">Source</dt>
-              <dd className="break-words">{citation.source}</dd>
-            </>
-          ) : null}
-          {citation.nativeId ? (
-            <>
-              <dt className="text-slate-400">Reference ID</dt>
-              <dd className="break-words">{citation.nativeId}</dd>
-            </>
-          ) : null}
-          {citation.summary ? (
-            <>
-              <dt className="text-slate-400">Details</dt>
-              <dd className="break-words">{citation.summary}</dd>
-            </>
-          ) : null}
-        </dl>
-      ) : null}
-      {citation.deepLink ? (
-        <a
-          className="mt-1 inline-block text-xs text-cyan-200 underline underline-offset-2"
-          href={citation.deepLink}
-          target="_blank"
-          rel="noreferrer"
-        >
-          Open source record
-        </a>
-      ) : null}
-    </li>
-  );
 
   const panel = (
     <div className="fixed inset-0 z-[400]">
@@ -567,7 +506,6 @@ function InvestigationCopilotPanelContent({
             isArchived={isArchived}
             cues={visibleCues}
             onAnswerContextAvailable={handleAnswerContextAvailable}
-            onWhySelect={handleWhySelect}
             onCitationSelect={handleCitationSelect}
             onSubmitMessageAvailable={() => undefined}
             onRunStateChange={handleRunStateChange}
@@ -594,9 +532,9 @@ function InvestigationCopilotPanelContent({
                   tabIndex={-1}
                   className="text-sm font-semibold text-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
                 >
-                  Why this answer?
+                  Answer support
                 </h3>
-                <p className="text-xs text-slate-400">Supporting explanation and cited source path</p>
+                <p className="text-xs text-slate-400">Supporting explanation and evidence path</p>
               </div>
               <button
                 type="button"
@@ -610,7 +548,7 @@ function InvestigationCopilotPanelContent({
                 onClick={closeSidecar}
                 className="hidden min-h-11 items-center rounded-md px-2 text-sm text-slate-300 hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 md:inline-flex"
               >
-                Close explanation
+                Close support
               </button>
             </header>
             <div
@@ -623,11 +561,11 @@ function InvestigationCopilotPanelContent({
               {sidecarView === "explanation" ? (
                 activeAnswer ? (
                   <div className="space-y-5 break-words">
-                    {activeAnswer.claims.length ? (
+                    {explanationClaims.length ? (
                       <section aria-label="Supporting explanation">
                         <h3 className="text-sm font-semibold text-slate-100">Supporting explanation</h3>
                         <ul className="mt-2 divide-y divide-slate-800">
-                          {activeAnswer.claims.map((claim, index) => (
+                          {explanationClaims.map((claim, index) => (
                             <li key={`claim-${index}`} className="py-3">
                               <p className="text-xs font-medium text-slate-400">{claim.kind}</p>
                               <p className="text-sm leading-6 text-slate-200">{claim.text}</p>
@@ -651,15 +589,7 @@ function InvestigationCopilotPanelContent({
                         </ul>
                       </section>
                     ) : null}
-                    {citations.length ? (
-                      <section aria-label="Cited sources">
-                        <h3 className="text-sm font-semibold text-slate-100">Cited sources</h3>
-                        <ul className="mt-1 divide-y divide-slate-800">
-                          {citations.map(renderEvidenceCitation)}
-                        </ul>
-                      </section>
-                    ) : null}
-                    {!activeAnswer.claims.length && !activeAnswer.recommendations.length && !citations.length &&
+                    {!explanationClaims.length && !activeAnswer.recommendations.length && !citations.length &&
                     !activeAnswer.uncertainties.length ? (
                       <p role="status" className="text-sm text-slate-300">No cited support is attached to this answer.</p>
                     ) : null}
